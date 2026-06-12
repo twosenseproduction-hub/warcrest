@@ -663,7 +663,7 @@
     if (d <= stop) { u.vx = 0; u.vy = 0; return; }
     var vx = dx / d * u.speed, vy = dy / d * u.speed;
     var grid = s && s.map && s.map.terrainGrid;
-    if (grid && RTS.Terrain && RTS.Terrain.isWater(grid, u.x, u.y)) {
+    if (grid && RTS.Terrain) {
       var nx = u.x + vx * dt, ny = u.y + vy * dt;
       if (RTS.Terrain.isWater(grid, nx, ny)) { u.vx = 0; u.vy = 0; return; }
     }

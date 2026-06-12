@@ -278,7 +278,6 @@
   function wouldEnterWater(s, ux, uy, vx, vy, dt) {
     var grid = s.map && s.map.terrainGrid;
     if (!grid || !RTS.Terrain) return false;
-    if (!RTS.Terrain.isWater(grid, ux, uy)) return false;
     var nx = ux + vx * dt, ny = uy + vy * dt;
     return RTS.Terrain.isWater(grid, nx, ny);
   }
