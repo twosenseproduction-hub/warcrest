@@ -96,12 +96,13 @@
   ];
 
   /* Gold deposit — hero + supports, tiered by depletion (not a scattered loot pile). */
+  var GOLD_STONE_DRAW = 0.74; /* sprite scale vs node footprint (was 0.58) */
   var GOLD_DEPOSIT = {
     slots: [
-      { idx: 0, x: 0, y: -0.20, s: 1.44, role: 'hero' },
-      { idx: 2, x: -0.44, y: -0.02, s: 1.06, role: 'support' },
-      { idx: 4, x: 0.38, y: -0.04, s: 1.02, role: 'support' },
-      { idx: 3, x: 0.10, y: 0.15, s: 0.76, role: 'optional' },
+      { idx: 0, x: 0, y: -0.22, s: 1.44, role: 'hero' },
+      { idx: 2, x: -0.50, y: -0.02, s: 1.06, role: 'support' },
+      { idx: 4, x: 0.44, y: -0.04, s: 1.02, role: 'support' },
+      { idx: 3, x: 0.12, y: 0.17, s: 0.76, role: 'optional' },
     ],
   };
 
@@ -346,7 +347,7 @@
     var t = RTS._renderT || 0;
     var rm = RTS.Config.reducedMotion;
     /* Stable footprint — depletion shrinks fullness, not the whole landmark. */
-    var baseR = n.r * 1.05;
+    var baseR = n.r * 1.10;
     var rot = ((h % 360) - 180) * 0.004;
     var pieceCount = goldPieceCount(pct);
     var fullness = 0.78 + 0.22 * pct;
@@ -395,7 +396,7 @@
     });
     pieces.sort(function (a, b) { return a.z - b.z; });
 
-    var unit = baseR * 0.58;
+    var unit = baseR * GOLD_STONE_DRAW;
     var i, piece, stonePath, stone, hiPath, img, ss, sw, sh, drawY;
     for (i = 0; i < pieces.length; i++) {
       piece = pieces[i];
