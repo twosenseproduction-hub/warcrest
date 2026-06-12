@@ -12,7 +12,7 @@ Docker image, database, or deploy pipeline.
 ## One-time setup
 
 ```bash
-cd rts-game
+cd warcrest   # repo root after git clone
 
 # Create the Fly app (skip if already created)
 fly launch --copy-config --no-deploy --name exofront-game --region sjc
@@ -39,7 +39,7 @@ Then verify: `fly certs check exofront.siftnow.io -a exofront-game`
 ## Deploy / update
 
 ```bash
-cd rts-game
+cd warcrest
 fly deploy
 ```
 
@@ -55,7 +55,7 @@ open https://exofront.siftnow.io
 ## Local preview
 
 ```bash
-cd rts-game
+cd warcrest
 python3 -m http.server 8080
 open http://localhost:8080
 ```

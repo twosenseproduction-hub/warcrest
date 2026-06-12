@@ -27,7 +27,7 @@ Double-click `index.html`, or drag it into a browser. It runs as-is.
 Serving over HTTP avoids any `file://` quirks and lets you test on your phone.
 
 ```bash
-cd rts-game
+cd warcrest   # or clone and cd into the repo root
 python3 -m http.server 8080
 # then open http://localhost:8080
 ```
