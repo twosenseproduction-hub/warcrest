@@ -10,7 +10,7 @@
 
   // ---- Selection -----------------------------------------------------------
   RTS.select = function (s, id, additive) {
-    if (!additive) s.selectedIds = [];
+    if (!additive) { s.selectedIds = []; RTS.clearMacroGroups(s); }
     if (id && s.selectedIds.indexOf(id) < 0) s.selectedIds.push(id);
     RTS.refreshMode(s);
     RTS.HUD.sync(s);
@@ -27,15 +27,109 @@
     s.selectedIds = [];
     s.attackMoveArmed = false;
     s.inputMode = 'select';
+    RTS.clearMacroGroups(s);
     if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
     RTS.HUD.sync(s);
+  };
+
+  var MACRO_ROLE_ORDER = ['pawn', 'lancer', 'archer', 'monk', 'warrior'];
+
+  RTS.clearMacroGroups = function (s) {
+    s.ui.macroGroups = null;
+    s.ui.macroRole = null;
+  };
+
+  function livingPlayerUnit(s, id) {
+    var u = RTS.getById(s, id);
+    return u && u.kind === 'unit' && u.team === RTS.TEAM.PLAYER && !u.dead ? u : null;
+  }
+
+  function pruneMacroGroups(s) {
+    if (!s.ui.macroGroups) return;
+    var roles = Object.keys(s.ui.macroGroups);
+    roles.forEach(function (role) {
+      s.ui.macroGroups[role] = s.ui.macroGroups[role].filter(function (id) {
+        return !!livingPlayerUnit(s, id);
+      });
+      if (!s.ui.macroGroups[role].length) delete s.ui.macroGroups[role];
+    });
+    if (Object.keys(s.ui.macroGroups).length < 2) RTS.clearMacroGroups(s);
+  }
+
+  RTS.updateMacroGroups = function (s) {
+    pruneMacroGroups(s);
+    var units = RTS.selectedUnits(s);
+    var map = {};
+    units.forEach(function (u) {
+      if (!map[u.role]) map[u.role] = [];
+      map[u.role].push(u.id);
+    });
+    var roles = Object.keys(map);
+    if (roles.length >= 2) {
+      s.ui.macroGroups = map;
+      s.ui.macroRole = null;
+      return;
+    }
+    if (!units.length) {
+      RTS.clearMacroGroups(s);
+      return;
+    }
+    if (roles.length === 1 && s.ui.macroGroups) {
+      s.ui.macroRole = roles[0];
+      return;
+    }
+    if (!s.ui.macroGroups) RTS.clearMacroGroups(s);
+  };
+
+  RTS.macroGroupRoles = function (s) {
+    if (!s.ui.macroGroups) return [];
+    return MACRO_ROLE_ORDER.filter(function (role) {
+      return s.ui.macroGroups[role] && s.ui.macroGroups[role].length;
+    });
+  };
+
+  RTS.selectMacroGroup = function (s, role) {
+    if (!s.ui.macroGroups || !s.ui.macroGroups[role] || !s.ui.macroGroups[role].length) return false;
+    s.selectedIds = s.ui.macroGroups[role].slice();
+    s.ui.macroRole = role;
+    if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
+    RTS.refreshMode(s);
+    RTS.HUD.sync(s);
+    return true;
+  };
+
+  RTS.selectMacroAll = function (s) {
+    if (!s.ui.macroGroups) return false;
+    var ids = [];
+    RTS.macroGroupRoles(s).forEach(function (role) {
+      ids = ids.concat(s.ui.macroGroups[role]);
+    });
+    if (!ids.length) return false;
+    s.selectedIds = ids;
+    s.ui.macroRole = null;
+    if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
+    RTS.refreshMode(s);
+    RTS.HUD.sync(s);
+    return true;
+  };
+
+  RTS.selectAllUnits = function (s) {
+    RTS.clearMacroGroups(s);
+    s.selectedIds = s.entities.units
+      .filter(function (u) { return u.team === RTS.TEAM.PLAYER && !u.dead; })
+      .map(function (u) { return u.id; });
+    if (!s.selectedIds.length) return false;
+    if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
+    RTS.refreshMode(s);
+    RTS.HUD.sync(s);
+    return true;
   };
 
   RTS.selectBox = function (s, x1, y1, x2, y2, additive) {
     var minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
     var minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
     if (maxX - minX < 10 && maxY - minY < 10) return false;
-    if (!additive) s.selectedIds = [];
+    if (!additive) { s.selectedIds = []; RTS.clearMacroGroups(s); }
     var got = 0;
     s.entities.units.forEach(function (u) {
       if (u.dead || u.team !== RTS.TEAM.PLAYER) return;
@@ -50,6 +144,7 @@
   };
 
   RTS.selectAllArmy = function (s) {
+    RTS.clearMacroGroups(s);
     s.selectedIds = s.entities.units
       .filter(function (u) { return u.team === RTS.TEAM.PLAYER && !u.dead && u.role !== 'pawn'; })
       .map(function (u) { return u.id; });
@@ -63,11 +158,19 @@
   };
 
   RTS.selectAllWorkers = function (s) {
+    RTS.clearMacroGroups(s);
     s.selectedIds = s.entities.units
       .filter(function (u) { return u.team === RTS.TEAM.PLAYER && !u.dead && u.role === 'pawn'; })
       .map(function (u) { return u.id; });
+    if (!s.selectedIds.length) {
+      if (RTS.toast) RTS.toast(s, 'No Pawns');
+      if (RTS.Audio) RTS.Audio.play('deny');
+      return false;
+    }
+    if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
     RTS.refreshMode(s);
     RTS.HUD.sync(s);
+    return true;
   };
 
   RTS.nearestWorker = function (s, x, y) {
@@ -94,6 +197,7 @@
     if (s.attackMoveArmed && combat.length) s.inputMode = 'attack-target';
     else if (RTS.selectedUnits(s).length) s.inputMode = 'select';
     else s.inputMode = 'select';
+    RTS.updateMacroGroups(s);
   };
 
   RTS.isProductionBuilding = function (b) {

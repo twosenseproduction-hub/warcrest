@@ -439,10 +439,12 @@
     b.builderId = u.id;
     var reach = builderReach(b);
     if (!builderOnSite(u, b)) {
+      u._builderOnSite = false;
       u._workPhase = 0;
       navMove(s, u, b.x, b.y, dt, reach - 6, { skipBuildingId: b.id });
       finishUnitMove(s, u, dt, false);
     } else {
+      u._builderOnSite = true;
       u.vx = 0; u.vy = 0;
       u._moveHold = 0;
       u.facing = Math.atan2(b.y - u.y, b.x - u.x);

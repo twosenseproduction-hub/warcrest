@@ -61,6 +61,8 @@
         toast: null,
         buildingMenuHover: null,
         buildPanelOpen: false,
+        macroGroups: null,         // { role: [unitId, …] } while macro bar is active
+        macroRole: null,           // active subgroup role, or null = full mixed pool
       },
 
       settings: {

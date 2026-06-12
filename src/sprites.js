@@ -270,7 +270,8 @@
 
     pickAnim: function (u, walking) {
       if (u.role === 'pawn' && u.buildTask) {
-        return walking ? 'walk_hammer' : 'work_hammer';
+        if (u._builderOnSite) return 'work_hammer';
+        return walking ? 'walk_hammer' : 'idle_hammer';
       }
       if (u.role === 'pawn' && u.harvest) {
         if (u.harvest.phase === 'mining') return 'work';
@@ -286,8 +287,11 @@
       if (isAttackClipKey(animName) && u.attackAnimT != null) {
         return Math.min(clip.count - 1, Math.floor(u.attackAnimT * clipFps(clip)));
       }
-      if (animName === 'work') {
+      if (animName === 'work' || animName === 'work_hammer') {
         return Math.floor((u._workPhase || 0) * clip.speed) % clip.count;
+      }
+      if (animName === 'idle_hammer') {
+        return Math.floor((u._walkPhase || 0) * clip.speed) % clip.count;
       }
       if (animName === 'guard') {
         return Math.floor((u._walkPhase || 0) * clip.speed) % clip.count;
@@ -382,8 +386,10 @@
       u._ax = u.x;
       u._ay = u.y;
 
+      if (!u.buildTask) u._builderOnSite = false;
+
       var mining = u.role === 'pawn' && u.harvest && u.harvest.phase === 'mining';
-      var onBuildSite = u.role === 'pawn' && u.buildTask && !(u._moveHold > 0);
+      var onBuildSite = u.role === 'pawn' && u.buildTask && u._builderOnSite;
       var walking = !mining && !onBuildSite && !this.attackActive(u) && u._moveHold > 0;
 
       var animName = this.pickAnim(u, walking);

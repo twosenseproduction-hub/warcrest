@@ -128,8 +128,7 @@
         RTS.toast(s, 'Army selected');
         break;
       case 'workers':
-        RTS.selectAllWorkers(s);
-        RTS.toast(s, 'Pawns selected');
+        if (RTS.selectAllWorkers(s)) RTS.toast(s, 'Pawns selected');
         break;
     }
     RTS.HUD.sync(s);

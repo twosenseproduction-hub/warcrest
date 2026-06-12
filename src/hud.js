@@ -24,14 +24,14 @@
     init: function (getStateFn) {
       getState = getStateFn;
       ['res-halcite', 'res-supply', 'timer', 'btn-pause', 'command-deck', 'thumb-cluster',
-       'selpanel', 'action-tray', 'event-log', 'toast', 'gesture-hint', 'wave-timer',
-       'btn-rail-army', 'btn-rail-stop', 'btn-rail-atk', 'btn-rail-base',
-       'btn-build-hammer', 'build-panel', 'build-panel-grid', 'map-tools'].forEach(function (id) {
+       'selpanel', 'unit-group-strip', 'action-tray', 'event-log', 'toast', 'gesture-hint', 'wave-timer',
+       'btn-rail-army', 'btn-rail-pawns', 'btn-rail-stop', 'btn-rail-atk', 'btn-rail-base',
+       'btn-build-hammer', 'btn-select-pawns', 'build-panel', 'build-panel-grid', 'map-tools'].forEach(function (id) {
         D[id] = $(id);
       });
 
-      ['action-tray', 'selpanel', 'topbar', 'command-deck', 'thumb-cluster', 'map-tools',
-       'build-panel', 'btn-build-hammer'].forEach(function (id) {
+      ['action-tray', 'selpanel', 'unit-group-strip', 'topbar', 'command-deck', 'thumb-cluster', 'map-tools',
+       'build-panel', 'btn-build-hammer', 'btn-select-pawns'].forEach(function (id) {
         var el = document.getElementById(id);
         if (!el) return;
         el.addEventListener('pointerdown', markUi, true);
@@ -40,6 +40,18 @@
       D['btn-pause'] && D['btn-pause'].addEventListener('click', function () { RTS.Game.togglePause(); });
 
       wireRail('btn-rail-army', function (s) { RTS.selectAllArmy(s); RTS.Audio.play('click'); });
+      wireRail('btn-rail-pawns', function (s) {
+        if (RTS.selectAllWorkers(s)) {
+          RTS.toast(s, 'Pawns selected');
+          RTS.Audio.play('click');
+        }
+      });
+      wireRail('btn-select-pawns', function (s) {
+        if (RTS.selectAllWorkers(s)) {
+          RTS.toast(s, 'Pawns selected');
+          RTS.Audio.play('click');
+        }
+      });
       wireRail('btn-rail-stop', function (s) { RTS.orderStop(s, RTS.selectedUnits(s)); RTS.Audio.play('click'); });
       wireRail('btn-rail-atk', function (s) {
         s.attackMoveArmed = !s.attackMoveArmed; RTS.refreshMode(s); RTS.Audio.play('click'); RTS.HUD.sync(s);
@@ -73,6 +85,22 @@
         if (btn.classList.contains('disabled')) { RTS.Audio.play('deny'); return; }
         handleAction(getState(), btn.dataset);
       });
+
+      if (D['unit-group-strip']) {
+        D['unit-group-strip'].addEventListener('click', function (e) {
+          var chip = e.target.closest('[data-macro-role]');
+          if (!chip) return;
+          var s = getState();
+          if (!s) return;
+          markUi();
+          var role = chip.dataset.macroRole;
+          if (role === 'all') {
+            if (RTS.selectMacroAll(s)) RTS.Audio.play('click');
+          } else if (RTS.selectMacroGroup(s, role)) {
+            RTS.Audio.play('click');
+          }
+        });
+      }
     },
 
     sync: function (s) {
@@ -92,6 +120,7 @@
       updateLayout(s);
       updateGestureHint(s);
       renderSelPanel(s);
+      renderUnitGroupStrip(s);
       renderTray(s);
     },
 
@@ -170,7 +199,7 @@
     var text = gestureHintText(s);
     var show = !!text || (s.timers.gameTime < 12 && s.scene === 'playing' && !deckOpen(s));
     if (show && !text) {
-      text = 'Hammer by minimap = build · Castle = train pawns · double-tap ground = army';
+      text = 'Double-tap ground = army · tap group avatars to macro · hammer = build';
     }
     el.textContent = text;
     el.classList.toggle('hidden', !show);
@@ -186,14 +215,69 @@
     return '<div class="sel-portrait">' + inner + '</div>';
   }
 
+  function renderUnitGroupStrip(s) {
+    var strip = D['unit-group-strip'];
+    if (!strip) return;
+    strip.innerHTML = '';
+    if (!macroBarActive(s)) {
+      strip.classList.add('hidden');
+      return;
+    }
+    strip.classList.remove('hidden');
+    var fid = s.playerFaction || 'aurex';
+    var roles = RTS.macroGroupRoles(s);
+    var total = 0;
+    roles.forEach(function (role) { total += s.ui.macroGroups[role].length; });
+
+    function addChip(roleKey, label, count, active, portraitHtml) {
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'unit-group-chip' + (active ? ' active' : '');
+      chip.dataset.macroRole = roleKey;
+      chip.innerHTML =
+        '<span class="ug-portrait">' + portraitHtml + '</span>' +
+        '<span class="ug-count">' + count + '</span>' +
+        '<span class="ug-label">' + label + '</span>';
+      strip.appendChild(chip);
+    }
+
+    addChip('all', 'All', total, !s.ui.macroRole, UI().iconHtml('sword', 22));
+    roles.forEach(function (role) {
+      var count = s.ui.macroGroups[role].length;
+      addChip(role, RTS.nameFor(fid, role), count, s.ui.macroRole === role,
+        UI().avatarPortraitHtml(fid, role, 30));
+    });
+  }
+
   function renderSelPanel(s) {
     var p = D['selpanel']; if (!p) return;
     p.innerHTML = '';
-    p.classList.remove('has-queue');
+    p.classList.remove('has-queue', 'has-macro');
     if (!deckOpen(s)) return;
 
     var units = RTS.selectedUnits(s);
     var blds = RTS.selectedBuildings(s);
+    var macro = macroBarActive(s);
+
+    if (macro && units.length) {
+      p.classList.add('has-macro');
+      var focusRole = s.ui.macroRole || (units.length === 1 ? units[0].role : null);
+      var focusUnits = focusRole
+        ? units.filter(function (u) { return u.role === focusRole; })
+        : units;
+      if (!focusUnits.length) focusUnits = units;
+      var totHp = 0, totMax = 0;
+      focusUnits.forEach(function (u) { totHp += u.hp; totMax += u.maxHp; });
+      var titleRole = focusRole || 'mixed';
+      var title = focusRole
+        ? focusUnits.length + ' ' + RTS.nameFor(s.playerFaction, focusRole) + (focusUnits.length > 1 ? 's' : '')
+        : units.length + ' units';
+      p.innerHTML = selPortrait(s, focusRole || 'lancer', false) + '<div class="sel-body">' +
+        '<div class="sel-title">' + title + '</div>' +
+        '<div class="sel-line">Tap a group to command it</div>' +
+        bar(totHp, totMax) + '</div>';
+      return;
+    }
 
     if (blds.length === 1 && !units.length) {
       if (RTS.BuildingMenu && RTS.BuildingMenu.isOpen()) return;
@@ -230,12 +314,21 @@
       return;
     }
 
+    if (units.length > 1 && !blds.length) {
+      var totHp = 0, totMax = 0;
+      units.forEach(function (u) { totHp += u.hp; totMax += u.maxHp; });
+      p.innerHTML = selPortrait(s, units[0].role, false) + '<div class="sel-body">' +
+        '<div class="sel-title">' + units.length + ' units</div>' +
+        bar(totHp, totMax) + '</div>';
+      return;
+    }
+
     var all = units.concat(blds);
-    var totHp = 0, totMax = 0;
-    all.forEach(function (e) { totHp += e.hp; totMax += e.maxHp; });
+    var totHp2 = 0, totMax2 = 0;
+    all.forEach(function (e) { totHp2 += e.hp; totMax2 += e.maxHp; });
     p.innerHTML = selPortrait(s, 'lancer', false) + '<div class="sel-body">' +
       '<div class="sel-title">' + all.length + ' units</div>' +
-      bar(totHp, totMax) + '</div>';
+      bar(totHp2, totMax2) + '</div>';
   }
 
   function bar(v, max) {

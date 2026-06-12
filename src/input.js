@@ -3,7 +3,7 @@
  * Camera math + unified touch/mouse input: tap select, command, box select,
  * long-press: rally (production building selected), build site, attack-move;
  * double-tap empty ground = army (deferred 1st tap),
- * double-tap + hold empty ground = command wheel, double-tap building = workers,
+ * double-tap + hold empty ground = command wheel, double-tap building/Pawn = all Pawns,
  * two-finger tap deselect, one-finger pan, two-finger pinch-zoom.
  * ==========================================================================*/
 (function (RTS) {
@@ -312,6 +312,10 @@
     return !!(hit && hit.kind === 'building' && hit.team === TEAM.PLAYER && hit.built);
   }
 
+  function isFriendlyPawn(hit) {
+    return !!(hit && hit.kind === 'unit' && hit.team === TEAM.PLAYER && hit.role === 'pawn');
+  }
+
   // ---- Init / event wiring -------------------------------------------------
   RTS.Input = {
     init: function (canvas, getState) {
@@ -320,7 +324,7 @@
       var DBL = (RTS.Config.touch && RTS.Config.touch.doubleTapMs) || 320;
       var MENU_HOLD = (RTS.Config.touch && RTS.Config.touch.menuHoldMs) || 280;
       var TWO_TAP = (RTS.Config.touch && RTS.Config.touch.twoFingerTapMs) || 280;
-      var lastTap = { t: 0, x: 0, y: 0, empty: false, hitId: null };
+      var lastTap = { t: 0, x: 0, y: 0, empty: false, hitId: null, hitKind: null };
       var pendingTap = null;
 
       function st() { return getState(); }
@@ -342,7 +346,7 @@
             if (!pendingTap) return;
             tapWorld(s, wx, wy, shift);
             pendingTap = null;
-            lastTap = { t: 0, x: 0, y: 0, empty: false, hitId: null };
+            lastTap = { t: 0, x: 0, y: 0, empty: false, hitId: null, hitKind: null };
           }, DBL),
         };
       }
@@ -365,11 +369,13 @@
         clearPendingTap();
         var armyDouble = secondTap && isBareGround(hit) && lastTap.empty;
         var buildingDouble = secondTap && isFriendlyBuilding(hit) && hit.id === lastTap.hitId;
+        var pawnDouble = secondTap && isFriendlyPawn(hit) &&
+          hit.id === lastTap.hitId && lastTap.hitKind === 'pawn';
         s.ui.pointer = {
           cssX: cssX, cssY: cssY, startX: cssX, startY: cssY,
           wx: w.x, wy: w.y, moved: false, panning: false, boxing: false,
           longPressFired: false, menuHoldFired: false, secondTap: secondTap,
-          armyDouble: armyDouble, buildingDouble: buildingDouble,
+          armyDouble: armyDouble, buildingDouble: buildingDouble, pawnDouble: pawnDouble,
           onEmpty: onEmpty, useBox: onEmpty && boxArmed, shift: !!shift,
           hitId: hit ? hit.id : null, hit: hit, menuHoldTimer: null,
         };
@@ -474,15 +480,15 @@
             RTS.selectAllArmy(s);
             RTS.toast(s, 'Army selected');
             haptic(10);
-            lastTap = { t: 0, x: 0, y: 0, empty: false, hitId: null };
+            lastTap = { t: 0, x: 0, y: 0, empty: false, hitId: null, hitKind: null };
             return;
           }
-          if (p.buildingDouble) {
-            RTS.selectAllWorkers(s);
-            if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
-            RTS.toast(s, 'Pawns selected');
-            haptic(10);
-            lastTap = { t: 0, x: 0, y: 0, empty: false, hitId: null };
+          if (p.buildingDouble || p.pawnDouble) {
+            if (RTS.selectAllWorkers(s)) {
+              RTS.toast(s, 'Pawns selected');
+              haptic(10);
+            }
+            lastTap = { t: 0, x: 0, y: 0, empty: false, hitId: null, hitKind: null };
             return;
           }
           var w = RTS.Cam.screenToWorld(s, cssX, cssY);
@@ -490,18 +496,19 @@
           var now = performance.now();
           if (isBareGround(hitUp) && s.inputMode !== 'place-building') {
             schedulePendingTap(s, w.x, w.y, p.shift);
-            lastTap = { t: now, x: cssX, y: cssY, empty: true, hitId: null };
+            lastTap = { t: now, x: cssX, y: cssY, empty: true, hitId: null, hitKind: null };
           } else {
             clearPendingTap();
             lastTap = {
               t: now, x: cssX, y: cssY,
               empty: false,
               hitId: hitUp ? hitUp.id : null,
+              hitKind: hitUp && hitUp.kind === 'unit' && hitUp.role === 'pawn' ? 'pawn' : null,
             };
             tapWorld(s, w.x, w.y, p.shift);
           }
         } else if (p.secondTap) {
-          lastTap = { t: 0, x: 0, y: 0, empty: false, hitId: null };
+          lastTap = { t: 0, x: 0, y: 0, empty: false, hitId: null, hitKind: null };
         }
       }
 
