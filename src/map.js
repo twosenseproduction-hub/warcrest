@@ -420,6 +420,7 @@
     s.map = meta;
     RTS.recalcSupply(s, RTS.TEAM.PLAYER);
     RTS.recalcSupply(s, RTS.TEAM.ENEMY);
+    if (RTS.linkDepositHomeNodes) RTS.linkDepositHomeNodes(s);
   }
 
   function mine(s, x, y, isStarting) {

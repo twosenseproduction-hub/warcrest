@@ -444,6 +444,7 @@
     var b = RTS.makeBuilding(s, 'outpost', TEAM.ENEMY, x, y, s.enemyFaction, false);
     b.rally = { x: node.x, y: node.y };
     b.autoMine = true;
+    RTS.assignPrimaryNodeToDeposit(s, b, node);
     if (RTS.Pathfind) RTS.Pathfind.markDirty(s);
     RTS.assignBuilder(s, b);
     return true;
@@ -570,8 +571,8 @@
       if (RTS.isConstructionWorker && RTS.isConstructionWorker(s, w)) return;
       var dep = nearestDepositTo(s, w.x, w.y, TEAM.ENEMY);
       if (!dep) return;
-      var node = nearestNodeForDeposit(s, dep);
-      if (node) RTS.orderHarvest(s, w, node.id);
+      var node = RTS.nodeForDeposit(s, dep);
+      if (node) RTS.orderHarvest(s, w, node.id, { depositOwnerId: dep.id });
     });
   }
 

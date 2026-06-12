@@ -249,21 +249,51 @@
   };
 
   RTS.nearestNodeForBuilding = function (s, b) {
-    var ax = b.rally ? b.rally.x : b.x;
-    var ay = b.rally ? b.rally.y : b.y;
-    if (RTS.Harvest) {
-      var probe = { id: '__probe__', x: ax, y: ay, role: 'pawn', harvest: null };
-      return RTS.Harvest.bestNodeForWorker(s, probe, ax, ay, {
-        minAmount: RTS.Config.harvest.minNodeAmount,
-      });
-    }
+    return RTS.nodeForDeposit(s, b);
+  };
+
+  RTS.nodeForDeposit = function (s, b) {
+    if (!b || !b.primaryNodeId) return null;
+    var node = RTS.getById(s, b.primaryNodeId);
+    if (!node || node.kind !== 'resource' || node.amount <= 0) return null;
+    return node;
+  };
+
+  RTS.depositHasLiveNode = function (s, b) {
+    return !!RTS.nodeForDeposit(s, b);
+  };
+
+  RTS.assignPrimaryNodeToDeposit = function (s, b, node) {
+    if (!b || !node) return false;
+    b.primaryNodeId = node.id;
+    b._veinLowNotified = false;
+    b._veinDepletedNotified = false;
+    return true;
+  };
+
+  RTS.findHomeNodeForCore = function (s, b) {
+    var R = RTS.Config.mineAmounts.startRadius;
     var best = null, bd = Infinity;
     s.entities.resources.forEach(function (n) {
-      if (n.amount <= RTS.Config.harvest.minNodeAmount) return;
-      var d = dist(ax, ay, n.x, n.y);
-      if (d < bd) { bd = d; best = n; }
+      if (n.amount <= 0) return;
+      var d = dist(b.x, b.y, n.x, n.y);
+      if (d <= R && d < bd) { bd = d; best = n; }
+    });
+    if (best) return best;
+    s.entities.resources.forEach(function (n) {
+      if (n.amount <= 0) return;
+      var d2 = dist(b.x, b.y, n.x, n.y);
+      if (d2 < bd) { bd = d2; best = n; }
     });
     return best;
+  };
+
+  RTS.linkDepositHomeNodes = function (s) {
+    s.entities.buildings.forEach(function (b) {
+      if (b.dead || b.type !== 'core' || b.primaryNodeId) return;
+      var node = RTS.findHomeNodeForCore(s, b);
+      if (node) RTS.assignPrimaryNodeToDeposit(s, b, node);
+    });
   };
 
   // ---- Normalized unit commands (legacy fields kept in sync) ---------------
@@ -352,7 +382,8 @@
     });
   };
 
-  RTS.orderHarvest = function (s, worker, nodeId) {
+  RTS.orderHarvest = function (s, worker, nodeId, opts) {
+    opts = opts || {};
     if (worker.role !== 'pawn') return;
     var carry = worker.harvest && worker.harvest.carry > 0 ? worker.harvest.carry : 0;
     var depositId = carry > 0 && worker.harvest ? worker.harvest.depositId : null;
@@ -364,12 +395,14 @@
     if (carry > 0) {
       phase = 'toBase';
       targetNodeId = worker.harvest.nodeId || nodeId;
-    } else if (node && RTS.Harvest) {
+    } else if (node && RTS.Harvest && !opts.depositOwnerId) {
       if (RTS.Harvest.nodeAssignedWorkerCount(s, nodeId) >= RTS.Config.harvest.maxWorkersPerNode &&
           !RTS.Harvest.nodeHasOpenSlot(s, nodeId)) {
         var alt = RTS.Harvest.bestNodeForWorker(s, worker, worker.x, worker.y, { preferId: nodeId });
         if (alt) { node = alt; targetNodeId = alt.id; }
       }
+      slot = RTS.Harvest.bestHarvestSlot(s, node, worker);
+    } else if (node && RTS.Harvest) {
       slot = RTS.Harvest.bestHarvestSlot(s, node, worker);
     }
 
@@ -381,6 +414,7 @@
         slotIndex: slot,
         cycleT: 0,
         depositId: depositId,
+        depositOwnerId: opts.depositOwnerId || null,
       },
     });
     if (phase === 'toBase' && !depositId) {
@@ -658,6 +692,7 @@
       if (ringNode) {
         b.rally = { x: ringNode.x, y: ringNode.y };
         b.autoMine = true;
+        RTS.assignPrimaryNodeToDeposit(s, b, ringNode);
       } else {
         b.rally = { x: x + 90, y: y };
       }

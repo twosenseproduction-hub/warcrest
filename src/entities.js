@@ -16,7 +16,7 @@
       ranged: !!spec.ranged, splash: spec.splash || 0, heal: spec.heal || 0,
       radius: RTS.SizeRef.pxRadius(role),
       cooldown: 0, target: null, moveTo: null, attackMove: false,
-      harvest: null,            // {nodeId, phase, carry, slotIndex, cycleT, depositId}
+      harvest: null,            // {nodeId, phase, carry, slotIndex, cycleT, depositId, depositOwnerId}
       buildTask: null,          // {buildingId}
       hitFlash: 0, muzzleFlash: 0, spawnFlash: 0.3, dead: false, corpse: 0,
       facing: 0,
@@ -44,6 +44,7 @@
       hp: prebuilt ? spec.hp : Math.max(1, spec.hp * 0.08), maxHp: spec.hp,
       built: !!prebuilt, progress: prebuilt ? 1 : 0, buildTime: spec.build || 0.001,
       queue: [], train: null, rally: null, autoMine: false,
+      primaryNodeId: null,     // linked home/expansion vein for auto-mine
       builderId: null,
       cooldown: 0, target: null,
       hitFlash: 0, dead: false, spawnFlash: 0.3,

@@ -72,6 +72,29 @@
     return best;
   }
 
+  function resumeLinkedHarvest(s, u) {
+    if (!u.harvest) return false;
+    if (u.harvest.depositOwnerId) {
+      var dep = RTS.getById(s, u.harvest.depositOwnerId);
+      var linked = dep ? RTS.nodeForDeposit(s, dep) : null;
+      if (linked) {
+        assignHarvestNode(s, u, linked);
+        return true;
+      }
+      u.harvest = null;
+      return false;
+    }
+    if (u.harvest.nodeId) {
+      var manual = RTS.getById(s, u.harvest.nodeId);
+      if (manual && manual.amount > 0) {
+        assignHarvestNode(s, u, manual);
+        return true;
+      }
+    }
+    u.harvest = null;
+    return false;
+  }
+
   function finishDeposit(s, u, node) {
     var amt = Math.floor(u.harvest.carry);
     if (amt > 0) {
@@ -83,13 +106,11 @@
     u.harvest.depositId = null;
     u._depositStuckT = 0;
     u.vx = 0; u.vy = 0;
-    u.harvest.phase = node && node.amount > 0 ? 'toNode' : 'findNode';
-    if (u.harvest.phase === 'findNode') {
-      var nn = bestNodeForWorker(s, u, u.x, u.y);
-      if (nn) assignHarvestNode(s, u, nn);
-      else u.harvest = null;
-    } else if (node) {
+    if (node && node.amount > 0 && u.harvest.nodeId === node.id) {
+      u.harvest.phase = 'toNode';
       u.harvest.slotIndex = bestHarvestSlot(s, node, u);
+    } else if (!resumeLinkedHarvest(s, u)) {
+      u.harvest = null;
     }
     if (RTS.Pathfind) RTS.Pathfind.clearNav(u);
   }
@@ -516,19 +537,15 @@
     var node = getHarvestNode(s, u);
 
     if (u.harvest.phase === 'findNode') {
-      var pick = bestNodeForWorker(s, u, u.x, u.y);
-      if (!pick) { u.harvest = null; return; }
-      assignHarvestNode(s, u, pick);
-      node = pick;
+      if (!resumeLinkedHarvest(s, u)) return;
+      node = getHarvestNode(s, u);
     }
 
     if (u.harvest.phase === 'toNode') {
       if (!node || node.amount <= 0) {
         releaseHarvestSlot(u);
-        var alt = bestNodeForWorker(s, u, u.x, u.y);
-        if (!alt) { u.harvest = null; return; }
-        assignHarvestNode(s, u, alt);
-        node = alt;
+        if (!resumeLinkedHarvest(s, u)) return;
+        node = getHarvestNode(s, u);
       }
       var target = slotTarget(s, u, node);
       if (atHarvestSlot(u, node)) {
@@ -550,7 +567,7 @@
         if (u.harvest.carry > 0) beginReturnTrip(s, u);
         else {
           releaseHarvestSlot(u);
-          u.harvest.phase = 'findNode';
+          if (!resumeLinkedHarvest(s, u)) u.harvest = null;
         }
         return;
       }
@@ -575,7 +592,7 @@
       }
       if (!dep) {
         if (u.harvest.carry > 0) { u._depositStuckT = (u._depositStuckT || 0) + dt; }
-        else u.harvest.phase = 'findNode';
+        else if (!resumeLinkedHarvest(s, u)) u.harvest = null;
         return;
       }
 
@@ -752,10 +769,8 @@
     var u = RTS.makeUnit(s, role, b.team, b.x + ox, b.y + oy, b.faction);
     u.spawnFlash = 0.4;
     if (role === 'pawn' && b.autoMine) {
-      var node = RTS.Harvest
-        ? RTS.Harvest.bestNodeForWorker(s, u, b.x, b.y, { minAmount: RTS.Config.harvest.minNodeAmount })
-        : RTS.nearestNodeForBuilding(s, b);
-      if (node) RTS.orderHarvest(s, u, node.id);
+      var node = RTS.nodeForDeposit(s, b);
+      if (node) RTS.orderHarvest(s, u, node.id, { depositOwnerId: b.id });
       else if (b.rally) u.moveTo = { x: b.rally.x, y: b.rally.y };
     } else if (b.rally) {
       u.moveTo = { x: b.rally.x, y: b.rally.y };
@@ -1162,6 +1177,25 @@
     mineChunkSize: mineChunkSize,
   };
 
+  function depositVeinFeedback(s, b) {
+    if (!b.built || !RTS.isDepositBuilding(b)) return;
+    if (b.team !== TEAM.PLAYER) return;
+    var node = b.primaryNodeId ? RTS.getById(s, b.primaryNodeId) : null;
+    var label = b.type === 'core' ? 'Home vein' : 'Outpost vein';
+    if (!node || node.amount <= 0) {
+      if (!b._veinDepletedNotified) {
+        b._veinDepletedNotified = true;
+        RTS.log(s, label + ' depleted — scout and expand', 'warn');
+        RTS.toast(s, label + ' depleted');
+      }
+      return;
+    }
+    if (RTS.Harvest && RTS.Harvest.resourceIsLow(node) && !b._veinLowNotified) {
+      b._veinLowNotified = true;
+      RTS.log(s, label + ' running low', 'info');
+    }
+  }
+
   function tickAutoMine(s, dt) {
     if (!s.ui.autoMineTick) s.ui.autoMineTick = 0;
     s.ui.autoMineTick -= dt;
@@ -1170,18 +1204,17 @@
     s.entities.buildings.forEach(function (b) {
       if (b.dead || !b.autoMine || !b.built) return;
       if (b.type !== 'core' && b.type !== 'outpost') return;
+      depositVeinFeedback(s, b);
+      var node = RTS.nodeForDeposit(s, b);
+      if (!node) return;
       s.entities.units.forEach(function (u) {
         if (u.dead || u.team !== b.team || u.role !== 'pawn') return;
         if (u.harvest || u.moveTo || u.target) return;
         if (isConstructionWorker(s, u)) return;
         if (dist(u.x, u.y, b.x, b.y) > 380) return;
-        var node = RTS.Harvest
-          ? RTS.Harvest.bestNodeForWorker(s, u, b.x, b.y, { minAmount: RTS.Config.harvest.minNodeAmount })
-          : RTS.nearestNodeForBuilding(s, b);
-        if (!node) return;
         if (RTS.Harvest && RTS.Harvest.nodeAssignedWorkerCount(s, node.id) >= RTS.Config.harvest.maxWorkersPerNode &&
             !RTS.Harvest.nodeHasOpenSlot(s, node.id)) return;
-        RTS.orderHarvest(s, u, node.id);
+        RTS.orderHarvest(s, u, node.id, { depositOwnerId: b.id });
       });
     });
   }

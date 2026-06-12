@@ -249,6 +249,7 @@
       phase: u.harvest.phase,
       carry: u.harvest.carry,
       depositId: u.harvest.depositId,
+      depositOwnerId: u.harvest.depositOwnerId,
       slotIndex: u.harvest.slotIndex,
       cycleT: u.harvest.cycleT || 0,
     } : null;
