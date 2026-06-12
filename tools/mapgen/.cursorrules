@@ -1,0 +1,59 @@
+# Map Generator — Project Rules
+
+You are maintaining a deterministic tile-map generator. The renderer is
+`map_builder.py`; ALL map decisions live in `map_config.json`. The terrain
+shape lives in `terrain_masks.json` (a 30x48 grid of land/forest booleans).
+
+## Core rules — never violate these
+
+1. **Never regenerate from scratch.** Every change is an edit to
+   `map_config.json` (or a small, surgical edit to `map_builder.py`).
+   Do not rewrite the script, restructure it, or "improve" it unless
+   explicitly asked.
+
+2. **Determinism is sacred.** The map must be pixel-identical between runs
+   with the same config. Three fixed seeds exist: `main` (trees/bushes/foam),
+   `shallow`, `rocks`. NEVER add, remove, or reorder calls to `rng_main`.
+   If a new feature needs randomness, create a NEW `random.Random(seed)`
+   stream and add its seed to the config.
+
+3. **Filters after generation, never before.** To exclude sprites from a
+   region, generate the placement (consuming the same RNG calls as always)
+   and then discard it. Never gate an RNG call behind a new condition —
+   that shifts the sequence and moves every sprite on the map.
+
+4. **One change per run.** Make the config edit, run
+   `python map_builder.py map_config.json`, and visually diff the output
+   against the previous PNG before doing anything else.
+
+## Asset facts (do not guess these)
+
+- Tile size: 64px. Map grid: 48 cols x 30 rows = 3072x1920 px.
+- Sprites use PURE BLACK as background. `load_rgba()` keys it out with a
+  soft alpha ramp — do not replace with exact-black keying (causes fringe).
+- Tilemap_colorN.png: left 4x4 block is a blob autotile.
+  Cols: 0=left edge, 1=center, 2=right edge, 3=one-wide vertical.
+  Rows: 0=top edge, 1=center, 2=bottom edge, 3=one-wide horizontal.
+- Water_Foam.png: 16 frames of 192x192, pad centered; place at tile
+  position minus (64,64).
+- Tree2.png: frames of 192x256, anchor = bottom-center.
+- Bushes/gold: 128x128 frames. Rocks: single 64x64 sprites.
+- Layer order: water -> coastal foam -> shallow fills -> land autotiles ->
+  depth-sorted sprites (sorted by base y, ascending).
+
+## How to make common edits
+
+- Clear trees in an area: add `[cx, cy, rx, ry]` to `tree_clear_ellipses`.
+- Add a gold source: append `[x, y]` to `gold_sources`.
+- Fill water with land: add `[x0, y0, x1, y1]` to `fill_land_rects`.
+- Add shallow/ford water: add a rect to `shallow_rects`.
+- Change grass color: point `assets.tilemap` at a different Tilemap_colorN.
+- Adjust forest/bush/rock density: edit `densities`
+  (density changes DO reshuffle placements — warn the user first).
+
+## Workflow with marked-up screenshots
+
+If the user provides a screenshot with markers (circles, squares, stars),
+write a short throwaway script to detect the marker pixels and report their
+bounding boxes/centers in map coordinates. Then translate those into config
+entries. Do not eyeball coordinates.

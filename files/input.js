@@ -1,0 +1,422 @@
+/* ============================================================================
+ * EXOFRONT — input.js
+ * Camera math + unified touch/mouse input: tap select, command, box select,
+ * long-press attack-move, one-finger pan, two-finger pinch-zoom + pan,
+ * and building placement.
+ * ==========================================================================*/
+(function (RTS) {
+  'use strict';
+  var TEAM = RTS.TEAM;
+
+  // ---- Camera helpers ------------------------------------------------------
+  RTS.Cam = {
+    worldToScreen: function (s, wx, wy) {
+      var c = s.camera;
+      return { x: (wx - c.x) * c.zoom, y: (wy - c.y) * c.zoom };
+    },
+    screenToWorld: function (s, sx, sy) {
+      var c = s.camera;
+      return { x: c.x + sx / c.zoom, y: c.y + sy / c.zoom };
+    },
+    viewSizeWorld: function (s) {
+      var cv = RTS.canvas;
+      return { w: cv.clientWidth / s.camera.zoom, h: cv.clientHeight / s.camera.zoom };
+    },
+    clamp: function (s) {
+      var c = s.camera, cv = RTS.canvas;
+      var vw = cv.clientWidth / c.zoom, vh = cv.clientHeight / c.zoom;
+      var W = RTS.Config.world.w, H = RTS.Config.world.h;
+      if (vw >= W) c.x = (W - vw) / 2; else c.x = Math.max(0, Math.min(W - vw, c.x));
+      if (vh >= H) c.y = (H - vh) / 2; else c.y = Math.max(0, Math.min(H - vh, c.y));
+    },
+    centerOn: function (s, wx, wy) {
+      var cv = RTS.canvas;
+      s.camera.x = wx - (cv.clientWidth / s.camera.zoom) / 2;
+      s.camera.y = wy - (cv.clientHeight / s.camera.zoom) / 2;
+      RTS.Cam.clamp(s);
+    },
+    zoomAt: function (s, factor, cssX, cssY) {
+      var c = s.camera;
+      var before = RTS.Cam.screenToWorld(s, cssX, cssY);
+      c.zoom = Math.max(RTS.Config.camera.minZoom, Math.min(RTS.Config.camera.maxZoom, c.zoom * factor));
+      var after = RTS.Cam.screenToWorld(s, cssX, cssY);
+      c.x += before.x - after.x;
+      c.y += before.y - after.y;
+      RTS.Cam.clamp(s);
+    },
+  };
+
+  // ---- Hit testing ---------------------------------------------------------
+  function hitTest(s, wx, wy) {
+    var slop = (RTS.Config.touch ? RTS.Config.touch.slopPx : 28) / s.camera.zoom;
+    var cands = [];
+    s.entities.units.forEach(function (u) {
+      if (u.dead) return;
+      var d = RTS.dist(wx, wy, u.x, u.y);
+      if (d <= u.radius + slop) {
+        cands.push({ e: u, sort: (u.team === TEAM.PLAYER ? 0 : 100) + d });
+      }
+    });
+    s.entities.buildings.forEach(function (b) {
+      if (b.dead) return;
+      var pad = 10 + slop * 0.4;
+      if (wx >= b.x - b.w / 2 - pad && wx <= b.x + b.w / 2 + pad &&
+          wy >= b.y - b.h / 2 - pad && wy <= b.y + b.h / 2 + pad) {
+        cands.push({ e: b, sort: (b.team === TEAM.PLAYER ? 20 : 120) + RTS.dist(wx, wy, b.x, b.y) });
+      }
+    });
+    s.entities.resources.forEach(function (n) {
+      if (n.amount <= 0) return;
+      if (RTS.dist(wx, wy, n.x, n.y) <= n.r + slop * 0.8) {
+        cands.push({ e: n, sort: 200 + RTS.dist(wx, wy, n.x, n.y) });
+      }
+    });
+    cands.sort(function (a, b) { return a.sort - b.sort; });
+    return cands.length ? cands[0].e : null;
+  }
+
+  // ---- Tap resolution ------------------------------------------------------
+  function nearestWorker(s, wx, wy) {
+    var best = null, bd = Infinity;
+    s.entities.units.forEach(function (u) {
+      if (u.dead || u.team !== TEAM.PLAYER || u.role !== 'worker') return;
+      var d = RTS.dist(wx, wy, u.x, u.y);
+      if (d < bd) { bd = d; best = u; }
+    });
+    return best;
+  }
+
+  function haptic(ms) {
+    if (navigator.vibrate) navigator.vibrate(ms || 10);
+  }
+
+  function tapWorld(s, wx, wy, additive) {
+    if (s.inputMode === 'place-building' && s.pending.building) {
+      RTS.placeBuilding(s, s.pending.building, wx, wy);
+      return;
+    }
+
+    var hit = hitTest(s, wx, wy);
+    var sel = RTS.selectedUnits(s);
+    var combat = sel.filter(function (u) { return u.role !== 'worker'; });
+    var workers = sel.filter(function (u) { return u.role === 'worker'; });
+
+    // Smart mine: nothing selected → tap gold sends nearest worker
+    if (!sel.length && hit && hit.kind === 'resource') {
+      var nw = nearestWorker(s, hit.x, hit.y);
+      if (nw) {
+        RTS.select(s, nw.id, false);
+        RTS.orderHarvest(s, nw, hit.id);
+        RTS.Audio.play('move');
+        RTS.toast(s, 'Mining Halcite');
+        haptic(8);
+        RTS.HUD.sync(s);
+        return;
+      }
+    }
+
+    // Worker + resource → harvest
+    if (hit && hit.kind === 'resource' && workers.length) {
+      workers.forEach(function (w) { RTS.orderHarvest(s, w, hit.id); });
+      RTS.Audio.play('move');
+      RTS.toast(s, 'Harvesting Halcite');
+      haptic(8);
+      return;
+    }
+
+    // Friendly unit/building → select (or add to group)
+    if (hit && (hit.kind === 'unit' || hit.kind === 'building') && hit.team === TEAM.PLAYER) {
+      if ((additive || (hit.kind === 'unit' && sel.length)) && hit.kind === 'unit') {
+        RTS.toggleSelect(s, hit.id);
+      } else {
+        RTS.select(s, hit.id, false);
+      }
+      RTS.Audio.play('click');
+      haptic(6);
+      return;
+    }
+
+    // Enemy → attack with selected combat
+    if (hit && (hit.kind === 'unit' || hit.kind === 'building') && hit.team === TEAM.ENEMY && combat.length) {
+      RTS.orderAttack(s, combat, hit.id);
+      flash(s, wx, wy, '#ff5a5a');
+      RTS.log(s, 'Engaging target', 'info');
+      haptic(12);
+      return;
+    }
+
+    // Empty ground → move
+    if (combat.length && (!hit || hit.kind === 'resource')) {
+      RTS.orderMove(s, combat, wx, wy, s.attackMoveArmed);
+      flash(s, wx, wy, s.attackMoveArmed ? '#ff9a3c' : RTS.Factions[s.playerFaction].primary);
+      haptic(8);
+      return;
+    }
+    if (workers.length && !combat.length && (!hit || hit.kind === 'resource')) {
+      RTS.orderMove(s, workers, wx, wy, false);
+      flash(s, wx, wy, RTS.Factions[s.playerFaction].primary);
+      haptic(8);
+      return;
+    }
+
+    if (!hit) RTS.clearSelection(s);
+  }
+
+  function showLongPressRing(cssX, cssY) {
+    var ring = document.getElementById('long-press-ring');
+    if (!ring) return;
+    ring.classList.remove('hidden');
+    ring.style.left = cssX + 'px';
+    ring.style.top = cssY + 'px';
+  }
+  function hideLongPressRing() {
+    var ring = document.getElementById('long-press-ring');
+    if (ring) ring.classList.add('hidden');
+  }
+
+  function flash(s, wx, wy, color) {
+    RTS.addEffect(s, { kind: 'cmd', x: wx, y: wy, life: 0.34, max: 0.34, color: color, r: 10 });
+  }
+
+  // ---- Long press (attack-move on empty ground) ----------------------------
+  function startLongPress(s, wx, wy, cssX, cssY) {
+    clearLongPress(s);
+    var combat = RTS.selectedUnits(s).filter(function (u) { return u.role !== 'worker'; });
+    if (!combat.length || s.inputMode === 'place-building') return;
+    var ms = (RTS.Config.touch && RTS.Config.touch.longPressMs) || 460;
+    showLongPressRing(cssX, cssY);
+    s.ui.longPressAnchor = { wx: wx, wy: wy, cssX: cssX, cssY: cssY, start: performance.now() };
+    s.ui.longPressTimer = setTimeout(function () {
+      var p = s.ui.pointer;
+      if (!p || p.moved) return;
+      p.longPressFired = true;
+      RTS.orderMove(s, combat, wx, wy, true);
+      flash(s, wx, wy, '#ff9a3c');
+      RTS.log(s, 'Attack-move ordered', 'info');
+      RTS.toast(s, 'Attack-move');
+      haptic(18);
+      hideLongPressRing();
+      clearLongPress(s);
+    }, ms);
+  }
+  function clearLongPress(s) {
+    if (s.ui.longPressTimer) clearTimeout(s.ui.longPressTimer);
+    s.ui.longPressTimer = null;
+    s.ui.longPressAnchor = null;
+    hideLongPressRing();
+  }
+
+  // ---- Init / event wiring -------------------------------------------------
+  RTS.Input = {
+    init: function (canvas, getState) {
+      var DRAG = (RTS.Config.touch && RTS.Config.touch.dragPx) || 12;
+      var UIBLOCK = (RTS.Config.touch && RTS.Config.touch.uiBlockMs) || 320;
+      var DBL = (RTS.Config.touch && RTS.Config.touch.doubleTapMs) || 320;
+      var lastTap = { t: 0, x: 0, y: 0 };
+
+      function st() { return getState(); }
+      function active() { var s = st(); return !!s && s.scene === 'playing'; }
+      function rect() { return canvas.getBoundingClientRect(); }
+      function isSurface(e) { return e.target === canvas; }
+      function uiBlocked(s) { return performance.now() - (s.ui.lastUiAt || 0) < UIBLOCK; }
+
+      // --- single-pointer (mouse or 1 touch) ---
+      function down(cssX, cssY, shift) {
+        var s = st(); if (!s || !active() || uiBlocked(s)) return;
+        var w = RTS.Cam.screenToWorld(s, cssX, cssY);
+        var hit = hitTest(s, w.x, w.y);
+        var onEmpty = !hit || hit.kind === 'resource';
+        var boxArmed = s.boxSelectArmed || shift;
+        s.ui.pointer = {
+          cssX: cssX, cssY: cssY, startX: cssX, startY: cssY,
+          wx: w.x, wy: w.y, moved: false, panning: false, boxing: false,
+          longPressFired: false, onEmpty: onEmpty, useBox: onEmpty && boxArmed, shift: !!shift,
+          hitId: hit ? hit.id : null,
+        };
+        if (s.inputMode === 'place-building') { updateGhost(s, w.x, w.y); return; }
+        if (onEmpty && !boxArmed) startLongPress(s, w.x, w.y, cssX, cssY);
+      }
+
+      function move(cssX, cssY) {
+        var s = st(); if (!s || !active()) return;
+        var w = RTS.Cam.screenToWorld(s, cssX, cssY);
+        // placement ghost follows the cursor/finger even before any press
+        if (s.inputMode === 'place-building') { updateGhost(s, w.x, w.y); }
+        var p = s.ui.pointer;
+        if (!p) return;
+        var dx = cssX - p.startX, dy = cssY - p.startY;
+        if (Math.hypot(dx, dy) <= DRAG) {
+          if (s.ui.longPressAnchor) {
+            s.ui.longPressAnchor.cssX = cssX;
+            s.ui.longPressAnchor.cssY = cssY;
+            showLongPressRing(cssX, cssY);
+          }
+          return;
+        }
+        p.moved = true; clearLongPress(s);
+
+        if (s.inputMode === 'place-building') { p.cssX = cssX; p.cssY = cssY; return; }
+
+        if (p.useBox && p.onEmpty) {
+          p.boxing = true;
+          s.selectionBox = { x1: p.wx, y1: p.wy, x2: w.x, y2: w.y };
+          return;
+        }
+        // Pan only when drag started on empty ground (never steal drags from unit taps)
+        if (p.onEmpty) {
+          p.panning = true;
+          var prev = RTS.Cam.screenToWorld(s, p.cssX, p.cssY);
+          s.camera.x -= (w.x - prev.x);
+          s.camera.y -= (w.y - prev.y);
+          RTS.Cam.clamp(s);
+        }
+        p.cssX = cssX; p.cssY = cssY;
+      }
+
+      function up(cssX, cssY) {
+        var s = st(); if (!s) return;
+        if (!active()) { s.ui.pointer = null; return; }
+        clearLongPress(s);
+        var p = s.ui.pointer; s.ui.pointer = null;
+        if (!p) return;
+        if (p.boxing && s.selectionBox) {
+          var b = s.selectionBox;
+          RTS.selectBox(s, b.x1, b.y1, b.x2, b.y2, p.shift);
+          s.selectionBox = null;
+          return;
+        }
+        s.selectionBox = null;
+        if (!p.moved && !p.longPressFired && !uiBlocked(s)) {
+          var w = RTS.Cam.screenToWorld(s, cssX, cssY);
+          var now = performance.now();
+          var isDouble = lastTap.t && (now - lastTap.t < DBL) &&
+            Math.hypot(cssX - lastTap.x, cssY - lastTap.y) < ((RTS.Config.touch && RTS.Config.touch.slopPx) || 40);
+          if (isDouble && p.onEmpty) {
+            RTS.selectAllArmy(s);
+            RTS.toast(s, 'Army selected');
+            haptic(10);
+            lastTap.t = 0;
+          } else {
+            lastTap = { t: now, x: cssX, y: cssY };
+            tapWorld(s, w.x, w.y, p.shift);
+          }
+        }
+      }
+
+      function updateGhost(s, wx, wy) {
+        s.ui.ghost = { x: wx, y: wy, type: s.pending.building,
+                       valid: RTS.canPlaceAt(s, s.pending.building, wx, wy) };
+      }
+
+      // --- Mouse ---
+      canvas.addEventListener('mousedown', function (e) {
+        if (!isSurface(e)) return; e.preventDefault();
+        var r = rect(); down(e.clientX - r.left, e.clientY - r.top, e.shiftKey);
+      });
+      window.addEventListener('mousemove', function (e) {
+        var s = st(); if (!s) return;
+        if (!s.ui.pointer && s.inputMode !== 'place-building') return;
+        var r = rect(); move(e.clientX - r.left, e.clientY - r.top);
+      });
+      window.addEventListener('mouseup', function (e) {
+        var r = rect(); up(e.clientX - r.left, e.clientY - r.top);
+      });
+      canvas.addEventListener('wheel', function (e) {
+        var s = st(); if (!s || !active()) return; e.preventDefault();
+        var r = rect();
+        RTS.Cam.zoomAt(s, e.deltaY < 0 ? 1.12 : 0.89, e.clientX - r.left, e.clientY - r.top);
+      }, { passive: false });
+      canvas.addEventListener('contextmenu', function (e) {
+        e.preventDefault();
+        var s = st(); if (!s || !active()) return;
+        // right-click = quick command (move/attack) like RTS
+        var r = rect();
+        var w = RTS.Cam.screenToWorld(s, e.clientX - r.left, e.clientY - r.top);
+        if (s.inputMode === 'place-building') { RTS.cancelPlacement(s); return; }
+        tapWorld(s, w.x, w.y, false);
+      });
+
+      // --- Touch (with pinch) ---
+      var pinch = null; // {d0, zoom0, cx, cy, camx, camy}
+      canvas.addEventListener('touchstart', function (e) {
+        if (!isSurface(e)) return; e.preventDefault();
+        var s = st(); if (!s || !active()) return;
+        var r = rect();
+        if (e.touches.length === 2) {
+          clearLongPress(s); s.ui.pointer = null; s.selectionBox = null;
+          pinch = beginPinch(s, e, r);
+          return;
+        }
+        pinch = null;
+        var t = e.touches[0];
+        down(t.clientX - r.left, t.clientY - r.top, false);
+      }, { passive: false });
+
+      canvas.addEventListener('touchmove', function (e) {
+        if (!active()) return; e.preventDefault();
+        var s = st(); var r = rect();
+        if (e.touches.length === 2 && pinch) { doPinch(s, e, r, pinch); return; }
+        if (e.touches.length === 1 && !pinch) {
+          var t = e.touches[0]; move(t.clientX - r.left, t.clientY - r.top);
+        }
+      }, { passive: false });
+
+      canvas.addEventListener('touchend', function (e) {
+        if (!active()) return;
+        var s = st(); var r = rect();
+        if (pinch && e.touches.length < 2) { pinch = null; s.ui.pointer = null; return; }
+        if (e.touches.length === 0) {
+          var t = e.changedTouches[0];
+          up(t.clientX - r.left, t.clientY - r.top);
+        }
+      }, { passive: false });
+
+      canvas.addEventListener('touchcancel', function () {
+        var s = st(); if (!s) { pinch = null; return; }
+        clearLongPress(s); s.ui.pointer = null; s.selectionBox = null; pinch = null;
+      }, { passive: true });
+
+      function beginPinch(s, e, r) {
+        var a = e.touches[0], b = e.touches[1];
+        var ax = a.clientX - r.left, ay = a.clientY - r.top;
+        var bx = b.clientX - r.left, by = b.clientY - r.top;
+        return {
+          d0: Math.hypot(bx - ax, by - ay) || 1,
+          zoom0: s.camera.zoom,
+          cx: (ax + bx) / 2, cy: (ay + by) / 2,
+          camx: s.camera.x, camy: s.camera.y,
+        };
+      }
+      function doPinch(s, e, r, pz) {
+        var a = e.touches[0], b = e.touches[1];
+        var ax = a.clientX - r.left, ay = a.clientY - r.top;
+        var bx = b.clientX - r.left, by = b.clientY - r.top;
+        var d = Math.hypot(bx - ax, by - ay) || 1;
+        var cx = (ax + bx) / 2, cy = (ay + by) / 2;
+        // zoom around the pinch midpoint
+        var targetZoom = Math.max(RTS.Config.camera.minZoom,
+                          Math.min(RTS.Config.camera.maxZoom, pz.zoom0 * (d / pz.d0)));
+        // world point under original midpoint
+        s.camera.x = pz.camx; s.camera.y = pz.camy; s.camera.zoom = pz.zoom0;
+        var worldMid = RTS.Cam.screenToWorld(s, pz.cx, pz.cy);
+        s.camera.zoom = targetZoom;
+        var after = RTS.Cam.screenToWorld(s, cx, cy);
+        s.camera.x += worldMid.x - after.x;
+        s.camera.y += worldMid.y - after.y;
+        // two-finger drag pans as well as zooms
+        s.camera.x -= (cx - pz.cx) / s.camera.zoom;
+        s.camera.y -= (cy - pz.cy) / s.camera.zoom;
+        RTS.Cam.clamp(s);
+      }
+
+      // keyboard niceties (desktop): Esc cancels placement, A = attack-move arm
+      window.addEventListener('keydown', function (e) {
+        var s = st(); if (!s || !active()) return;
+        if (e.key === 'Escape') { if (s.inputMode === 'place-building') RTS.cancelPlacement(s); else RTS.clearSelection(s); }
+        if (e.key === 'a' || e.key === 'A') { s.attackMoveArmed = !s.attackMoveArmed; RTS.refreshMode(s); RTS.HUD.sync(s); }
+        if (e.key === 's' || e.key === 'S') { RTS.orderStop(s, RTS.selectedUnits(s)); }
+      });
+    },
+  };
+
+})(window.RTS = window.RTS || {});

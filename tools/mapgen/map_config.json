@@ -1,0 +1,43 @@
+{
+  "terrain_masks": "terrain_masks.json",
+  "output": "sprite_map.png",
+  "export_grid": "traversability.json",
+
+  "seeds": { "main": 42, "shallow": 99, "rocks": 123 },
+
+  "assets": {
+    "water":   "assets/Water_Background_color.png",
+    "foam":    "assets/Water_Foam.png",
+    "tilemap": "assets/Tilemap_color3.png",
+    "tree":    "assets/Tree2.png",
+    "gold":    "assets/Gold_Stone_5_Highlight.png",
+    "bushes":  ["assets/Bushe1.png", "assets/Bushe2.png", "assets/Bushe3.png", "assets/Bushe4.png"],
+    "rocks":   ["assets/Rock1.png", "assets/Rock2.png", "assets/Rock3.png", "assets/Rock4.png"]
+  },
+
+  "densities": { "tree": 0.72, "bush": 0.07, "rock_base": 0.025, "rock_scatter": 0.10 },
+
+  "shallow_color": [198, 240, 220, 255],
+  "shallow_rects": [[656, 241, 2193, 1300]],
+
+  "fill_land_rects": [[2327, 235, 2522, 400]],
+
+  "gold_sources": [
+    [396, 153], [2643, 153], [192, 870], [2816, 857],
+    [524, 1299], [2451, 1324], [1484, 1267], [1459, 150]
+  ],
+  "gold_clear_radius": 300,
+
+  "rock_formations": [[1484, 851]],
+
+  "start_locations": [[544, 288], [2592, 288]],
+
+  "tree_clear_ellipses": [
+    [2285, 427, 281, 225],
+    [918, 1043, 275, 240],
+    [624, 1084, 150, 150],
+    [1752, 921, 140, 140],
+    [1459, 150, 150, 150]
+  ],
+  "deco_clear_ellipses": []
+}

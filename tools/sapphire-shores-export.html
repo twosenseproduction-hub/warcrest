@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Sapphire Shores — map export</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    font-family: system-ui, sans-serif;
+    background: #1a1a2e; color: #eee;
+  }
+  h1 { font-size: 1.25rem; margin: 0 0 8px; }
+  p { color: #aaa; max-width: 720px; line-height: 1.5; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
+  button {
+    background: #2563eb; color: #fff; border: 0; border-radius: 8px;
+    padding: 10px 16px; font-size: 14px; cursor: pointer;
+  }
+  button:disabled { opacity: 0.45; cursor: wait; }
+  button.secondary { background: #334155; }
+  #status { margin: 12px 0; min-height: 1.4em; color: #93c5fd; }
+  .previews { display: flex; flex-wrap: wrap; gap: 20px; margin-top: 20px; }
+  .preview { background: #0f172a; padding: 12px; border-radius: 10px; }
+  .preview h2 { font-size: 13px; margin: 0 0 8px; color: #cbd5e1; }
+  .preview img, .preview canvas {
+    display: block;
+    width: 900px; height: auto;
+    border: 1px solid #334155; border-radius: 4px;
+  }
+</style>
+</head>
+<body>
+  <h1>Sapphire Shores — map export</h1>
+  <p>
+    Full-resolution reference of the current map (2600×1800 world units).
+    Use the schematic view to sketch layout changes; use the full render for art/terrain feel.
+  </p>
+  <div id="status">Loading assets…</div>
+  <div class="toolbar">
+    <button id="btn-full" disabled>Download full render (PNG)</button>
+    <button id="btn-schematic" disabled>Download schematic (PNG)</button>
+    <button id="btn-json" disabled>Download layout (JSON)</button>
+    <button id="btn-all" class="secondary" disabled>Download all</button>
+  </div>
+  <div class="previews">
+    <div class="preview">
+      <h2>Full render</h2>
+      <canvas id="cv-full" width="2600" height="1800"></canvas>
+    </div>
+    <div class="preview">
+      <h2>Schematic (editable layout guide)</h2>
+      <canvas id="cv-schematic" width="2600" height="1800"></canvas>
+    </div>
+  </div>
+
+<script src="../src/config.js"></script>
+<script src="../src/size-ref.js"></script>
+<script src="../src/state.js"></script>
+<script src="../src/entities.js"></script>
+<script src="../src/sapphire-mapgen.js"></script>
+<script src="../src/map.js"></script>
+<script src="../src/commands.js"></script>
+<script src="../src/art.js"></script>
+<script src="../src/terrain.js"></script>
+<script src="../src/assets.js"></script>
+<script src="../src/sprites.js"></script>
+
+<script>
+(function () {
+  'use strict';
+
+  var WW = RTS.SapphireMapgen ? RTS.SapphireMapgen.world.w : RTS.Config.world.w;
+  var WH = RTS.SapphireMapgen ? RTS.SapphireMapgen.world.h : RTS.Config.world.h;
+
+  function buildState() {
+    RTS.resetIds();
+    var s = RTS.createState();
+    s.playerFaction = 'aurex';
+    s.enemyFaction = 'cinder';
+    s.mapId = 'sapphire_shores';
+    s.timers.gameTime = 4.2;
+    RTS.buildMap(s, 'sapphire_shores');
+    return s;
+  }
+
+  function terrainSchematic(ctx, grid) {
+    var TILE = RTS.Terrain.TILE;
+    var WATER = RTS.Terrain.WATER;
+    var FLAT = RTS.Terrain.FLAT;
+    var cols = grid.cols, rows = grid.rows;
+    var cx, cy, h;
+    for (cy = 0; cy < rows; cy++) {
+      for (cx = 0; cx < cols; cx++) {
+        h = grid.heights[cx + cy * cols];
+        ctx.fillStyle = h === WATER ? '#1565c0' : (h === FLAT ? '#7cb342' : '#558b2f');
+        ctx.fillRect(cx * TILE, cy * TILE, TILE, TILE);
+      }
+    }
+  }
+
+  function bindExportCanvas(cv, s) {
+    RTS.canvas = cv;
+    s.camera = { x: 0, y: 0, zoom: 1, vx: 0, vy: 0, dragging: false, dragStart: null };
+  }
+
+  function renderFull(s, cv) {
+    bindExportCanvas(cv, s);
+    var ctx = cv.getContext('2d');
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    if (ctx.imageSmoothingQuality) ctx.imageSmoothingQuality = 'high';
+    ctx.fillStyle = '#2e7d32';
+    ctx.fillRect(0, 0, WW, WH);
+    RTS.Art.drawTerrain(s, ctx);
+    s.entities.resources.forEach(function (n) {
+      if (n.amount > 0) RTS.Art.drawResource(ctx, n);
+    });
+    s.entities.buildings.forEach(function (b) {
+      if (b.dead) return;
+      RTS.Art.drawBuilding(ctx, b, RTS.Factions[b.faction], s);
+    });
+  }
+
+  function drawSchematic(s, ctx) {
+    var map = s.map;
+    var def = map.terrainDef || {};
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#0d47a1';
+    ctx.fillRect(0, 0, WW, WH);
+
+    if (map.terrainGrid) terrainSchematic(ctx, map.terrainGrid);
+
+    (def.waterRects || []).forEach(function (r) {
+      ctx.fillStyle = 'rgba(13, 71, 161, 0.55)';
+      ctx.fillRect(r.x, r.y, r.w, r.h);
+      ctx.strokeStyle = 'rgba(100, 181, 246, 0.9)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(r.x, r.y, r.w, r.h);
+    });
+
+    if (def.path) {
+      var p = def.path;
+      ctx.strokeStyle = 'rgba(255, 224, 130, 0.95)';
+      ctx.lineWidth = 28;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(p.x0, p.y0);
+      ctx.bezierCurveTo(p.c1x, p.c1y, p.c2x, p.c2y, p.x1, p.y1);
+      ctx.stroke();
+    }
+
+    s.entities.resources.forEach(function (n) {
+      if (n.amount <= 0) return;
+      var home = n.amount >= 2700;
+      ctx.fillStyle = home ? '#ffd54f' : '#ffb300';
+      ctx.strokeStyle = '#5d4037';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, home ? 14 : 10, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    });
+
+    s.entities.buildings.forEach(function (b) {
+      if (b.dead) return;
+      var player = b.team === RTS.TEAM.PLAYER;
+      ctx.fillStyle = player ? 'rgba(66, 165, 245, 0.35)' : 'rgba(239, 83, 80, 0.35)';
+      ctx.strokeStyle = player ? '#42a5f5' : '#ef5350';
+      ctx.lineWidth = 3;
+      ctx.fillRect(b.x - b.w / 2, b.y - b.h / 2, b.w, b.h);
+      ctx.strokeRect(b.x - b.w / 2, b.y - b.h / 2, b.w, b.h);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 18px system-ui,sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(b.type, b.x, b.y + 6);
+    });
+
+    label(ctx, 'PLAYER CASTLE', 300, WH - 300, '#90caf9');
+    label(ctx, 'ENEMY CASTLE', WW - 300, 300, '#ef9a9a');
+    label(ctx, 'CENTRAL CONTEST', 1300, 900, '#fff59d');
+    label(ctx, 'NORTH NODE', 1280, 280, '#ffe082');
+    label(ctx, 'SOUTH NODE', 1280, WH - 280, '#ffe082');
+
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(12, WH - 52, 520, 40);
+    ctx.fillStyle = '#e3f2fd';
+    ctx.font = '14px system-ui,sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Blue = water channels · Yellow path = sandy lane · Dots = gold · Boxes = buildings', 20, WH - 26);
+  }
+
+  function label(ctx, text, x, y, color) {
+    ctx.font = 'bold 16px system-ui,sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(0,0,0,0.65)';
+    ctx.fillText(text, x + 1, y - 44);
+    ctx.fillStyle = color;
+    ctx.fillText(text, x, y - 45);
+  }
+
+  function layoutJson(s) {
+    var map = s.map;
+    var def = map.terrainDef || {};
+    return {
+      id: map.id,
+      name: map.name,
+      world: { w: WW, h: WH },
+      exportedAt: new Date().toISOString(),
+      legend: {
+        fullRender: 'Exact in-game terrain, decor, gold piles, and starting buildings (no units).',
+        schematic: 'Simplified layout — water rects, path, gold dots, building footprints for editing.',
+      },
+      terrainDef: def,
+      bases: s.entities.buildings.filter(function (b) { return !b.dead; }).map(function (b) {
+        return {
+          type: b.type,
+          team: b.team === RTS.TEAM.PLAYER ? 'player' : 'enemy',
+          faction: b.faction,
+          x: b.x, y: b.y, w: b.w, h: b.h,
+        };
+      }),
+      goldNodes: s.entities.resources.map(function (n) {
+        return { x: n.x, y: n.y, amount: n.amount };
+      }),
+      decorCount: (map.decor || []).length,
+    };
+  }
+
+  function downloadBlob(blob, filename) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+  }
+
+  function canvasToBlob(cv) {
+    return new Promise(function (resolve) {
+      cv.toBlob(function (b) { resolve(b); }, 'image/png');
+    });
+  }
+
+  function downloadJson(obj, filename) {
+    downloadBlob(new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' }), filename);
+  }
+
+  var state = null;
+  var exports = { full: null, schematic: null, json: null };
+
+  function enableButtons() {
+    ['btn-full', 'btn-schematic', 'btn-json', 'btn-all'].forEach(function (id) {
+      document.getElementById(id).disabled = false;
+    });
+  }
+
+  function runExport() {
+    state = buildState();
+    var cvFull = document.getElementById('cv-full');
+    var cvSch = document.getElementById('cv-schematic');
+
+    renderFull(state, cvFull);
+    drawSchematic(state, cvSch.getContext('2d'));
+    exports.json = layoutJson(state);
+
+    document.getElementById('status').textContent = 'Ready — download PNG + JSON below.';
+    enableButtons();
+    window.__exportReady = true;
+    window.__exportData = exports;
+  }
+
+  document.getElementById('btn-full').onclick = function () {
+    canvasToBlob(document.getElementById('cv-full')).then(function (b) {
+      downloadBlob(b, 'sapphire-shores-full.png');
+    });
+  };
+  document.getElementById('btn-schematic').onclick = function () {
+    canvasToBlob(document.getElementById('cv-schematic')).then(function (b) {
+      downloadBlob(b, 'sapphire-shores-schematic.png');
+    });
+  };
+  document.getElementById('btn-json').onclick = function () {
+    downloadJson(exports.json, 'sapphire-shores-layout.json');
+  };
+  document.getElementById('btn-all').onclick = function () {
+    document.getElementById('btn-full').click();
+    setTimeout(function () { document.getElementById('btn-schematic').click(); }, 300);
+    setTimeout(function () { document.getElementById('btn-json').click(); }, 600);
+  };
+
+  var params = new URLSearchParams(location.search);
+  if (params.get('auto') === '1') {
+    window.__autoDownload = true;
+  }
+
+  function uploadExport(name, blob) {
+    return fetch('/export-save/' + name, { method: 'POST', body: blob });
+  }
+
+  function autoSaveExports() {
+    var cvFull = document.getElementById('cv-full');
+    var cvSch = document.getElementById('cv-schematic');
+    Promise.all([
+      canvasToBlob(cvFull),
+      canvasToBlob(cvSch),
+    ]).then(function (blobs) {
+      return Promise.all([
+        uploadExport('sapphire-shores-full.png', blobs[0]),
+        uploadExport('sapphire-shores-schematic.png', blobs[1]),
+        uploadExport('sapphire-shores-layout.json', new Blob([JSON.stringify(exports.json, null, 2)], { type: 'application/json' })),
+      ]);
+    }).then(function () {
+      document.getElementById('status').textContent = 'Auto-export uploaded.';
+    }).catch(function (err) {
+      document.getElementById('status').textContent = 'Auto-export failed: ' + err;
+    });
+  }
+
+  RTS.Assets.load(function () {
+    if (RTS.Sprites) RTS.Sprites.load();
+    runExport();
+    if (window.__autoDownload) {
+      autoSaveExports();
+    }
+  });
+})();
+</script>
+</body>
+</html>

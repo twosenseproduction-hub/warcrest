@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#1565c0" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<title>EXOFRONT — Ashfen Basin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles/main.css" />
+</head>
+<body>
+<div id="app">
+
+  <!-- ===================== GAME LAYER ===================== -->
+  <canvas id="game" class="hidden"></canvas>
+
+  <!-- ===================== HUD ===================== -->
+  <div id="hud" class="hidden">
+    <header id="topbar">
+      <div class="tb-left">
+        <span id="faction-name" class="faction">Aurex Directive</span>
+      </div>
+      <div class="tb-res">
+        <span class="res"><i class="ic-halcite">⬡</i><span id="res-halcite" class="val">0</span></span>
+        <span class="res"><i class="ic-supply">▲</i><span id="res-supply" class="val">0/0</span></span>
+      </div>
+      <div class="tb-right">
+        <span id="timer" class="timer">0:00</span>
+        <button id="btn-pause" class="icon-btn" aria-label="Pause">⏸</button>
+      </div>
+    </header>
+
+    <div id="wave-timer" class="wave">Wave 1 in 70s</div>
+
+    <!-- Mobile quick commands (thumb zone) -->
+    <div id="mobile-rail">
+      <div class="rail-zoom">
+        <button class="rail-btn small" id="btn-rail-zoom-in" aria-label="Zoom in">＋</button>
+        <button class="rail-btn small" id="btn-rail-zoom-out" aria-label="Zoom out">－</button>
+      </div>
+      <button class="rail-btn" id="btn-rail-army" aria-label="Select army">⚑</button>
+      <button class="rail-btn" id="btn-rail-stop" aria-label="Stop">■</button>
+      <button class="rail-btn" id="btn-rail-atk" aria-label="Attack move">⌖</button>
+      <button class="rail-btn" id="btn-rail-base" aria-label="Center base">⌂</button>
+    </div>
+
+    <!-- Live contextual gesture hint -->
+    <div id="gesture-hint"></div>
+
+    <!-- Long-press attack-move ring (positioned by input.js) -->
+    <div id="long-press-ring" class="hidden"></div>
+
+    <div id="minimap-wrap" class="hidden">
+      <canvas id="minimap"></canvas>
+    </div>
+
+    <div id="event-log"></div>
+    <div id="toast"></div>
+
+    <div id="dock">
+      <div id="selpanel"></div>
+      <div id="action-tray"></div>
+    </div>
+  </div>
+
+  <!-- ===================== MAIN MENU ===================== -->
+  <section id="screen-menu" class="screen">
+    <div class="bg-grid"></div>
+    <div class="menu-inner">
+      <div class="logo">
+        <div class="logo-mark">◢◤</div>
+        <h1 class="logo-text">EXO<span>FRONT</span></h1>
+        <p class="logo-sub">Command the Ashfen Basin</p>
+      </div>
+      <div class="menu-buttons">
+        <button id="btn-play" class="big-btn primary">▶ Skirmish</button>
+        <button id="btn-howto" class="big-btn">How to Play</button>
+        <button id="btn-settings" class="big-btn">Settings</button>
+      </div>
+      <p class="menu-foot">A standalone single-player real-time strategy game. No accounts, no servers.</p>
+    </div>
+  </section>
+
+  <!-- ===================== FACTION SELECT ===================== -->
+  <section id="screen-faction" class="screen hidden">
+    <div class="bg-grid"></div>
+    <div class="faction-inner">
+      <h2 class="screen-title">Choose Your Faction</h2>
+      <p class="screen-sub">You lead one faction; the other defends the opposing base.</p>
+      <div class="faction-cards">
+        <button class="faction-card aurex" data-faction="aurex">
+          <div class="fc-emblem aurex-em">◈</div>
+          <h3>Aurex Directive</h3>
+          <div class="fc-tag">Precision · Order · Light</div>
+          <p>A disciplined high-tech order that wages war with clean geometry and
+             rail-fire. Fast to tech and brutal in formation.</p>
+          <div class="fc-traits"><span>Fast tech</span><span>Ranged focus</span></div>
+          <div class="fc-go">Lead the Directive →</div>
+        </button>
+        <button class="faction-card cinder" data-faction="cinder">
+          <div class="fc-emblem cinder-em">⛬</div>
+          <h3>Cinder Pact</h3>
+          <div class="fc-tag">Burn · Scavenge · Endure</div>
+          <p>A scavenger horde of bio-mechanical raiders welded from salvage and spite.
+             Slow to start, terrifying once the furnaces are lit.</p>
+          <div class="fc-traits"><span>Heavy armor</span><span>Attrition</span></div>
+          <div class="fc-go">Lead the Pact →</div>
+        </button>
+      </div>
+      <button id="btn-faction-back" class="text-btn">← Back</button>
+    </div>
+  </section>
+
+  <!-- ===================== HOW TO PLAY ===================== -->
+  <section id="screen-howto" class="screen hidden">
+    <div class="bg-grid"></div>
+    <div class="panel-inner">
+      <h2 class="screen-title">How to Play</h2>
+      <div class="howto-grid">
+        <div class="howto-card"><b>① Harvest</b><p>Tap a glowing gold pile — your nearest
+           Pawn mines it and hauls Halcite home automatically.</p></div>
+        <div class="howto-card"><b>② Train</b><p>Select your Castle to train Pawns,
+           or a Barracks / Archery to build combat units.</p></div>
+        <div class="howto-card"><b>③ Build</b><p>Select a Pawn, tap <i>Build</i>, choose a
+           structure, then tap a highlighted spot near your base.</p></div>
+        <div class="howto-card"><b>④ Command</b><p>Tap units to select. Double-tap empty
+           ground to grab your whole army. Tap ground to move, an enemy to attack.</p></div>
+        <div class="howto-card"><b>⑤ Attack-Move</b><p>Long-press the ground until the ring
+           fills (or arm <i>⌖</i> on the rail) to advance while engaging everything.</p></div>
+        <div class="howto-card"><b>⑥ Win</b><p>Hold off the Cinder waves and destroy the
+           enemy Castle to win. Lose your Castle and it's over.</p></div>
+      </div>
+      <p class="howto-tip">Drag empty ground to pan · pinch to zoom · thumb rail = zoom, army,
+         stop, attack-move, home · supply caps your army — build Conduits to raise it.</p>
+      <button id="btn-howto-back" class="big-btn">Back</button>
+    </div>
+  </section>
+
+  <!-- ===================== SETTINGS ===================== -->
+  <section id="screen-settings" class="screen hidden">
+    <div class="bg-grid"></div>
+    <div class="panel-inner">
+      <h2 class="screen-title">Settings</h2>
+      <div class="settings-list">
+        <label class="set-row"><span>Audio</span>
+          <input type="checkbox" id="set-audio" checked /></label>
+        <label class="set-row"><span>SFX Volume</span>
+          <input type="range" id="set-volume" min="0" max="1" step="0.05" value="0.5" /></label>
+        <label class="set-row"><span>Always show health bars</span>
+          <input type="checkbox" id="set-health" /></label>
+      </div>
+      <button id="btn-settings-back" class="big-btn">Back</button>
+    </div>
+  </section>
+
+  <!-- ===================== PAUSE ===================== -->
+  <div id="overlay-pause" class="overlay hidden">
+    <div class="overlay-card">
+      <h2>Paused</h2>
+      <button id="btn-resume" class="big-btn primary">Resume</button>
+      <button id="btn-pause-settings" class="big-btn">Settings</button>
+      <button id="btn-restart" class="big-btn">Restart Match</button>
+      <button id="btn-quit" class="big-btn">Quit to Menu</button>
+    </div>
+  </div>
+
+  <!-- ===================== END (WIN/LOSS) ===================== -->
+  <div id="overlay-end" class="overlay hidden">
+    <div class="overlay-card end-card">
+      <div id="end-icon" class="end-icon">★</div>
+      <h2 id="end-title">VICTORY</h2>
+      <p id="end-msg"></p>
+      <div id="end-stats" class="end-stats"></div>
+      <button id="btn-end-again" class="big-btn primary">Play Again</button>
+      <button id="btn-end-menu" class="big-btn">Main Menu</button>
+    </div>
+  </div>
+
+  <!-- ===================== ONBOARDING ===================== -->
+  <div id="overlay-onboard" class="overlay hidden">
+    <div class="overlay-card">
+      <h2>Welcome, Commander</h2>
+      <ul class="onboard-list">
+        <li><b>Mine:</b> tap a gold pile — your nearest Pawn handles it.</li>
+        <li><b>Army:</b> double-tap empty ground to select every fighter.</li>
+        <li><b>Attack-move:</b> long-press the ground until the ring fills.</li>
+        <li><b>Camera:</b> drag empty ground to pan · pinch to zoom.</li>
+        <li><b>Thumb rail:</b> ＋/－ zoom · ⚑ army · ■ stop · ⌖ attack-move · ⌂ home.</li>
+        <li><b>Defend:</b> a Cinder wave is coming — build up before it lands.</li>
+      </ul>
+      <button id="btn-onboard-go" class="big-btn primary">Got it — deploy</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ===================== SCRIPTS (load order matters) ===================== -->
+<script src="src/config.js"></script>
+<script src="src/state.js"></script>
+<script src="src/entities.js"></script>
+<script src="src/map.js"></script>
+<script src="src/commands.js"></script>
+<script src="src/audio.js"></script>
+<script src="src/art.js"></script>
+<script src="src/systems.js"></script>
+<script src="src/ai.js"></script>
+<script src="src/input.js"></script>
+<script src="src/render.js"></script>
+<script src="src/hud.js"></script>
+<script src="src/game.js"></script>
+</body>
+</html>
