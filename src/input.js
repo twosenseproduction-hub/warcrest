@@ -145,8 +145,11 @@
 
     // Friendly building → select + radial production menu
     if (hit && hit.kind === 'building' && hit.team === TEAM.PLAYER && !additive) {
-      RTS.select(s, hit.id, false);
+      s.selectedIds = [hit.id];
+      RTS.clearMacroGroups(s);
       if (RTS.BuildingMenu) RTS.BuildingMenu.open(s, hit);
+      RTS.refreshMode(s);
+      RTS.HUD.sync(s);
       RTS.Audio.play('click');
       haptic(6);
       return;
@@ -368,9 +371,8 @@
         var secondTap = isSecondTap(cssX, cssY) && s.inputMode !== 'place-building';
         clearPendingTap();
         var armyDouble = secondTap && isBareGround(hit) && lastTap.empty;
-        var buildingDouble = secondTap && isFriendlyBuilding(hit) && hit.id === lastTap.hitId;
-        var pawnDouble = secondTap && isFriendlyPawn(hit) &&
-          hit.id === lastTap.hitId && lastTap.hitKind === 'pawn';
+        var buildingDouble = secondTap && isFriendlyBuilding(hit) && lastTap.hitKind === 'building';
+        var pawnDouble = secondTap && isFriendlyPawn(hit) && lastTap.hitKind === 'pawn';
         s.ui.pointer = {
           cssX: cssX, cssY: cssY, startX: cssX, startY: cssY,
           wx: w.x, wy: w.y, moved: false, panning: false, boxing: false,
@@ -503,7 +505,9 @@
               t: now, x: cssX, y: cssY,
               empty: false,
               hitId: hitUp ? hitUp.id : null,
-              hitKind: hitUp && hitUp.kind === 'unit' && hitUp.role === 'pawn' ? 'pawn' : null,
+              hitKind: hitUp && hitUp.kind === 'unit' && hitUp.role === 'pawn' ? 'pawn'
+                : hitUp && hitUp.kind === 'building' && hitUp.team === TEAM.PLAYER && hitUp.built
+                  ? 'building' : null,
             };
             tapWorld(s, w.x, w.y, p.shift);
           }

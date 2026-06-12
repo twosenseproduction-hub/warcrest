@@ -248,17 +248,18 @@
       }
     }
 
-    /* Layer 2 — water foam on shores */
+    /* Layer 2 — foam under coastal land (offset up-left; not on water tiles) */
     if (foam) {
       for (cy = ty0; cy < ty1; cy++) {
         for (cx = tx0; cx < tx1; cx++) {
-          if (grid.heights[idx(cols, cx, cy)] !== WATER) continue;
-          n = isLand(heightAt(grid, cx, cy - 1));
-          e = isLand(heightAt(grid, cx + 1, cy));
-          ss = isLand(heightAt(grid, cx, cy + 1));
-          w = isLand(heightAt(grid, cx - 1, cy));
+          if (grid.heights[idx(cols, cx, cy)] !== FLAT) continue;
+          n = heightAt(grid, cx, cy - 1) === WATER;
+          e = heightAt(grid, cx + 1, cy) === WATER;
+          ss = heightAt(grid, cx, cy + 1) === WATER;
+          w = heightAt(grid, cx - 1, cy) === WATER;
           if (!n && !e && !ss && !w) continue;
-          dx = cx * TILE; dy = cy * TILE;
+          dx = cx * TILE - TILE;
+          dy = cy * TILE - TILE;
           var frame = ((cx * 17 + cy * 31 + (t * 6 | 0)) % 16 + 16) % 16;
           drawFoam(ctx, foam, frame, dx, dy, (cx + cy) % 2 === 0);
         }

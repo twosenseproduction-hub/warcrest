@@ -135,7 +135,7 @@ function main() {
   console.log('Enemy castle tile:', goal.row + ',' + goal.col, '(world', mg.enemyBase.x + ',' + mg.enemyBase.y + ')');
   console.log('Corridor tiles (expanded):', tz.corridorList().length);
   console.log('Forest wall tiles (expanded):', tz.forestList().length);
-  console.log('Mirroring: col_mirror = (cols-1) - col for tiles with col < cols/2');
+  console.log('Zones: symmetric_zones.json (pre-mirrored tile lists)');
   console.log('');
 
   var t1 = bfsReachable(grid.heights, grid.forestWall, grid.cols, grid.rows, start, goal);

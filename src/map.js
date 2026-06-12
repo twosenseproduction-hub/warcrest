@@ -62,41 +62,152 @@
     return { x: x, y: y };
   }
 
-  function shoreTrees(grid, seed, fillChance) {
-    fillChance = fillChance == null ? 0.12 : fillChance;
-    var rnd = mulberry(seed);
-    var out = [];
-    var cols = grid.cols;
-    var rows = grid.rows;
-    var TILE = RTS.Terrain.TILE;
-    var FLAT = RTS.Terrain.FLAT;
-    var WATER = RTS.Terrain.WATER;
+  function symCol(cols, col) {
+    return col < cols / 2 ? col : cols - 1 - col;
+  }
+
+  function symRnd(row, col, cols, seed) {
+    var h = ((row * 7919 + symCol(cols, col) * 104729 + seed) >>> 0);
+    return (h % 10000) / 10000;
+  }
+
+  function coastalDist(grid) {
+    var cols = grid.cols, rows = grid.rows;
+    var FLAT = RTS.Terrain.FLAT, WATER = RTS.Terrain.WATER;
     var heights = grid.heights;
-    var tz = RTS.TerraformZones;
-
-    function at(cx, cy) {
-      if (cx < 0 || cy < 0 || cx >= cols || cy >= rows) return WATER;
-      return heights[cx + cy * cols];
-    }
-
-    var cx, cy, nearWater, wx, wy;
+    var d = new Int8Array(cols * rows);
+    var i, cx, cy, di, ni, n, e, s, w;
+    for (i = 0; i < d.length; i++) d[i] = 99;
     for (cy = 0; cy < rows; cy++) {
       for (cx = 0; cx < cols; cx++) {
-        if (at(cx, cy) !== FLAT) continue;
+        if (heights[cx + cy * cols] !== FLAT) continue;
+        n = cy > 0 && heights[cx + (cy - 1) * cols] === WATER;
+        e = cx < cols - 1 && heights[cx + 1 + cy * cols] === WATER;
+        s = cy < rows - 1 && heights[cx + (cy + 1) * cols] === WATER;
+        w = cx > 0 && heights[cx - 1 + cy * cols] === WATER;
+        if (n || e || s || w) d[cx + cy * cols] = 1;
+      }
+    }
+    for (di = 0; di < 2; di++) {
+      for (cy = 0; cy < rows; cy++) {
+        for (cx = 0; cx < cols; cx++) {
+          ni = cx + cy * cols;
+          if (d[ni] !== 99) continue;
+          if (heights[ni] !== FLAT) continue;
+          n = cy > 0 && d[cx + (cy - 1) * cols] === 1;
+          e = cx < cols - 1 && d[cx + 1 + cy * cols] === 1;
+          s = cy < rows - 1 && d[cx + (cy + 1) * cols] === 1;
+          w = cx > 0 && d[cx - 1 + cy * cols] === 1;
+          if (n || e || s || w) d[ni] = 2;
+        }
+      }
+    }
+    return d;
+  }
+
+  function nearWorldPoint(wx, wy, spots, tileRadius) {
+    if (!spots || !spots.length) return false;
+    var TILE = RTS.Terrain.TILE;
+    var r = (tileRadius != null ? tileRadius : 5) * TILE;
+    for (var i = 0; i < spots.length; i++) {
+      if (RTS.dist(wx, wy, spots[i].x, spots[i].y) < r) return true;
+    }
+    return false;
+  }
+
+  function coastalRingTrees(grid, seed, avoid) {
+    var cols = grid.cols, rows = grid.rows;
+    var TILE = RTS.Terrain.TILE;
+    var FLAT = RTS.Terrain.FLAT;
+    var heights = grid.heights;
+    var tz = RTS.TerraformZones;
+    var dist = coastalDist(grid);
+    var out = [];
+    var cx, cy, cd, chance, wx, wy, r;
+
+    for (cy = 0; cy < rows; cy++) {
+      for (cx = 0; cx < cols; cx++) {
+        if (heights[cx + cy * cols] !== FLAT) continue;
+        if (tz && tz.isForestWallTile(cy, cx)) continue;
         if (tz && tz.isAdjacentToCorridor(cy, cx)) continue;
-        nearWater = at(cx, cy - 1) === WATER || at(cx + 1, cy) === WATER ||
-          at(cx, cy + 1) === WATER || at(cx - 1, cy) === WATER;
-        if (!nearWater) continue;
-        if (rnd() > fillChance) continue;
-        wx = cx * TILE + TILE * (0.15 + rnd() * 0.7);
-        wy = cy * TILE + TILE * (0.15 + rnd() * 0.7);
+        cd = dist[cx + cy * cols];
+        if (cd === 1) chance = 0.9;
+        else if (cd === 2) chance = 0.55;
+        else continue;
+        r = symRnd(cy, cx, cols, seed || 4207);
+        if (r > chance) continue;
+        wx = cx * TILE + TILE * (0.15 + symRnd(cy, cx, cols, (seed || 4207) + 17) * 0.7);
+        wy = cy * TILE + TILE * (0.15 + symRnd(cy, cx, cols, (seed || 4207) + 31) * 0.7);
         if (tz && tz.decorOnCorridor(wx, wy, TILE)) continue;
+        if (nearWorldPoint(wx, wy, avoid, 5)) continue;
         out.push({
           x: wx,
           y: wy,
-          r: RTS.SizeRef.decorWorldR('tree') * (0.8 + rnd() * 0.55),
+          r: RTS.SizeRef.decorWorldR('tree') * (0.8 + symRnd(cy, cx, cols, (seed || 4207) + 53) * 0.55),
           kind: 'tree',
         });
+      }
+    }
+    return out;
+  }
+
+  function shoreTrees(grid, seed, fillChance) {
+    return coastalRingTrees(grid, seed, null);
+  }
+
+  function waterDeepRocks(grid, seed, avoid) {
+    var cols = grid.cols, rows = grid.rows;
+    var TILE = RTS.Terrain.TILE;
+    var WATER = RTS.Terrain.WATER;
+    var heights = grid.heights;
+    var dist = new Int8Array(cols * rows);
+    var i, cx, cy, qi, qj, nr, nc, ni, key, seen, queue, dirs;
+    for (i = 0; i < dist.length; i++) dist[i] = -1;
+    queue = [];
+    for (cy = 0; cy < rows; cy++) {
+      for (cx = 0; cx < cols; cx++) {
+        if (heights[cx + cy * cols] !== WATER) continue;
+        dirs = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+        for (qi = 0; qi < 4; qi++) {
+          nr = cy + dirs[qi][0]; nc = cx + dirs[qi][1];
+          if (nr < 0 || nc < 0 || nr >= rows || nc >= cols) continue;
+          if (heights[nc + nr * cols] >= RTS.Terrain.FLAT) {
+            ni = cx + cy * cols;
+            if (dist[ni] < 0) { dist[ni] = 0; queue.push([cx, cy]); }
+            break;
+          }
+        }
+      }
+    }
+    seen = {};
+    while (queue.length) {
+      var cur = queue.shift();
+      cx = cur[0]; cy = cur[1];
+      ni = cx + cy * cols;
+      for (qi = 0; qi < 4; qi++) {
+        nr = cy + [[0, -1], [1, 0], [0, 1], [-1, 0]][qi][0];
+        nc = cx + [[0, -1], [1, 0], [0, 1], [-1, 0]][qi][1];
+        if (nr < 0 || nc < 0 || nr >= rows || nc >= cols) continue;
+        key = nc + ',' + nr;
+        if (seen[key]) continue;
+        if (heights[nc + nr * cols] !== WATER) continue;
+        seen[key] = true;
+        dist[nc + nr * cols] = dist[ni] + 1;
+        queue.push([nc, nr]);
+      }
+    }
+    var out = [];
+    var rnd = mulberry(seed || 9105);
+    for (cy = 0; cy < rows; cy++) {
+      for (cx = 0; cx < cols; cx++) {
+        ni = cx + cy * cols;
+        if (heights[ni] !== WATER) continue;
+        if (dist[ni] < 1) continue;
+        if (symRnd(cy, cx, cols, seed || 9105) > 0.08) continue;
+        var wx = cx * TILE + TILE * (0.2 + symRnd(cy, cx, cols, (seed || 9105) + 7) * 0.6);
+        var wy = cy * TILE + TILE * (0.2 + symRnd(cy, cx, cols, (seed || 9105) + 11) * 0.6);
+        if (!clearOfPoints(wx, wy, avoid, 48)) continue;
+        out.push({ x: wx, y: wy, r: decorR('rock', rnd), kind: 'rock' });
       }
     }
     return out;
@@ -191,20 +302,24 @@
 
   function forestWallTrees(grid, seed) {
     var tz = RTS.TerraformZones;
-    if (!tz || !grid || !grid.forestWall) return [];
-    var rnd = mulberry(seed || 8801);
+    if (!grid || !grid.forestWall) return [];
+    seed = seed || 8801;
     var out = [];
     var cols = grid.cols, rows = grid.rows, TILE = RTS.Terrain.TILE;
     var baseR = RTS.SizeRef.decorWorldR('tree', 0);
-    var row, col, pos;
+    var row, col, sc, jx, jy, x, y;
     for (row = 0; row < rows; row++) {
       for (col = 0; col < cols; col++) {
         if (!grid.forestWall[col + row * cols]) continue;
-        pos = coniferJitterXY(col, row, TILE, rnd);
+        sc = symCol(cols, col);
+        jx = Math.floor(symRnd(row, sc, cols, seed) * 17) - 8;
+        jy = Math.floor(symRnd(row, sc, cols, seed + 11) * 17) - 8;
+        x = col * TILE + TILE * 0.5 + jx;
+        y = (row + 1) * TILE - 8 + jy;
         out.push({
-          x: pos.x,
-          y: pos.y,
-          r: baseR * (0.95 + rnd() * 0.2),
+          x: x,
+          y: y,
+          r: baseR * (0.95 + symRnd(row, sc, cols, seed + 23) * 0.2),
           kind: 'tree',
           forestWall: true,
           tileRow: row,
@@ -244,7 +359,10 @@
     if (meta.terrainDef && RTS.Terrain) {
       meta.terrainGrid = RTS.Terrain.buildGrid(meta.w, meta.h, meta.terrainDef);
       var avoid = meta.avoidDecor || [];
-      if (meta.mapgenForest && RTS.SapphireMapgen) {
+      if (meta.coastalRing) {
+        meta.decor = (meta.decor || []).concat(
+          coastalRingTrees(meta.terrainGrid, meta.shoreSeed, avoid));
+      } else if (meta.mapgenForest && RTS.SapphireMapgen) {
         meta.decor = (meta.decor || []).concat(forestFromMapgen(RTS.SapphireMapgen, avoid));
       } else {
         if (meta.shoreSeed != null) {
@@ -256,7 +374,10 @@
             interiorForest(meta.terrainGrid, meta.forestSeed, meta.forestCount || 90, avoid));
         }
       }
-      if (meta.mapgenRocks && RTS.SapphireMapgen && RTS.SapphireMapgen.rocks) {
+      if (meta.waterRocks) {
+        meta.decor = (meta.decor || []).concat(
+          waterDeepRocks(meta.terrainGrid, meta.rockSeed, avoid));
+      } else if (meta.mapgenRocks && RTS.SapphireMapgen && RTS.SapphireMapgen.rocks) {
         meta.decor = (meta.decor || []).concat(rocksFromList(RTS.SapphireMapgen.rocks, avoid));
       } else if (meta.rockSeed != null) {
         meta.decor = (meta.decor || []).concat(
@@ -283,6 +404,7 @@
     var rallyDy = opts.rallyDy != null ? opts.rallyDy : (isEnemy ? 40 : -40);
     core.rally = { x: cx + rallyDx, y: cy + rallyDy };
     core.autoMine = true;
+    if (opts.conduit) RTS.makeBuilding(s, 'conduit', team, opts.conduit.x, opts.conduit.y, faction, true);
     if (opts.foundry) RTS.makeBuilding(s, 'foundry', team, opts.foundry.x, opts.foundry.y, faction, true);
     if (opts.forge) RTS.makeBuilding(s, 'forge', team, opts.forge.x, opts.forge.y, faction, true);
     var workers = opts.workers != null ? opts.workers : 0;
@@ -303,12 +425,22 @@
     var px = mg.playerBase.x, py = mg.playerBase.y;
     var ex = mg.enemyBase.x, ey = mg.enemyBase.y;
 
-    spawnBase(s, RTS.TEAM.PLAYER, px, py, pf, false, { rallyDx: 130, rallyDy: 90 });
-    spawnBase(s, RTS.TEAM.ENEMY, ex, ey, ef, true, { rallyDx: -130, rallyDy: 90 });
+    spawnBase(s, RTS.TEAM.PLAYER, px, py, pf, false, {
+      rallyDx: 130, rallyDy: 90,
+      conduit: { x: px - 96, y: py + 48 },
+      forge: { x: px + 96, y: py + 48 },
+    });
+    spawnBase(s, RTS.TEAM.ENEMY, ex, ey, ef, true, {
+      rallyDx: -130, rallyDy: 90,
+      conduit: { x: ex + 96, y: py + 48 },
+      foundry: { x: ex - 96, y: py + 48 },
+    });
 
     mg.gold.forEach(function (g) { mine(s, g.x, g.y, g.amount); });
 
     var decorAvoid = [{ x: px, y: py }, { x: ex, y: ey }];
+    decorAvoid.push({ x: px - 96, y: py + 48 }, { x: px + 96, y: py + 48 });
+    decorAvoid.push({ x: ex + 96, y: py + 48 }, { x: ex - 96, y: py + 48 });
     mg.gold.forEach(function (g) { decorAvoid.push({ x: g.x, y: g.y }); });
 
     finishMap(s, {
@@ -319,8 +451,10 @@
       h: mg.world.h,
       decor: [],
       avoidDecor: decorAvoid,
-      mapgenForest: true,
-      mapgenRocks: true,
+      coastalRing: true,
+      shoreSeed: 4207,
+      waterRocks: true,
+      rockSeed: 9105,
       terrainDef: {
         theme: 'grass',
         tileset: 'color1',

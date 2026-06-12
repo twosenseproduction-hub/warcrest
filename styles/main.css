@@ -449,12 +449,15 @@ html, body {
   flex-shrink: 0;
 }
 .map-tool-btn img { width: 26px; height: 26px; object-fit: contain; }
-.pawn-tool-icon {
+.pawn-select-portrait {
+  display: flex; align-items: center; justify-content: center;
   width: 30px; height: 30px;
-  object-fit: none;
-  object-position: left center;
 }
-.thumb-btn .pawn-tool-icon { width: 28px; height: 28px; }
+.thumb-btn .pawn-select-portrait { width: 28px; height: 28px; }
+.pawn-select-portrait .ts-avatar-portrait {
+  width: 100% !important; height: 100% !important;
+  object-fit: contain; image-rendering: pixelated;
+}
 .map-tool-btn.active {
   box-shadow: 0 0 14px rgba(255, 193, 7, 0.5), 0 4px 12px rgba(0, 0, 0, 0.45);
   filter: brightness(1.1);
@@ -565,8 +568,9 @@ html, body {
   opacity: 1; padding-top: 6px;
   padding-left: max(8px, env(safe-area-inset-left));
   padding-right: max(8px, env(safe-area-inset-right));
-  pointer-events: auto;
+  pointer-events: none;
 }
+#command-deck.expanded > * { pointer-events: auto; }
 @media (min-width: 520px) { :root { --deck-expanded-h: 104px; --cmd-btn: 48px; } }
 
 #selpanel {

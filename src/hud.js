@@ -117,6 +117,7 @@
         D['btn-build-hammer'].setAttribute('aria-expanded', s.ui.buildPanelOpen ? 'true' : 'false');
       }
       renderBuildPanel(s);
+      syncPawnSelectButtons(s);
       updateLayout(s);
       updateGestureHint(s);
       renderSelPanel(s);
@@ -168,12 +169,12 @@
 
   function deckOpen(s) {
     if (s.inputMode === 'place-building') return true;
-    return RTS.selectedUnits(s).length > 0;
+    return RTS.selectedUnits(s).length > 0 || RTS.selectedBuildings(s).length > 0;
   }
 
   function thumbOpen(s) {
     if (s.inputMode === 'place-building') return false;
-    return RTS.selectedUnits(s).length > 0;
+    return RTS.selectedUnits(s).length > 0 || RTS.selectedBuildings(s).length > 0;
   }
 
   function updateLayout(s) {
@@ -205,6 +206,31 @@
     el.classList.toggle('hidden', !show);
     el.classList.toggle('attack', !!s.attackMoveArmed);
     el.classList.toggle('place', s.inputMode === 'place-building');
+  }
+
+  function syncPawnSelectButtons(s) {
+    var fid = s.playerFaction || 'aurex';
+    var html = UI().avatarPortraitHtml(fid, 'pawn', 28);
+    ['btn-select-pawns', 'btn-rail-pawns'].forEach(function (id) {
+      var el = D[id];
+      if (!el) return;
+      var slot = el.querySelector('.pawn-select-portrait');
+      if (slot) slot.innerHTML = html;
+    });
+  }
+
+  function renderBuildingQueue(s, b) {
+    if (!b.built || !b.queue || !b.queue.length) return '';
+    var fid = s.playerFaction || 'aurex';
+    var chips = b.queue.map(function (job, i) {
+      var pct = job.total ? Math.max(0, Math.min(1, 1 - job.remaining / job.total)) : 0;
+      var active = i === 0;
+      return '<span class="qchip' + (active ? ' active' : '') + '">' +
+        UI().avatarPortraitHtml(fid, job.role, 18) +
+        (active ? '<span class="qtime">' + Math.ceil(job.remaining) + 's</span>' : '') +
+        '<span class="qprog"><i style="width:' + (pct * 100) + '%"></i></span></span>';
+    }).join('');
+    return '<div class="sel-queue">' + chips + '</div>';
   }
 
   function selPortrait(s, kind, isBuilding) {
@@ -280,12 +306,14 @@
     }
 
     if (blds.length === 1 && !units.length) {
-      if (RTS.BuildingMenu && RTS.BuildingMenu.isOpen()) return;
       var b = blds[0];
       var portraitKey = b.type === 'outpost' ? 'outpost' : b.type;
+      var queueHtml = renderBuildingQueue(s, b);
+      if (queueHtml) p.classList.add('has-queue');
       p.innerHTML = selPortrait(s, portraitKey, true) + '<div class="sel-body">' +
         '<div class="sel-title">' + RTS.nameFor(b.faction, b.type) + '</div>' +
         bar(b.hp, b.maxHp) +
+        queueHtml +
         (!b.built ? '<div class="sel-line">' + Math.floor(b.progress * 100) +
           '% · hold to send Pawn</div>' :
           '<div class="sel-line">Hold ground → rally</div>') +
