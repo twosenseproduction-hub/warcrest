@@ -283,7 +283,7 @@
     var rallyDx = opts.rallyDx != null ? opts.rallyDx : (isEnemy ? -130 : 130);
     var rallyDy = opts.rallyDy != null ? opts.rallyDy : (isEnemy ? 40 : -40);
     core.rally = { x: cx + rallyDx, y: cy + rallyDy };
-    if (!isEnemy) core.autoMine = true;
+    core.autoMine = true;
     if (opts.foundry) RTS.makeBuilding(s, 'foundry', team, opts.foundry.x, opts.foundry.y, faction, true);
     if (opts.forge) RTS.makeBuilding(s, 'forge', team, opts.forge.x, opts.forge.y, faction, true);
     var workers = opts.workers != null ? opts.workers : 0;

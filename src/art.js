@@ -992,7 +992,7 @@
   RTS.Art.unitAnim = unitAnim;
   RTS.Art.drawShadow = drawShadow;
 
-  function drawUnitOverlays(ctx, u, f, s, r, pal, vb) {
+  function drawUnitOverlays(ctx, u, f, s, r, pal, vb, spriteNative) {
     var topY = vb ? vb.drawY - 6 : u.y - r - 14;
     var drawSpriteBar = RTS.Assets && typeof RTS.Assets.drawSpriteHealthBar === 'function';
     if (u.role === 'pawn' && u.harvest && u.harvest.carry > 0) {
@@ -1004,7 +1004,7 @@
       ctx.fillStyle = '#ffc107';
       ctx.fillText('+' + Math.floor(u.harvest.carry), u.x, topY - 2);
     }
-    if (u.muzzleFlash > 0 && u.ranged) {
+    if (!spriteNative && u.muzzleFlash > 0 && u.ranged) {
       var mx = u.x + Math.cos(u.facing) * (r + 8);
       var my = (vb ? vb.bodyCy : u.y) + Math.sin(u.facing) * (r + 8);
       var ma = u.muzzleFlash / RTS.Config.muzzleFlash;
@@ -1015,7 +1015,7 @@
       pCircle(ctx, mx, my, 4);
       ctx.fill();
     }
-    if (u.hitFlash > 0) {
+    if (!spriteNative && u.hitFlash > 0) {
       ctx.fillStyle = hexA('#ffffff', (u.hitFlash / RTS.Config.hitFlash) * 0.35);
       var hx = u.x;
       var hy = vb ? vb.bodyCy : u.y - r * 0.15;
@@ -1042,7 +1042,8 @@
     var rm = RTS.Config.reducedMotion;
     if (u.dead) { deathBurst(ctx, u, f); return; }
 
-    var r = u.radius * (1 + u.spawnFlash * 0.28);
+    var visMul = RTS.SizeRef ? RTS.SizeRef.UNIT_VISUAL_SCALE : 1;
+    var r = u.radius * visMul * (1 + u.spawnFlash * 0.28);
     var moved = u._ax !== undefined &&
       (Math.abs(u.x - u._ax) + Math.abs(u.y - u._ay)) > 0.35;
     u._ax = u.x; u._ay = u.y;

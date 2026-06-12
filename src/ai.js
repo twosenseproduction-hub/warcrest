@@ -55,6 +55,153 @@
     });
   }
 
+  function enemyOutposts(s) {
+    return s.entities.buildings.filter(function (b) {
+      return b.team === TEAM.ENEMY && !b.dead && b.type === 'outpost';
+    });
+  }
+
+  function teamDeposits(s, team) {
+    return s.entities.buildings.filter(function (b) {
+      return b.team === team && !b.dead && b.built &&
+        (b.type === 'core' || b.type === 'outpost') &&
+        RTS.Buildings[b.type].deposit;
+    });
+  }
+
+  function nearestDepositTo(s, x, y, team) {
+    var best = null, bd = Infinity;
+    teamDeposits(s, team).forEach(function (b) {
+      var d = RTS.dist(x, y, b.x, b.y);
+      if (d < bd) { bd = d; best = b; }
+    });
+    return best;
+  }
+
+  function nearestNodeForDeposit(s, dep) {
+    var ax = dep.rally ? dep.rally.x : dep.x;
+    var ay = dep.rally ? dep.rally.y : dep.y;
+    var best = null, bd = Infinity;
+    s.entities.resources.forEach(function (n) {
+      if (n.amount <= 0) return;
+      var d = RTS.dist(ax, ay, n.x, n.y);
+      if (d < bd) { bd = d; best = n; }
+    });
+    return best;
+  }
+
+  function homeGoldNode(s, core) {
+    var best = null, bd = Infinity;
+    s.entities.resources.forEach(function (n) {
+      var d = RTS.dist(core.x, core.y, n.x, n.y);
+      if (d < bd) { bd = d; best = n; }
+    });
+    return best;
+  }
+
+  function homeGoldDepleted(s, core) {
+    var home = homeGoldNode(s, core);
+    return !home || home.amount < 500;
+  }
+
+  function nodeServedByDeposit(s, team, node) {
+    var serveR = RTS.Config.harvest.depositReach + (node.r || 0) + 60;
+    return teamDeposits(s, team).some(function (b) {
+      return RTS.dist(b.x, b.y, node.x, node.y) < serveR;
+    });
+  }
+
+  function findExpansionNode(s, team) {
+    var core = RTS.enemyCore(s);
+    if (!core) return null;
+    var pcore = RTS.playerCore(s);
+    var best = null, bestScore = -Infinity;
+    s.entities.resources.forEach(function (n) {
+      if (n.amount < 800) return;
+      if (nodeServedByDeposit(s, team, n)) return;
+      var dCore = RTS.dist(core.x, core.y, n.x, n.y);
+      var dPlayer = pcore ? RTS.dist(pcore.x, pcore.y, n.x, n.y) : 0;
+      var score = n.amount - dCore * 0.25 - dPlayer * 0.08;
+      if (score > bestScore) { bestScore = score; best = n; }
+    });
+    return best;
+  }
+
+  function aiCanPlaceOutpost(s, x, y, node, team) {
+    team = team || TEAM.ENEMY;
+    var spec = RTS.Buildings.outpost;
+    var hw = spec.w / 2, hh = spec.h / 2;
+    var W = RTS.Config.world.w, H = RTS.Config.world.h;
+    if (x - hw < 20 || x + hw > W - 20 || y - hh < 20 || y + hh > H - 20) return false;
+
+    var ok = true;
+    s.entities.buildings.forEach(function (b) {
+      if (b.dead) return;
+      var ox = Math.abs(b.x - x), oy = Math.abs(b.y - y);
+      if (ox < (b.w / 2 + hw + 14) && oy < (b.h / 2 + hh + 14)) ok = false;
+    });
+    if (!ok) return false;
+
+    for (var j = 0; j < s.entities.resources.length; j++) {
+      var res = s.entities.resources[j];
+      if (RTS.dist(x, y, res.x, res.y) < res.r + Math.max(hw, hh) + 10) return false;
+    }
+
+    var pad = Math.max(hw, hh) + 12;
+    var ringD = RTS.dist(x, y, node.x, node.y);
+    if (ringD < node.r + pad || ringD > node.r + 210) return false;
+
+    return !s.entities.buildings.some(function (b) {
+      if (b.dead || b.team !== team) return false;
+      if (b.type !== 'core' && b.type !== 'outpost') return false;
+      return RTS.dist(x, y, b.x, b.y) < 340;
+    });
+  }
+
+  function aiPlaceOutpost(s, x, y, node) {
+    if (!aiCanPlaceOutpost(s, x, y, node, TEAM.ENEMY)) return false;
+    var cost = RTS.Buildings.outpost.cost;
+    if (!RTS.canAfford(s, TEAM.ENEMY, cost)) return false;
+    s.res.enemy.halcite -= cost;
+    var b = RTS.makeBuilding(s, 'outpost', TEAM.ENEMY, x, y, s.enemyFaction, false);
+    b.rally = { x: node.x, y: node.y };
+    b.autoMine = true;
+    if (RTS.Pathfind) RTS.Pathfind.markDirty(s);
+    var workers = enemyUnits(s, 'pawn').filter(function (w) {
+      return !w.harvest && !w.buildTask && !w.moveTo && !w.target;
+    });
+    if (workers.length) {
+      workers.sort(function (a, c) { return RTS.dist(a.x, a.y, x, y) - RTS.dist(c.x, c.y, x, y); });
+      var w = workers[0];
+      w.harvest = null; w.target = null; w.moveTo = null;
+      w.buildTask = { buildingId: b.id };
+      w._workPhase = 0;
+      if (RTS.Pathfind) RTS.Pathfind.clearNav(w);
+    }
+    return true;
+  }
+
+  function tryAiBuildOutpost(s, node) {
+    if (!node) return false;
+    var spec = RTS.Buildings.outpost;
+    var hw = spec.w / 2, hh = spec.h / 2;
+    var pad = Math.max(hw, hh) + 12;
+    for (var ring = 0; ring < 4; ring++) {
+      var ringDist = node.r + pad + ring * 36;
+      if (ringDist > node.r + 210) break;
+      for (var a = 0; a < 16; a++) {
+        var ang = (a / 16) * Math.PI * 2;
+        var x = node.x + Math.cos(ang) * ringDist;
+        var y = node.y + Math.sin(ang) * ringDist;
+        if (aiPlaceOutpost(s, x, y, node)) {
+          RTS.log(s, 'Enemy raising an Outpost at a new Halcite field', 'warn');
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   function aiCanPlace(s, type, x, y) {
     var spec = RTS.Buildings[type];
     var hw = spec.w / 2, hh = spec.h / 2;
@@ -145,14 +292,26 @@
         RTS.canAfford(s, TEAM.ENEMY, RTS.Buildings.forge.cost)) {
       tryAiBuild(s, 'forge');
     }
+
+    // Expand to a fresh gold field when the home pile runs low
+    if (homeGoldDepleted(s, core) &&
+        enemyOutposts(s).length < 2 &&
+        !enemyBuildingAny(s, 'outpost') &&
+        workers >= 2 &&
+        s.timers.gameTime > 30 &&
+        RTS.canAfford(s, TEAM.ENEMY, RTS.Buildings.outpost.cost)) {
+      var expandNode = findExpansionNode(s, TEAM.ENEMY);
+      if (expandNode) tryAiBuildOutpost(s, expandNode);
+    }
   }
 
   function assignWorkers(s) {
     enemyUnits(s, 'pawn').forEach(function (w) {
-      if (!w.harvest && !w.buildTask) {
-        var node = RTS.nearestNode(s, w.x, w.y);
-        if (node) w.harvest = { nodeId: node.id, phase: 'toNode', carry: 0 };
-      }
+      if (w.harvest || w.buildTask) return;
+      var dep = nearestDepositTo(s, w.x, w.y, TEAM.ENEMY);
+      if (!dep) return;
+      var node = nearestNodeForDeposit(s, dep);
+      if (node) w.harvest = { nodeId: node.id, phase: 'toNode', carry: 0 };
     });
   }
 

@@ -1,6 +1,6 @@
 /* ============================================================================
  * EXOFRONT — sprites.js
- * Tiny Swords kingdom humans — Blue vs Red. Animations follow each unit type.
+ * Tiny Swords kingdom humans — Blue vs Red. Combat uses one-shot attack clips.
  * ==========================================================================*/
 (function (RTS) {
   'use strict';
@@ -23,7 +23,11 @@
       clips: {
         idle: { file: 'Lancer_Idle.png', count: 12, speed: 2.2 },
         walk: { file: 'Lancer_Run.png', count: 6, speed: 10 },
-        attack: { file: 'Lancer_Right_Attack.png', count: 3, speed: 10 },
+        attack_r: { file: 'Lancer_Right_Attack.png', count: 3, fps: 14, impactFrame: 1 },
+        attack_ur: { file: 'Lancer_UpRight_Attack.png', count: 3, fps: 14, impactFrame: 1 },
+        attack_u: { file: 'Lancer_Up_Attack.png', count: 3, fps: 14, impactFrame: 1 },
+        attack_dr: { file: 'Lancer_DownRight_Attack.png', count: 3, fps: 14, impactFrame: 1 },
+        attack_d: { file: 'Lancer_Down_Attack.png', count: 3, fps: 14, impactFrame: 1 },
       },
     },
     archer: {
@@ -31,7 +35,7 @@
       clips: {
         idle: { file: 'Archer_Idle.png', count: 6, speed: 2.2 },
         walk: { file: 'Archer_Run.png', count: 4, speed: 9 },
-        attack: { file: 'Archer_Shoot.png', count: 8, speed: 12 },
+        attack: { file: 'Archer_Shoot.png', count: 8, fps: 14, releaseFrame: 5 },
       },
     },
     monk: {
@@ -39,7 +43,8 @@
       clips: {
         idle: { file: 'Idle.png', count: 6, speed: 2.2 },
         walk: { file: 'Run.png', count: 4, speed: 9 },
-        attack: { file: 'Heal.png', count: 11, speed: 10 },
+        attack: { file: 'Heal.png', count: 11, fps: 10, releaseFrame: 5 },
+        heal_effect: { file: 'Heal_Effect.png', count: 11, fps: 10 },
       },
     },
     warrior: {
@@ -47,7 +52,9 @@
       clips: {
         idle: { file: 'Warrior_Idle.png', count: 8, speed: 2.0 },
         walk: { file: 'Warrior_Run.png', count: 6, speed: 8 },
-        attack: { file: 'Warrior_Attack1.png', count: 4, speed: 12 },
+        guard: { file: 'Warrior_Guard.png', count: 6, speed: 2.0 },
+        attack: { file: 'Warrior_Attack1.png', count: 4, fps: 12, impactFrame: 2 },
+        attack2: { file: 'Warrior_Attack2.png', count: 4, fps: 12, impactFrame: 2 },
       },
     },
   };
@@ -59,6 +66,14 @@
     return (h % 997) / 997 * 6.2832;
   }
 
+  function clipFps(clip) {
+    return clip.fps || clip.speed || 10;
+  }
+
+  function clipDuration(clip) {
+    return clip.count / clipFps(clip);
+  }
+
   function unitPath(factionId, role, file) {
     var def = ROLE_DEF[role];
     var color = RTS.Assets.factionColor(factionId);
@@ -68,7 +83,6 @@
   function loadRoleSheet(factionId, role) {
     var def = ROLE_DEF[role];
     if (!def) return Promise.resolve(null);
-    var key = factionId + '_' + role;
     var clipKeys = Object.keys(def.clips);
     var promises = clipKeys.map(function (ck) {
       var clip = def.clips[ck];
@@ -89,23 +103,24 @@
           img: p.img,
           count: p.meta.count,
           speed: p.meta.speed,
+          fps: p.meta.fps,
+          releaseFrame: p.meta.releaseFrame,
+          impactFrame: p.meta.impactFrame,
           frameW: fw,
         };
         entry.frameW = fw;
       });
-      sheets[key] = entry;
+      sheets[factionId + '_' + role] = entry;
       return entry;
     });
   }
 
-  function sizeRef() {
-    return RTS.SizeRef;
-  }
+  function sizeRef() { return RTS.SizeRef; }
 
   function unitDrawRadius(u) {
     var sr = sizeRef();
-    var flash = 1 + (u.spawnFlash || 0) * 0.28;
-    return sr.pxRadius(sr.unitLol(u.role)) * flash;
+    return sr.pxRadius(sr.unitLol(u.role)) * sr.UNIT_VISUAL_SCALE *
+      (1 + (u.spawnFlash || 0) * 0.28);
   }
 
   function unitVisualMul(u, sheet) {
@@ -117,6 +132,49 @@
 
   function unitDrawHeight(r, u, sheet) {
     return r * sizeRef().HEIGHT_MUL * unitVisualMul(u, sheet);
+  }
+
+  function mirroredAngle(facing) {
+    if (Math.cos(facing) < -0.12) return Math.PI - facing;
+    return facing;
+  }
+
+  function lancerAttackKey(facing) {
+    var deg = mirroredAngle(facing) * 180 / Math.PI;
+    if (deg >= -22.5 && deg < 22.5) return 'attack_r';
+    if (deg >= 22.5 && deg < 67.5) return 'attack_dr';
+    if (deg >= 67.5) return 'attack_d';
+    if (deg >= -67.5 && deg < -22.5) return 'attack_ur';
+    return 'attack_u';
+  }
+
+  function isAttackClipKey(key) {
+    return key === 'attack' || key === 'attack2' ||
+      key.indexOf('attack_') === 0;
+  }
+
+  function resolveAttackKey(u, sheet) {
+    if (u.role === 'lancer') return lancerAttackKey(u.facing);
+    if (u.role === 'warrior') return u._attackVariant === 2 ? 'attack2' : 'attack';
+    return 'attack';
+  }
+
+  function getClip(sheet, key) {
+    return sheet.clips[key] || sheet.clips.attack || sheet.clips.idle;
+  }
+
+  function drawSpriteFrame(ctx, clip, sheet, fi, u, drawW, drawH, drawY, flip) {
+    var fw = clip.frameW || sheet.frameW;
+    var fh = sheet.frameH;
+    var sx = fi * fw;
+    ctx.save();
+    if (flip < 0) {
+      ctx.translate(u.x, 0);
+      ctx.scale(-1, 1);
+      ctx.translate(-u.x, 0);
+    }
+    ctx.drawImage(clip.img, sx, 0, fw, fh, u.x - drawW / 2, drawY, drawW, drawH);
+    ctx.restore();
   }
 
   RTS.Sprites = {
@@ -132,9 +190,7 @@
       }
       var jobs = [];
       FACTIONS.forEach(function (fid) {
-        ROLES.forEach(function (role) {
-          jobs.push(loadRoleSheet(fid, role));
-        });
+        ROLES.forEach(function (role) { jobs.push(loadRoleSheet(fid, role)); });
       });
       Promise.all(jobs).then(function () {
         self.ready = Object.keys(sheets).length > 0;
@@ -146,8 +202,67 @@
       });
     },
 
-    sheetKey: function (u) {
-      return u.faction + '_' + u.role;
+    sheetKey: function (u) { return u.faction + '_' + u.role; },
+
+    attackActive: function (u) {
+      return u.attackClip && u.attackAnimT != null &&
+        u.attackAnimT < (u.attackAnimLen || 0);
+    },
+
+    startAttack: function (u, target) {
+      var sheet = sheets[this.sheetKey(u)];
+      if (!sheet) return;
+      if (u.role === 'warrior') {
+        u._attackVariant = (u._attackVariant === 1) ? 2 : 1;
+      }
+      var key = resolveAttackKey(u, sheet);
+      var clip = getClip(sheet, key);
+      if (!clip) return;
+      u.attackClip = key;
+      u.attackAnimT = 0;
+      u.attackAnimLen = clipDuration(clip);
+      u.attackTargetId = target ? target.id : null;
+    },
+
+    tickAttack: function (u, dt) {
+      if (u.attackAnimT == null) return;
+      u.attackAnimT += dt;
+      if (u.attackAnimT >= (u.attackAnimLen || 0)) {
+        u.attackClip = null;
+        u.attackAnimT = null;
+        u.attackAnimLen = null;
+        u.attackTargetId = null;
+        u._pendingShot = null;
+        u._pendingMelee = null;
+        u._pendingHeal = null;
+      }
+    },
+
+    currentAttackFrame: function (u) {
+      if (!this.attackActive(u)) return -1;
+      var sheet = sheets[this.sheetKey(u)];
+      if (!sheet) return -1;
+      var clip = getClip(sheet, u.attackClip);
+      if (!clip) return -1;
+      return Math.min(clip.count - 1, Math.floor(u.attackAnimT * clipFps(clip)));
+    },
+
+    atReleaseFrame: function (u) {
+      var sheet = sheets[this.sheetKey(u)];
+      if (!sheet || !this.attackActive(u)) return false;
+      var clip = getClip(sheet, u.attackClip);
+      if (!clip) return false;
+      var rf = clip.releaseFrame != null ? clip.releaseFrame : clip.count - 1;
+      return this.currentAttackFrame(u) >= rf;
+    },
+
+    atImpactFrame: function (u) {
+      var sheet = sheets[this.sheetKey(u)];
+      if (!sheet || !this.attackActive(u)) return false;
+      var clip = getClip(sheet, u.attackClip);
+      if (!clip) return false;
+      var frame = clip.impactFrame != null ? clip.impactFrame : Math.floor(clip.count * 0.5);
+      return this.currentAttackFrame(u) >= frame;
     },
 
     pickAnim: function (u, walking) {
@@ -156,22 +271,23 @@
         if (u.harvest.phase === 'mining') return 'work';
         if (u.harvest.carry > 0 && walking) return 'walk_carry';
       }
-      if (u.inAttackRange) return 'attack';
+      if (this.attackActive(u)) return u.attackClip;
+      if (u.role === 'warrior' && u.inAttackRange && !walking) return 'guard';
       if (walking) return 'walk';
       return 'idle';
     },
 
     frameIndex: function (u, clip, animName) {
-      if (animName === 'attack' && u.cooldown > 0 && u.rof > 0) {
-        var progress = 1 - u.cooldown / u.rof;
-        return Math.min(clip.count - 1, Math.floor(progress * clip.count));
+      if (isAttackClipKey(animName) && u.attackAnimT != null) {
+        return Math.min(clip.count - 1, Math.floor(u.attackAnimT * clipFps(clip)));
       }
       if (animName === 'work') {
-        var workPhase = u._workPhase || 0;
-        return Math.floor(workPhase * clip.speed) % clip.count;
+        return Math.floor((u._workPhase || 0) * clip.speed) % clip.count;
       }
-      var phase = u._walkPhase || 0;
-      return Math.floor(phase * clip.speed) % clip.count;
+      if (animName === 'guard') {
+        return Math.floor((u._walkPhase || 0) * clip.speed) % clip.count;
+      }
+      return Math.floor((u._walkPhase || 0) * clip.speed) % clip.count;
     },
 
     unitFootY: function (u, s) {
@@ -192,25 +308,59 @@
       var footRatio = fh >= 300 ? 0.91 : 0.94;
       var drawY = footY - drawH * footRatio;
       return {
-        x: u.x,
-        footY: footY,
-        drawW: drawW,
-        drawH: drawH,
-        drawY: drawY,
+        x: u.x, footY: footY, drawW: drawW, drawH: drawH, drawY: drawY,
         groundRx: Math.max(r * 0.95, drawW * 0.24),
         groundRy: Math.max(r * 0.36, 8),
         bodyCy: drawY + drawH * 0.55,
       };
     },
 
+    drawHealEffect: function (ctx, monk, target, s) {
+      if (!this.attackActive(monk) || monk.role !== 'monk' || !target) return;
+      var sheet = sheets[this.sheetKey(monk)];
+      if (!sheet || !sheet.clips.heal_effect) return;
+      var clip = sheet.clips.heal_effect;
+      var fi = this.currentAttackFrame(monk);
+      if (fi < 0) return;
+      var r = unitDrawRadius(target);
+      var footY = this.unitFootY(target, s);
+      var drawH = unitDrawHeight(r, target, sheet);
+      var fw = clip.frameW || sheet.frameW;
+      var drawW = (fw / sheet.frameH) * drawH;
+      var drawY = footY - drawH * 0.94;
+      var sx = fi * fw;
+      ctx.save();
+      ctx.globalAlpha = 0.88;
+      ctx.drawImage(clip.img, sx, 0, fw, sheet.frameH,
+        target.x - drawW / 2, drawY, drawW, drawH);
+      ctx.restore();
+    },
+
     drawUnit: function (ctx, u, f, s) {
       var Art = RTS.Art;
+      var sheet = sheets[this.sheetKey(u)];
+
       if (u.dead) {
-        Art.deathBurst(ctx, u, f);
+        if (!sheet) { Art.deathBurst(ctx, u, f); return; }
+        var max = RTS.Config.corpseFade || 1.2;
+        var k = Math.max(0, u.corpse) / max;
+        if (k >= 1) return;
+        var a = 1 - k;
+        var corpseClip = sheet.clips.idle || sheet.clips.walk;
+        if (!corpseClip) return;
+        var r = unitDrawRadius(u) * (1 - k * 0.15);
+        var vb = this.unitVisualBounds(u, s);
+        if (!vb) return;
+        ctx.save();
+        ctx.globalAlpha = a;
+        var fw = corpseClip.frameW || sheet.frameW;
+        var fh = sheet.frameH;
+        var flip = Math.cos(u.facing) < -0.12 ? -1 : 1;
+        drawSpriteFrame(ctx, corpseClip, sheet, 0, u, vb.drawW, vb.drawH, vb.drawY + k * 8, flip);
+        ctx.restore();
         return;
       }
 
-      var sheet = sheets[this.sheetKey(u)];
       if (!sheet) return;
 
       var rm = RTS.Config.reducedMotion;
@@ -218,9 +368,8 @@
 
       var dx = u.x - (u._ax != null ? u._ax : u.x);
       var dy = u.y - (u._ay != null ? u._ay : u.y);
-      var dist = Math.hypot(dx, dy);
-      if (dist > 0.8) {
-        u._walkPhase = (u._walkPhase || 0) + dist * 0.022;
+      if (Math.hypot(dx, dy) > 0.8) {
+        u._walkPhase = (u._walkPhase || 0) + Math.hypot(dx, dy) * 0.022;
         u._moveHold = 4;
       } else if (u._moveHold > 0) {
         u._moveHold--;
@@ -230,40 +379,32 @@
 
       var mining = u.role === 'pawn' && u.harvest && u.harvest.phase === 'mining';
       var onBuildSite = u.role === 'pawn' && u.buildTask && !(u._moveHold > 0);
-      var walking = !mining && !onBuildSite && u._moveHold > 0;
-      var ph = phaseOf(u.id);
+      var walking = !mining && !onBuildSite && !this.attackActive(u) && u._moveHold > 0;
+
       var animName = this.pickAnim(u, walking);
-      var clip = sheet.clips[animName] || sheet.clips.idle || sheet.clips.walk;
+      var clip = getClip(sheet, animName);
       if (!clip || !clip.img) return;
 
       var fi = rm ? 0 : this.frameIndex(u, clip, animName);
-      var fw = clip.frameW || sheet.frameW;
-      var fh = sheet.frameH;
-      var sx = fi * fw;
       var flip = Math.cos(u.facing) < -0.12 ? -1 : 1;
       var vb = this.unitVisualBounds(u, s);
       if (!vb) return;
-      var footY = vb.footY;
-      var drawH = vb.drawH;
-      var drawW = vb.drawW;
-      var drawY = vb.drawY;
 
-      ctx.save();
+      drawSpriteFrame(ctx, clip, sheet, fi, u, vb.drawW, vb.drawH, vb.drawY, flip);
       if (u.hitFlash > 0) {
-        var q = u.hitFlash / RTS.Config.hitFlash;
-        ctx.translate(u.x, footY);
-        ctx.scale(1 + q * 0.06 * flip, 1 - q * 0.05);
-        ctx.translate(-u.x, -footY);
+        var flashA = (u.hitFlash / RTS.Config.hitFlash) * 0.35;
+        ctx.save();
+        ctx.fillStyle = 'rgba(255,255,255,' + flashA + ')';
+        ctx.fillRect(u.x - vb.drawW / 2, vb.drawY, vb.drawW, vb.drawH);
+        ctx.restore();
       }
-      if (flip < 0) {
-        ctx.translate(u.x, 0);
-        ctx.scale(-1, 1);
-        ctx.translate(-u.x, 0);
-      }
-      ctx.drawImage(clip.img, sx, 0, fw, fh, u.x - drawW / 2, drawY, drawW, drawH);
-      ctx.restore();
 
-      Art.drawUnitOverlays(ctx, u, f, s, r, Art.minionPalette(f, u.team));
+      if (u.role === 'monk' && this.attackActive(u) && u.attackTargetId) {
+        var ally = RTS.getById(s, u.attackTargetId);
+        this.drawHealEffect(ctx, u, ally, s);
+      }
+
+      Art.drawUnitOverlays(ctx, u, f, s, r, Art.minionPalette(f, u.team), vb, true);
     },
   };
 

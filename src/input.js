@@ -96,6 +96,18 @@
       return;
     }
 
+    if (RTS.BuildingMenu && RTS.BuildingMenu.isOpen()) {
+      var menuItem = RTS.BuildingMenu.hitTest(s, wx, wy);
+      if (menuItem) {
+        RTS.BuildingMenu.execute(s, menuItem);
+        RTS.Audio.play('click');
+        haptic(8);
+        return;
+      }
+      RTS.BuildingMenu.close(s);
+      s.ui.buildingMenuHover = null;
+    }
+
     var hit = hitTest(s, wx, wy);
     var sel = RTS.selectedUnits(s);
     var combat = sel.filter(function (u) { return u.role !== 'pawn'; });
@@ -124,13 +136,23 @@
       return;
     }
 
-    // Friendly unit/building → select (or add to group)
-    if (hit && (hit.kind === 'unit' || hit.kind === 'building') && hit.team === TEAM.PLAYER) {
-      if ((additive || (hit.kind === 'unit' && sel.length)) && hit.kind === 'unit') {
+    // Friendly building → select + radial production menu
+    if (hit && hit.kind === 'building' && hit.team === TEAM.PLAYER && !additive) {
+      RTS.select(s, hit.id, false);
+      if (RTS.BuildingMenu) RTS.BuildingMenu.open(s, hit);
+      RTS.Audio.play('click');
+      haptic(6);
+      return;
+    }
+
+    // Friendly unit → select (or add to group)
+    if (hit && hit.kind === 'unit' && hit.team === TEAM.PLAYER) {
+      if ((additive || sel.length)) {
         RTS.toggleSelect(s, hit.id);
       } else {
         RTS.select(s, hit.id, false);
       }
+      if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
       RTS.Audio.play('click');
       haptic(6);
       return;
@@ -163,6 +185,7 @@
     var blds = RTS.selectedBuildings(s);
     if (!sel.length && blds.length && !hit) {
       if (RTS.setRallyPoint(s, blds, wx, wy)) {
+        if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
         flash(s, wx, wy, '#ffc107');
         RTS.toast(s, 'Rally point set');
         RTS.Audio.play('click');
@@ -171,7 +194,14 @@
       }
     }
 
-    if (!hit) RTS.clearSelection(s);
+    if (!hit) {
+      if (RTS.BuildingMenu && RTS.BuildingMenu.isOpen()) {
+        RTS.BuildingMenu.close(s);
+        RTS.HUD.sync(s);
+        return;
+      }
+      RTS.clearSelection(s);
+    }
   }
 
   function showLongPressRing(cssX, cssY) {
@@ -283,6 +313,11 @@
         var s = st(); if (!s || !active()) return;
         if (RTS.RadialMenu && RTS.RadialMenu.isOpen()) {
           RTS.RadialMenu.move(cssX, cssY);
+          return;
+        }
+        if (RTS.BuildingMenu && RTS.BuildingMenu.isOpen()) {
+          var bw = RTS.Cam.screenToWorld(s, cssX, cssY);
+          s.ui.buildingMenuHover = RTS.BuildingMenu.hitTest(s, bw.x, bw.y);
           return;
         }
         var w = RTS.Cam.screenToWorld(s, cssX, cssY);

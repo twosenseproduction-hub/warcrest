@@ -30,15 +30,15 @@
     },
 
     // Economy
-    startResources: 250,        // starting Halcite for the player
+    startResources: 280,        // starting Halcite — slightly higher for slower harvest pace
     startSupplyCap: 12,         // supply provided by the Core
     supplyPerPylon: 8,          // supply added per Conduit
     maxSupplyCap: 80,
     passiveTrickle: 0.0,        // passive income/sec (0 = pure harvesting)
 
     harvest: {
-      rate: 13,                 // ore/sec at the node only — does not affect walk speed
-      capacity: 12,             // ore per trip — must return to Castle/Outpost to bank
+      rate: 8,                  // ore/sec at the node — slower mining pace
+      capacity: 6,              // ore per trip — bank after every 6, then return to mine
       reach: 42,                // distance to begin mining
       depositReach: 165,        // ring around Castle/Outpost where ore is banked
       depositStop: 22,          // how close worker walks to the approach point
@@ -47,7 +47,7 @@
 
     // AI difficulty / pacing
     ai: {
-      startResources: 250,        // match player — equal start
+      startResources: 280,        // match player — equal start
       income: 0,                  // no passive cheat; mine like the player
       firstWaveAt: 70,          // seconds before first real attack wave
       waveInterval: 52,         // seconds between waves
@@ -59,6 +59,8 @@
 
     // Combat feel
     separation: 150,            // unit push-apart strength
+    unitCollisionGap: 4,        // minimum px gap between unit hitboxes
+    unitOverlapIterations: 3,   // overlap solver passes per frame
     projectileSpeed: 520,
     hitFlash: 0.13,
     muzzleFlash: 0.09,
@@ -80,31 +82,31 @@
     pawn: {
       role: 'pawn', label: 'Pawn', glyph: 'circle',
       hp: 55, speed: 100, dmg: 5, range: 22, rof: 1.0,
-      cost: 50, supply: 1, build: 0, canHarvest: true, canBuild: true,
+      cost: 40, supply: 1, build: 0, canHarvest: true, canBuild: true,
       desc: 'Harvests Halcite and raises structures.',
     },
     lancer: {
       role: 'lancer', label: 'Lancer', glyph: 'diamond',
       hp: 52, speed: 178, dmg: 9, range: 78, rof: 0.55,
-      cost: 55, supply: 1, build: 0,
+      cost: 45, supply: 1, build: 0,
       desc: 'Fast skirmisher — your opening army unit.',
     },
     archer: {
       role: 'archer', label: 'Archer', glyph: 'tri',
       hp: 64, speed: 118, dmg: 10, range: 132, rof: 0.62,
-      cost: 75, supply: 1, build: 0, ranged: true,
+      cost: 60, supply: 1, build: 0, ranged: true,
       desc: 'Ranged backbone once Lancers hold the line.',
     },
     monk: {
       role: 'monk', label: 'Monk', glyph: 'cross',
       hp: 80, speed: 108, dmg: 0, range: 110, rof: 0.7, heal: 12,
-      cost: 110, supply: 2, build: 0, healer: true,
+      cost: 90, supply: 2, build: 0, healer: true,
       desc: 'Heals nearby allies. Keep behind the front.',
     },
     warrior: {
       role: 'warrior', label: 'Warrior', glyph: 'hex',
       hp: 230, speed: 62, dmg: 30, range: 46, rof: 0.85,
-      cost: 150, supply: 3, build: 0,
+      cost: 120, supply: 3, build: 0,
       desc: 'Armored frontline — train from Archery once Barracks is up.',
     },
   };
@@ -118,30 +120,30 @@
     },
     outpost: {
       type: 'outpost', label: 'Outpost', w: 88, h: 88,
-      hp: 1400, cost: 400, build: 42, deposit: true, expansion: true,
+      hp: 1400, cost: 320, build: 42, deposit: true, expansion: true,
       trains: ['pawn'],
       desc: 'Expansion base — build next to a Halcite field. Trains Pawns and banks ore.',
     },
     conduit: {
       type: 'conduit', label: 'House', w: 60, h: 60,
-      hp: 420, cost: 80, build: 10, supply: 8,
+      hp: 420, cost: 65, build: 10, supply: 8,
       trains: [], desc: 'Raises your supply cap.',
     },
     foundry: {
       type: 'foundry', label: 'Barracks', w: 78, h: 70,
-      hp: 760, cost: 150, build: 18,
+      hp: 760, cost: 120, build: 18,
       trains: ['lancer', 'archer', 'monk'],
       desc: 'Produces Lancers, Archers, and Monks.',
     },
     forge: {
       type: 'forge', label: 'Archery', w: 86, h: 78,
-      hp: 980, cost: 220, build: 26,
+      hp: 980, cost: 175, build: 26,
       trains: ['warrior'],
       desc: 'Produces Warriors.',
     },
     turret: {
       type: 'turret', label: 'Tower', w: 54, h: 54,
-      hp: 520, cost: 120, build: 14,
+      hp: 520, cost: 100, build: 14,
       defense: true, dmg: 20, range: 178, rof: 0.7, ranged: true,
       desc: 'Automated defense tower. Fires on nearby foes.',
     },

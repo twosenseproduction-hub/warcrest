@@ -63,6 +63,8 @@
   var MINION_PX = 14;
   var GLOBAL_SCALE = 1.25;
   var HEIGHT_MUL = 2.05;
+  /* Draw-only multiplier on top of pxRadius/HEIGHT_MUL. Gameplay radius unchanged. */
+  var UNIT_VISUAL_SCALE = 1.35;
   /* Lancer 320px frames have extra canvas padding — boost draw to match 192px units. */
   var LANCER_VISUAL_MUL = 1.32;
   var LANCER_TRAY_ZOOM = 1.38;
@@ -110,6 +112,7 @@
     MINION_PX: MINION_PX,
     GLOBAL_SCALE: GLOBAL_SCALE,
     HEIGHT_MUL: HEIGHT_MUL,
+    UNIT_VISUAL_SCALE: UNIT_VISUAL_SCALE,
     LANCER_VISUAL_MUL: LANCER_VISUAL_MUL,
     LANCER_TRAY_ZOOM: LANCER_TRAY_ZOOM,
     LOL: LOL,

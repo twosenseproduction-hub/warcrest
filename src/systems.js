@@ -115,6 +115,10 @@
 
     var i;
     for (i = 0; i < s.entities.units.length; i++) updateUnit(s, s.entities.units[i], dt);
+    resolveAllUnitOverlaps(s);
+    for (i = 0; i < s.entities.units.length; i++) {
+      if (!s.entities.units[i].dead) clampToWorld(s.entities.units[i]);
+    }
     for (i = 0; i < s.entities.buildings.length; i++) updateBuilding(s, s.entities.buildings[i], dt);
     updateProjectiles(s, dt);
     updateEffects(s, dt);
@@ -146,6 +150,10 @@
     u.hitFlash = Math.max(0, u.hitFlash - dt);
     u.muzzleFlash = Math.max(0, u.muzzleFlash - dt);
     u.spawnFlash = Math.max(0, u.spawnFlash - dt);
+    if (RTS.Sprites && RTS.Sprites.ready) {
+      RTS.Sprites.tickAttack(u, dt);
+      tryCombatRelease(s, u);
+    }
 
     // Worker behaviours take priority
     if (u.role === 'pawn') {
@@ -206,6 +214,23 @@
   }
 
   function fire(s, u, target) {
+    if (RTS.Sprites && RTS.Sprites.ready) {
+      RTS.Sprites.startAttack(u, target);
+      if (u.ranged) {
+        u._pendingShot = {
+          targetId: target.id,
+          dmg: u.dmg,
+          splash: u.splash,
+          faction: u.faction,
+          role: u.role,
+          released: false,
+        };
+      } else {
+        u._pendingMelee = { targetId: target.id, dmg: u.dmg, released: false };
+      }
+      RTS.Audio.play(u.ranged ? 'shot' : 'melee');
+      return;
+    }
     u.muzzleFlash = RTS.Config.muzzleFlash;
     if (u.ranged) {
       RTS.makeProjectile(s, u, target, u.dmg, {
@@ -218,6 +243,39 @@
     } else {
       applyDamage(s, target, u.dmg, u);
       RTS.Audio.play('melee');
+    }
+  }
+
+  function tryCombatRelease(s, u) {
+    if (u._pendingShot && !u._pendingShot.released && RTS.Sprites.atReleaseFrame(u)) {
+      var ps = u._pendingShot;
+      var t = RTS.getById(s, ps.targetId);
+      if (t && !t.dead) {
+        RTS.makeProjectile(s, u, t, ps.dmg, {
+          splash: ps.splash,
+          color: RTS.Factions[ps.faction].accent,
+          faction: ps.faction,
+          role: ps.role,
+        });
+      }
+      u._pendingShot.released = true;
+      if (u._pendingShot.released) u._pendingShot = null;
+    }
+    if (u._pendingMelee && !u._pendingMelee.released && RTS.Sprites.atImpactFrame(u)) {
+      var pm = u._pendingMelee;
+      var mt = RTS.getById(s, pm.targetId);
+      if (mt && !mt.dead) applyDamage(s, mt, pm.dmg, u);
+      u._pendingMelee.released = true;
+      if (u._pendingMelee.released) u._pendingMelee = null;
+    }
+    if (u._pendingHeal && !u._pendingHeal.released && RTS.Sprites.atReleaseFrame(u)) {
+      var ph = u._pendingHeal;
+      var ally = RTS.getById(s, ph.targetId);
+      if (ally && !ally.dead) {
+        ally.hp = Math.min(ally.maxHp, ally.hp + ph.amount);
+      }
+      u._pendingHeal.released = true;
+      if (u._pendingHeal.released) u._pendingHeal = null;
     }
   }
 
@@ -237,8 +295,13 @@
       u.facing = Math.atan2(best.y - u.y, best.x - u.x);
       if (u.cooldown <= 0) {
         u.cooldown = u.rof;
-        best.hp = Math.min(best.maxHp, best.hp + u.heal);
-        RTS.addEffect(s, { kind: 'heal', x: best.x, y: best.y, life: 0.3, max: 0.3, color: '#9bffd0' });
+        if (RTS.Sprites && RTS.Sprites.ready) {
+          RTS.Sprites.startAttack(u, best);
+          u._pendingHeal = { targetId: best.id, amount: u.heal, released: false };
+        } else {
+          best.hp = Math.min(best.maxHp, best.hp + u.heal);
+          RTS.addEffect(s, { kind: 'heal', x: best.x, y: best.y, life: 0.3, max: 0.3, color: '#9bffd0' });
+        }
       }
     }
   }
@@ -275,6 +338,13 @@
       }
       u.facing = Math.atan2(node.y - u.y, node.x - u.x);
       u._workPhase = (u._workPhase || 0) + dt;
+      if (RTS.Particles && RTS.Particles.ready) {
+        u._mineDustT = (u._mineDustT || 0) + dt;
+        if (u._mineDustT > 0.28) {
+          u._mineDustT = 0;
+          RTS.Particles.spawnDust(s, u.x + 4, u.y + 2, 0.65);
+        }
+      }
       var mined = Math.min(H.rate * dt, node.amount, H.capacity - u.harvest.carry);
       node.amount -= mined; u.harvest.carry += mined;
       if (u.harvest.carry >= H.capacity - 0.01) {
@@ -336,6 +406,13 @@
       u._moveHold = 0;
       u.facing = Math.atan2(b.y - u.y, b.x - u.x);
       u._workPhase = (u._workPhase || 0) + dt;
+      if (RTS.Particles && RTS.Particles.ready) {
+        u._buildDustT = (u._buildDustT || 0) + dt;
+        if (u._buildDustT > 0.32) {
+          u._buildDustT = 0;
+          RTS.Particles.spawnDust(s, u.x + 3, u.y + 2, 0.7);
+        }
+      }
     }
   }
 
@@ -345,6 +422,14 @@
     b.hitFlash = Math.max(0, b.hitFlash - dt);
     b.spawnFlash = Math.max(0, b.spawnFlash - dt);
     b.cooldown = Math.max(0, b.cooldown - dt);
+
+    if (RTS.Particles && RTS.Particles.ready && b.built) {
+      var needFire = b.hitFlash > 0 ||
+        (b.team === TEAM.PLAYER && s.ui.baseAlarm > 0) ||
+        b.hp < b.maxHp * 0.45;
+      if (needFire) RTS.Particles.ensureFireLoop(s, b.id);
+      else RTS.Particles.clearFireLoop(s, b.id);
+    }
 
     if (!b.built) {
       b.progress = Math.min(1, b.progress + dt / b.buildTime);
@@ -434,11 +519,14 @@
     e.dead = true; e.hp = 0;
     if (e.kind === 'unit') {
       e.corpse = RTS.Config.corpseFade;
-      RTS.spawnExplosion(s, e.x, e.y, e.radius + 6, RTS.Factions[e.faction].primary);
+      if (!(RTS.Sprites && RTS.Sprites.ready)) {
+        RTS.spawnExplosion(s, e.x, e.y, e.radius + 6, RTS.Factions[e.faction].primary);
+      }
       if (attacker && attacker.team === TEAM.PLAYER) s.stats.kills++;
       if (e.team === TEAM.PLAYER) s.stats.unitsLost++;
       s.selectedIds = s.selectedIds.filter(function (id) { return id !== e.id; });
     } else {
+      if (RTS.Particles) RTS.Particles.clearFireLoop(s, e.id);
       RTS.spawnExplosion(s, e.x, e.y, Math.max(e.w, e.h) * 0.5, '#ffce6b');
       s.screenShake = Math.max(s.screenShake, 5);
       if (e.team === TEAM.PLAYER) {
@@ -497,6 +585,7 @@
   }
 
   function updateEffects(s, dt) {
+    if (RTS.Particles) RTS.Particles.tick(s, dt);
     s.entities.effects = s.entities.effects.filter(function (fx) {
       fx.life -= dt;
       if (fx.kind === 'ring' || fx.kind === 'boom') fx.r += 60 * dt;
@@ -565,15 +654,49 @@
     }
   }
 
-  function finishUnitMove(s, u, dt, withSeparation) {
-    if (withSeparation !== false) separation(s, u, dt);
-    u.x += u.vx * dt;
-    u.y += u.vy * dt;
-    resolveBuildingCollisions(s, u);
-    clampToWorld(u);
+  function unitMinDist(u, o) {
+    return u.radius + o.radius + RTS.Config.unitCollisionGap;
   }
 
-  function separation(s, u, dt) {
+  function separateUnitPair(u, o) {
+    var dx = u.x - o.x, dy = u.y - o.y;
+    var d = Math.sqrt(dx * dx + dy * dy);
+    var minD = unitMinDist(u, o);
+    if (d >= minD) return;
+    var nx, ny;
+    if (d < 0.01) {
+      var seed = (u.id * 73856093) ^ (o.id * 19349663);
+      var angle = ((seed & 0x7FFFFFFF) / 0x7FFFFFFF) * Math.PI * 2;
+      nx = Math.cos(angle);
+      ny = Math.sin(angle);
+    } else {
+      nx = dx / d;
+      ny = dy / d;
+    }
+    var pen = minD - d;
+    u.x += nx * pen * 0.5;
+    u.y += ny * pen * 0.5;
+    o.x -= nx * pen * 0.5;
+    o.y -= ny * pen * 0.5;
+  }
+
+  function resolveAllUnitOverlaps(s) {
+    var units = s.entities.units;
+    var iterations = RTS.Config.unitOverlapIterations;
+    for (var pass = 0; pass < iterations; pass++) {
+      for (var i = 0; i < units.length; i++) {
+        var u = units[i];
+        if (u.dead) continue;
+        for (var j = i + 1; j < units.length; j++) {
+          var o = units[j];
+          if (o.dead) continue;
+          separateUnitPair(u, o);
+        }
+      }
+    }
+  }
+
+  function softSeparation(s, u, dt) {
     var push = RTS.Config.separation;
     var units = s.entities.units;
     for (var i = 0; i < units.length; i++) {
@@ -581,12 +704,41 @@
       if (o === u || o.dead) continue;
       var dx = u.x - o.x, dy = u.y - o.y;
       var d = Math.sqrt(dx * dx + dy * dy);
-      var minD = u.radius + o.radius + 2;
+      var minD = unitMinDist(u, o);
       if (d < minD && d > 0.01) {
         var f = (minD - d) / minD * push * dt;
         u.x += (dx / d) * f; u.y += (dy / d) * f;
       }
     }
+  }
+
+  function finishUnitMove(s, u, dt, withSeparation) {
+    var grid = s.map && s.map.terrainGrid;
+    var wasWater = grid && RTS.Terrain ? RTS.Terrain.isWater(grid, u.x, u.y) : false;
+
+    u.x += u.vx * dt;
+    u.y += u.vy * dt;
+
+    if (RTS.Particles && RTS.Particles.ready && grid && RTS.Terrain) {
+      var nowWater = RTS.Terrain.isWater(grid, u.x, u.y);
+      if (nowWater && !wasWater) RTS.Particles.spawnWaterSplash(s, u.x, u.y);
+
+      var speed = Math.sqrt(u.vx * u.vx + u.vy * u.vy);
+      if (speed > 75) {
+        u._dustT = (u._dustT || 0) + dt;
+        if (u._dustT > 0.11) {
+          u._dustT = 0;
+          RTS.Particles.spawnDust(s, u.x, u.y + 2, speed > 130 ? 1.1 : 0.85);
+        }
+      } else if ((u._prevSpeed || 0) > 95 && speed < 18) {
+        RTS.Particles.spawnDust(s, u.x, u.y + 2, 1.2, true);
+      }
+      u._prevSpeed = speed;
+    }
+
+    if (withSeparation !== false) softSeparation(s, u, dt);
+    resolveBuildingCollisions(s, u);
+    clampToWorld(u);
   }
 
   function clampToWorld(u) {
@@ -630,12 +782,12 @@
     if (s.ui.autoMineTick > 0) return;
     s.ui.autoMineTick = 1.5;
     s.entities.buildings.forEach(function (b) {
-      if (b.dead || b.team !== TEAM.PLAYER || !b.autoMine || !b.built) return;
+      if (b.dead || !b.autoMine || !b.built) return;
       if (b.type !== 'core' && b.type !== 'outpost') return;
       var node = RTS.nearestNodeForBuilding(s, b);
       if (!node) return;
       s.entities.units.forEach(function (u) {
-        if (u.dead || u.team !== TEAM.PLAYER || u.role !== 'pawn') return;
+        if (u.dead || u.team !== b.team || u.role !== 'pawn') return;
         if (u.harvest || u.buildTask || u.moveTo || u.target) return;
         if (dist(u.x, u.y, b.x, b.y) > 380) return;
         RTS.orderHarvest(s, u, node.id);

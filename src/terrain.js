@@ -336,6 +336,14 @@
     return wy + 10;
   }
 
+  function isWater(grid, wx, wy) {
+    if (!grid) return false;
+    var cx = Math.floor(wx / TILE);
+    var cy = Math.floor(wy / TILE);
+    if (!inBounds(grid.cols, grid.rows, cx, cy)) return true;
+    return grid.heights[idx(grid.cols, cx, cy)] === WATER;
+  }
+
   RTS.Terrain = {
     TILE: TILE,
     WATER: WATER,
@@ -344,6 +352,7 @@
     buildGrid: buildGrid,
     render: render,
     groundY: groundY,
+    isWater: isWater,
     themeTileset: function (theme) { return THEME_TILESET[theme] || 'color1'; },
     tilesetPath: function (key) { return TILESETS[key]; },
   };

@@ -92,17 +92,12 @@
       if (s.ui.toast) { t.textContent = s.ui.toast.text; t.classList.add('show'); }
       else t.classList.remove('show');
 
-      if (!s.ui.queueHudTick) s.ui.queueHudTick = 0;
-      s.ui.queueHudTick -= dt;
-      if (s.ui.queueHudTick <= 0) {
-        var prodSel = RTS.selectedBuildings(s).some(function (b) {
-          return b.built && b.queue.length && RTS.isProductionBuilding(b);
-        });
-        if (prodSel) {
-          s.ui.queueHudTick = 0.35;
-          updateQueueProgress(s);
-        } else {
-          s.ui.queueHudTick = 0.8;
+      if (RTS.BuildingMenu && RTS.BuildingMenu.isOpen()) {
+        if (!s.ui.bmenuRefresh) s.ui.bmenuRefresh = 0;
+        s.ui.bmenuRefresh -= dt;
+        if (s.ui.bmenuRefresh <= 0) {
+          s.ui.bmenuRefresh = 0.35;
+          RTS.BuildingMenu.refresh(s);
         }
       }
     },
@@ -118,7 +113,7 @@
 
   function deckOpen(s) {
     if (s.inputMode === 'place-building') return true;
-    return RTS.selectedUnits(s).length > 0 || RTS.selectedBuildings(s).length > 0;
+    return RTS.selectedUnits(s).length > 0;
   }
 
   function thumbOpen(s) {
@@ -148,7 +143,9 @@
     if (!el) return;
     var text = gestureHintText(s);
     var show = !!text || (s.timers.gameTime < 12 && s.scene === 'playing' && !deckOpen(s));
-    if (show && !text) text = 'Double-tap = army · hold 2nd tap = command wheel · two-finger tap = deselect';
+    if (show && !text) {
+      text = 'Tap a building → train or build · double-tap = army · hold = command wheel';
+    }
     el.textContent = text;
     el.classList.toggle('hidden', !show);
     el.classList.toggle('attack', !!s.attackMoveArmed);
@@ -163,60 +160,6 @@
     return '<div class="sel-portrait">' + inner + '</div>';
   }
 
-  function renderQueueBlock(s, b) {
-    var spec = RTS.Buildings[b.type];
-    if (!b.built || !spec.trains || !spec.trains.length) return '';
-    if (!b.queue.length) return '<div class="sel-line">Queue empty</div>';
-    var html = '<div class="sel-queue">';
-    b.queue.forEach(function (job, idx) {
-      var us = RTS.Units[job.role];
-      var cls = 'qchip' + (idx === 0 ? ' active' : '');
-      html += '<span class="' + cls + '">';
-      html += '<span class="qico">' + UI().roleTrayIcon(s.playerFaction, job.role, 20) + '</span>';
-      if (idx === 0 && job.total) {
-        var pct = Math.max(0, Math.min(1, 1 - job.remaining / job.total));
-        html += '<span class="qprog"><i style="width:' + (pct * 100) + '%"></i></span>';
-        html += '<span class="qtime">' + Math.ceil(job.remaining) + 's</span>';
-      }
-      html += '</span>';
-    });
-    html += '</div>';
-    return html;
-  }
-
-  function renderDepositHints(b) {
-    if (!b.built) return '';
-    var lines = '';
-    if (RTS.isProductionBuilding(b)) lines += '<div class="sel-line">Tap ground → rally</div>';
-    if (RTS.isDepositBuilding(b) && b.autoMine) lines += '<div class="sel-line auto-on">Auto-mine on</div>';
-    return lines;
-  }
-
-  // Refresh queue timer/progress without rebuilding the panel — full renderSelPanel
-  // would recreate the building portrait img every tick and make it flicker away.
-  function updateQueueProgress(s) {
-    var units = RTS.selectedUnits(s);
-    var blds = RTS.selectedBuildings(s);
-    if (blds.length !== 1 || units.length) { renderSelPanel(s); return; }
-
-    var b = blds[0];
-    if (!b.built || !b.queue.length || !RTS.isProductionBuilding(b)) { renderSelPanel(s); return; }
-
-    var p = D['selpanel'];
-    if (!p || !p.querySelector('.sel-queue')) { renderSelPanel(s); return; }
-
-    var job = b.queue[0];
-    if (!job || !job.total) return;
-
-    var pct = Math.max(0, Math.min(1, 1 - job.remaining / job.total));
-    var prog = p.querySelector('.qchip.active .qprog i');
-    var time = p.querySelector('.qchip.active .qtime');
-    if (!prog || !time) { renderSelPanel(s); return; }
-
-    prog.style.width = (pct * 100) + '%';
-    time.textContent = Math.ceil(job.remaining) + 's';
-  }
-
   function renderSelPanel(s) {
     var p = D['selpanel']; if (!p) return;
     p.innerHTML = '';
@@ -227,15 +170,14 @@
     var blds = RTS.selectedBuildings(s);
 
     if (blds.length === 1 && !units.length) {
+      if (RTS.BuildingMenu && RTS.BuildingMenu.isOpen()) return;
       var b = blds[0];
       var portraitKey = b.type === 'outpost' ? 'outpost' : b.type;
-      var hasQueue = b.built && RTS.Buildings[b.type].trains && b.queue.length;
-      if (hasQueue) p.classList.add('has-queue');
       p.innerHTML = selPortrait(s, portraitKey, true) + '<div class="sel-body">' +
         '<div class="sel-title">' + RTS.nameFor(b.faction, b.type) + '</div>' +
         bar(b.hp, b.maxHp) +
         (!b.built ? '<div class="sel-line">' + Math.floor(b.progress * 100) + '% built</div>' :
-          renderQueueBlock(s, b) + renderDepositHints(b)) +
+          '<div class="sel-line">Tap ground → rally</div>') +
         '</div>';
       return;
     }
@@ -284,28 +226,9 @@
     var blds = RTS.selectedBuildings(s);
     var hasWorker = units.some(function (u) { return u.role === 'pawn'; });
     var hasCore = blds.some(function (b) { return b.type === 'core'; });
-    var deposit = blds.length === 1 && !units.length && RTS.isDepositBuilding(blds[0]) ? blds[0] : null;
+    var buildingOnly = blds.length === 1 && !units.length;
 
-    if (deposit && deposit.built) {
-      tray.appendChild(actionBtn(UI().iconHtml('hammer', 22),
-        { act: 'toggle-automine', bid: deposit.id }, false,
-        deposit.autoMine ? 'on' : '', deposit.autoMine ? 'ON' : 'OFF'));
-    }
-
-    blds.forEach(function (b) {
-      var trains = RTS.Buildings[b.type].trains;
-      if (!trains || !trains.length) return;
-      trains.forEach(function (role) {
-        var spec = RTS.Units[role];
-        var afford = s.res.player.halcite >= spec.cost;
-        var supplyOk = s.res.player.supplyUsed + spec.supply <= s.res.player.supplyCap;
-        tray.appendChild(actionBtn(UI().roleTrayIcon(s.playerFaction, role, 30),
-          { act: 'train', role: role, bid: b.id }, !b.built || !afford || !supplyOk, '',
-          spec.cost));
-      });
-    });
-
-    if (hasWorker || hasCore) {
+    if ((hasWorker || hasCore) && !buildingOnly) {
       RTS.BuildMenu.forEach(function (t) {
         var spec = RTS.Buildings[t];
         tray.appendChild(actionBtn(UI().buildTrayIcon(s.playerFaction, t, 30),
@@ -323,6 +246,8 @@
         '" alt="" />' + cost + '</span>' : '');
     return b;
   }
+
+  RTS.HUD.performAction = function (s, data) { handleAction(s, data); };
 
   function handleAction(s, data) {
     markUi();
@@ -354,6 +279,7 @@
       case 'build': RTS.beginPlacement(s, data.type); break;
       case 'cancel-place': RTS.cancelPlacement(s); RTS.Audio.play('click'); break;
     }
+    RTS.HUD.sync(s);
   }
 
   function fmtTime(t) {

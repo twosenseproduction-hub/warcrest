@@ -27,6 +27,7 @@
     s.selectedIds = [];
     s.attackMoveArmed = false;
     s.inputMode = 'select';
+    if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
     RTS.HUD.sync(s);
   };
 
@@ -56,6 +57,7 @@
       var w = s.entities.units.find(function (u) { return u.team === RTS.TEAM.PLAYER && !u.dead; });
       if (w) s.selectedIds = [w.id];
     }
+    if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
     RTS.refreshMode(s);
     RTS.HUD.sync(s);
   };
@@ -219,6 +221,7 @@
     if (!RTS.canAfford(s, RTS.TEAM.PLAYER, RTS.Buildings[type].cost)) {
       RTS.toast(s, 'Not enough Halcite'); RTS.Audio.play('deny'); return;
     }
+    if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
     s.pending.building = type;
     s.inputMode = 'place-building';
     var hint = type === 'outpost'

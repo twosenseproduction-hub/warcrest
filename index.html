@@ -131,10 +131,10 @@
       <div class="howto-grid">
         <div class="howto-card"><b>① Harvest</b><p>Tap a glowing gold pile — your nearest
            Pawn mines it and hauls Halcite home automatically.</p></div>
-        <div class="howto-card"><b>② Train</b><p>Select your Castle to train Pawns,
-           or a Barracks / Archery to build combat units.</p></div>
-        <div class="howto-card"><b>③ Build</b><p>Select a Pawn, tap <i>Build</i>, choose a
-           structure, then tap near your base. Use <i>Outpost</i> (⌂) beside distant Halcite to expand.</p></div>
+        <div class="howto-card"><b>② Train</b><p>Tap your Castle, Barracks, or Archery —
+           a ring of options appears around the building. Queue shows as a number badge.</p></div>
+        <div class="howto-card"><b>③ Build</b><p>Tap your Castle or Outpost for the build ring,
+           then tap a highlighted spot. Outposts go beside distant Halcite to expand.</p></div>
         <div class="howto-card"><b>④ Command</b><p>Tap units to select. Double-tap empty
            ground to grab your whole army. Tap ground to move, an enemy to attack.</p></div>
         <div class="howto-card"><b>⑤ Attack-Move</b><p>Long-press the ground until the ring
@@ -142,7 +142,7 @@
         <div class="howto-card"><b>⑥ Win</b><p>Hold off enemy waves and destroy the
            opposing Castle to win. Lose your base and it's over.</p></div>
       </div>
-      <p class="howto-tip">Drag to pan · pinch to zoom · tap units/buildings for commands · double-tap ground = army · long-press = attack-move.</p>
+      <p class="howto-tip">Drag to pan · pinch to zoom · tap a building → train/build ring · double-tap ground = army · long-press = attack-move.</p>
       <button id="btn-howto-back" class="big-btn">Back</button>
     </div>
   </section>
@@ -179,7 +179,7 @@
   <div id="overlay-end" class="overlay hidden">
     <div class="overlay-card end-card">
       <img id="end-icon" class="end-icon" src="assets/ui/sword-icon-win.png" alt="" />
-      <div class="ts-ribbon-banner compact"><h2 id="end-title">VICTORY</h2></div>
+      <div class="ts-ribbon-banner blue compact"><h2 id="end-title">VICTORY</h2></div>
       <p id="end-msg"></p>
       <div id="end-stats" class="end-stats"></div>
       <button id="btn-end-again" class="big-btn primary">Play Again</button>
@@ -196,7 +196,8 @@
         <li><b>Army:</b> double-tap empty ground to select every fighter.</li>
         <li><b>Attack-move:</b> long-press the ground until the ring fills.</li>
         <li><b>Camera:</b> drag empty ground to pan · pinch to zoom.</li>
-        <li><b>Commands:</b> select units for thumb buttons (stop / attack-move) · select buildings to train/build.</li>
+        <li><b>Build &amp; train:</b> tap your Castle or Barracks — options appear around it.</li>
+        <li><b>Commands:</b> select units for thumb buttons (stop / attack-move).</li>
         <li><b>Defend:</b> an enemy wave is coming — build up before it lands.</li>
       </ul>
       <button id="btn-onboard-go" class="big-btn primary">Got it — deploy</button>
@@ -218,11 +219,13 @@
 <script src="src/art.js"></script>
 <script src="src/terrain.js"></script>
 <script src="src/assets.js"></script>
+<script src="src/particles.js"></script>
 <script src="src/sprites.js"></script>
 <script src="src/pathfind.js"></script>
 <script src="src/systems.js"></script>
 <script src="src/ai.js"></script>
 <script src="src/radial-menu.js"></script>
+<script src="src/building-menu.js"></script>
 <script src="src/input.js"></script>
 <script src="src/render.js"></script>
 <script src="src/ui.js"></script>

@@ -59,6 +59,7 @@
         lastUiAt: 0,
         baseAlarm: 0,                // >0 = base under attack pulse
         toast: null,
+        buildingMenuHover: null,
       },
 
       settings: {

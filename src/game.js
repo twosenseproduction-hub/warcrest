@@ -32,7 +32,11 @@
 
       if (RTS.Assets) {
         RTS.Assets.load(function () {
-          if (RTS.Sprites) RTS.Sprites.load();
+          var afterParticles = function () {
+            if (RTS.Sprites) RTS.Sprites.load();
+          };
+          if (RTS.Particles) RTS.Particles.load(afterParticles);
+          else afterParticles();
         });
       }
 

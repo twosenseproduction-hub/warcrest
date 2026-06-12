@@ -45,6 +45,7 @@
       drawSelection(s, ctx);
       drawGhost(s, ctx);
       drawSelectionBox(s, ctx);
+      if (RTS.BuildingMenu) RTS.BuildingMenu.draw(ctx, s);
 
       ctx.restore();
 
@@ -65,7 +66,9 @@
   }
 
   function drawEffects(s, ctx) {
+    if (RTS.Particles) RTS.Particles.draw(s, ctx);
     s.entities.effects.forEach(function (fx) {
+      if (fx.kind === 'pfx') return;
       var a = Math.max(0, fx.life / fx.max);
       if (fx.kind === 'spark') {
         ctx.fillStyle = RTS.hexA(fx.color, a);

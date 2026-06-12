@@ -77,6 +77,7 @@
 
   RTS.spawnHit = function (s, x, y, team) {
     if (RTS.Config.reducedMotion) return;
+    if (RTS.Sprites && RTS.Sprites.ready) return;
     var c = team === RTS.TEAM.ENEMY ? '#ffd1a8' : '#bdfff2';
     RTS.addEffect(s, { kind: 'spark', x: x, y: y, life: 0.16, max: 0.16, color: c });
     RTS.addEffect(s, { kind: 'ring', x: x, y: y, life: 0.22, max: 0.22, color: c, r: 4 });
@@ -84,6 +85,7 @@
 
   RTS.spawnExplosion = function (s, x, y, size, color) {
     if (RTS.Config.reducedMotion) return;
+    if (RTS.Particles && RTS.Particles.ready && RTS.Particles.spawnExplosion(s, x, y, size)) return;
     RTS.addEffect(s, { kind: 'boom', x: x, y: y, life: 0.42, max: 0.42,
                        color: color || '#ffcf6b', r: size || 18 });
   };
