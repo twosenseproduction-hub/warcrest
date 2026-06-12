@@ -421,7 +421,9 @@
     s.inputMode = 'place-building';
     var hint = type === 'outpost'
       ? 'Tap a glowing ring near Halcite to raise an Outpost'
-      : 'Tap a highlighted spot to build ' + RTS.nameFor(s.playerFaction, type);
+      : type === 'turret'
+        ? 'Tap open land to place a Tower'
+        : 'Tap a highlighted spot to build ' + RTS.nameFor(s.playerFaction, type);
     RTS.toast(s, hint);
     RTS.HUD.sync(s);
   };
@@ -451,6 +453,34 @@
     });
   }
 
+  function footprintOnLand(s, x, y, hw, hh) {
+    var grid = s.map && s.map.terrainGrid;
+    if (!grid || !RTS.Terrain) return true;
+    var pts = [
+      { x: x, y: y },
+      { x: x - hw * 0.8, y: y - hh * 0.7 },
+      { x: x + hw * 0.8, y: y - hh * 0.7 },
+      { x: x - hw * 0.8, y: y + hh * 0.5 },
+      { x: x + hw * 0.8, y: y + hh * 0.5 },
+    ];
+    for (var i = 0; i < pts.length; i++) {
+      if (RTS.Terrain.isWater(grid, pts[i].x, pts[i].y)) return false;
+    }
+    return true;
+  }
+
+  function footprintClearOfDecor(s, x, y, hw, hh) {
+    if (!s.map || !s.map.decor) return true;
+    var pad = 6;
+    var reach = Math.max(hw, hh) * 0.65 + pad;
+    for (var i = 0; i < s.map.decor.length; i++) {
+      var d = s.map.decor[i];
+      if (d.kind === 'bush') continue;
+      if (RTS.dist(x, y, d.x, d.y) < d.r + reach) return false;
+    }
+    return true;
+  }
+
   RTS.canPlaceAt = function (s, type, x, y) {
     var spec = RTS.Buildings[type];
     var hw = spec.w / 2, hh = spec.h / 2;
@@ -476,6 +506,12 @@
       return true;
     }
 
+    if (type === 'turret') {
+      if (!footprintOnLand(s, x, y, hw, hh)) return false;
+      if (!footprintClearOfDecor(s, x, y, hw, hh)) return false;
+      return true;
+    }
+
     var near = s.entities.buildings.some(function (b) {
       return b.team === RTS.TEAM.PLAYER && !b.dead && RTS.dist(x, y, b.x, b.y) < 360;
     });
@@ -484,7 +520,12 @@
 
   RTS.placeBuilding = function (s, type, x, y) {
     if (!RTS.canPlaceAt(s, type, x, y)) {
-      RTS.toast(s, type === 'outpost' ? 'Build in the ring beside Halcite, away from other Castles' : 'Invalid location');
+      var denyMsg = type === 'outpost'
+        ? 'Build in the ring beside Halcite, away from other Castles'
+        : type === 'turret'
+          ? 'Tower needs open land — not water or trees'
+          : 'Invalid location';
+      RTS.toast(s, denyMsg);
       RTS.Audio.play('deny'); return false;
     }
     if (!RTS.canAfford(s, RTS.TEAM.PLAYER, RTS.Buildings[type].cost)) { RTS.toast(s, 'Not enough Halcite'); RTS.Audio.play('deny'); return false; }

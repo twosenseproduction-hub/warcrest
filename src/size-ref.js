@@ -5,7 +5,7 @@
  * Reference proportions (top-down 3/4):
  *   1 character height  = 1 tile (64px)
  *   1 small house       ≈ 2 tiles tall, ~2 tiles wide
- *   1 tower / castle    ≈ 3 tiles tall (castle wider)
+ *   1 tower             ≈ 1.5 tiles tall · castle ≈ 3 tiles (wider)
  *   1 deciduous tree    ≈ 2 tiles tall · pine ≈ 3 tiles
  *   1 bush / rock       ≈ 0.4–0.5 tile
  * ==========================================================================*/
@@ -23,8 +23,8 @@
     barracksW: TILE * 2.5,
     archeryH: TILE * 2.25,
     archeryW: TILE * 2.75,
-    towerH: TILE * 3,
-    towerW: TILE * 1.75,
+    towerH: TILE * 1.5,
+    towerW: TILE * 0.875,
     castleH: TILE * 3,
     castleW: TILE * 4,
     treeH: TILE * 2.5,
@@ -49,7 +49,7 @@
     conduit: { w: 128, h: 128 },
     foundry: { w: 160, h: 128 },
     forge: { w: 176, h: 144 },
-    turret: { w: 112, h: 192 },
+    turret: { w: 56, h: 96 },
   };
 
   /* Legacy LoL keys kept for tier helpers only. */

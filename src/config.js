@@ -150,7 +150,7 @@
       desc: 'Produces Warriors.',
     },
     turret: {
-      type: 'turret', label: 'Tower', w: 112, h: 192,
+      type: 'turret', label: 'Tower', w: 56, h: 96,
       hp: 520, cost: 100, build: 14,
       defense: true, dmg: 20, range: 178, rof: 0.7, ranged: true,
       desc: 'Automated defense tower. Fires on nearby foes.',
