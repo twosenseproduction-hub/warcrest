@@ -75,17 +75,21 @@
     'Terrain/Resources/Gold/Gold Stones/Gold Stone 6.png',
   ];
 
-  /* Layered clump — back to front (y). idx = stone variant, s = scale mul. */
-  var GOLD_CLUMP = [
-    { idx: 2, x: -0.48, y: -0.06, s: 1.12 },
-    { idx: 4, x: 0.44, y: -0.10, s: 1.06 },
-    { idx: 0, x: -0.02, y: -0.24, s: 1.38, hero: true },
-    { idx: 5, x: -0.62, y: 0.14, s: 0.92 },
-    { idx: 1, x: 0.58, y: 0.10, s: 0.96 },
-    { idx: 3, x: -0.22, y: 0.20, s: 0.82 },
-    { idx: 5, x: 0.18, y: 0.18, s: 0.76 },
-    { idx: 2, x: 0.34, y: 0.22, s: 0.68 },
-  ];
+  /* Gold deposit — hero + supports, tiered by depletion (not a scattered loot pile). */
+  var GOLD_DEPOSIT = {
+    slots: [
+      { idx: 0, x: 0, y: -0.20, s: 1.44, role: 'hero' },
+      { idx: 2, x: -0.44, y: -0.02, s: 1.06, role: 'support' },
+      { idx: 4, x: 0.38, y: -0.04, s: 1.02, role: 'support' },
+      { idx: 3, x: 0.10, y: 0.15, s: 0.76, role: 'optional' },
+    ],
+  };
+
+  function goldPieceCount(pct) {
+    if (pct > 0.66) return 4;
+    if (pct > 0.33) return 3;
+    return 2;
+  }
 
   var DECOR_SPRITES = {
     bush: [
@@ -301,55 +305,62 @@
 
   function drawResource(ctx, n) {
     var pct = n.amount / n.max;
-    var sc = 0.62 + 0.38 * pct;
     var x = n.x;
     var footY = n.y + 8;
     var h = hashId(n.id);
     var t = RTS._renderT || 0;
     var rm = RTS.Config.reducedMotion;
-    var baseR = n.r * sc * 1.05;
+    /* Stable footprint — depletion shrinks fullness, not the whole landmark. */
+    var baseR = n.r * 1.05;
     var rot = ((h % 360) - 180) * 0.004;
+    var pieceCount = goldPieceCount(pct);
+    var fullness = 0.78 + 0.22 * pct;
 
-    var pile = imgSync('Terrain/Resources/Gold/Gold Resource/Gold_Resource.png');
-    if (!pile) return false;
+    if (!imgSync(GOLD_STONES[0])) return false;
 
-    RTS.Art.drawShadow(ctx, x, footY + baseR * 0.08, baseR * 1.35, 0.34);
+    RTS.Art.drawShadow(ctx, x, footY + baseR * 0.08, baseR * 1.28, 0.30);
 
-    /* Disturbed earth patch under the vein */
+    /* Disturbed earth — broader base, more visible as ore depletes */
+    var earthA = 0.24 + (1 - pct) * 0.16;
+    var earthInnerA = 0.16 + (1 - pct) * 0.14;
     ctx.save();
     ctx.translate(x, footY);
-    ctx.fillStyle = 'rgba(62, 48, 32, 0.28)';
+    ctx.fillStyle = 'rgba(44, 34, 22, ' + earthA + ')';
     ctx.beginPath();
-    ctx.ellipse(0, baseR * 0.06, baseR * 1.15, baseR * 0.52, rot, 0, Math.PI * 2);
+    ctx.ellipse(0, baseR * 0.08, baseR * 1.24, baseR * 0.58, rot, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = 'rgba(120, 92, 58, 0.18)';
+    ctx.fillStyle = 'rgba(92, 70, 44, ' + earthInnerA + ')';
     ctx.beginPath();
-    ctx.ellipse(0, baseR * 0.04, baseR * 0.82, baseR * 0.38, rot, 0, Math.PI * 2);
+    ctx.ellipse(0, baseR * 0.05, baseR * 0.90, baseR * 0.42, rot, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
 
-    var pieces = GOLD_CLUMP.map(function (slot, i) {
+    var slots = GOLD_DEPOSIT.slots.slice(0, pieceCount);
+    var pieces = slots.map(function (slot, i) {
       var idx = slot.idx % GOLD_STONES.length;
-      var sx = slot.x * baseR;
-      var sy = slot.y * baseR;
+      var rawX = slot.x * baseR, rawY = slot.y * baseR;
+      var sx = rawX, sy = rawY;
       if (rot) {
         var cs = Math.cos(rot), sn = Math.sin(rot);
-        var rx = sx * cs - sy * sn;
-        var ry = sx * sn + sy * cs;
-        sx = rx; sy = ry;
+        sx = rawX * cs - rawY * sn;
+        sy = rawX * sn + rawY * cs;
       }
+      var scaleMul = slot.s;
+      if (slot.role === 'hero') scaleMul *= fullness;
+      else if (slot.role === 'support') scaleMul *= 0.86 + 0.14 * pct;
+      else scaleMul *= 0.82 + 0.18 * pct;
       return {
         idx: idx,
         x: x + sx,
         y: footY + sy,
-        scale: slot.s * (0.94 + ((h >> (i * 3)) % 7) * 0.018),
-        hero: !!slot.hero,
+        scale: scaleMul * (0.97 + ((h >> (i * 3)) % 5) * 0.012),
+        role: slot.role,
         z: sy,
       };
     });
     pieces.sort(function (a, b) { return a.z - b.z; });
 
-    var unit = baseR * 0.62;
+    var unit = baseR * 0.58;
     var i, piece, stonePath, stone, hiPath, img, ss, sw, sh, drawY;
     for (i = 0; i < pieces.length; i++) {
       piece = pieces[i];
@@ -359,52 +370,36 @@
       ss = unit * piece.scale / Math.max(stone.width, stone.height);
       sw = stone.width * ss;
       sh = stone.height * ss;
-      drawY = piece.y - sh * 0.72;
+      drawY = piece.y - sh * 0.74;
 
       ctx.drawImage(stone, piece.x - sw / 2, drawY, sw, sh);
-      if (!rm) {
+
+      /* Single accent shimmer — hero stone only */
+      if (!rm && piece.role === 'hero') {
         var stonePhase = piece.idx * 0.85 + (h & 255) * 0.004;
-        var stonePulse = 0.5 + 0.5 * Math.sin(t * 4.2 + stonePhase);
+        var stonePulse = 0.5 + 0.5 * Math.sin(t * 3.0 + stonePhase);
         hiPath = stonePath.replace('.png', '_Highlight.png');
         img = imgSync(hiPath);
-        if (img && stonePulse > 0.15) {
-          ctx.globalAlpha = (piece.hero ? 0.28 : 0.12) + stonePulse * (piece.hero ? 0.55 : 0.3);
+        if (img && stonePulse > 0.4) {
+          ctx.globalAlpha = 0.16 + stonePulse * 0.28;
           ctx.drawImage(img, piece.x - sw / 2, drawY, sw, sh);
           ctx.globalAlpha = 1;
         }
       }
     }
 
-    /* Center nugget + sparkle strip on the hero pile */
-    var nugScale = unit * 0.42 / Math.max(pile.width, pile.height);
-    var nugW = pile.width * nugScale;
-    var nugH = pile.height * nugScale;
-    var nugY = footY - baseR * 0.38 - nugH * 0.5;
-    ctx.drawImage(pile, x - nugW / 2, nugY, nugW, nugH);
-
-    if (!rm) {
-      var spark = imgSync('Terrain/Resources/Gold/Gold Resource/Gold_Resource_Highlight.png');
-      if (spark) {
-        var frames = 6;
-        var fw = spark.width / frames;
-        var fi = Math.floor(t * 6 + (h & 255) * 0.08) % frames;
-        ctx.globalAlpha = 0.72 + Math.sin(t * 5 + h * 0.02) * 0.22;
-        ctx.drawImage(spark, fi * fw, 0, fw, spark.height,
-          x - nugW * 0.65, nugY - nugH * 0.22, nugW * 1.3, nugH * 1.3);
-        ctx.globalAlpha = 1;
-      }
-    }
-
+    /* Quiet amount label — UI annotation, not part of the silhouette */
     var label = Math.ceil(n.amount);
-    var ly = footY - baseR * 0.72;
-    ctx.font = 'bold 11px Fredoka, system-ui';
-    ctx.textAlign = 'center';
+    var lx = x + baseR * 0.38;
+    var ly = footY - baseR * 0.92;
+    ctx.font = '600 9px Fredoka, system-ui';
+    ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = 'rgba(18, 14, 10, 0.85)';
-    ctx.strokeText(label, x, ly);
-    ctx.fillStyle = pct < 0.35 ? '#ffb74d' : '#ffe082';
-    ctx.fillText(label, x, ly);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(18, 14, 10, 0.55)';
+    ctx.strokeText(label, lx, ly);
+    ctx.fillStyle = pct < 0.35 ? 'rgba(255, 183, 77, 0.82)' : 'rgba(255, 224, 160, 0.75)';
+    ctx.fillText(label, lx, ly);
 
     return true;
   }
