@@ -238,8 +238,8 @@
     if (d.kind === 'tree') {
       list = DECOR_SPRITES.tree;
       idx = h % list.length;
-      frameW = 256;
-      frameCount = 6;
+      frameW = 192;   /* Tiny Swords tree sheets: 1536px wide = 8 frames of 192 */
+      frameCount = 8;
       targetH = (d.r || RTS.SizeRef.decorWorldR('tree')) * (dec.treeHeightMul / 2.2);
       footRatio = 0.88;
     } else if (d.kind === 'rock' || ((theme === 'volcanic' || theme === 'amber') && d.kind !== 'bush')) {
@@ -256,8 +256,8 @@
     } else if (h % 5 === 0) {
       list = DECOR_SPRITES.tree;
       idx = h % list.length;
-      frameW = 256;
-      frameCount = 6;
+      frameW = 192;   /* same 8x192 sheet layout as the tree branch above */
+      frameCount = 8;
       targetH = (d.r || RTS.SizeRef.decorWorldR('tree')) * (dec.treeHeightMul / 2.2);
       footRatio = 0.88;
     } else {
