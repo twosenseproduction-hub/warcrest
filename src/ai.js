@@ -514,26 +514,37 @@
     return true;
   }
 
+  function minBuildRing(core, spec) {
+    var chw = core.w / 2, chh = core.h / 2;
+    var hw = spec.w / 2, hh = spec.h / 2;
+    return Math.max(chw + hw + 18, chh + hh + 18);
+  }
+
   function tryAiBuild(s, type) {
     if (enemyBuildingAny(s, type)) return false;
     var core = enemyCastle(s);
     if (!core) return false;
+    var spec = RTS.Buildings[type];
+    var minRing = minBuildRing(core, spec);
+    var maxRing = 340;
     var pcore = RTS.playerCore(s);
     var toward = pcore
       ? Math.atan2(pcore.y - core.y, pcore.x - core.x)
       : Math.PI;
-    var perp = toward + Math.PI / 2;
-    var dist = 115;
-    var offsets = [
-      { x: Math.cos(perp) * dist, y: Math.sin(perp) * dist + 40 },
-      { x: -Math.cos(perp) * dist, y: Math.sin(perp) * dist + 40 },
-      { x: Math.cos(toward + Math.PI) * dist * 0.85, y: Math.sin(toward + Math.PI) * dist * 0.85 + 50 },
-      { x: Math.cos(perp) * dist * 0.7, y: -Math.sin(perp) * dist * 0.7 + 70 },
-      { x: -Math.cos(perp) * dist * 0.7, y: -Math.sin(perp) * dist * 0.7 + 70 },
-    ];
-    for (var i = 0; i < offsets.length; i++) {
-      var ox = offsets[i];
-      if (aiPlaceBuilding(s, type, core.x + ox.x, core.y + ox.y)) return true;
+
+    for (var ring = minRing; ring <= maxRing; ring += 28) {
+      var steps = Math.max(12, Math.ceil(ring / 14));
+      var best = null, bestScore = -Infinity;
+      for (var a = 0; a < steps; a++) {
+        var ang = (a / steps) * Math.PI * 2;
+        var x = core.x + Math.cos(ang) * ring;
+        var y = core.y + Math.sin(ang) * ring;
+        if (!aiCanPlace(s, type, x, y)) continue;
+        var towardBias = Math.cos(ang - toward);
+        var score = towardBias * 40 - Math.abs(ang) * 0.01;
+        if (score > bestScore) { bestScore = score; best = { x: x, y: y }; }
+      }
+      if (best && aiPlaceBuilding(s, type, best.x, best.y)) return true;
     }
     return false;
   }
@@ -549,7 +560,7 @@
       tryAiBuild(s, 'conduit');
     }
 
-    if (!enemyBuildingAny(s, 'foundry') && workers >= 2 &&
+    if (!enemyBuildingAny(s, 'foundry') && workers >= 1 &&
         RTS.canAfford(s, TEAM.ENEMY, RTS.Buildings.foundry.cost)) {
       tryAiBuild(s, 'foundry');
     }

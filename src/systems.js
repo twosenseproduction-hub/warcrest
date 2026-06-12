@@ -158,6 +158,7 @@
     s.entities.resources = s.entities.resources.filter(function (n) { return n.amount > 0.5; });
 
     RTS.recalcSupply(s, TEAM.PLAYER);
+    RTS.recalcSupply(s, TEAM.ENEMY);
     checkEndGame(s);
   };
 
@@ -716,11 +717,13 @@
         b.built = true; b.hp = b.maxHp; b.spawnFlash = 0.5;
         b.builderId = null;
         RTS.spawnBuildingDust(s, b);
+        RTS.recalcSupply(s, b.team);
         if (b.team === TEAM.PLAYER) {
-          RTS.recalcSupply(s, TEAM.PLAYER);
           RTS.log(s, RTS.nameFor(b.faction, b.type) + ' online', 'good');
           RTS.Audio.play('ready');
           if (RTS.Pathfind) RTS.Pathfind.markDirty(s);
+        } else if (RTS.Pathfind) {
+          RTS.Pathfind.markDirty(s);
         }
         s.entities.units.forEach(function (u) {
           if (u.buildTask && u.buildTask.buildingId === b.id) {
