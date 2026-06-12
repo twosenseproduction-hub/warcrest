@@ -36,6 +36,12 @@
     maxSupplyCap: 80,
     passiveTrickle: 0.0,        // passive income/sec (0 = pure harvesting)
 
+    mineAmounts: {
+      starting: 12500,          // home gold beside each Castle
+      expansion: 5000,            // all other map nodes
+      startRadius: 300,           // px from base to count as starting gold
+    },
+
     harvest: {
       rate: 8,                  // ore/sec equivalent income (used to derive mine chunk size)
       capacity: 6,              // ore per trip — bank after every 6, then return to mine

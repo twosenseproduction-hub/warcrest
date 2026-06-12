@@ -8,6 +8,35 @@
   var W = function () { return RTS.Config.world.w; };
   var H = function () { return RTS.Config.world.h; };
 
+  function dist(ax, ay, bx, by) {
+    var dx = bx - ax, dy = by - ay;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function mineAmount(isStarting) {
+    var C = RTS.Config.mineAmounts;
+    return isStarting ? C.starting : C.expansion;
+  }
+
+  function isStartingMine(x, y, bases) {
+    var R = RTS.Config.mineAmounts.startRadius;
+    for (var i = 0; i < bases.length; i++) {
+      if (dist(x, y, bases[i].x, bases[i].y) <= R) return true;
+    }
+    return false;
+  }
+
+  function isHomeGoldOnMap(mg, g) {
+    var minP = Infinity, minE = Infinity, homeP = null, homeE = null;
+    mg.gold.forEach(function (o) {
+      var pd = dist(o.x, o.y, mg.playerBase.x, mg.playerBase.y);
+      var ed = dist(o.x, o.y, mg.enemyBase.x, mg.enemyBase.y);
+      if (pd < minP) { minP = pd; homeP = o; }
+      if (ed < minE) { minE = ed; homeE = o; }
+    });
+    return g === homeP || g === homeE;
+  }
+
   function mulberry(seed) {
     return function () {
       seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
@@ -393,8 +422,8 @@
     RTS.recalcSupply(s, RTS.TEAM.ENEMY);
   }
 
-  function mine(s, x, y, amount) {
-    RTS.makeResource(s, x, y, amount);
+  function mine(s, x, y, isStarting) {
+    RTS.makeResource(s, x, y, mineAmount(!!isStarting));
   }
 
   function spawnBase(s, team, cx, cy, faction, isEnemy, opts) {
@@ -428,7 +457,7 @@
     spawnBase(s, RTS.TEAM.PLAYER, px, py, pf, false, { rallyDx: 130, rallyDy: 90 });
     spawnBase(s, RTS.TEAM.ENEMY, ex, ey, ef, true, { rallyDx: -130, rallyDy: 90 });
 
-    mg.gold.forEach(function (g) { mine(s, g.x, g.y, g.amount); });
+    mg.gold.forEach(function (g) { mine(s, g.x, g.y, isHomeGoldOnMap(mg, g)); });
 
     var decorAvoid = [{ x: px, y: py }, { x: ex, y: ey }];
     mg.gold.forEach(function (g) { decorAvoid.push({ x: g.x, y: g.y }); });
@@ -465,21 +494,25 @@
     spawnBase(s, RTS.TEAM.PLAYER, 280, midY, pf, false, { rallyDx: 120, rallyDy: 0 });
     spawnBase(s, RTS.TEAM.ENEMY, w - 280, midY, ef, true, { rallyDx: -120, rallyDy: 0 });
 
-    mine(s, 400, midY - 220, 2800);
-    mine(s, 400, midY + 220, 2800);
-    mine(s, w - 400, midY - 220, 2800);
-    mine(s, w - 400, midY + 220, 2800);
-    mine(s, 360, midY - 380, 2600);
-    mine(s, 360, midY + 380, 2500);
-    mine(s, w - 360, midY - 380, 2600);
-    mine(s, w - 360, midY + 380, 2500);
-    mine(s, 980, midY - 150, 3000);
-    mine(s, 1100, midY + 130, 2900);
-    mine(s, 1500, midY - 110, 2900);
-    mine(s, 1620, midY + 160, 2800);
-    mine(s, 1280, midY - 300, 2700);
-    mine(s, 1320, midY + 310, 2700);
-    mine(s, 1180, midY, 2600);
+    var playerSpawn = { x: 280, y: midY };
+    var enemySpawn = { x: w - 280, y: midY };
+    var bases = [playerSpawn, enemySpawn];
+
+    mine(s, 400, midY - 220, isStartingMine(400, midY - 220, bases));
+    mine(s, 400, midY + 220, isStartingMine(400, midY + 220, bases));
+    mine(s, w - 400, midY - 220, isStartingMine(w - 400, midY - 220, bases));
+    mine(s, w - 400, midY + 220, isStartingMine(w - 400, midY + 220, bases));
+    mine(s, 360, midY - 380, false);
+    mine(s, 360, midY + 380, false);
+    mine(s, w - 360, midY - 380, false);
+    mine(s, w - 360, midY + 380, false);
+    mine(s, 980, midY - 150, false);
+    mine(s, 1100, midY + 130, false);
+    mine(s, 1500, midY - 110, false);
+    mine(s, 1620, midY + 160, false);
+    mine(s, 1280, midY - 300, false);
+    mine(s, 1320, midY + 310, false);
+    mine(s, 1180, midY, false);
 
     finishMap(s, {
       id: 'ember_divide',
@@ -508,22 +541,26 @@
     spawnBase(s, RTS.TEAM.PLAYER, midX, py, pf, false, { rallyDx: 0, rallyDy: -120 });
     spawnBase(s, RTS.TEAM.ENEMY, midX, ey, ef, true, { rallyDx: 0, rallyDy: 120 });
 
-    mine(s, midX - 220, py - 190, 2800);
-    mine(s, midX + 220, py - 190, 2800);
-    mine(s, midX - 220, ey + 190, 2800);
-    mine(s, midX + 220, ey + 190, 2800);
-    mine(s, midX - 380, py - 320, 2700);
-    mine(s, midX + 380, py - 320, 2700);
-    mine(s, midX - 380, ey + 320, 2700);
-    mine(s, midX + 380, ey + 320, 2700);
-    mine(s, w * 0.24, h * 0.44, 2900);
-    mine(s, w * 0.24, h * 0.56, 2800);
-    mine(s, w * 0.76, h * 0.44, 2900);
-    mine(s, w * 0.76, h * 0.56, 2800);
-    mine(s, midX - 180, h * 0.5, 3000);
-    mine(s, midX + 180, h * 0.5, 3000);
-    mine(s, midX, h * 0.42, 2700);
-    mine(s, midX, h * 0.58, 2700);
+    var playerSpawn = { x: midX, y: py };
+    var enemySpawn = { x: midX, y: ey };
+    var bases = [playerSpawn, enemySpawn];
+
+    mine(s, midX - 220, py - 190, isStartingMine(midX - 220, py - 190, bases));
+    mine(s, midX + 220, py - 190, isStartingMine(midX + 220, py - 190, bases));
+    mine(s, midX - 220, ey + 190, isStartingMine(midX - 220, ey + 190, bases));
+    mine(s, midX + 220, ey + 190, isStartingMine(midX + 220, ey + 190, bases));
+    mine(s, midX - 380, py - 320, false);
+    mine(s, midX + 380, py - 320, false);
+    mine(s, midX - 380, ey + 320, false);
+    mine(s, midX + 380, ey + 320, false);
+    mine(s, w * 0.24, h * 0.44, false);
+    mine(s, w * 0.24, h * 0.56, false);
+    mine(s, w * 0.76, h * 0.44, false);
+    mine(s, w * 0.76, h * 0.56, false);
+    mine(s, midX - 180, h * 0.5, false);
+    mine(s, midX + 180, h * 0.5, false);
+    mine(s, midX, h * 0.42, false);
+    mine(s, midX, h * 0.58, false);
 
     finishMap(s, {
       id: 'highland_crossing',
@@ -552,22 +589,23 @@
     spawnBase(s, RTS.TEAM.PLAYER, px, py, pf, false, { rallyDx: 110, rallyDy: 110 });
     spawnBase(s, RTS.TEAM.ENEMY, ex, ey, ef, true, { rallyDx: -110, rallyDy: -110 });
 
-    mine(s, px + 60, py - 140, 2800);
-    mine(s, px - 140, py + 60, 2600);
-    mine(s, px + 200, py + 200, 2700);
-    mine(s, ex - 60, ey + 140, 2800);
-    mine(s, ex + 140, ey - 60, 2600);
-    mine(s, ex - 200, ey - 200, 2700);
-    mine(s, w * 0.5, h * 0.5 - 80, 3100);
-    mine(s, w * 0.5, h * 0.5 + 80, 3000);
-    mine(s, w * 0.5 - 200, h * 0.5, 2900);
-    mine(s, w * 0.5 + 200, h * 0.5, 2900);
-    mine(s, w * 0.38, h * 0.38, 2800);
-    mine(s, w * 0.62, h * 0.62, 2800);
-    mine(s, w * 0.35, h * 0.65, 2600);
-    mine(s, w * 0.65, h * 0.35, 2600);
-    mine(s, w * 0.5, h * 0.32, 2700);
-    mine(s, w * 0.5, h * 0.68, 2700);
+    var bases = [{ x: px, y: py }, { x: ex, y: ey }];
+    mine(s, px + 60, py - 140, isStartingMine(px + 60, py - 140, bases));
+    mine(s, px - 140, py + 60, isStartingMine(px - 140, py + 60, bases));
+    mine(s, px + 200, py + 200, isStartingMine(px + 200, py + 200, bases));
+    mine(s, ex - 60, ey + 140, isStartingMine(ex - 60, ey + 140, bases));
+    mine(s, ex + 140, ey - 60, isStartingMine(ex + 140, ey - 60, bases));
+    mine(s, ex - 200, ey - 200, isStartingMine(ex - 200, ey - 200, bases));
+    mine(s, w * 0.5, h * 0.5 - 80, false);
+    mine(s, w * 0.5, h * 0.5 + 80, false);
+    mine(s, w * 0.5 - 200, h * 0.5, false);
+    mine(s, w * 0.5 + 200, h * 0.5, false);
+    mine(s, w * 0.38, h * 0.38, false);
+    mine(s, w * 0.62, h * 0.62, false);
+    mine(s, w * 0.35, h * 0.65, false);
+    mine(s, w * 0.65, h * 0.35, false);
+    mine(s, w * 0.5, h * 0.32, false);
+    mine(s, w * 0.5, h * 0.68, false);
 
     finishMap(s, {
       id: 'crown_isthmus',
