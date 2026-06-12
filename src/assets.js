@@ -233,7 +233,7 @@
     var h = hashId((d.x | 0) * 73856093 ^ (d.y | 0) * 19349663);
     var t = RTS._renderT || 0;
     var rm = RTS.Config.reducedMotion;
-    var list, idx, frameW, frameCount, targetH, footRatio;
+    var list, idx, frameW, frameCount, frameH, targetH, footRatio;
 
     if (d.kind === 'tree') {
       list = DECOR_SPRITES.tree;
@@ -245,8 +245,11 @@
     } else if (d.kind === 'rock' || ((theme === 'volcanic' || theme === 'amber') && d.kind !== 'bush')) {
       list = DECOR_SPRITES.rock;
       idx = h % list.length;
-      frameW = 0;
+      frameW = 128;
+      frameCount = 8;
+      frameH = 64;
       targetH = RTS.SizeRef.decorDrawHeight('rock');
+      footRatio = 0.85;
     } else if (d.kind === 'bush') {
       list = DECOR_SPRITES.bush;
       idx = h % list.length;
@@ -276,9 +279,9 @@
     var footY = grid && RTS.Terrain ? RTS.Terrain.groundY(grid, d.x, d.y) : d.y;
 
     if (frameW) {
-      var animFps = d.kind === 'bush' ? 3 : 2.5;
+      var animFps = d.kind === 'bush' ? 3 : (d.kind === 'rock' ? 2 : 2.5);
       var fi = decorAnimFrame(t, h, frameCount, animFps, rm);
-      var frame = sheetFrame(img, fi, frameW);
+      var frame = sheetFrame(img, fi, frameW, frameH);
       if (!frame) return;
       var sc = targetH / frame.sh;
       var w = frame.sw * sc;

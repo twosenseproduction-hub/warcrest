@@ -107,8 +107,16 @@
 
   RTS.deposits = function (s, team) {
     return s.entities.buildings.filter(function (b) {
-      return b.team === team && !b.dead && b.built && RTS.Buildings[b.type].deposit;
+      return b.team === team && RTS.isDepositBuilding && RTS.isDepositBuilding(b);
     });
+  };
+
+  RTS.buildingIsAttackable = function (b) {
+    return !!b && !b.dead && (b.built || b.progress > 0);
+  };
+
+  RTS.buildingIsTappable = function (b) {
+    return RTS.buildingIsAttackable(b);
   };
 
   RTS.recalcSupply = function (s, team) {

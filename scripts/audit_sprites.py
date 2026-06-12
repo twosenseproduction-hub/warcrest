@@ -41,7 +41,11 @@ EXPECTED = {
     "Terrain/Decorations/Bushes/Bushe2.png": (128, 8),
     "Terrain/Decorations/Bushes/Bushe3.png": (128, 8),
     "Terrain/Decorations/Bushes/Bushe4.png": (128, 8),
+    "Terrain/Decorations/Rocks in the Water/Water Rocks_01.png": (128, 8),
+    "Terrain/Decorations/Rocks in the Water/Water Rocks_02.png": (128, 8),
+    "Terrain/Decorations/Rocks in the Water/Water Rocks_03.png": (128, 8),
     "Terrain/Resources/Gold/Gold Resource/Gold_Resource_Highlight.png": (128, 6),
+    "Terrain/Tileset/Water Foam.png": (192, 16),
 }
 
 
@@ -101,6 +105,26 @@ def main() -> int:
 
     gold_hi = ASSETS / "Terrain/Resources/Gold/Gold Resource/Gold_Resource_Highlight.png"
     rows += check("assets.js gold spark", gold_hi, 128, 6, None)  # fw = width/6
+
+    rock_match = re.search(
+        r"d\.kind === 'rock'[\s\S]*?frameW = (\d+)[\s\S]*?frameCount = (\d+)",
+        assets_js,
+    )
+    if rock_match:
+        rock_fw, rock_fc = int(rock_match.group(1)), int(rock_match.group(2))
+        rock_fh_match = re.search(
+            r"d\.kind === 'rock'[\s\S]*?frameH = (\d+)",
+            assets_js,
+        )
+        rock_fh = int(rock_fh_match.group(1)) if rock_fh_match else None
+    else:
+        rock_fw, rock_fc, rock_fh = 0, 1, None
+    for i in range(1, 4):
+        p = ASSETS / f"Terrain/Decorations/Rocks in the Water/Water Rocks_{i:02d}.png"
+        rows += check("assets.js rock", p, rock_fw, rock_fc, rock_fh)
+
+    foam = ASSETS / "Terrain/Tileset/Water Foam.png"
+    rows += check("terrain.js foam", foam, 192, 16, 192)
 
     # --- sprites.js ROLE_DEF clips ---
     role_clips = {
@@ -169,7 +193,40 @@ def main() -> int:
 
     print("-" * 100)
     print(f"Total rows: {len(rows)}  Mismatches: {mismatches}")
+
+    if "--crop" in sys.argv:
+        save_crops()
+
     return 1 if mismatches else 0
+
+
+def save_crops() -> None:
+    """Save frame-0 crops using the same rects as runtime slicing."""
+    try:
+        from PIL import Image
+    except ImportError:
+        print("SKIP crop: Pillow not installed")
+        return
+
+    out = ROOT / "scripts" / "audit_crops"
+    out.mkdir(parents=True, exist_ok=True)
+
+    crops = [
+        ("tree", ASSETS / "Terrain/Resources/Wood/Trees/Tree1.png", 0, 192, 256),
+        ("rock", ASSETS / "Terrain/Decorations/Rocks in the Water/Water Rocks_01.png", 0, 128, 64),
+        ("bush", ASSETS / "Terrain/Decorations/Bushes/Bushe1.png", 0, 128, 128),
+    ]
+    for name, path, frame, fw, fh in crops:
+        if not path.is_file():
+            print(f"SKIP crop {name}: missing {path.name}")
+            continue
+        img = Image.open(path)
+        x0 = frame * fw
+        box = (x0, 0, x0 + fw, fh)
+        crop = img.crop(box)
+        dest = out / f"{name}_frame{frame}_{fw}x{fh}.png"
+        crop.save(dest)
+        print(f"CROP {dest.relative_to(ROOT)}  ({crop.size[0]}x{crop.size[1]})")
 
 
 if __name__ == "__main__":

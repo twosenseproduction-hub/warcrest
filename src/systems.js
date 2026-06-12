@@ -168,7 +168,10 @@
 
     // Resolve current explicit target
     var target = u.target ? RTS.getById(s, u.target) : null;
-    if (target && (target.dead)) { u.target = null; target = null; }
+    if (target && target.dead) { u.target = null; target = null; }
+    if (target && target.kind === 'building' && !RTS.buildingIsAttackable(target)) {
+      u.target = null; target = null;
+    }
 
     // Auto-acquire if attack-moving or idle-aggressive
     if (!target && u.role !== 'pawn' && u.heal === 0) {
@@ -382,7 +385,7 @@
   }
 
   function builtDeposit(b) {
-    return b && !b.dead && b.built && RTS.Buildings[b.type].deposit;
+    return RTS.isDepositBuilding && RTS.isDepositBuilding(b);
   }
 
   function builderReach(b) {
@@ -434,7 +437,13 @@
   function doBuildTask(s, u, dt) {
     var b = RTS.getById(s, u.buildTask.buildingId);
     if (!b || b.dead) { u.buildTask = null; u.moveTo = null; return; }
-    if (b.built) { u.buildTask = null; u.moveTo = null; b.builderId = null; return; }
+    if (b.built) {
+      u.buildTask = null;
+      u.moveTo = null;
+      b.builderId = null;
+      if (RTS.resumeCarryAfterBuild) RTS.resumeCarryAfterBuild(u, s);
+      return;
+    }
     if (b.builderId && b.builderId !== u.id) { u.buildTask = null; return; }
     b.builderId = u.id;
     var reach = builderReach(b);
@@ -485,6 +494,7 @@
           if (u.buildTask && u.buildTask.buildingId === b.id) {
             u.buildTask = null;
             u.moveTo = null;
+            if (RTS.resumeCarryAfterBuild) RTS.resumeCarryAfterBuild(u, s);
           }
         });
       }
@@ -686,7 +696,7 @@
       if (buildingTaskId && b.id === buildingTaskId) continue;
       if (depositId && b.id === depositId) continue;
       if (u.harvest && u.harvest.phase === 'toBase' && u.harvest.carry > 0 &&
-          RTS.Buildings[b.type].deposit && canDepositAt(u, b, s)) continue;
+          RTS.isDepositBuilding && RTS.isDepositBuilding(b) && canDepositAt(u, b, s)) continue;
       var px = u.x, py = u.y;
       pushCircleOutOfRect(u, RTS.Assets.buildingCollisionRect(b, s), r);
       pushX += u.x - px;
@@ -799,6 +809,7 @@
     var b = s.entities.buildings;
     for (var j = 0; j < b.length; j++) {
       if (b[j].dead || b[j].team !== foeTeam) continue;
+      if (!RTS.buildingIsAttackable(b[j])) continue;
       var db = dist(x, y, b[j].x, b[j].y);
       if (db < bd) { bd = db; best = b[j]; }
     }

@@ -206,7 +206,7 @@
   };
 
   RTS.isDepositBuilding = function (b) {
-    return b.type === 'core' || b.type === 'outpost';
+    return !!b && !b.dead && b.built && (b.type === 'core' || b.type === 'outpost');
   };
 
   RTS.setRallyPoint = function (s, buildings, x, y) {
@@ -247,6 +247,10 @@
   };
 
   RTS.orderAttack = function (s, units, targetId) {
+    var target = RTS.getById(s, targetId);
+    if (target && target.kind === 'building' && !RTS.buildingIsAttackable(target)) {
+      return;
+    }
     units.forEach(function (u) {
       u.target = targetId; u.moveTo = null; u.attackMove = false;
       u.harvest = null; u.buildTask = null;
@@ -320,6 +324,42 @@
   }
   RTS.baseTrain = baseTrain;
 
+  function pawnCarryAmount(u) {
+    return u.harvest && u.harvest.carry > 0 ? u.harvest.carry : 0;
+  }
+
+  RTS.resumeCarryAfterBuild = function (u, s) {
+    if (!u.harvest || u.harvest.carry <= 0) return;
+    u.harvest.phase = 'toBase';
+    u.harvest.nodeId = null;
+    u.harvest.depositId = null;
+    var deps = RTS.deposits(s, u.team);
+    var best = null, bd = Infinity;
+    deps.forEach(function (b) {
+      var d = dist(u.x, u.y, b.x, b.y);
+      if (d < bd) { bd = d; best = b; }
+    });
+    u.harvest.depositId = best ? best.id : null;
+  };
+
+  RTS.redirectPawnToBuild = function (s, u, b) {
+    if (!u || !b || u.dead || u.role !== 'pawn') return;
+    s.entities.buildings.forEach(function (ob) {
+      if (ob.builderId === u.id && ob.id !== b.id) ob.builderId = null;
+    });
+    var carry = pawnCarryAmount(u);
+    u.target = null;
+    u.moveTo = null;
+    u.harvest = carry > 0
+      ? { nodeId: null, phase: 'toBase', carry: carry, depositId: null }
+      : null;
+    u.buildTask = { buildingId: b.id };
+    u._workPhase = 0;
+    u._builderOnSite = false;
+    b.builderId = u.id;
+    if (RTS.Pathfind) RTS.Pathfind.clearNav(u);
+  };
+
   // ---- Building placement --------------------------------------------------
   RTS.orderBuild = function (s, building, workers) {
     if (!building || building.dead || building.built || building.team !== RTS.TEAM.PLAYER) {
@@ -328,29 +368,19 @@
     workers = (workers || []).filter(function (u) {
       return u && !u.dead && u.role === 'pawn' && u.team === RTS.TEAM.PLAYER;
     });
+    var w = null;
     if (workers.length) {
       workers.sort(function (a, c) {
         return dist(a.x, a.y, building.x, building.y) - dist(c.x, c.y, building.x, building.y);
       });
-      var w = workers[0];
-      w.harvest = null;
-      w.target = null;
-      w.moveTo = null;
-      w.buildTask = { buildingId: building.id };
-      w._workPhase = 0;
-      building.builderId = w.id;
-      if (RTS.Pathfind) RTS.Pathfind.clearNav(w);
-      if (building.team === RTS.TEAM.PLAYER) {
-        RTS.log(s, 'Pawn sent to build', 'good');
-        RTS.Audio.play('move');
-        RTS.HUD.sync(s);
-      }
-      return true;
+      w = workers[0];
+      RTS.redirectPawnToBuild(s, w, building);
+    } else {
+      w = RTS.assignBuilder(s, building);
     }
-    var assigned = RTS.assignBuilder(s, building);
-    if (!assigned) {
+    if (!w) {
       if (building.team === RTS.TEAM.PLAYER) {
-        RTS.toast(s, 'Need an idle Pawn');
+        RTS.toast(s, 'No Pawn available to build');
         RTS.Audio.play('deny');
       }
       return false;
@@ -367,9 +397,7 @@
     if (!b || b.dead || b.built) return null;
     var team = b.team;
     var workers = s.entities.units.filter(function (u) {
-      return u.team === team && u.role === 'pawn' && !u.dead &&
-        !u.harvest && !u.moveTo && !u.target &&
-        !(RTS.isConstructionWorker && RTS.isConstructionWorker(s, u, b.id));
+      return u.team === team && u.role === 'pawn' && !u.dead;
     });
     if (!workers.length) return null;
     var w = preferredWorker;
@@ -379,13 +407,7 @@
       });
       w = workers[0];
     }
-    w.harvest = null;
-    w.target = null;
-    w.moveTo = null;
-    w.buildTask = { buildingId: b.id };
-    w._workPhase = 0;
-    b.builderId = w.id;
-    if (RTS.Pathfind) RTS.Pathfind.clearNav(w);
+    RTS.redirectPawnToBuild(s, w, b);
     return w;
   };
 
@@ -478,9 +500,8 @@
         b.rally = { x: x + 90, y: y };
       }
     }
-    var selPawn = RTS.selectedUnits(s).find(function (u) { return u.role === 'pawn'; });
-    if (!RTS.assignBuilder(s, b, selPawn)) {
-      RTS.toast(s, 'Need an idle Pawn to build');
+    if (!RTS.assignBuilder(s, b)) {
+      RTS.toast(s, 'No Pawn available to build');
     }
     RTS.log(s, RTS.nameFor(s.playerFaction, type) + ' under construction', 'good');
     if (type === 'outpost') RTS.log(s, 'Outpost raised — secure the Halcite', 'good');

@@ -167,6 +167,11 @@
     el.addEventListener('click', function () { var s = getState(); if (s) fn(s); });
   }
 
+  function macroBarActive(s) {
+    if (!s.ui.macroGroups || !RTS.macroGroupRoles) return false;
+    return RTS.macroGroupRoles(s).length >= 2;
+  }
+
   function deckOpen(s) {
     if (s.inputMode === 'place-building') return true;
     return RTS.selectedUnits(s).length > 0 || RTS.selectedBuildings(s).length > 0;

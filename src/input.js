@@ -61,6 +61,7 @@
     });
     s.entities.buildings.forEach(function (b) {
       if (b.dead) return;
+      if (!RTS.buildingIsTappable(b)) return;
       var pad = 10 + slop * 0.4;
       if (wx >= b.x - b.w / 2 - pad && wx <= b.x + b.w / 2 + pad &&
           wy >= b.y - b.h / 2 - pad && wy <= b.y + b.h / 2 + pad) {
@@ -75,6 +76,21 @@
     });
     cands.sort(function (a, b) { return a.sort - b.sort; });
     return cands.length ? cands[0].e : null;
+  }
+
+  function hitTestConstructionSite(s, wx, wy) {
+    var slop = (RTS.Config.touch ? RTS.Config.touch.slopPx : 28) / s.camera.zoom;
+    var best = null, bd = Infinity;
+    s.entities.buildings.forEach(function (b) {
+      if (b.dead || b.team !== TEAM.PLAYER || b.built) return;
+      var pad = 10 + slop * 0.4;
+      if (wx >= b.x - b.w / 2 - pad && wx <= b.x + b.w / 2 + pad &&
+          wy >= b.y - b.h / 2 - pad && wy <= b.y + b.h / 2 + pad) {
+        var d = RTS.dist(wx, wy, b.x, b.y);
+        if (d < bd) { bd = d; best = b; }
+      }
+    });
+    return best;
   }
 
   // ---- Tap resolution ------------------------------------------------------
@@ -144,7 +160,7 @@
     }
 
     // Friendly building → select + radial production menu
-    if (hit && hit.kind === 'building' && hit.team === TEAM.PLAYER && !additive) {
+    if (hit && hit.kind === 'building' && hit.team === TEAM.PLAYER && hit.built && !additive) {
       s.selectedIds = [hit.id];
       RTS.clearMacroGroups(s);
       if (RTS.BuildingMenu) RTS.BuildingMenu.open(s, hit);
@@ -169,6 +185,9 @@
     }
 
     // Enemy → attack with selected combat
+    if (hit && hit.kind === 'building' && hit.team === TEAM.ENEMY && !RTS.buildingIsAttackable(hit)) {
+      hit = null;
+    }
     if (hit && (hit.kind === 'unit' || hit.kind === 'building') && hit.team === TEAM.ENEMY && combat.length) {
       RTS.orderAttack(s, combat, hit.id);
       flash(s, wx, wy, '#ff5a5a');
@@ -366,6 +385,7 @@
         if (RTS.RadialMenu && RTS.RadialMenu.isOpen()) RTS.RadialMenu.close();
         var w = RTS.Cam.screenToWorld(s, cssX, cssY);
         var hit = hitTest(s, w.x, w.y);
+        var buildHit = hitTestConstructionSite(s, w.x, w.y);
         var onEmpty = !hit || hit.kind === 'resource';
         var boxArmed = s.boxSelectArmed || shift;
         var secondTap = isSecondTap(cssX, cssY) && s.inputMode !== 'place-building';
@@ -393,8 +413,8 @@
             }
           }, MENU_HOLD);
         } else if (!secondTap && !boxArmed &&
-            (isBareGround(hit) || unfinishedPlayerBuilding(hit))) {
-          startLongPress(s, w.x, w.y, cssX, cssY, hit);
+            (isBareGround(hit) || unfinishedPlayerBuilding(buildHit || hit))) {
+          startLongPress(s, w.x, w.y, cssX, cssY, buildHit || hit);
         }
       }
 
