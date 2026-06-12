@@ -427,8 +427,14 @@
     }
 
     if (b.hitFlash > 0) {
-      ctx.fillStyle = hexA('#ffffff', (b.hitFlash / RTS.Config.hitFlash) * 0.5);
+      var flashK = b.hitFlash / RTS.Config.hitFlash;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = hexA('#ffffff', flashK * 0.75);
       pRRect(ctx, x - b.w / 2, y - b.h / 2, b.w, b.h, 10); ctx.fill();
+      ctx.fillStyle = hexA('#ff9650', flashK * 0.4);
+      pRRect(ctx, x - b.w / 2, y - b.h / 2, b.w, b.h, 10); ctx.fill();
+      ctx.restore();
     }
 
     if (built && (b.hp < b.maxHp || s.settings.showHealthAlways)) {

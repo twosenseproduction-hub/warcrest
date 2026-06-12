@@ -18,18 +18,102 @@
 
   var FIRE_KEYS = ['fire1', 'fire2', 'fire3'];
   var ready = false;
-  var fireByBuilding = {};
+  var firesByBuilding = {};
+
+  // Scatter slots on roof/walls — ux/uy are fractions of sprite width/height from top-left.
+  var FIRE_SLOTS = [
+    { ux: -0.26, uy: 0.10 },
+    { ux:  0.26, uy: 0.10 },
+    { ux:  0.00, uy: 0.04 },
+    { ux: -0.34, uy: 0.26 },
+    { ux:  0.34, uy: 0.26 },
+    { ux: -0.12, uy: 0.18 },
+    { ux:  0.14, uy: 0.22 },
+  ];
 
   function sheetDuration(key) {
     var sh = SHEETS[key];
     return sh.frames / sh.fps;
   }
 
-  function pickFireKey(buildingId) {
+  function pickFireKey(seed) {
     var n = 0;
-    var str = String(buildingId);
+    var str = String(seed);
     for (var i = 0; i < str.length; i++) n = (n * 31 + str.charCodeAt(i)) | 0;
     return FIRE_KEYS[((n % FIRE_KEYS.length) + FIRE_KEYS.length) % FIRE_KEYS.length];
+  }
+
+  function fireCountForHp(ratio) {
+    if (ratio >= 0.75) return 0;
+    if (ratio >= 0.55) return 1;
+    if (ratio >= 0.40) return 2;
+    if (ratio >= 0.25) return 3;
+    if (ratio >= 0.12) return 4;
+    return 5;
+  }
+
+  function buildingFireLayout(b, s) {
+    var vb = RTS.Assets && RTS.Assets.buildingVisualBounds
+      ? RTS.Assets.buildingVisualBounds(b, s) : null;
+    var drawW = vb ? vb.drawW : b.w;
+    var drawH = vb ? vb.drawH : b.h;
+    var topY = vb ? vb.drawY : (b.y - b.h / 2);
+    var baseScale = Math.max(drawW, drawH) / 125;
+    return FIRE_SLOTS.map(function (slot, i) {
+      return {
+        offsetX: slot.ux * drawW,
+        offsetY: (topY + slot.uy * drawH) - b.y,
+        scale: baseScale * (0.38 + (i % 3) * 0.07),
+        sheet: pickFireKey((b.id || 0) + ':' + i),
+      };
+    });
+  }
+
+  function clearBuildingFires(s, buildingId) {
+    var existing = firesByBuilding[buildingId];
+    if (!existing) return;
+    delete firesByBuilding[buildingId];
+    existing.forEach(function (entry) {
+      s.entities.effects.forEach(function (fx) {
+        if (fx.id === entry.fxId) fx.life = 0;
+      });
+    });
+  }
+
+  function syncBuildingFires(s, b) {
+    if (!ready || RTS.Config.reducedMotion) return;
+    if (!b || b.dead || !b.built) {
+      clearBuildingFires(s, b && b.id);
+      return;
+    }
+    var want = fireCountForHp(b.hp / b.maxHp);
+    var existing = firesByBuilding[b.id] || [];
+    var layout = buildingFireLayout(b, s);
+
+    while (existing.length > want) {
+      var rem = existing.pop();
+      s.entities.effects.forEach(function (fx) {
+        if (fx.id === rem.fxId) fx.life = 0;
+      });
+    }
+
+    while (existing.length < want) {
+      var slotIdx = existing.length;
+      var slot = layout[slotIdx % layout.length];
+      var fx = addPfx(s, {
+        sheet: slot.sheet,
+        x: b.x + slot.offsetX,
+        y: b.y + slot.offsetY,
+        scale: slot.scale,
+        loop: true,
+        buildingId: b.id,
+        offsetX: slot.offsetX,
+        offsetY: slot.offsetY,
+      });
+      if (fx) existing.push({ fxId: fx.id, slot: slotIdx });
+    }
+
+    firesByBuilding[b.id] = existing;
   }
 
   function addPfx(s, opts) {
@@ -134,59 +218,47 @@
       addPfx(s, { sheet: 'splash', x: x, y: y, scale: 1.15 });
     },
 
+    syncBuildingFires: syncBuildingFires,
+    clearBuildingFires: clearBuildingFires,
+
     ensureFireLoop: function (s, buildingId) {
-      if (!ready || RTS.Config.reducedMotion) return;
-      if (fireByBuilding[buildingId]) return;
       var b = RTS.getById(s, buildingId);
-      if (!b || b.dead) return;
-      var key = pickFireKey(buildingId);
-      var fx = addPfx(s, {
-        sheet: key,
-        x: b.x,
-        y: b.y - b.h * 0.12,
-        scale: Math.max(b.w, b.h) / 110,
-        loop: true,
-        buildingId: buildingId,
-        offsetY: -b.h * 0.12,
-      });
-      if (fx) fireByBuilding[buildingId] = fx.id;
+      if (b) syncBuildingFires(s, b);
     },
 
     clearFireLoop: function (s, buildingId) {
-      var id = fireByBuilding[buildingId];
-      if (!id) return;
-      delete fireByBuilding[buildingId];
-      s.entities.effects.forEach(function (fx) {
-        if (fx.id === id) fx.life = 0;
-      });
+      clearBuildingFires(s, buildingId);
     },
 
     spawnExplosion: function (s, x, y, size) {
       if (!ready) return false;
       size = size || 18;
-      var scale = Math.max(0.55, size / 22);
-      var large = size >= 28;
+      var scale = Math.max(0.55, size / 20);
+      var large = size >= 24;
       addPfx(s, { sheet: 'explosion1', x: x, y: y, scale: scale });
       if (large) {
         addPfx(s, {
           sheet: 'explosion2',
           x: x,
-          y: y - 4,
-          scale: scale * 1.15,
-          alpha: 0.92,
+          y: y - 6,
+          scale: scale * 1.2,
+          alpha: 0.95,
         });
+      }
+      if (size >= 40 && !RTS.Config.reducedMotion) {
+        var dkey = ((x * 3 + y * 5) | 0) % 2 ? 'dust2' : 'dust1';
+        addPfx(s, { sheet: dkey, x: x, y: y + 4, scale: 1.45 });
+        addPfx(s, { sheet: dkey === 'dust1' ? 'dust2' : 'dust1', x: x + 8, y: y, scale: 1.75, alpha: 0.85 });
       }
       return true;
     },
 
     tick: function (s, dt) {
       if (!ready) return;
-      var deadBuildings = [];
-      Object.keys(fireByBuilding).forEach(function (bid) {
+      Object.keys(firesByBuilding).forEach(function (bid) {
         var b = RTS.getById(s, bid);
-        if (!b || b.dead) deadBuildings.push(bid);
+        if (!b || b.dead) clearBuildingFires(s, bid);
       });
-      deadBuildings.forEach(function (bid) { delete fireByBuilding[bid]; });
 
       s.entities.effects.forEach(function (fx) {
         if (fx.kind !== 'pfx') return;

@@ -338,13 +338,6 @@
       }
       u.facing = Math.atan2(node.y - u.y, node.x - u.x);
       u._workPhase = (u._workPhase || 0) + dt;
-      if (RTS.Particles && RTS.Particles.ready) {
-        u._mineDustT = (u._mineDustT || 0) + dt;
-        if (u._mineDustT > 0.28) {
-          u._mineDustT = 0;
-          RTS.Particles.spawnDust(s, u.x + 4, u.y + 2, 0.65);
-        }
-      }
       var mined = Math.min(H.rate * dt, node.amount, H.capacity - u.harvest.carry);
       node.amount -= mined; u.harvest.carry += mined;
       if (u.harvest.carry >= H.capacity - 0.01) {
@@ -406,13 +399,6 @@
       u._moveHold = 0;
       u.facing = Math.atan2(b.y - u.y, b.x - u.x);
       u._workPhase = (u._workPhase || 0) + dt;
-      if (RTS.Particles && RTS.Particles.ready) {
-        u._buildDustT = (u._buildDustT || 0) + dt;
-        if (u._buildDustT > 0.32) {
-          u._buildDustT = 0;
-          RTS.Particles.spawnDust(s, u.x + 3, u.y + 2, 0.7);
-        }
-      }
     }
   }
 
@@ -424,11 +410,7 @@
     b.cooldown = Math.max(0, b.cooldown - dt);
 
     if (RTS.Particles && RTS.Particles.ready && b.built) {
-      var needFire = b.hitFlash > 0 ||
-        (b.team === TEAM.PLAYER && s.ui.baseAlarm > 0) ||
-        b.hp < b.maxHp * 0.45;
-      if (needFire) RTS.Particles.ensureFireLoop(s, b.id);
-      else RTS.Particles.clearFireLoop(s, b.id);
+      RTS.Particles.syncBuildingFires(s, b);
     }
 
     if (!b.built) {
@@ -519,16 +501,20 @@
     e.dead = true; e.hp = 0;
     if (e.kind === 'unit') {
       e.corpse = RTS.Config.corpseFade;
-      if (!(RTS.Sprites && RTS.Sprites.ready)) {
+      if (RTS.Particles && RTS.Particles.ready) {
+        RTS.Particles.spawnDust(s, e.x, e.y + 2, 1.15, true);
+      } else if (!(RTS.Sprites && RTS.Sprites.ready)) {
         RTS.spawnExplosion(s, e.x, e.y, e.radius + 6, RTS.Factions[e.faction].primary);
       }
       if (attacker && attacker.team === TEAM.PLAYER) s.stats.kills++;
       if (e.team === TEAM.PLAYER) s.stats.unitsLost++;
       s.selectedIds = s.selectedIds.filter(function (id) { return id !== e.id; });
     } else {
-      if (RTS.Particles) RTS.Particles.clearFireLoop(s, e.id);
-      RTS.spawnExplosion(s, e.x, e.y, Math.max(e.w, e.h) * 0.5, '#ffce6b');
-      s.screenShake = Math.max(s.screenShake, 5);
+      if (RTS.Particles) RTS.Particles.clearBuildingFires(s, e.id);
+      var boomY = e.y - e.h * 0.22;
+      var boomSize = Math.max(e.w, e.h) * 0.75;
+      RTS.spawnExplosion(s, e.x, boomY, boomSize, '#ffce6b');
+      s.screenShake = Math.max(s.screenShake, 7);
       if (e.team === TEAM.PLAYER) {
         s.ui.baseAlarm = 1.4; s.screenFlash = 0.4; s.flashColor = '#ff5555';
         RTS.log(s, RTS.nameFor(e.faction, e.type) + ' destroyed!', 'bad');
@@ -722,18 +708,6 @@
     if (RTS.Particles && RTS.Particles.ready && grid && RTS.Terrain) {
       var nowWater = RTS.Terrain.isWater(grid, u.x, u.y);
       if (nowWater && !wasWater) RTS.Particles.spawnWaterSplash(s, u.x, u.y);
-
-      var speed = Math.sqrt(u.vx * u.vx + u.vy * u.vy);
-      if (speed > 75) {
-        u._dustT = (u._dustT || 0) + dt;
-        if (u._dustT > 0.11) {
-          u._dustT = 0;
-          RTS.Particles.spawnDust(s, u.x, u.y + 2, speed > 130 ? 1.1 : 0.85);
-        }
-      } else if ((u._prevSpeed || 0) > 95 && speed < 18) {
-        RTS.Particles.spawnDust(s, u.x, u.y + 2, 1.2, true);
-      }
-      u._prevSpeed = speed;
     }
 
     if (withSeparation !== false) softSeparation(s, u, dt);

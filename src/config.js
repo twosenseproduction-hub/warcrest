@@ -62,7 +62,7 @@
     unitCollisionGap: 4,        // minimum px gap between unit hitboxes
     unitOverlapIterations: 3,   // overlap solver passes per frame
     projectileSpeed: 520,
-    hitFlash: 0.13,
+    hitFlash: 0.16,
     muzzleFlash: 0.09,
     corpseFade: 1.2,
     maxEffects: 60,
