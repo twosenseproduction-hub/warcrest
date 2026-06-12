@@ -358,8 +358,12 @@
 
   function bar(v, max) {
     var pct = Math.max(0, Math.min(1, v / max));
-    return '<div class="sel-bar"><div class="bar"><i style="width:' + (pct * 100) +
-           '%"></i></div><b>' + Math.ceil(pct * 100) + '%</b></div>';
+    var state = pct <= 0.25 ? ' is-crit' : pct <= 0.55 ? ' is-warn' : '';
+    return '<div class="sel-bar"><div class="hp-bar' + state + '">' +
+      '<span class="hp-bar__cap hp-bar__cap--l"></span>' +
+      '<span class="hp-bar__stretch"><span class="hp-bar__fill" style="width:' + (pct * 100) + '%"></span></span>' +
+      '<span class="hp-bar__cap hp-bar__cap--r"></span>' +
+      '</div><b>' + Math.ceil(pct * 100) + '%</b></div>';
   }
 
   function renderBuildPanel(s) {

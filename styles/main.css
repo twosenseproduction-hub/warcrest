@@ -32,8 +32,8 @@
   --ts-paper-card: url("../assets/ui/paper-panel-360.png");
   --ts-paper-tile: url("../assets/ui/paper-tile-128.png");
   --ts-wood: url("../assets/ui/wood-table-320.png");
-  --ts-bar-base: url("../assets/ui/bar-base-200.png");
-  --ts-bar-fill: url("../assets/ui/bar-fill-200.png");
+  --ts-bar-cap: url("../assets/tiny-swords/UI%20Elements/UI%20Elements/Bars/SmallBar_Base.png");
+  --ts-bar-fill-mask: url("../assets/tiny-swords/UI%20Elements/UI%20Elements/Bars/SmallBar_Fill.png");
   --sky: #1e88e5;
   --sky-dark: #1565c0;
   --grass: #43a047;
@@ -649,16 +649,44 @@ html, body {
 .sel-chips { display: none; }
 .sel-bar { display: flex; align-items: center; gap: 4px; margin-top: 2px; }
 .sel-bar span { display: none; }
-.sel-bar .bar {
-  flex: 1; height: 10px; min-width: 48px; border-radius: 0; overflow: hidden;
-  background: var(--ts-bar-base) center/100% 100% no-repeat;
+.sel-bar .hp-bar {
+  flex: 1; min-width: 48px; height: 10px;
+  display: flex; align-items: stretch;
   image-rendering: pixelated;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
 }
-.sel-bar .bar i {
-  display: block; height: 100%;
-  background: var(--ts-bar-fill) left center/100% 100% no-repeat;
-  image-rendering: pixelated;
+.sel-bar .hp-bar__cap {
+  flex: 0 0 auto; width: calc(10px * 15 / 64); height: 10px;
+  background: var(--ts-bar-cap) no-repeat;
+  background-size: calc(10px * 320 / 64) 10px;
 }
+.sel-bar .hp-bar__cap--l { background-position: calc(10px * -49 / 64) 0; }
+.sel-bar .hp-bar__cap--r {
+  width: calc(10px * 15 / 64);
+  background-position: calc(10px * -256 / 64) 0;
+}
+.sel-bar .hp-bar__stretch {
+  flex: 1 1 auto; min-width: 4px; height: 10px; position: relative;
+  background: var(--ts-bar-cap) repeat-x;
+  background-size: calc(10px * 64 / 64) 10px;
+  background-position: calc(10px * -128 / 64) 0;
+}
+.sel-bar .hp-bar__fill {
+  position: absolute; left: 0; top: calc(10px * 30 / 64);
+  height: calc(10px * 3 / 64); min-width: 1px;
+  background-color: var(--hp-color, #48b848);
+  -webkit-mask-image: var(--ts-bar-fill-mask);
+  mask-image: var(--ts-bar-fill-mask);
+  -webkit-mask-size: calc(10px * 64 / 64) 10px;
+  mask-size: calc(10px * 64 / 64) 10px;
+  -webkit-mask-position: 0 calc(10px * -30 / 64);
+  mask-position: 0 calc(10px * -30 / 64);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  transition: width 0.18s ease-out;
+}
+.sel-bar .hp-bar.is-warn { --hp-color: #e0a820; }
+.sel-bar .hp-bar.is-crit { --hp-color: #d94040; }
 .sel-bar b { font-size: 8px; color: rgba(255, 255, 255, 0.6); font-variant-numeric: tabular-nums; }
 
 #action-tray {

@@ -1004,7 +1004,6 @@
 
   function drawUnitOverlays(ctx, u, f, s, r, pal, vb, spriteNative) {
     var topY = vb ? vb.drawY - 6 : u.y - r - 14;
-    var drawSpriteBar = RTS.Assets && typeof RTS.Assets.drawSpriteHealthBar === 'function';
     if (u.role === 'pawn' && u.harvest && u.harvest.carry > 0) {
       ctx.font = 'bold 11px Fredoka, system-ui';
       ctx.textAlign = 'center';
@@ -1036,9 +1035,7 @@
     }
     if (u.hp < u.maxHp || s.settings.showHealthAlways) {
       var barW = vb ? Math.max(34, vb.drawW * 0.85) : Math.max(34, r * 2.8);
-      if (!drawSpriteBar || !RTS.Assets.drawSpriteHealthBar(ctx, u.x, topY, barW, u.hp / u.maxHp, pal.trim, false)) {
-        drawHealthBar(ctx, u.x, topY, barW, u.hp / u.maxHp, pal.trim, false, false);
-      }
+      drawHealthBar(ctx, u.x, topY, barW, u.hp / u.maxHp, pal.trim, false, false);
     }
   }
   RTS.Art.drawUnitOverlays = drawUnitOverlays;
@@ -1291,11 +1288,27 @@
   }
 
   /* ==========================================================================
-   * Health bar — chunky pill with optional badge circle on the left end.
-   * (badge is an optional trailing arg; all original call shapes still work.)
+   * Health bar — Tiny Swords Live Bars (3-slice sprite) with canvas fallback.
    * ========================================================================*/
+  function drawHealthBadge(ctx, x, y, h, large) {
+    var br = h / 2 + (large ? 6 : 4.5);
+    pCircle(ctx, x - 1, y + h / 2, br);
+    ctx.fillStyle = '#ffca28'; ctx.fill();
+    ctx.strokeStyle = TEXT_INK; ctx.lineWidth = 2.5; ctx.stroke();
+    pStar4(ctx, x - 1, y + h / 2, br * 0.55);
+    ctx.fillStyle = '#fff8e1'; ctx.fill();
+    ctx.strokeStyle = '#c98f00'; ctx.lineWidth = 1.4; ctx.stroke();
+  }
+
   function drawHealthBar(ctx, cx, y, w, pct, color, large, badge) {
     pct = Math.max(0, Math.min(1, pct));
+    var specH = large ? 12 : 8;
+    if (RTS.Assets && RTS.Assets.drawSpriteHealthBar &&
+        RTS.Assets.drawSpriteHealthBar(ctx, cx, y, w, pct, color, large)) {
+      if (badge) drawHealthBadge(ctx, cx - w / 2, y - specH / 2, specH, large);
+      return;
+    }
+
     var h = large ? 9 : 5;
     var x = cx - w / 2;
     var fill = pct <= 0.25 ? '#ef5350' : pct <= 0.55 ? '#ffca28' : (color || '#43a047');
@@ -1317,15 +1330,7 @@
       ctx.fill();
     }
 
-    if (badge) {
-      var br = h / 2 + (large ? 6 : 4.5);
-      pCircle(ctx, x - 1, y + h / 2, br);
-      ctx.fillStyle = '#ffca28'; ctx.fill();
-      ctx.strokeStyle = TEXT_INK; ctx.lineWidth = 2.5; ctx.stroke();
-      pStar4(ctx, x - 1, y + h / 2, br * 0.55);
-      ctx.fillStyle = '#fff8e1'; ctx.fill();
-      ctx.strokeStyle = '#c98f00'; ctx.lineWidth = 1.4; ctx.stroke();
-    }
+    if (badge) drawHealthBadge(ctx, x, y, h, large);
   }
 
   /* ==========================================================================

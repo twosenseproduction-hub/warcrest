@@ -210,6 +210,10 @@
       { base: KINGDOM_BASE, rel: 'Terrain/Resources/Gold/Gold Resource/Gold_Resource_Highlight.png' },
       { base: KINGDOM_BASE, rel: ARROW },
       { base: KINGDOM_BASE, rel: 'UI Elements/UI Elements/Cursors/Cursor_04.png' },
+      { base: KINGDOM_BASE, rel: 'UI Elements/UI Elements/Bars/SmallBar_Base.png' },
+      { base: KINGDOM_BASE, rel: 'UI Elements/UI Elements/Bars/SmallBar_Fill.png' },
+      { base: KINGDOM_BASE, rel: 'UI Elements/UI Elements/Bars/BigBar_Base.png' },
+      { base: KINGDOM_BASE, rel: 'UI Elements/UI Elements/Bars/BigBar_Fill.png' },
     ];
     Object.keys(BUILDING_FILES).forEach(function (t) {
       paths.push({ base: KINGDOM_BASE, rel: 'Buildings/Blue Buildings/' + BUILDING_FILES[t] });
@@ -494,6 +498,86 @@
     return true;
   }
 
+  /* ---- Health bars — Tiny Swords “Live Bars” 3-slice (stretchable horizontally) ---- */
+  var HP_BAR = {
+    small: {
+      base: 'UI Elements/UI Elements/Bars/SmallBar_Base.png',
+      fill: 'UI Elements/UI Elements/Bars/SmallBar_Fill.png',
+      capL: 49, capLW: 15, capR: 256, capRW: 15,
+      midX: 128, midW: 64, texH: 64,
+      fillY: 30, fillH: 3,
+      displayH: 8,
+    },
+    big: {
+      base: 'UI Elements/UI Elements/Bars/BigBar_Base.png',
+      fill: 'UI Elements/UI Elements/Bars/BigBar_Fill.png',
+      capL: 40, capLW: 24, capR: 256, capRW: 24,
+      midX: 128, midW: 64, texH: 64,
+      fillY: 20, fillH: 24,
+      displayH: 12,
+    },
+  };
+
+  function hpBarFillColor(pct, color) {
+    if (color === '#42a5f5') return color;
+    if (pct <= 0.25) return '#d94040';
+    if (pct <= 0.55) return '#e0a820';
+    return color || '#48b848';
+  }
+
+  function drawBarFrame(ctx, baseImg, spec, x, top, totalW, barH) {
+    var scale = barH / spec.texH;
+    var capW = spec.capLW * scale;
+    var capRW = spec.capRW * scale;
+    var midW = Math.max(1, totalW - capW - capRW);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(baseImg, spec.capL, 0, spec.capLW, spec.texH, x, top, capW, barH);
+    ctx.drawImage(baseImg, spec.midX, 0, spec.midW, spec.texH, x + capW, top, midW, barH);
+    ctx.drawImage(baseImg, spec.capR, 0, spec.capRW, spec.texH, x + capW + midW, top, capRW, barH);
+    return { capW: capW, capRW: capRW, midW: midW, insetX: scale };
+  }
+
+  function drawBarFill(ctx, fillImg, spec, x, top, totalW, barH, pct, color) {
+    if (pct <= 0.001) return;
+    var scale = barH / spec.texH;
+    var capW = spec.capLW * scale;
+    var capRW = spec.capRW * scale;
+    var insetX = scale;
+    var innerW = totalW - insetX * 2;
+    var fillW = Math.max(1, innerW * pct);
+    var fillY = top + (spec.fillY / spec.texH) * barH;
+    var fillH = Math.max(1, (spec.fillH / spec.texH) * barH);
+    var fillX = x + insetX;
+    var fillColor = hpBarFillColor(pct, color);
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(fillX, fillY, fillW, fillH);
+    ctx.clip();
+    ctx.fillStyle = fillColor;
+    ctx.fillRect(fillX, fillY, innerW, fillH);
+    ctx.globalCompositeOperation = 'destination-in';
+    ctx.drawImage(fillImg, 0, spec.fillY, fillImg.width, spec.fillH, fillX, fillY, innerW, fillH);
+    ctx.restore();
+  }
+
+  function drawSpriteHealthBar(ctx, cx, y, w, pct, color, large) {
+    var spec = large ? HP_BAR.big : HP_BAR.small;
+    var baseImg = imgSync(spec.base);
+    var fillImg = imgSync(spec.fill);
+    if (!baseImg || !fillImg) return false;
+
+    pct = Math.max(0, Math.min(1, pct));
+    var barH = spec.displayH;
+    var totalW = Math.max(barH * 3.2, w);
+    var x = cx - totalW / 2;
+    var top = y - barH / 2;
+
+    drawBarFrame(ctx, baseImg, spec, x, top, totalW, barH);
+    drawBarFill(ctx, fillImg, spec, x, top, totalW, barH, pct, color);
+    return true;
+  }
+
   function drawProjectile(ctx, p) {
     var img = imgSync(ARROW);
     if (!img) return false;
@@ -540,6 +624,7 @@
     drawBuilding: drawBuilding,
     drawProjectile: drawProjectile,
     drawUnitShadow: drawUnitShadow,
+    drawSpriteHealthBar: drawSpriteHealthBar,
     buildingVisualBounds: buildingVisualBounds,
     buildingCollisionRect: buildingCollisionRect,
   };
