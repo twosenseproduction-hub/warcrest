@@ -166,9 +166,12 @@
         btn.addEventListener('click', function (ev) {
           ev.stopPropagation();
           ev.preventDefault();
-          if (!ctx) return;
-          execute(ctx.s, item);
-          RTS.RadialMenu.close();
+          if (!ctx || !open) return;
+          var idx = parseInt(btn.dataset.idx, 10);
+          var live = items[idx];
+          if (!live || live.disabled) return;
+          execute(ctx.s, live);
+          refresh(ctx.s);
           if (navigator.vibrate) navigator.vibrate(10);
         });
       }
@@ -252,6 +255,7 @@
       if (b) RTS.train(s, b, item.role);
     }
     RTS.HUD.sync(s);
+    if (open) refresh(s);
   }
 
   function shouldClose(s) {
@@ -332,8 +336,20 @@
       if (RTS.RadialMenu.isOpen()) refresh(s);
     };
 
-    bm.hitTest = function () { return null; };
-    bm.execute = function () { return false; };
+    bm.hitTest = function (s, wx, wy) {
+      if (!RTS.RadialMenu.isOpen()) return null;
+      var scr = RTS.Cam.worldToScreen(s, wx, wy);
+      var idx = pickAt(scr.x, scr.y);
+      if (idx < 0) return null;
+      return items[idx] || null;
+    };
+
+    bm.execute = function (s, menuItem) {
+      if (!menuItem || menuItem.disabled) return false;
+      execute(s, menuItem);
+      refresh(s);
+      return true;
+    };
   }
 
   RTS.RadialMenu = {
@@ -402,14 +418,17 @@
       var idx = pickAt(cssX, cssY);
       var item = idx >= 0 ? items[idx] : null;
       var s = ctx.s;
-      this.close();
       if (item && !item.disabled) {
         execute(s, item);
+        highlight(-1);
         if (navigator.vibrate) navigator.vibrate(10);
         return true;
       }
+      this.close();
       return false;
     },
+
+    pickAt: pickAt,
 
     refresh: refresh,
   };

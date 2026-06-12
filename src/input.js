@@ -414,7 +414,14 @@
       // --- single-pointer (mouse or 1 touch) ---
       function down(cssX, cssY, shift) {
         var s = st(); if (!s || !active() || uiBlocked(s)) return;
-        if (RTS.RadialMenu && RTS.RadialMenu.isOpen()) RTS.RadialMenu.close();
+        if (RTS.RadialMenu && RTS.RadialMenu.isOpen()) {
+          s.ui.pointer = {
+            cssX: cssX, cssY: cssY, startX: cssX, startY: cssY,
+            moved: false, radialMenu: true,
+          };
+          RTS.RadialMenu.move(cssX, cssY);
+          return;
+        }
         var w = RTS.Cam.screenToWorld(s, cssX, cssY);
         var hit = hitTest(s, w.x, w.y);
         var buildHit = hitTestConstructionSite(s, w.x, w.y);
