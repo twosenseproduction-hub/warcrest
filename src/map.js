@@ -231,7 +231,7 @@
     var workers = opts.workers != null ? opts.workers : 0;
     for (var i = 0; i < workers; i++) {
       var ox = isEnemy ? -70 - i * 26 : 70 + i * 26;
-      RTS.makeUnit(s, 'worker', team, cx + ox, cy + (isEnemy ? 64 : 64), faction);
+      RTS.makeUnit(s, 'pawn', team, cx + ox, cy + (isEnemy ? 64 : 64), faction);
     }
   }
 

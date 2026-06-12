@@ -15,7 +15,7 @@
       // Abstracted passive economy (keeps the AI funded without micromanaging)
       s.res.enemy.halcite += cfg.income * dt;
 
-      // Keep enemy workers harvesting
+      // Keep enemy pawns harvesting
       s.ai.harvestTick -= dt;
       if (s.ai.harvestTick <= 0) {
         s.ai.harvestTick = 1.5;
@@ -86,7 +86,7 @@
     s.res.enemy.halcite -= cost;
     var b = RTS.makeBuilding(s, type, TEAM.ENEMY, x, y, s.enemyFaction, false);
     if (RTS.Pathfind) RTS.Pathfind.markDirty(s);
-    var workers = enemyUnits(s, 'worker').filter(function (w) {
+    var workers = enemyUnits(s, 'pawn').filter(function (w) {
       return !w.harvest && !w.buildTask && !w.moveTo && !w.target;
     });
     if (workers.length) {
@@ -125,7 +125,7 @@
   }
 
   function buildStructures(s) {
-    var workers = enemyUnits(s, 'worker').length;
+    var workers = enemyUnits(s, 'pawn').length;
     var core = RTS.enemyCore(s);
     if (!core) return;
 
@@ -148,7 +148,7 @@
   }
 
   function assignWorkers(s) {
-    enemyUnits(s, 'worker').forEach(function (w) {
+    enemyUnits(s, 'pawn').forEach(function (w) {
       if (!w.harvest && !w.buildTask) {
         var node = RTS.nearestNode(s, w.x, w.y);
         if (node) w.harvest = { nodeId: node.id, phase: 'toNode', carry: 0 };
@@ -161,12 +161,12 @@
     var core = RTS.enemyCore(s);
     if (!core) return;
 
-    // maintain worker count
-    if (enemyUnits(s, 'worker').length < cfg.workerCount && core.queue.length === 0) {
-      RTS.train(s, core, 'worker');
+    // maintain pawn count
+    if (enemyUnits(s, 'pawn').length < cfg.pawnCount && core.queue.length === 0) {
+      RTS.train(s, core, 'pawn');
     }
 
-    var army = enemyUnits(s).filter(function (u) { return u.role !== 'worker'; }).length;
+    var army = enemyUnits(s).filter(function (u) { return u.role !== 'pawn'; }).length;
     var queued = 0;
     s.entities.buildings.forEach(function (b) {
       if (b.team === TEAM.ENEMY) queued += b.queue.length;
@@ -176,25 +176,30 @@
     var target = Math.min(cfg.maxArmy, 4 + Math.floor(s.timers.gameTime / 22));
     if (army + queued >= target) return;
 
-    // Choose a unit by a rotating composition for variety
+    // Lancer-first army: Barracks line, Warriors from Archery after midgame
     var foundry = enemyBuilding(s, 'foundry');
     var forge = enemyBuilding(s, 'forge');
-    var pick = s.ai.composition++ % 6;
+    var pick = s.ai.composition++ % 8;
     var role, bldg;
-    if (pick === 0 || pick === 3) { role = 'light'; bldg = foundry; }
-    else if (pick === 1) { role = 'scout'; bldg = foundry; }
-    else if (pick === 4) { role = 'support'; bldg = foundry; }
-    else if (pick === 2) { role = 'heavy'; bldg = forge; }
-    else { role = 'siege'; bldg = forge; }
+    if (forge && s.timers.gameTime > 50 && pick === 7) {
+      role = 'warrior';
+      bldg = forge;
+    } else if (foundry) {
+      bldg = foundry;
+      if (pick < 4) role = 'lancer';
+      else if (pick < 6) role = 'archer';
+      else role = 'monk';
+    } else {
+      return;
+    }
 
-    if (!bldg) bldg = foundry || forge;
     if (bldg && bldg.queue.length < 2) RTS.train(s, bldg, role);
   }
 
   function launchWave(s) {
     var pcore = RTS.playerCore(s);
     if (!pcore) return;
-    var army = enemyUnits(s).filter(function (u) { return u.role !== 'worker'; });
+    var army = enemyUnits(s).filter(function (u) { return u.role !== 'pawn'; });
 
     // Only commit if there's a meaningful force; otherwise harass with what we have.
     var commit = army.filter(function (u) { return !u.attackMove; });

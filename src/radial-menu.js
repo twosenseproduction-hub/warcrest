@@ -22,7 +22,7 @@
   function nearestWorker(s, wx, wy) {
     var best = null, bd = Infinity;
     s.entities.units.forEach(function (u) {
-      if (u.dead || u.team !== TEAM.PLAYER || u.role !== 'worker') return;
+      if (u.dead || u.team !== TEAM.PLAYER || u.role !== 'pawn') return;
       var d = RTS.dist(wx, wy, u.x, u.y);
       if (d < bd) { bd = d; best = u; }
     });
@@ -31,7 +31,7 @@
 
   function hasWorkers(s) {
     return s.entities.units.some(function (u) {
-      return !u.dead && u.team === TEAM.PLAYER && u.role === 'worker';
+      return !u.dead && u.team === TEAM.PLAYER && u.role === 'pawn';
     });
   }
 
@@ -45,8 +45,8 @@
     }
 
     var sel = RTS.selectedUnits(s);
-    var combat = sel.filter(function (u) { return u.role !== 'worker'; });
-    var workers = sel.filter(function (u) { return u.role === 'worker'; });
+    var combat = sel.filter(function (u) { return u.role !== 'pawn'; });
+    var workers = sel.filter(function (u) { return u.role === 'pawn'; });
     var enemy = hit && (hit.kind === 'unit' || hit.kind === 'building') && hit.team === TEAM.ENEMY;
 
     if (hit && hit.kind === 'resource' && hit.amount > 0 && hasWorkers(s)) {
@@ -78,8 +78,8 @@
     var wx = ctx.wx;
     var wy = ctx.wy;
     var sel = RTS.selectedUnits(s);
-    var combat = sel.filter(function (u) { return u.role !== 'worker'; });
-    var workers = sel.filter(function (u) { return u.role === 'worker'; });
+    var combat = sel.filter(function (u) { return u.role !== 'pawn'; });
+    var workers = sel.filter(function (u) { return u.role === 'pawn'; });
     var pal = RTS.Factions[s.playerFaction];
 
     switch (item.id) {

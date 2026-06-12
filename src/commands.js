@@ -50,7 +50,7 @@
 
   RTS.selectAllArmy = function (s) {
     s.selectedIds = s.entities.units
-      .filter(function (u) { return u.team === RTS.TEAM.PLAYER && !u.dead && u.role !== 'worker'; })
+      .filter(function (u) { return u.team === RTS.TEAM.PLAYER && !u.dead && u.role !== 'pawn'; })
       .map(function (u) { return u.id; });
     if (!s.selectedIds.length) {
       var w = s.entities.units.find(function (u) { return u.team === RTS.TEAM.PLAYER && !u.dead; });
@@ -62,7 +62,7 @@
 
   RTS.selectAllWorkers = function (s) {
     s.selectedIds = s.entities.units
-      .filter(function (u) { return u.team === RTS.TEAM.PLAYER && !u.dead && u.role === 'worker'; })
+      .filter(function (u) { return u.team === RTS.TEAM.PLAYER && !u.dead && u.role === 'pawn'; })
       .map(function (u) { return u.id; });
     RTS.refreshMode(s);
     RTS.HUD.sync(s);
@@ -71,7 +71,7 @@
   RTS.nearestWorker = function (s, x, y) {
     var best = null, bd = Infinity;
     s.entities.units.forEach(function (u) {
-      if (u.dead || u.team !== RTS.TEAM.PLAYER || u.role !== 'worker') return;
+      if (u.dead || u.team !== RTS.TEAM.PLAYER || u.role !== 'pawn') return;
       var d = dist(x, y, u.x, u.y);
       if (d < bd) { bd = d; best = u; }
     });
@@ -88,7 +88,7 @@
   };
 
   RTS.refreshMode = function (s) {
-    var combat = RTS.selectedUnits(s).filter(function (u) { return u.role !== 'worker'; });
+    var combat = RTS.selectedUnits(s).filter(function (u) { return u.role !== 'pawn'; });
     if (s.attackMoveArmed && combat.length) s.inputMode = 'attack-target';
     else if (RTS.selectedUnits(s).length) s.inputMode = 'select';
     else s.inputMode = 'select';
@@ -158,7 +158,7 @@
   };
 
   RTS.orderHarvest = function (s, worker, nodeId) {
-    if (worker.role !== 'worker') return;
+    if (worker.role !== 'pawn') return;
     worker.harvest = { nodeId: nodeId, phase: 'toNode', carry: 0 };
     worker.moveTo = null; worker.target = null; worker.buildTask = null;
     if (RTS.Pathfind) RTS.Pathfind.clearNav(worker);
@@ -204,12 +204,11 @@
 
   function baseTrain(role) {
     switch (role) {
-      case 'worker': return 7;
-      case 'light': return 9;
-      case 'scout': return 8;
-      case 'support': return 12;
-      case 'heavy': return 16;
-      case 'siege': return 20;
+      case 'pawn': return 7;
+      case 'lancer': return 8;
+      case 'archer': return 9;
+      case 'monk': return 12;
+      case 'warrior': return 16;
       default: return 10;
     }
   }
@@ -305,7 +304,7 @@
     }
     // send nearest idle worker to "build" it (cosmetic walk)
     var workers = s.entities.units.filter(function (u) {
-      return u.team === RTS.TEAM.PLAYER && u.role === 'worker' && !u.dead;
+      return u.team === RTS.TEAM.PLAYER && u.role === 'pawn' && !u.dead;
     });
     if (workers.length) {
       workers.sort(function (a, c) { return RTS.dist(a.x, a.y, x, y) - RTS.dist(c.x, c.y, x, y); });

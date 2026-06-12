@@ -29,12 +29,11 @@
   };
 
   var UNIT = {
-    worker: LOL.minion_melee,
-    light: LOL.champion_std,
-    scout: LOL.champion_std,
-    heavy: LOL.champion_large,
-    siege: LOL.minion_siege,
-    support: LOL.champion_std,
+    pawn: LOL.minion_melee,
+    lancer: LOL.champion_std,
+    archer: LOL.champion_std,
+    monk: LOL.champion_std,
+    warrior: LOL.champion_large,
   };
 
   var BUILDING = {
@@ -65,8 +64,8 @@
   var GLOBAL_SCALE = 1.25;
   var HEIGHT_MUL = 2.05;
   /* Lancer 320px frames have extra canvas padding — boost draw to match 192px units. */
-  var SCOUT_VISUAL_MUL = 1.32;
-  var SCOUT_TRAY_ZOOM = 1.38;
+  var LANCER_VISUAL_MUL = 1.32;
+  var LANCER_TRAY_ZOOM = 1.38;
 
   /* Tall building sprites read larger than flat gameplay radius; keeps LoL ratios. */
   var BUILDING_VISUAL_MUL = 1.45;
@@ -111,8 +110,8 @@
     MINION_PX: MINION_PX,
     GLOBAL_SCALE: GLOBAL_SCALE,
     HEIGHT_MUL: HEIGHT_MUL,
-    SCOUT_VISUAL_MUL: SCOUT_VISUAL_MUL,
-    SCOUT_TRAY_ZOOM: SCOUT_TRAY_ZOOM,
+    LANCER_VISUAL_MUL: LANCER_VISUAL_MUL,
+    LANCER_TRAY_ZOOM: LANCER_TRAY_ZOOM,
     LOL: LOL,
     UNIT: UNIT,
     BUILDING: BUILDING,

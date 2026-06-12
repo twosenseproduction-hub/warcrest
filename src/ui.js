@@ -55,12 +55,11 @@
   };
 
   var UNIT_STRIP = {
-    worker: { unit: 'Pawn', file: 'Pawn_Idle Pickaxe.png', frames: 8, fw: 192, fh: 192 },
-    light: { unit: 'Archer', file: 'Archer_Idle.png', frames: 6, fw: 192, fh: 192 },
-    scout: { unit: 'Lancer', file: 'Lancer_Idle.png', frames: 12, fw: 320, fh: 320, posX: 'center', posY: 'bottom', trayZoom: 1.38 },
-    heavy: { unit: 'Warrior', file: 'Warrior_Idle.png', frames: 8, fw: 192, fh: 192 },
-    siege: { unit: 'Archer', file: 'Archer_Idle.png', frames: 6, fw: 192, fh: 192 },
-    support: { unit: 'Monk', file: 'Idle.png', frames: 6, fw: 192, fh: 192 },
+    pawn: { unit: 'Pawn', file: 'Pawn_Idle Pickaxe.png', frames: 8, fw: 192, fh: 192 },
+    lancer: { unit: 'Lancer', file: 'Lancer_Idle.png', frames: 12, fw: 320, fh: 320, posX: 'center', posY: 'bottom', trayZoom: 1.38 },
+    archer: { unit: 'Archer', file: 'Archer_Idle.png', frames: 6, fw: 192, fh: 192 },
+    monk: { unit: 'Monk', file: 'Idle.png', frames: 6, fw: 192, fh: 192 },
+    warrior: { unit: 'Warrior', file: 'Warrior_Idle.png', frames: 8, fw: 192, fh: 192 },
   };
 
   var BUILDING_FILE = {
@@ -75,7 +74,7 @@
   /* Human Avatars sheet — 5 cols × 5 faction-color rows (Warrior, Archer, Lancer, Monk, Pawn) */
   var AVATARS = UI + 'Human Avatars/';
   var UNIT_AVATAR_COL = {
-    heavy: 0, light: 1, scout: 2, support: 3, worker: 4, siege: 1,
+    warrior: 0, archer: 1, lancer: 2, monk: 3, pawn: 4,
   };
   var FACTION_AVATAR_ROW = { aurex: 0, cinder: 1 };
 
@@ -123,7 +122,7 @@
     if (!def) return '';
     px = px || 36;
     if (RTS.SizeRef) px = Math.round(px * RTS.SizeRef.trayScale(role));
-    var zoom = def.trayZoom || (role === 'scout' && RTS.SizeRef ? RTS.SizeRef.SCOUT_TRAY_ZOOM : 1);
+    var zoom = def.trayZoom || (role === 'lancer' && RTS.SizeRef ? RTS.SizeRef.LANCER_TRAY_ZOOM : 1);
     var url = unitStripUrl(factionId, role);
     var aspect = (def.fw || 192) / (def.fh || 192);
     var w = Math.round(px * aspect);

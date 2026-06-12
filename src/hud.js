@@ -245,7 +245,7 @@
       p.innerHTML = selPortrait(s, u.role, false) + '<div class="sel-body">' +
         '<div class="sel-title">' + RTS.nameFor(u.faction, u.role) + '</div>' +
         bar(u.hp, u.maxHp) +
-        (u.role === 'worker' && u.harvest
+        (u.role === 'pawn' && u.harvest
           ? '<div class="sel-line">' + (
               u.harvest.phase === 'mining' ? 'mining…'
               : u.harvest.phase === 'toBase' && u.harvest.carry > 0
@@ -260,7 +260,7 @@
     var all = units.concat(blds);
     var totHp = 0, totMax = 0;
     all.forEach(function (e) { totHp += e.hp; totMax += e.maxHp; });
-    p.innerHTML = selPortrait(s, 'light', false) + '<div class="sel-body">' +
+    p.innerHTML = selPortrait(s, 'lancer', false) + '<div class="sel-body">' +
       '<div class="sel-title">' + all.length + ' units</div>' +
       bar(totHp, totMax) + '</div>';
   }
@@ -282,7 +282,7 @@
 
     var units = RTS.selectedUnits(s);
     var blds = RTS.selectedBuildings(s);
-    var hasWorker = units.some(function (u) { return u.role === 'worker'; });
+    var hasWorker = units.some(function (u) { return u.role === 'pawn'; });
     var hasCore = blds.some(function (b) { return b.type === 'core'; });
     var deposit = blds.length === 1 && !units.length && RTS.isDepositBuilding(blds[0]) ? blds[0] : null;
 
@@ -338,7 +338,7 @@
             var node = RTS.nearestNodeForBuilding(s, hq);
             if (node) {
               s.entities.units.forEach(function (u) {
-                if (u.dead || u.team !== RTS.TEAM.PLAYER || u.role !== 'worker') return;
+                if (u.dead || u.team !== RTS.TEAM.PLAYER || u.role !== 'pawn') return;
                 if (u.harvest || u.buildTask || u.moveTo || u.target) return;
                 if (RTS.dist(u.x, u.y, hq.x, hq.y) > 380) return;
                 RTS.orderHarvest(s, u, node.id);

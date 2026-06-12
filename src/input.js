@@ -79,7 +79,7 @@
   function nearestWorker(s, wx, wy) {
     var best = null, bd = Infinity;
     s.entities.units.forEach(function (u) {
-      if (u.dead || u.team !== TEAM.PLAYER || u.role !== 'worker') return;
+      if (u.dead || u.team !== TEAM.PLAYER || u.role !== 'pawn') return;
       var d = RTS.dist(wx, wy, u.x, u.y);
       if (d < bd) { bd = d; best = u; }
     });
@@ -98,8 +98,8 @@
 
     var hit = hitTest(s, wx, wy);
     var sel = RTS.selectedUnits(s);
-    var combat = sel.filter(function (u) { return u.role !== 'worker'; });
-    var workers = sel.filter(function (u) { return u.role === 'worker'; });
+    var combat = sel.filter(function (u) { return u.role !== 'pawn'; });
+    var workers = sel.filter(function (u) { return u.role === 'pawn'; });
 
     // Smart mine: nothing selected → tap gold sends nearest worker
     if (!sel.length && hit && hit.kind === 'resource') {
@@ -193,7 +193,7 @@
   // ---- Long press (attack-move on empty ground) ----------------------------
   function startLongPress(s, wx, wy, cssX, cssY) {
     clearLongPress(s);
-    var combat = RTS.selectedUnits(s).filter(function (u) { return u.role !== 'worker'; });
+    var combat = RTS.selectedUnits(s).filter(function (u) { return u.role !== 'pawn'; });
     if (!combat.length || s.inputMode === 'place-building') return;
     var ms = (RTS.Config.touch && RTS.Config.touch.longPressMs) || 460;
     showLongPressRing(cssX, cssY);

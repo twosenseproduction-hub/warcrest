@@ -148,7 +148,7 @@
     u.spawnFlash = Math.max(0, u.spawnFlash - dt);
 
     // Worker behaviours take priority
-    if (u.role === 'worker') {
+    if (u.role === 'pawn') {
       if (u.buildTask) { doBuildTask(s, u, dt); return; }
       if (u.harvest) { doHarvest(s, u, dt); return; }
     }
@@ -163,7 +163,7 @@
     if (target && (target.dead)) { u.target = null; target = null; }
 
     // Auto-acquire if attack-moving or idle-aggressive
-    if (!target && u.role !== 'worker' && u.heal === 0) {
+    if (!target && u.role !== 'pawn' && u.heal === 0) {
       if (u.attackMove || u.team === TEAM.ENEMY || !u.moveTo) {
         var foe = nearestEnemy(s, u.x, u.y, u.team, u.range * (u.attackMove ? 1.6 : 1.25));
         if (foe) { target = foe; u.target = foe.id; }
@@ -214,7 +214,7 @@
         faction: u.faction,
         role: u.role,
       });
-      RTS.Audio.play(u.role === 'siege' ? 'boom' : 'shot');
+      RTS.Audio.play(u.ranged ? 'shot' : 'melee');
     } else {
       applyDamage(s, target, u.dmg, u);
       RTS.Audio.play('melee');
@@ -396,7 +396,7 @@
     var oy = Math.sin(ang) * (b.h / 2 + 26);
     var u = RTS.makeUnit(s, role, b.team, b.x + ox, b.y + oy, b.faction);
     u.spawnFlash = 0.4;
-    if (role === 'worker' && b.autoMine) {
+    if (role === 'pawn' && b.autoMine) {
       var node = RTS.nearestNodeForBuilding(s, b);
       if (node) RTS.orderHarvest(s, u, node.id);
       else if (b.rally) u.moveTo = { x: b.rally.x, y: b.rally.y };
@@ -635,7 +635,7 @@
       var node = RTS.nearestNodeForBuilding(s, b);
       if (!node) return;
       s.entities.units.forEach(function (u) {
-        if (u.dead || u.team !== TEAM.PLAYER || u.role !== 'worker') return;
+        if (u.dead || u.team !== TEAM.PLAYER || u.role !== 'pawn') return;
         if (u.harvest || u.buildTask || u.moveTo || u.target) return;
         if (dist(u.x, u.y, b.x, b.y) > 380) return;
         RTS.orderHarvest(s, u, node.id);

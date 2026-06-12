@@ -6,10 +6,10 @@
   'use strict';
 
   var FACTIONS = ['aurex', 'cinder'];
-  var ROLES = ['worker', 'light', 'scout', 'heavy', 'siege', 'support'];
+  var ROLES = ['pawn', 'lancer', 'archer', 'monk', 'warrior'];
 
   var ROLE_DEF = {
-    worker: {
+    pawn: {
       unit: 'Pawn', frameH: 192, scale: 1,
       clips: {
         idle: { file: 'Pawn_Idle Pickaxe.png', count: 8, speed: 2.2 },
@@ -18,15 +18,7 @@
         work: { file: 'Pawn_Interact Pickaxe.png', count: 6, speed: 10 },
       },
     },
-    light: {
-      unit: 'Archer', frameH: 192, scale: 1.0,
-      clips: {
-        idle: { file: 'Archer_Idle.png', count: 6, speed: 2.2 },
-        walk: { file: 'Archer_Run.png', count: 4, speed: 9 },
-        attack: { file: 'Archer_Shoot.png', count: 8, speed: 12 },
-      },
-    },
-    scout: {
+    lancer: {
       unit: 'Lancer', frameH: 320, scale: 1,
       clips: {
         idle: { file: 'Lancer_Idle.png', count: 12, speed: 2.2 },
@@ -34,28 +26,28 @@
         attack: { file: 'Lancer_Right_Attack.png', count: 3, speed: 10 },
       },
     },
-    heavy: {
-      unit: 'Warrior', frameH: 192, scale: 1,
+    archer: {
+      unit: 'Archer', frameH: 192, scale: 1.0,
       clips: {
-        idle: { file: 'Warrior_Idle.png', count: 8, speed: 2.0 },
-        walk: { file: 'Warrior_Run.png', count: 6, speed: 8 },
-        attack: { file: 'Warrior_Attack1.png', count: 4, speed: 12 },
+        idle: { file: 'Archer_Idle.png', count: 6, speed: 2.2 },
+        walk: { file: 'Archer_Run.png', count: 4, speed: 9 },
+        attack: { file: 'Archer_Shoot.png', count: 8, speed: 12 },
       },
     },
-    siege: {
-      unit: 'Archer', frameH: 192, scale: 1,
-      clips: {
-        idle: { file: 'Archer_Idle.png', count: 6, speed: 1.8 },
-        walk: { file: 'Archer_Run.png', count: 4, speed: 7 },
-        attack: { file: 'Archer_Shoot.png', count: 8, speed: 8 },
-      },
-    },
-    support: {
+    monk: {
       unit: 'Monk', frameH: 192, scale: 1.0,
       clips: {
         idle: { file: 'Idle.png', count: 6, speed: 2.2 },
         walk: { file: 'Run.png', count: 4, speed: 9 },
         attack: { file: 'Heal.png', count: 11, speed: 10 },
+      },
+    },
+    warrior: {
+      unit: 'Warrior', frameH: 192, scale: 1,
+      clips: {
+        idle: { file: 'Warrior_Idle.png', count: 8, speed: 2.0 },
+        walk: { file: 'Warrior_Run.png', count: 6, speed: 8 },
+        attack: { file: 'Warrior_Attack1.png', count: 4, speed: 12 },
       },
     },
   };
@@ -117,8 +109,8 @@
   }
 
   function unitVisualMul(u, sheet) {
-    if (u.role === 'scout' && sheet && sheet.frameH >= 300) {
-      return sizeRef().SCOUT_VISUAL_MUL;
+    if (u.role === 'lancer' && sheet && sheet.frameH >= 300) {
+      return sizeRef().LANCER_VISUAL_MUL;
     }
     return 1;
   }
@@ -159,8 +151,8 @@
     },
 
     pickAnim: function (u, walking) {
-      if (u.role === 'worker' && u.buildTask && !walking) return 'work';
-      if (u.role === 'worker' && u.harvest) {
+      if (u.role === 'pawn' && u.buildTask && !walking) return 'work';
+      if (u.role === 'pawn' && u.harvest) {
         if (u.harvest.phase === 'mining') return 'work';
         if (u.harvest.carry > 0 && walking) return 'walk_carry';
       }
@@ -236,8 +228,8 @@
       u._ax = u.x;
       u._ay = u.y;
 
-      var mining = u.role === 'worker' && u.harvest && u.harvest.phase === 'mining';
-      var onBuildSite = u.role === 'worker' && u.buildTask && !(u._moveHold > 0);
+      var mining = u.role === 'pawn' && u.harvest && u.harvest.phase === 'mining';
+      var onBuildSite = u.role === 'pawn' && u.buildTask && !(u._moveHold > 0);
       var walking = !mining && !onBuildSite && u._moveHold > 0;
       var ph = phaseOf(u.id);
       var animName = this.pickAnim(u, walking);

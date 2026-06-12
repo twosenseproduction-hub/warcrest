@@ -58,26 +58,24 @@ No installation, no dependencies.
 **Goal:** destroy the enemy core. **Lose** if your core (Citadel / Furnace Maw) falls.
 
 ### The loop
-1. Mine **Halcite** with Drudges.
-2. Train army units at the **Foundry** (Lancer / Skiff / Mender) and **War Forge**
-   (Bulwark / Mortar).
-3. Raise your **supply cap** with **Conduits** so you can field more units.
-4. Defend against Cinder waves, then push and destroy the enemy core.
+1. Mine **Halcite** with **Pawns**.
+2. Build **Barracks** → train **Lancer** (opener), then **Archer** and **Monk**.
+3. Build **Archery** → train **Warrior** (frontline).
+4. Raise **supply** with **Houses**, defend waves, destroy the enemy Castle.
 
-### Units (6 archetypes per faction)
-- **Drudge** (worker) — harvests Halcite, raises structures.
-- **Lancer** (light ranged) — cheap, mobile, strong in numbers.
-- **Skiff** (fast scout) — raids workers and stragglers.
-- **Bulwark** (heavy) — armored frontline tank.
-- **Mortar** (siege) — long-range splash; devastating vs clusters and bases.
-- **Mender** (support) — repairs nearby allies.
+### Units (Tiny Swords roster)
+- **Pawn** — harvests Halcite, raises structures (Castle).
+- **Lancer** — fast skirmisher; your opening army unit (Barracks).
+- **Archer** — ranged backbone (Barracks).
+- **Monk** — heals allies behind the line (Barracks).
+- **Warrior** — armored frontline (Archery).
 
-### Buildings (5 types)
-- **Citadel** (core) — trains workers, banks Halcite, deposit point.
-- **Conduit** — raises supply cap.
-- **Foundry** — produces Lancers / Skiffs / Menders.
-- **War Forge** — produces Bulwarks / Mortars.
-- **Sentinel** (turret) — automated defense tower.
+### Buildings
+- **Castle** — trains Pawns, banks Halcite.
+- **House** — raises supply cap.
+- **Barracks** — Lancer, Archer, Monk.
+- **Archery** — Warrior.
+- **Tower** — automated defense.
 
 ---
 
@@ -121,7 +119,7 @@ modular across files but still runs without a module loader.
   turret `dmg`/`range`/`rof`.
 - **Train times:** `RTS.baseTrain()` in `src/commands.js`.
 - **AI difficulty & pressure:** `Config.ai` — `income`, `firstWaveAt`,
-  `waveInterval`, `maxArmy`, `workerCount`.
+  `waveInterval`, `maxArmy`, `pawnCount`.
 - **Faction colors / names:** `RTS.Factions` in `config.js`.
 
 ### Quick difficulty presets

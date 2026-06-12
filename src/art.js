@@ -978,12 +978,11 @@
 
   function renderUnitPose(ctx, role, r, pal, anim, t, ph) {
     switch (role) {
-      case 'worker': drawWorkerMinion(ctx, r, pal, anim, t, ph); break;
-      case 'light': drawMeleeMinion(ctx, r, pal, anim, t, ph); break;
-      case 'scout': drawScoutMinion(ctx, r, pal, anim, t, ph); break;
-      case 'heavy': drawHeavyMinion(ctx, r, pal, anim, t, ph); break;
-      case 'siege': drawSiegeMinion(ctx, r, pal, anim, t, ph); break;
-      case 'support': drawSupportMinion(ctx, r, pal, anim, t, ph); break;
+      case 'pawn': drawWorkerMinion(ctx, r, pal, anim, t, ph); break;
+      case 'lancer': drawScoutMinion(ctx, r, pal, anim, t, ph); break;
+      case 'archer': drawMeleeMinion(ctx, r, pal, anim, t, ph); break;
+      case 'monk': drawSupportMinion(ctx, r, pal, anim, t, ph); break;
+      case 'warrior': drawHeavyMinion(ctx, r, pal, anim, t, ph); break;
       default: drawMeleeMinion(ctx, r, pal, anim, t, ph);
     }
   }
@@ -996,7 +995,7 @@
   function drawUnitOverlays(ctx, u, f, s, r, pal, vb) {
     var topY = vb ? vb.drawY - 6 : u.y - r - 14;
     var drawSpriteBar = RTS.Assets && typeof RTS.Assets.drawSpriteHealthBar === 'function';
-    if (u.role === 'worker' && u.harvest && u.harvest.carry > 0) {
+    if (u.role === 'pawn' && u.harvest && u.harvest.carry > 0) {
       ctx.font = 'bold 11px Fredoka, system-ui';
       ctx.textAlign = 'center';
       ctx.strokeStyle = 'rgba(0,0,0,0.75)';

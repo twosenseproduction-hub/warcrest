@@ -53,7 +53,7 @@
       waveInterval: 52,         // seconds between waves
       waveGrowth: 1.18,         // wave size multiplier each wave
       maxArmy: 26,              // soft cap on simultaneous enemy combat units
-      workerCount: 3,           // match typical player open
+      pawnCount: 3,               // match typical player open
       retaliate: true,
     },
 
@@ -74,44 +74,38 @@
   // ---- Teams ---------------------------------------------------------------
   RTS.TEAM = { PLAYER: 'player', ENEMY: 'enemy', NEUTRAL: 'neutral' };
 
-  // ---- Roles (shared archetypes used by both factions) ---------------------
+  // ---- Units (keys match Tiny Swords: Pawn, Lancer, Archer, Monk, Warrior) --
   // costs in Halcite, times in seconds, ranges/speeds in world units.
   RTS.Units = {
-    worker: {
-      role: 'worker', label: 'Pawn', glyph: 'circle',
+    pawn: {
+      role: 'pawn', label: 'Pawn', glyph: 'circle',
       hp: 55, speed: 100, dmg: 5, range: 22, rof: 1.0,
       cost: 50, supply: 1, build: 0, canHarvest: true, canBuild: true,
       desc: 'Harvests Halcite and raises structures.',
     },
-    light: {
-      role: 'light', label: 'Archer', glyph: 'tri',
-      hp: 64, speed: 124, dmg: 9, range: 132, rof: 0.62,
+    lancer: {
+      role: 'lancer', label: 'Lancer', glyph: 'diamond',
+      hp: 52, speed: 178, dmg: 9, range: 78, rof: 0.55,
+      cost: 55, supply: 1, build: 0,
+      desc: 'Fast skirmisher — your opening army unit.',
+    },
+    archer: {
+      role: 'archer', label: 'Archer', glyph: 'tri',
+      hp: 64, speed: 118, dmg: 10, range: 132, rof: 0.62,
       cost: 75, supply: 1, build: 0, ranged: true,
-      desc: 'Cheap mobile ranged trooper. Strong in numbers.',
+      desc: 'Ranged backbone once Lancers hold the line.',
     },
-    scout: {
-      role: 'scout', label: 'Lancer', glyph: 'diamond',
-      hp: 46, speed: 188, dmg: 7, range: 72, rof: 0.5,
-      cost: 60, supply: 1, build: 0,
-      desc: 'Fast pike raider. Thrusts at stragglers and workers.',
+    monk: {
+      role: 'monk', label: 'Monk', glyph: 'cross',
+      hp: 80, speed: 108, dmg: 0, range: 110, rof: 0.7, heal: 12,
+      cost: 110, supply: 2, build: 0, healer: true,
+      desc: 'Heals nearby allies. Keep behind the front.',
     },
-    heavy: {
-      role: 'heavy', label: 'Warrior', glyph: 'hex',
+    warrior: {
+      role: 'warrior', label: 'Warrior', glyph: 'hex',
       hp: 230, speed: 62, dmg: 30, range: 46, rof: 0.85,
       cost: 150, supply: 3, build: 0,
-      desc: 'Slow armored bruiser. Soaks damage at the front.',
-    },
-    siege: {
-      role: 'siege', label: 'Siege Archer', glyph: 'pent',
-      hp: 120, speed: 56, dmg: 46, range: 236, rof: 2.0,
-      cost: 200, supply: 3, build: 0, ranged: true, splash: 46,
-      desc: 'Long-range area damage. Devastating vs clusters and bases.',
-    },
-    support: {
-      role: 'support', label: 'Monk', glyph: 'cross',
-      hp: 80, speed: 108, dmg: 0, range: 110, rof: 0.7, heal: 12,
-      cost: 120, supply: 2, build: 0, healer: true,
-      desc: 'Heals nearby allied units. Keep it behind the line.',
+      desc: 'Armored frontline — train from Archery once Barracks is up.',
     },
   };
 
@@ -120,12 +114,12 @@
     core: {
       type: 'core', label: 'Castle', w: 96, h: 96,
       hp: 1600, cost: 0, build: 0, deposit: true,
-      trains: ['worker'], desc: 'Main base. Trains Pawns and banks Halcite.',
+      trains: ['pawn'], desc: 'Main base. Trains Pawns and banks Halcite.',
     },
     outpost: {
       type: 'outpost', label: 'Outpost', w: 88, h: 88,
       hp: 1400, cost: 400, build: 42, deposit: true, expansion: true,
-      trains: ['worker'],
+      trains: ['pawn'],
       desc: 'Expansion base — build next to a Halcite field. Trains Pawns and banks ore.',
     },
     conduit: {
@@ -136,14 +130,14 @@
     foundry: {
       type: 'foundry', label: 'Barracks', w: 78, h: 70,
       hp: 760, cost: 150, build: 18,
-      trains: ['light', 'scout', 'support'],
-      desc: 'Produces Archers, Lancers and Monks.',
+      trains: ['lancer', 'archer', 'monk'],
+      desc: 'Produces Lancers, Archers, and Monks.',
     },
     forge: {
       type: 'forge', label: 'Archery', w: 86, h: 78,
       hp: 980, cost: 220, build: 26,
-      trains: ['heavy', 'siege'],
-      desc: 'Produces Warriors and Siege Archers.',
+      trains: ['warrior'],
+      desc: 'Produces Warriors.',
     },
     turret: {
       type: 'turret', label: 'Tower', w: 54, h: 54,
@@ -172,8 +166,8 @@
       names: {
         core: 'Castle', conduit: 'House', foundry: 'Barracks',
         forge: 'Archery', turret: 'Tower', outpost: 'Outpost',
-        worker: 'Pawn', light: 'Archer', scout: 'Lancer',
-        heavy: 'Warrior', siege: 'Siege Archer', support: 'Monk',
+        pawn: 'Pawn', lancer: 'Lancer', archer: 'Archer',
+        monk: 'Monk', warrior: 'Warrior',
       },
     },
     cinder: {
@@ -190,8 +184,8 @@
       names: {
         core: 'Castle', conduit: 'House', foundry: 'Barracks',
         forge: 'Archery', turret: 'Tower', outpost: 'Outpost',
-        worker: 'Pawn', light: 'Archer', scout: 'Lancer',
-        heavy: 'Warrior', siege: 'Siege Archer', support: 'Monk',
+        pawn: 'Pawn', lancer: 'Lancer', archer: 'Archer',
+        monk: 'Monk', warrior: 'Warrior',
       },
     },
   };
