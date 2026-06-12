@@ -275,11 +275,24 @@
     u._navStuckT = 0;
   }
 
-  function directMoveToward(u, tx, ty, dt, stop) {
+  function wouldEnterWater(s, ux, uy, vx, vy, dt) {
+    var grid = s.map && s.map.terrainGrid;
+    if (!grid || !RTS.Terrain) return false;
+    if (!RTS.Terrain.isWater(grid, ux, uy)) return false;
+    var nx = ux + vx * dt, ny = uy + vy * dt;
+    return RTS.Terrain.isWater(grid, nx, ny);
+  }
+
+  function directMoveToward(s, u, tx, ty, dt, stop) {
     var dx = tx - u.x, dy = ty - u.y, d = Math.sqrt(dx * dx + dy * dy) || 1;
     if (d <= stop) { u.vx = 0; u.vy = 0; return; }
-    u.vx = dx / d * u.speed;
-    u.vy = dy / d * u.speed;
+    var vx = dx / d * u.speed, vy = dy / d * u.speed;
+    if (s && wouldEnterWater(s, u.x, u.y, vx, vy, dt)) {
+      u.vx = 0; u.vy = 0;
+      return;
+    }
+    u.vx = vx;
+    u.vy = vy;
     u.facing = Math.atan2(dy, dx);
   }
 
@@ -339,7 +352,7 @@
       if (u._navIdx < u._navPath.length - 1) finalStop = 8;
     }
 
-    directMoveToward(u, wx, wy, dt, finalStop);
+    directMoveToward(s, u, wx, wy, dt, finalStop);
   }
 
   RTS.Pathfind = {

@@ -117,7 +117,7 @@
     for (i = 0; i < s.entities.units.length; i++) updateUnit(s, s.entities.units[i], dt);
     resolveAllUnitOverlaps(s);
     for (i = 0; i < s.entities.units.length; i++) {
-      if (!s.entities.units[i].dead) clampToWorld(s.entities.units[i]);
+      if (!s.entities.units[i].dead) clampUnitTerrain(s, s.entities.units[i]);
     }
     for (i = 0; i < s.entities.buildings.length; i++) updateBuilding(s, s.entities.buildings[i], dt);
     updateProjectiles(s, dt);
@@ -141,7 +141,7 @@
   // ---- Units ---------------------------------------------------------------
   function navMove(s, u, tx, ty, dt, stop, opts) {
     if (RTS.Pathfind) RTS.Pathfind.moveToward(s, u, tx, ty, dt, stop, opts);
-    else moveToward(u, tx, ty, dt, stop);
+    else moveToward(s, u, tx, ty, dt, stop);
   }
 
   function updateUnit(s, u, dt) {
@@ -176,32 +176,36 @@
     // Auto-acquire if attack-moving or idle-aggressive
     if (!target && u.role !== 'pawn' && u.heal === 0) {
       if (u.attackMove || u.team === TEAM.ENEMY || !u.moveTo) {
-        var foe = nearestEnemy(s, u.x, u.y, u.team, u.range * (u.attackMove ? 1.6 : 1.25));
+        var combat = RTS.Config.combat || {};
+        var attentionMul = u.attackMove
+          ? (combat.attentionAttackMove || 2.0)
+          : (combat.attentionIdle || 1.55);
+        var foe = nearestEnemy(s, u.x, u.y, u.team, u.range * attentionMul);
         if (foe) { target = foe; u.target = foe.id; }
       }
     }
 
     if (target && u.attackMove) {
       var tr0 = target.radius || Math.max(target.w, target.h) / 2;
-      if (dist(u.x, u.y, target.x, target.y) > u.range * 1.65 + tr0) {
+      var chaseMul = (RTS.Config.combat && RTS.Config.combat.attentionChase) || 2.1;
+      if (dist(u.x, u.y, target.x, target.y) > u.range * chaseMul + tr0) {
         u.target = null;
         target = null;
       }
     }
 
     if (target) {
-      var tr = target.radius || Math.max(target.w, target.h) / 2;
-      var d = dist(u.x, u.y, target.x, target.y);
-      if (d <= u.range + tr * 0.4) {
+      var atk = combatApproach(s, u, target);
+      if (atk.inRange) {
         u.inAttackRange = true;
         u.vx = 0; u.vy = 0;
-        u.facing = Math.atan2(target.y - u.y, target.x - u.x);
+        u.facing = Math.atan2(atk.aimY - u.y, atk.aimX - u.x);
         if (u.cooldown <= 0 && u.dmg > 0) {
           u.cooldown = u.rof;
           fire(s, u, target);
         }
       } else {
-        navMove(s, u, target.x, target.y, dt, u.range * 0.8 + tr, { chasing: true });
+        navMove(s, u, atk.tx, atk.ty, dt, atk.stop, { chasing: true });
       }
     } else if (u.moveTo) {
       navMove(s, u, u.moveTo.x, u.moveTo.y, dt, 6);
@@ -654,10 +658,16 @@
   }
 
   // ---- Shared spatial helpers ----------------------------------------------
-  function moveToward(u, tx, ty, dt, stop) {
+  function moveToward(s, u, tx, ty, dt, stop) {
     var dx = tx - u.x, dy = ty - u.y, d = Math.sqrt(dx * dx + dy * dy) || 1;
     if (d <= stop) { u.vx = 0; u.vy = 0; return; }
-    u.vx = dx / d * u.speed; u.vy = dy / d * u.speed;
+    var vx = dx / d * u.speed, vy = dy / d * u.speed;
+    var grid = s && s.map && s.map.terrainGrid;
+    if (grid && RTS.Terrain && RTS.Terrain.isWater(grid, u.x, u.y)) {
+      var nx = u.x + vx * dt, ny = u.y + vy * dt;
+      if (RTS.Terrain.isWater(grid, nx, ny)) { u.vx = 0; u.vy = 0; return; }
+    }
+    u.vx = vx; u.vy = vy;
     u.facing = Math.atan2(dy, dx);
   }
 
@@ -695,6 +705,7 @@
       if (b.dead || !b.built) continue;
       if (buildingTaskId && b.id === buildingTaskId) continue;
       if (depositId && b.id === depositId) continue;
+      if (u.target === b.id && !u.ranged && u.inAttackRange) continue;
       if (u.harvest && u.harvest.phase === 'toBase' && u.harvest.carry > 0 &&
           RTS.isDepositBuilding && RTS.isDepositBuilding(b) && canDepositAt(u, b, s)) continue;
       var px = u.x, py = u.y;
@@ -789,12 +800,107 @@
 
     if (withSeparation !== false) softSeparation(s, u, dt);
     resolveBuildingCollisions(s, u);
-    clampToWorld(u);
+    clampUnitTerrain(s, u);
+  }
+
+  function buildingCollisionRect(s, b) {
+    if (RTS.Assets && RTS.Assets.buildingCollisionRect) {
+      return RTS.Assets.buildingCollisionRect(b, s);
+    }
+    var hw = b.w * 0.36, hh = b.h * 0.28;
+    return { l: b.x - hw, r: b.x + hw, t: b.y - hh, b: b.y + hh * 0.55 };
+  }
+
+  function distToBuildingEdge(s, ux, uy, building) {
+    var rect = buildingCollisionRect(s, building);
+    var cx = Math.max(rect.l, Math.min(ux, rect.r));
+    var cy = Math.max(rect.t, Math.min(uy, rect.b));
+    var dx = ux - cx, dy = uy - cy;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function buildingApproachPoint(s, u, building) {
+    var rect = buildingCollisionRect(s, building);
+    var cx = Math.max(rect.l, Math.min(u.x, rect.r));
+    var cy = Math.max(rect.t, Math.min(u.y, rect.b));
+    var dx = u.x - cx, dy = u.y - cy;
+    var d = Math.sqrt(dx * dx + dy * dy) || 1;
+    var standoff = (RTS.Config.combat && RTS.Config.combat.meleeBuildingStandoff) || 8;
+    var reach = (u.radius || 10) + standoff;
+    if (d < 0.01) {
+      var ang = Math.atan2(building.y - u.y, building.x - u.x);
+      return { x: building.x + Math.cos(ang) * reach, y: building.y + Math.sin(ang) * reach };
+    }
+    return { x: cx + (dx / d) * reach, y: cy + (dy / d) * reach };
+  }
+
+  function combatApproach(s, u, target) {
+    var tr = target.radius || Math.max(target.w || 0, target.h || 0) / 2;
+    var d = dist(u.x, u.y, target.x, target.y);
+    if (target.kind === 'building' && !u.ranged) {
+      var standoff = (RTS.Config.combat && RTS.Config.combat.meleeBuildingStandoff) || 8;
+      var edgeDist = distToBuildingEdge(s, u.x, u.y, target);
+      var approach = buildingApproachPoint(s, u, target);
+      return {
+        inRange: edgeDist <= u.range + standoff * 0.5,
+        stop: (u.radius || 10) + standoff,
+        tx: approach.x,
+        ty: approach.y,
+        aimX: target.x,
+        aimY: target.y,
+      };
+    }
+    return {
+      inRange: d <= u.range + tr * 0.4,
+      stop: u.range * 0.8 + tr,
+      tx: target.x,
+      ty: target.y,
+      aimX: target.x,
+      aimY: target.y,
+    };
+  }
+
+  function resolveWaterCollision(s, u) {
+    var grid = s.map && s.map.terrainGrid;
+    if (!grid || !RTS.Terrain) return;
+    if (!RTS.Terrain.isWater(grid, u.x, u.y)) {
+      u._lastLandX = u.x;
+      u._lastLandY = u.y;
+      return;
+    }
+    var best = null, bestD2 = Infinity;
+    var samples = 24, ring, i, ang, nx, ny, d2, step;
+    for (ring = 1; ring <= 6; ring++) {
+      step = (u.radius || 10) + ring * 10;
+      for (i = 0; i < samples; i++) {
+        ang = (i / samples) * Math.PI * 2;
+        nx = u.x + Math.cos(ang) * step;
+        ny = u.y + Math.sin(ang) * step;
+        if (RTS.Terrain.isWater(grid, nx, ny)) continue;
+        d2 = step * step;
+        if (d2 < bestD2) { bestD2 = d2; best = { x: nx, y: ny }; }
+      }
+      if (best) break;
+    }
+    if (best) {
+      u.x = best.x;
+      u.y = best.y;
+    } else if (u._lastLandX != null) {
+      u.x = u._lastLandX;
+      u.y = u._lastLandY;
+    }
+    u.vx = 0;
+    u.vy = 0;
   }
 
   function clampToWorld(u) {
     u.x = Math.max(u.radius, Math.min(RTS.Config.world.w - u.radius, u.x));
     u.y = Math.max(u.radius, Math.min(RTS.Config.world.h - u.radius, u.y));
+  }
+
+  function clampUnitTerrain(s, u) {
+    resolveWaterCollision(s, u);
+    clampToWorld(u);
   }
 
   function nearestEnemy(s, x, y, team, maxR) {
@@ -858,17 +964,19 @@
     return best;
   }
 
-  // ---- Win / loss ----------------------------------------------------------
+  // ---- Win / loss (Castle / core only — outposts do not decide the match) --
+  function castleAlive(s, team) {
+    return s.entities.buildings.some(function (b) {
+      return b.team === team && !b.dead && b.type === 'core';
+    });
+  }
+
   function checkEndGame(s) {
     if (s.scene !== 'playing') return;
-    var playerAlive = s.entities.buildings.some(function (b) {
-      return b.team === RTS.TEAM.PLAYER && !b.dead && (b.type === 'core' || b.type === 'outpost');
-    });
-    var enemyAlive = s.entities.buildings.some(function (b) {
-      return b.team === RTS.TEAM.ENEMY && !b.dead && (b.type === 'core' || b.type === 'outpost');
-    });
-    if (!enemyAlive) { RTS.endMatch(s, 'won'); }
-    else if (!playerAlive) { RTS.endMatch(s, 'lost'); }
+    var playerCastle = castleAlive(s, RTS.TEAM.PLAYER);
+    var enemyCastle = castleAlive(s, RTS.TEAM.ENEMY);
+    if (!enemyCastle) RTS.endMatch(s, 'won');
+    else if (!playerCastle) RTS.endMatch(s, 'lost');
   }
 
 })(window.RTS = window.RTS || {});

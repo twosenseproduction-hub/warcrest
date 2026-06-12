@@ -58,6 +58,12 @@
     },
 
     // Combat feel
+    combat: {
+      attentionIdle: 1.55,        // idle / guard auto-acquire radius = unit.range × this (was 1.25)
+      attentionAttackMove: 2.0,   // attack-move acquire radius = unit.range × this (was 1.6)
+      attentionChase: 2.1,        // attack-move drop-chase beyond unit.range × this (was 1.65)
+      meleeBuildingStandoff: 8,   // melee gap from building collision edge (was ~center stop range×0.8+tr)
+    },
     separation: 150,            // unit push-apart strength
     pawnSeparationMul: 0.28,    // workers — allow slight overlap at mines / base
     unitCollisionGap: 4,        // minimum px gap between unit hitboxes
