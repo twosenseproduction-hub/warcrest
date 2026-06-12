@@ -393,13 +393,42 @@
     return dist(u.x, u.y, b.x, b.y) <= builderReach(b);
   }
 
+  // True while a pawn must stay on an incomplete build site (buildTask or builderId link).
+  function isConstructionWorker(s, u, exceptBuildingId) {
+    if (!u || u.dead || u.role !== 'pawn') return false;
+    if (u.buildTask) {
+      var tb = RTS.getById(s, u.buildTask.buildingId);
+      if (!tb || tb.dead || tb.built) return false;
+      if (exceptBuildingId && u.buildTask.buildingId === exceptBuildingId) return false;
+      return true;
+    }
+    for (var i = 0; i < s.entities.buildings.length; i++) {
+      var b = s.entities.buildings[i];
+      if (!b.dead && !b.built && b.builderId === u.id) {
+        if (exceptBuildingId && b.id === exceptBuildingId) continue;
+        return true;
+      }
+    }
+    return false;
+  }
+  RTS.isConstructionWorker = isConstructionWorker;
+
   function syncBuilderLink(s, b) {
     if (!b || b.built || !b.builderId) return;
     var builder = RTS.getById(s, b.builderId);
-    if (!builder || builder.dead ||
-        !builder.buildTask || builder.buildTask.buildingId !== b.id) {
+    if (!builder || builder.dead) {
       b.builderId = null;
+      return;
     }
+    if (builder.buildTask && builder.buildTask.buildingId === b.id) return;
+    // Re-bind buildTask when the assigned pawn was pulled off without a new order.
+    if (!builder.harvest && !builder.moveTo && !builder.target) {
+      builder.buildTask = { buildingId: b.id };
+      builder._workPhase = builder._workPhase || 0;
+      if (RTS.Pathfind) RTS.Pathfind.clearNav(builder);
+      return;
+    }
+    b.builderId = null;
   }
 
   function doBuildTask(s, u, dt) {
@@ -798,7 +827,8 @@
       if (!node) return;
       s.entities.units.forEach(function (u) {
         if (u.dead || u.team !== b.team || u.role !== 'pawn') return;
-        if (u.harvest || u.buildTask || u.moveTo || u.target) return;
+        if (u.harvest || u.moveTo || u.target) return;
+        if (isConstructionWorker(s, u)) return;
         if (dist(u.x, u.y, b.x, b.y) > 380) return;
         RTS.orderHarvest(s, u, node.id);
       });

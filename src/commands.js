@@ -222,7 +222,8 @@
     var team = b.team;
     var workers = s.entities.units.filter(function (u) {
       return u.team === team && u.role === 'pawn' && !u.dead &&
-        !u.harvest && !u.buildTask && !u.moveTo && !u.target;
+        !u.harvest && !u.moveTo && !u.target &&
+        !(RTS.isConstructionWorker && RTS.isConstructionWorker(s, u, b.id));
     });
     if (!workers.length) return null;
     var w = preferredWorker;

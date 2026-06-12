@@ -285,9 +285,11 @@
     }
   }
 
+  // Pawns with buildTask / builderId must hammer on site until the shell is built.
   function assignWorkers(s) {
     enemyUnits(s, 'pawn').forEach(function (w) {
-      if (w.harvest || w.buildTask) return;
+      if (w.harvest || w.moveTo || w.target) return;
+      if (RTS.isConstructionWorker && RTS.isConstructionWorker(s, w)) return;
       var dep = nearestDepositTo(s, w.x, w.y, TEAM.ENEMY);
       if (!dep) return;
       var node = nearestNodeForDeposit(s, dep);
