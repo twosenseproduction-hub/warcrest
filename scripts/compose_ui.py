@@ -2,6 +2,7 @@
 """Bake Tiny Swords 9-slice atlases into flat PNGs for CSS backgrounds."""
 from PIL import Image
 import os
+import shutil
 
 ROOT = os.path.join(os.path.dirname(__file__), '..')
 OUT = os.path.join(ROOT, 'assets', 'ui')
@@ -22,10 +23,11 @@ WOOD_TILES = {
     'l': (45, 192, 128, 256), 'c': (192, 192, 256, 256), 'r': (320, 192, 403, 256),
     'bl': (45, 320, 128, 423), 'b': (192, 320, 256, 423), 'br': (320, 320, 403, 423),
 }
+# RegularPaper is a 3×3 grid: 64px tiles with 64px gutters (320×320 sheet).
 PAPER_TILES = {
-    'tl': (0, 0, 64, 64), 't': (64, 0, 256, 64), 'tr': (256, 0, 320, 64),
-    'l': (0, 64, 64, 256), 'c': (64, 64, 256, 256), 'r': (256, 64, 320, 256),
-    'bl': (0, 256, 64, 320), 'b': (64, 256, 256, 320), 'br': (256, 256, 320, 320),
+    'tl': (0, 0, 64, 64), 't': (128, 0, 192, 64), 'tr': (256, 0, 320, 64),
+    'l': (0, 128, 64, 192), 'c': (128, 128, 192, 192), 'r': (256, 128, 320, 192),
+    'bl': (0, 256, 64, 320), 'b': (128, 256, 192, 320), 'br': (256, 256, 320, 320),
 }
 BAR_TILES = {
     'tl': (19, 0, 64, 64), 't': (128, 0, 192, 64), 'tr': (256, 0, 301, 64),
@@ -144,8 +146,18 @@ def main():
     extract_sword_icon(sword_src, 0).save(os.path.join(OUT, 'sword-icon-win.png'))
     extract_sword_icon(sword_src, 5).save(os.path.join(OUT, 'sword-icon-lose.png'))
 
+    # Parchment scroll panels (RegularPaper = store Banner parchment look).
     paper_src = os.path.join(base, 'Papers/RegularPaper.png')
-    for w in (256, 320, 360, 512):
+  # Packed 9-slice for CSS border-image (no gutter seams).
+    paper_im = Image.open(paper_src).convert('RGBA')
+    packed = Image.new('RGBA', (192, 192), (0, 0, 0, 0))
+    order = ['tl', 't', 'tr', 'l', 'c', 'r', 'bl', 'b', 'br']
+    for i, key in enumerate(order):
+        tile = paper_im.crop(PAPER_TILES[key])
+        packed.paste(tile, ((i % 3) * 64, (i // 3) * 64), tile)
+    packed.save(os.path.join(OUT, 'regular-paper-9.png'), optimize=True)
+    shutil.copy2(paper_src, os.path.join(OUT, 'regular-paper.png'))
+    for w in (256, 320, 360, 420, 480, 512, 580, 720):
         compose_nine(paper_src, PAPER_TILES, w, w).save(
             os.path.join(OUT, f'paper-panel-{w}.png'))
     paper_im = Image.open(paper_src).convert('RGBA')

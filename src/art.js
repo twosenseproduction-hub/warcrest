@@ -1118,47 +1118,30 @@
    * Selection ring — white pulse + warm under-glow.
    * ========================================================================*/
   function drawSelectionRing(ctx, e, t, pulse, s) {
+    ctx.strokeStyle = hexA('#ffd54f', 0.55);
+    ctx.lineWidth = 2;
     if (e.kind === 'unit') {
       var vb = RTS.Sprites && RTS.Sprites.unitVisualBounds && s
         ? RTS.Sprites.unitVisualBounds(e, s) : null;
       if (vb) {
-        ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.ellipse(vb.x, vb.footY + 2, vb.groundRx * 0.62 * pulse, vb.groundRy * 0.8 * pulse, 0, 0, 6.2832);
-        ctx.stroke();
-        ctx.strokeStyle = hexA('#ffd54f', 0.35); ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.ellipse(vb.x, vb.footY + 2, vb.groundRx * 0.72 * pulse, vb.groundRy * 0.92 * pulse, 0, 0, 6.2832);
+        ctx.ellipse(vb.x, vb.footY + 2, vb.groundRx * 0.66 * pulse, vb.groundRy * 0.85 * pulse, 0, 0, 6.2832);
         ctx.stroke();
       } else {
-        ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 2.5;
         ctx.beginPath();
-        ctx.ellipse(e.x, e.y + e.radius * 0.62, (e.radius + 6) * pulse, (e.radius + 6) * 0.38 * pulse, 0, 0, 6.2832);
-        ctx.stroke();
-        ctx.strokeStyle = hexA('#ffd54f', 0.45); ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.ellipse(e.x, e.y + e.radius * 0.62, (e.radius + 10) * pulse, (e.radius + 10) * 0.42 * pulse, 0, 0, 6.2832);
+        ctx.ellipse(e.x, e.y + e.radius * 0.62, (e.radius + 8) * pulse, (e.radius + 8) * 0.4 * pulse, 0, 0, 6.2832);
         ctx.stroke();
       }
     } else {
-      var pad = 6;
-      var vb = RTS.Assets && RTS.Assets.buildingVisualBounds && s
+      var bvb = RTS.Assets && RTS.Assets.buildingVisualBounds && s
         ? RTS.Assets.buildingVisualBounds(e, s) : null;
-      if (vb) {
-        ctx.strokeStyle = '#fff'; ctx.lineWidth = 3.5;
-        pRRect(ctx, vb.x - vb.drawW / 2 - pad, vb.drawY - pad, vb.drawW + pad * 2, vb.drawH + pad * 2, 10);
-        ctx.stroke();
-        ctx.strokeStyle = hexA('#ffd54f', 0.45); ctx.lineWidth = 2.5;
+      if (bvb) {
         ctx.beginPath();
-        ctx.ellipse(vb.x, vb.footY + 6, vb.drawW * 0.55, 9, 0, 0, 6.2832);
+        ctx.ellipse(bvb.x, bvb.footY + 4, bvb.drawW * 0.52 * pulse, 8, 0, 0, 6.2832);
         ctx.stroke();
       } else {
-        ctx.strokeStyle = '#fff'; ctx.lineWidth = 3.5;
-        pRRect(ctx, e.x - e.w / 2 - pad, e.y - e.h / 2 - pad, e.w + pad * 2, e.h + pad * 2, 10);
-        ctx.stroke();
-        ctx.strokeStyle = hexA('#ffd54f', 0.45); ctx.lineWidth = 2.5;
         ctx.beginPath();
-        ctx.ellipse(e.x, e.y + e.h * 0.42, e.w * 0.6, 9, 0, 0, 6.2832);
+        ctx.ellipse(e.x, e.y + e.h * 0.42, e.w * 0.55 * pulse, 8, 0, 0, 6.2832);
         ctx.stroke();
       }
     }

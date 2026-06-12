@@ -110,13 +110,6 @@
       var e = RTS.getById(s, id);
       if (!e || e.dead) return;
       Art().drawSelectionRing(ctx, e, t, pulse, s);
-      if (e.kind === 'building' && e.rally) {
-        ctx.setLineDash([4, 5]); ctx.strokeStyle = RTS.hexA('#fff', 0.5); ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(e.rally.x, e.rally.y); ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.fillStyle = '#ffc107'; ctx.strokeStyle = '#1a1208'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(e.rally.x, e.rally.y, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-      }
     });
   }
 

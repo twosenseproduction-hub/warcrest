@@ -168,17 +168,6 @@
     }
   }
 
-  function drawBuildingHighlight(ctx, b, t) {
-    var pulse = RTS.Config.reducedMotion ? 1 : 1 + Math.sin(t * 4) * 0.04;
-    var hw = b.w / 2 + 8;
-    var hh = b.h / 2 + 8;
-    ctx.strokeStyle = RTS.hexA('#ffc107', 0.75);
-    ctx.lineWidth = 3;
-    ctx.setLineDash([6, 4]);
-    ctx.strokeRect(b.x - hw * pulse, b.y - hh * pulse, hw * 2 * pulse, hh * 2 * pulse);
-    ctx.setLineDash([]);
-  }
-
   function drawQueueBadge(ctx, b, s) {
     if (b.team !== TEAM.PLAYER || !b.built || !b.queue.length) return;
     if (!RTS.isProductionBuilding(b)) return;
@@ -301,9 +290,6 @@
       var b = RTS.getById(s, building.id);
       if (!b) return;
       building = b;
-
-      var t = s.timers.gameTime;
-      drawBuildingHighlight(ctx, b, t);
 
       var hover = s.ui.buildingMenuHover;
       items.forEach(function (item) {

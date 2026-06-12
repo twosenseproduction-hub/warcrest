@@ -418,6 +418,7 @@
       b.hp = Math.max(b.hp, b.maxHp * (0.08 + 0.92 * b.progress));
       if (b.progress >= 1) {
         b.built = true; b.hp = b.maxHp; b.spawnFlash = 0.5;
+        RTS.spawnDust(s, b.x, b.y + b.h * 0.4, 1.2, true);
         if (b.team === TEAM.PLAYER) {
           RTS.recalcSupply(s, TEAM.PLAYER);
           RTS.log(s, RTS.nameFor(b.faction, b.type) + ' online', 'good');
@@ -476,7 +477,7 @@
       RTS.Audio.play('ready');
       RTS.recalcSupply(s, TEAM.PLAYER);
     }
-    RTS.spawnExplosion(s, u.x, u.y, 10, RTS.Factions[b.faction].secondary);
+    RTS.spawnDust(s, u.x, u.y + u.radius * 0.35, 1.1, true);
   }
 
   // ---- Combat helpers ------------------------------------------------------

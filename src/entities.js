@@ -83,6 +83,13 @@
     RTS.addEffect(s, { kind: 'ring', x: x, y: y, life: 0.22, max: 0.22, color: c, r: 4 });
   };
 
+  RTS.spawnDust = function (s, x, y, scale, large) {
+    if (RTS.Config.reducedMotion) return;
+    if (RTS.Particles && RTS.Particles.ready) {
+      RTS.Particles.spawnDust(s, x, y, scale, large);
+    }
+  };
+
   RTS.spawnExplosion = function (s, x, y, size, color) {
     if (RTS.Config.reducedMotion) return;
     if (RTS.Particles && RTS.Particles.ready && RTS.Particles.spawnExplosion(s, x, y, size)) return;
