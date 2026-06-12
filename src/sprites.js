@@ -18,7 +18,7 @@
         work: { file: 'Pawn_Interact Pickaxe.png', count: 6, speed: 10 },
         idle_hammer: { file: 'Pawn_Idle Hammer.png', count: 8, speed: 2.2 },
         walk_hammer: { file: 'Pawn_Run Hammer.png', count: 6, speed: 9 },
-        work_hammer: { file: 'Pawn_Interact Hammer.png', count: 6, speed: 10 },
+        work_hammer: { file: 'Pawn_Interact Hammer.png', count: 3, speed: 10 },
       },
     },
     lancer: {

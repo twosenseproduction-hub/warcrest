@@ -26,12 +26,12 @@
       ['res-halcite', 'res-supply', 'timer', 'btn-pause', 'command-deck', 'thumb-cluster',
        'selpanel', 'unit-group-strip', 'action-tray', 'event-log', 'toast', 'gesture-hint', 'wave-timer',
        'btn-rail-army', 'btn-rail-pawns', 'btn-rail-stop', 'btn-rail-atk', 'btn-rail-base',
-       'btn-build-hammer', 'btn-select-pawns', 'build-panel', 'build-panel-grid', 'map-tools'].forEach(function (id) {
+       'btn-build-hammer', 'build-panel', 'build-panel-grid', 'map-tools'].forEach(function (id) {
         D[id] = $(id);
       });
 
       ['action-tray', 'selpanel', 'unit-group-strip', 'topbar', 'command-deck', 'thumb-cluster', 'map-tools',
-       'build-panel', 'btn-build-hammer', 'btn-select-pawns'].forEach(function (id) {
+       'build-panel', 'btn-build-hammer'].forEach(function (id) {
         var el = document.getElementById(id);
         if (!el) return;
         el.addEventListener('pointerdown', markUi, true);
@@ -41,12 +41,6 @@
 
       wireRail('btn-rail-army', function (s) { RTS.selectAllArmy(s); RTS.Audio.play('click'); });
       wireRail('btn-rail-pawns', function (s) {
-        if (RTS.selectAllWorkers(s)) {
-          RTS.toast(s, 'Pawns selected');
-          RTS.Audio.play('click');
-        }
-      });
-      wireRail('btn-select-pawns', function (s) {
         if (RTS.selectAllWorkers(s)) {
           RTS.toast(s, 'Pawns selected');
           RTS.Audio.play('click');
@@ -216,7 +210,7 @@
   function syncPawnSelectButtons(s) {
     var fid = s.playerFaction || 'aurex';
     var html = UI().avatarPortraitHtml(fid, 'pawn', 28);
-    ['btn-select-pawns', 'btn-rail-pawns'].forEach(function (id) {
+    ['btn-rail-pawns'].forEach(function (id) {
       var el = D[id];
       if (!el) return;
       var slot = el.querySelector('.pawn-select-portrait');

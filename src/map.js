@@ -425,22 +425,12 @@
     var px = mg.playerBase.x, py = mg.playerBase.y;
     var ex = mg.enemyBase.x, ey = mg.enemyBase.y;
 
-    spawnBase(s, RTS.TEAM.PLAYER, px, py, pf, false, {
-      rallyDx: 130, rallyDy: 90,
-      conduit: { x: px - 96, y: py + 48 },
-      forge: { x: px + 96, y: py + 48 },
-    });
-    spawnBase(s, RTS.TEAM.ENEMY, ex, ey, ef, true, {
-      rallyDx: -130, rallyDy: 90,
-      conduit: { x: ex + 96, y: py + 48 },
-      foundry: { x: ex - 96, y: py + 48 },
-    });
+    spawnBase(s, RTS.TEAM.PLAYER, px, py, pf, false, { rallyDx: 130, rallyDy: 90 });
+    spawnBase(s, RTS.TEAM.ENEMY, ex, ey, ef, true, { rallyDx: -130, rallyDy: 90 });
 
     mg.gold.forEach(function (g) { mine(s, g.x, g.y, g.amount); });
 
     var decorAvoid = [{ x: px, y: py }, { x: ex, y: ey }];
-    decorAvoid.push({ x: px - 96, y: py + 48 }, { x: px + 96, y: py + 48 });
-    decorAvoid.push({ x: ex + 96, y: py + 48 }, { x: ex - 96, y: py + 48 });
     mg.gold.forEach(function (g) { decorAvoid.push({ x: g.x, y: g.y }); });
 
     finishMap(s, {
