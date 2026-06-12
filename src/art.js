@@ -430,17 +430,6 @@
       drawHealthBar(ctx, x, y - b.h / 2 - 14, b.w, b.progress, '#42a5f5', true, false);
     }
 
-    if (b.hitFlash > 0) {
-      var flashK = b.hitFlash / RTS.Config.hitFlash;
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.fillStyle = hexA('#ffffff', flashK * 0.75);
-      pRRect(ctx, x - b.w / 2, y - b.h / 2, b.w, b.h, 10); ctx.fill();
-      ctx.fillStyle = hexA('#ff9650', flashK * 0.4);
-      pRRect(ctx, x - b.w / 2, y - b.h / 2, b.w, b.h, 10); ctx.fill();
-      ctx.restore();
-    }
-
     if (built && (b.hp < b.maxHp || s.settings.showHealthAlways)) {
       drawHealthBar(ctx, x, y - b.h / 2 - 14, b.w, b.hp / b.maxHp, f.primary, true, true);
     }
@@ -1024,15 +1013,6 @@
       pCircle(ctx, mx, my, 4);
       ctx.fill();
     }
-    if (!spriteNative && u.hitFlash > 0) {
-      ctx.fillStyle = hexA('#ffffff', (u.hitFlash / RTS.Config.hitFlash) * 0.35);
-      var hx = u.x;
-      var hy = vb ? vb.bodyCy : u.y - r * 0.15;
-      var hw = vb ? vb.drawW * 0.48 : r * 1.1;
-      var hh = vb ? vb.drawH * 0.5 : r * 1.35;
-      pEllipse(ctx, hx, hy, hw, hh);
-      ctx.fill();
-    }
     if (u.hp < u.maxHp || s.settings.showHealthAlways) {
       var barW = vb ? Math.max(34, vb.drawW * 0.85) : Math.max(34, r * 2.8);
       drawHealthBar(ctx, u.x, topY, barW, u.hp / u.maxHp, pal.trim, false, false);
@@ -1063,10 +1043,6 @@
     ctx.save();
     ctx.translate(u.x, u.y - anim.bob);
     ctx.scale(flip, 1);
-    if (u.hitFlash > 0) {
-      var q = u.hitFlash / RTS.Config.hitFlash;
-      ctx.scale(1 + q * 0.08, 1 - q * 0.06);
-    }
     renderUnitPose(ctx, u.role, r, pal, anim, t, phaseOf(u));
     ctx.restore();
     drawUnitOverlays(ctx, u, f, s, r, pal);

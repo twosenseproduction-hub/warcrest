@@ -469,17 +469,6 @@
       RTS.Art.drawHealthBar(ctx, x, drawY - 14, drawW, b.progress, '#42a5f5', true, false);
     }
 
-    if (b.hitFlash > 0) {
-      var flashK = b.hitFlash / RTS.Config.hitFlash;
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.fillStyle = 'rgba(255,255,255,' + (flashK * 0.75) + ')';
-      ctx.fillRect(x - drawW / 2, drawY, drawW, drawH);
-      ctx.fillStyle = 'rgba(255,150,90,' + (flashK * 0.4) + ')';
-      ctx.fillRect(x - drawW / 2, drawY, drawW, drawH);
-      ctx.restore();
-    }
-
     if (built && (b.hp < b.maxHp || s.settings.showHealthAlways)) {
       RTS.Art.drawHealthBar(ctx, x, drawY - 14, drawW, b.hp / b.maxHp, f.primary, true, true);
     }

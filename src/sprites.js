@@ -402,13 +402,6 @@
       if (!vb) return;
 
       drawSpriteFrame(ctx, clip, sheet, fi, u, vb.drawW, vb.drawH, vb.drawY, flip);
-      if (u.hitFlash > 0) {
-        var flashA = (u.hitFlash / RTS.Config.hitFlash) * 0.35;
-        ctx.save();
-        ctx.fillStyle = 'rgba(255,255,255,' + flashA + ')';
-        ctx.fillRect(u.x - vb.drawW / 2, vb.drawY, vb.drawW, vb.drawH);
-        ctx.restore();
-      }
 
       if (u.role === 'monk' && this.attackActive(u) && u.attackTargetId) {
         var ally = RTS.getById(s, u.attackTargetId);

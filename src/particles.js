@@ -290,6 +290,13 @@
       return true;
     },
 
+    /** Small dust puff at projectile / melee impact — not a full-sprite flash. */
+    spawnImpact: function (s, x, y) {
+      if (!ready || RTS.Config.reducedMotion) return;
+      var key = ((x * 3 + y * 5) | 0) % 2 ? 'dust2' : 'dust1';
+      addPfx(s, { sheet: key, x: x, y: y, scale: 0.34, alpha: 0.72 });
+    },
+
     tick: function (s, dt) {
       if (!ready) return;
       Object.keys(firesByBuilding).forEach(function (bid) {

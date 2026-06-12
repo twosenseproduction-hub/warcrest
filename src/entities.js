@@ -86,12 +86,13 @@
     }
   };
 
-  RTS.spawnHit = function (s, x, y, team) {
+  RTS.spawnHit = function (s, x, y) {
     if (RTS.Config.reducedMotion) return;
-    if (RTS.Sprites && RTS.Sprites.ready) return;
-    var c = team === RTS.TEAM.ENEMY ? '#ffd1a8' : '#bdfff2';
-    RTS.addEffect(s, { kind: 'spark', x: x, y: y, life: 0.16, max: 0.16, color: c });
-    RTS.addEffect(s, { kind: 'ring', x: x, y: y, life: 0.22, max: 0.22, color: c, r: 4 });
+    if (RTS.Particles && RTS.Particles.ready) {
+      RTS.Particles.spawnImpact(s, x, y);
+      return;
+    }
+    RTS.addEffect(s, { kind: 'spark', x: x, y: y, life: 0.12, max: 0.12, color: '#ffe8c8' });
   };
 
   RTS.spawnDust = function (s, x, y, scale, large) {

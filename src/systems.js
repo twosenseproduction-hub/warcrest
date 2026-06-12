@@ -186,7 +186,6 @@
   function updateUnit(s, u, dt) {
     if (u.dead) return;
     u.cooldown = Math.max(0, u.cooldown - dt);
-    u.hitFlash = Math.max(0, u.hitFlash - dt);
     u.muzzleFlash = Math.max(0, u.muzzleFlash - dt);
     u.spawnFlash = Math.max(0, u.spawnFlash - dt);
     if (RTS.Sprites && RTS.Sprites.ready) {
@@ -709,7 +708,6 @@
   // ---- Buildings -----------------------------------------------------------
   function updateBuilding(s, b, dt) {
     if (b.dead) return;
-    b.hitFlash = Math.max(0, b.hitFlash - dt);
     b.spawnFlash = Math.max(0, b.spawnFlash - dt);
     b.cooldown = Math.max(0, b.cooldown - dt);
 
@@ -796,11 +794,30 @@
   }
 
   // ---- Combat helpers ------------------------------------------------------
-  function applyDamage(s, target, amount, attacker) {
+  function impactPoint(target, attacker, impact) {
+    if (impact && impact.x != null && impact.y != null) {
+      return { x: impact.x, y: impact.y };
+    }
+    if (attacker && attacker.x != null && attacker.y != null) {
+      var dx = target.x - attacker.x;
+      var dy = target.y - attacker.y;
+      var d = Math.sqrt(dx * dx + dy * dy) || 1;
+      var er = target.radius || (target.w ? Math.max(target.w, target.h) * 0.22 : 10);
+      return {
+        x: target.x - (dx / d) * er * 0.55,
+        y: target.y - (dy / d) * er * 0.35,
+      };
+    }
+    return {
+      x: target.x,
+      y: target.y - (target.radius || (target.h ? target.h * 0.28 : 10)),
+    };
+  }
+
+  function applyDamage(s, target, amount, attacker, impact) {
     target.hp -= amount;
-    target.hitFlash = RTS.Config.hitFlash;
-    var ty = target.y - (target.radius || (target.h ? target.h * 0.3 : 10));
-    RTS.spawnHit(s, target.x, ty, target.team);
+    var pt = impactPoint(target, attacker, impact);
+    RTS.spawnHit(s, pt.x, pt.y);
 
     if (target.kind === 'unit' && attacker && RTS.UnitAI) {
       RTS.UnitAI.onDamaged(s, target, attacker);
@@ -866,7 +883,7 @@
           RTS.spawnExplosion(s, tx, ty, p.splash, '#ffb24d');
           s.screenShake = Math.max(s.screenShake, 3);
         } else if (t && !t.dead) {
-          applyDamage(s, t, p.dmg, { team: p.team });
+          applyDamage(s, t, p.dmg, { team: p.team }, { x: p.x, y: p.y });
         }
         continue;
       }
@@ -884,7 +901,7 @@
         var d = dist(x, y, e.x, e.y);
         if (d <= radius + er) {
           var f = 1 - Math.min(1, d / (radius + er));
-          applyDamage(s, e, dmg * (0.4 + 0.6 * f), { team: team });
+          applyDamage(s, e, dmg * (0.4 + 0.6 * f), { team: team }, { x: x, y: y });
         }
       });
     }
