@@ -22,7 +22,7 @@
       facing: 0,
     };
     s.entities.units.push(u);
-    if (team === RTS.TEAM.PLAYER) RTS.recalcSupply(s, team);
+    RTS.recalcSupply(s, team);
     return u;
   };
 
@@ -39,7 +39,7 @@
       hitFlash: 0, dead: false, spawnFlash: 0.3,
     };
     s.entities.buildings.push(b);
-    if (team === RTS.TEAM.PLAYER) RTS.recalcSupply(s, team);
+    RTS.recalcSupply(s, team);
     return b;
   };
 

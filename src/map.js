@@ -228,7 +228,7 @@
     if (!isEnemy) core.autoMine = true;
     if (opts.foundry) RTS.makeBuilding(s, 'foundry', team, opts.foundry.x, opts.foundry.y, faction, true);
     if (opts.forge) RTS.makeBuilding(s, 'forge', team, opts.forge.x, opts.forge.y, faction, true);
-    var workers = isEnemy ? RTS.Config.ai.workerCount : 3;
+    var workers = opts.workers != null ? opts.workers : 0;
     for (var i = 0; i < workers; i++) {
       var ox = isEnemy ? -70 - i * 26 : 70 + i * 26;
       RTS.makeUnit(s, 'worker', team, cx + ox, cy + (isEnemy ? 64 : 64), faction);
@@ -246,15 +246,8 @@
     var px = mg.playerBase.x, py = mg.playerBase.y;
     var ex = mg.enemyBase.x, ey = mg.enemyBase.y;
 
-    spawnBase(s, RTS.TEAM.PLAYER, px, py, pf, false, {
-      rallyDx: 130, rallyDy: 90,
-      foundry: { x: px + 110, y: py + 95 },
-    });
-    spawnBase(s, RTS.TEAM.ENEMY, ex, ey, ef, true, {
-      rallyDx: -130, rallyDy: 90,
-      foundry: { x: ex - 110, y: ey + 95 },
-      forge: { x: ex - 150, y: ey + 45 },
-    });
+    spawnBase(s, RTS.TEAM.PLAYER, px, py, pf, false, { rallyDx: 130, rallyDy: 90 });
+    spawnBase(s, RTS.TEAM.ENEMY, ex, ey, ef, true, { rallyDx: -130, rallyDy: 90 });
 
     mg.gold.forEach(function (g) { mine(s, g.x, g.y, g.amount); });
 
@@ -288,15 +281,8 @@
     var pf = s.playerFaction, ef = s.enemyFaction;
     var midY = h * 0.5;
 
-    spawnBase(s, RTS.TEAM.PLAYER, 280, midY, pf, false, {
-      rallyDx: 120, rallyDy: 0,
-      foundry: { x: 400, y: midY - 120 },
-    });
-    spawnBase(s, RTS.TEAM.ENEMY, w - 280, midY, ef, true, {
-      rallyDx: -120, rallyDy: 0,
-      foundry: { x: w - 400, y: midY + 120 },
-      forge: { x: w - 360, y: midY - 90 },
-    });
+    spawnBase(s, RTS.TEAM.PLAYER, 280, midY, pf, false, { rallyDx: 120, rallyDy: 0 });
+    spawnBase(s, RTS.TEAM.ENEMY, w - 280, midY, ef, true, { rallyDx: -120, rallyDy: 0 });
 
     mine(s, 400, midY - 220, 2800);
     mine(s, 400, midY + 220, 2800);
@@ -338,15 +324,8 @@
     var midX = w * 0.5;
     var py = h - 280, ey = 280;
 
-    spawnBase(s, RTS.TEAM.PLAYER, midX, py, pf, false, {
-      rallyDx: 0, rallyDy: -120,
-      foundry: { x: midX + 140, y: py - 120 },
-    });
-    spawnBase(s, RTS.TEAM.ENEMY, midX, ey, ef, true, {
-      rallyDx: 0, rallyDy: 120,
-      foundry: { x: midX - 140, y: ey + 120 },
-      forge: { x: midX + 120, y: ey + 90 },
-    });
+    spawnBase(s, RTS.TEAM.PLAYER, midX, py, pf, false, { rallyDx: 0, rallyDy: -120 });
+    spawnBase(s, RTS.TEAM.ENEMY, midX, ey, ef, true, { rallyDx: 0, rallyDy: 120 });
 
     mine(s, midX - 220, py - 190, 2800);
     mine(s, midX + 220, py - 190, 2800);
@@ -389,15 +368,8 @@
     var px = 320, py = 320;
     var ex = w - 320, ey = h - 320;
 
-    spawnBase(s, RTS.TEAM.PLAYER, px, py, pf, false, {
-      rallyDx: 110, rallyDy: 110,
-      foundry: { x: px + 130, y: py + 50 },
-    });
-    spawnBase(s, RTS.TEAM.ENEMY, ex, ey, ef, true, {
-      rallyDx: -110, rallyDy: -110,
-      foundry: { x: ex - 130, y: ey - 50 },
-      forge: { x: ex - 80, y: ey - 120 },
-    });
+    spawnBase(s, RTS.TEAM.PLAYER, px, py, pf, false, { rallyDx: 110, rallyDy: 110 });
+    spawnBase(s, RTS.TEAM.ENEMY, ex, ey, ef, true, { rallyDx: -110, rallyDy: -110 });
 
     mine(s, px + 60, py - 140, 2800);
     mine(s, px - 140, py + 60, 2600);

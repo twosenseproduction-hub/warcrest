@@ -175,7 +175,6 @@
   // ---- Economy helpers -----------------------------------------------------
   RTS.canAfford = function (s, team, cost) { return s.res[team].halcite >= cost; };
   RTS.hasSupply = function (s, team, n) {
-    if (team !== RTS.TEAM.PLAYER) return true;
     return s.res[team].supplyUsed + n <= s.res[team].supplyCap;
   };
 

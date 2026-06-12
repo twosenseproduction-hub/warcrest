@@ -47,13 +47,13 @@
 
     // AI difficulty / pacing
     ai: {
-      startResources: 320,
-      income: 9.5,              // enemy passive halcite/sec (abstracted economy)
+      startResources: 250,        // match player — equal start
+      income: 0,                  // no passive cheat; mine like the player
       firstWaveAt: 70,          // seconds before first real attack wave
       waveInterval: 52,         // seconds between waves
       waveGrowth: 1.18,         // wave size multiplier each wave
       maxArmy: 26,              // soft cap on simultaneous enemy combat units
-      workerCount: 4,
+      workerCount: 3,           // match typical player open
       retaliate: true,
     },
 

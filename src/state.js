@@ -30,7 +30,7 @@
       // resources keyed by team
       res: {
         player: { halcite: RTS.Config.startResources, supplyUsed: 0, supplyCap: RTS.Config.startSupplyCap },
-        enemy:  { halcite: RTS.Config.ai.startResources, supplyUsed: 0, supplyCap: 999 },
+        enemy:  { halcite: RTS.Config.ai.startResources, supplyUsed: 0, supplyCap: RTS.Config.startSupplyCap },
       },
 
       entities: {
@@ -112,15 +112,13 @@
     s.entities.units.forEach(function (u) {
       if (u.team === team && !u.dead) used += (RTS.Units[u.role].supply || 1);
     });
-    var cap = (team === RTS.TEAM.PLAYER) ? RTS.Config.startSupplyCap : 999;
-    if (team === RTS.TEAM.PLAYER) {
-      s.entities.buildings.forEach(function (b) {
-        if (b.team === team && !b.dead && b.built && RTS.Buildings[b.type].supply) {
-          cap += RTS.Buildings[b.type].supply;
-        }
-      });
-      cap = Math.min(cap, RTS.Config.maxSupplyCap);
-    }
+    var cap = RTS.Config.startSupplyCap;
+    s.entities.buildings.forEach(function (b) {
+      if (b.team === team && !b.dead && b.built && RTS.Buildings[b.type].supply) {
+        cap += RTS.Buildings[b.type].supply;
+      }
+    });
+    cap = Math.min(cap, RTS.Config.maxSupplyCap);
     s.res[team].supplyUsed = used;
     s.res[team].supplyCap = cap;
   };
