@@ -45,6 +45,23 @@
     return true;
   }
 
+  function decorTreeSpriteIdx(x, y) {
+    var h = ((x | 0) * 73856093 ^ (y | 0) * 19349663) >>> 0;
+    return h % 3;
+  }
+
+  function coniferJitterXY(col, row, TILE, rnd) {
+    var jx, jy, x, y, tries = 0;
+    do {
+      jx = Math.floor(rnd() * 17) - 8;
+      jy = Math.floor(rnd() * 17) - 8;
+      x = col * TILE + TILE * 0.5 + jx;
+      y = (row + 1) * TILE - 8 + jy;
+      tries++;
+    } while (tries < 48 && decorTreeSpriteIdx(x, y) === 0);
+    return { x: x, y: y };
+  }
+
   function shoreTrees(grid, seed, fillChance) {
     fillChance = fillChance == null ? 0.12 : fillChance;
     var rnd = mulberry(seed);
@@ -55,6 +72,7 @@
     var FLAT = RTS.Terrain.FLAT;
     var WATER = RTS.Terrain.WATER;
     var heights = grid.heights;
+    var tz = RTS.TerraformZones;
 
     function at(cx, cy) {
       if (cx < 0 || cy < 0 || cx >= cols || cy >= rows) return WATER;
@@ -65,12 +83,14 @@
     for (cy = 0; cy < rows; cy++) {
       for (cx = 0; cx < cols; cx++) {
         if (at(cx, cy) !== FLAT) continue;
+        if (tz && tz.isAdjacentToCorridor(cy, cx)) continue;
         nearWater = at(cx, cy - 1) === WATER || at(cx + 1, cy) === WATER ||
           at(cx, cy + 1) === WATER || at(cx - 1, cy) === WATER;
         if (!nearWater) continue;
         if (rnd() > fillChance) continue;
         wx = cx * TILE + TILE * (0.15 + rnd() * 0.7);
         wy = cy * TILE + TILE * (0.15 + rnd() * 0.7);
+        if (tz && tz.decorOnCorridor(wx, wy, TILE)) continue;
         out.push({
           x: wx,
           y: wy,
@@ -147,13 +167,16 @@
     var out = [];
     var cols = mg.cols, rows = mg.rows, TILE = mg.tile || 64;
     var p = mg.treeDensity != null ? mg.treeDensity : 0.72;
+    var tz = RTS.TerraformZones;
     var i, j, wx, wy;
     for (i = 0; i < rows; i++) {
       for (j = 0; j < cols; j++) {
         if (!mg.forest[i * cols + j]) continue;
+        if (tz && (tz.isCorridorTile(i, j) || tz.isForestWallTile(i, j))) continue;
         if (rnd() > p) continue;
         wx = j * TILE + 32 + Math.floor(rnd() * 33) - 16;
         wy = (i + 1) * TILE + Math.floor(rnd() * 25) - 12;
+        if (tz && tz.decorOnCorridor(wx, wy, TILE)) continue;
         if (!clearOfPoints(wx, wy, avoid, 72)) continue;
         out.push({
           x: wx,
@@ -166,17 +189,48 @@
     return out;
   }
 
+  function forestWallTrees(grid, seed) {
+    var tz = RTS.TerraformZones;
+    if (!tz || !grid || !grid.forestWall) return [];
+    var rnd = mulberry(seed || 8801);
+    var out = [];
+    var cols = grid.cols, rows = grid.rows, TILE = RTS.Terrain.TILE;
+    var baseR = RTS.SizeRef.decorWorldR('tree');
+    var row, col, pos, tallMul;
+    for (row = 0; row < rows; row++) {
+      for (col = 0; col < cols; col++) {
+        if (!grid.forestWall[col + row * cols]) continue;
+        pos = coniferJitterXY(col, row, TILE, rnd);
+        tallMul = 3.6 + rnd() * 0.7;
+        out.push({
+          x: pos.x,
+          y: pos.y,
+          r: baseR * tallMul,
+          kind: 'tree',
+          forestWall: true,
+          tileRow: row,
+          tileCol: col,
+        });
+      }
+    }
+    return out;
+  }
+
   function rocksFromList(spots, avoid) {
     var out = [];
     var rnd = mulberry(9105);
+    var tz = RTS.TerraformZones;
     spots.forEach(function (spot) {
-      var dx, dy, k;
+      var dx, dy, k, x, y;
       for (k = 0; k < 4; k++) {
         dx = [-40, 20, 10, -15][k];
         dy = [0, -20, 30, -35][k];
+        x = spot.x + dx + Math.floor(rnd() * 9) - 4;
+        y = spot.y + dy + Math.floor(rnd() * 9) - 4;
+        if (tz && tz.decorOnCorridor(x, y)) continue;
         out.push({
-          x: spot.x + dx + Math.floor(rnd() * 9) - 4,
-          y: spot.y + dy + Math.floor(rnd() * 9) - 4,
+          x: x,
+          y: y,
           r: decorR('rock', rnd),
           kind: 'rock',
         });
@@ -208,6 +262,10 @@
       } else if (meta.rockSeed != null) {
         meta.decor = (meta.decor || []).concat(
           scatterRocks(meta.terrainGrid, meta.rockSeed, meta.rockCount || 55, avoid));
+      }
+      if (meta.terraformForestWalls !== false && RTS.TerraformZones) {
+        meta.decor = (meta.decor || []).concat(
+          forestWallTrees(meta.terrainGrid, meta.forestWallSeed || 8801));
       }
     }
     s.map = meta;

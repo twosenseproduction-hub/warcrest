@@ -157,7 +157,13 @@
 
     if (def.terrainMask) {
       applyTerrainMask(h, cols, rows, def.terrainMask);
-    } else if (def.island) {
+    }
+    var forestWall = null;
+    if (def.applyTerraform !== false && RTS.TerraformZones) {
+      forestWall = new Uint8Array(cols * rows);
+      RTS.TerraformZones.applyToHeights(h, cols, rows, RTS.TerraformZones.expanded, forestWall);
+    }
+    if (!def.terrainMask && def.island) {
       fillRectWorld(h, cols, rows, def.island.x, def.island.y, def.island.w, def.island.h, FLAT);
     }
     if (def.plateaus) {
@@ -190,6 +196,7 @@
       cols: cols,
       rows: rows,
       heights: h,
+      forestWall: forestWall,
       tileset: def.tileset || 'color1',
       theme: def.theme || 'grass',
     };

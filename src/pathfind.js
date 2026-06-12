@@ -83,6 +83,9 @@
           }
           h = grid.heights[tcx + tcy * grid.cols];
           if (h === WATER) blocked[cellIdx(cols, cx, cy)] = 1;
+          else if (grid.forestWall && grid.forestWall[tcx + tcy * grid.cols]) {
+            blocked[cellIdx(cols, cx, cy)] = 1;
+          }
         }
       }
     }
