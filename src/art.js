@@ -10,6 +10,8 @@
  *   drawUnit(ctx, u, f, s)
  *   drawProjectile(ctx, p)
  *   drawSelectionRing(ctx, e, t, pulse [, s])
+ *   drawSelectionRingBack(ctx, e, t, pulse [, s])
+ *   drawSelectionRingFront(ctx, e, t, pulse [, s])
  *   drawHealthBar(ctx, cx, y, w, pct, color, large [, badge])
  *   drawShadow(ctx, x, y, r, alpha)
  * ==========================================================================*/
@@ -25,6 +27,8 @@
     drawUnit: drawUnit,
     drawProjectile: drawProjectile,
     drawSelectionRing: drawSelectionRing,
+    drawSelectionRingBack: drawSelectionRingBack,
+    drawSelectionRingFront: drawSelectionRingFront,
     drawHealthBar: drawHealthBar,
     drawShadow: drawShadow,
   };
@@ -1115,36 +1119,139 @@
   }
 
   /* ==========================================================================
-   * Selection ring — white pulse + warm under-glow.
+   * Selection — ground-plane corner brackets with z-order split.
+   * Top brackets render before buildings (occluded); bottom brackets after.
    * ========================================================================*/
-  function drawSelectionRing(ctx, e, t, pulse, s) {
-    ctx.strokeStyle = hexA('#ffd54f', 0.55);
-    ctx.lineWidth = 2;
+  var GROUND_TOP_RATIO_BY_TYPE = {
+    core: 0.55,
+    turret: 0.66,
+    conduit: 0.62,
+    foundry: 0.58,
+    forge: 0.58,
+    outpost: 0.62,
+  };
+
+  function selectionBoxFor(e, s) {
     if (e.kind === 'unit') {
       var vb = RTS.Sprites && RTS.Sprites.unitVisualBounds && s
         ? RTS.Sprites.unitVisualBounds(e, s) : null;
+      if (vb && vb.tight) {
+        return rectToTrapezoid(vb.tight, true);
+      }
       if (vb) {
-        ctx.beginPath();
-        ctx.ellipse(vb.x, vb.footY + 2, vb.groundRx * 0.66 * pulse, vb.groundRy * 0.85 * pulse, 0, 0, 6.2832);
-        ctx.stroke();
-      } else {
-        ctx.beginPath();
-        ctx.ellipse(e.x, e.y + e.radius * 0.62, (e.radius + 8) * pulse, (e.radius + 8) * 0.4 * pulse, 0, 0, 6.2832);
-        ctx.stroke();
+        return rectToTrapezoid({
+          x: vb.x - (vb.groundRx || e.radius) * 1.0,
+          y: vb.footY - (vb.groundRy || e.radius * 0.4) * 1.6,
+          w: (vb.groundRx || e.radius) * 2.0,
+          h: (vb.groundRy || e.radius * 0.4) * 2.2,
+        }, true);
       }
-    } else {
-      var bvb = RTS.Assets && RTS.Assets.buildingVisualBounds && s
-        ? RTS.Assets.buildingVisualBounds(e, s) : null;
-      if (bvb) {
-        ctx.beginPath();
-        ctx.ellipse(bvb.x, bvb.footY + 4, bvb.drawW * 0.52 * pulse, 8, 0, 0, 6.2832);
-        ctx.stroke();
-      } else {
-        ctx.beginPath();
-        ctx.ellipse(e.x, e.y + e.h * 0.42, e.w * 0.55 * pulse, 8, 0, 0, 6.2832);
-        ctx.stroke();
-      }
+      return rectToTrapezoid({
+        x: e.x - e.radius, y: e.y - e.radius * 0.7,
+        w: e.radius * 2, h: e.radius * 1.4,
+      }, true);
     }
+
+    var bvb = RTS.Assets && RTS.Assets.buildingVisualBounds && s
+      ? RTS.Assets.buildingVisualBounds(e, s) : null;
+    if (!bvb) return null;
+
+    var topRatio = GROUND_TOP_RATIO_BY_TYPE[e.type] || 0.58;
+    var GROUND_INSET_X = 0.05;
+    var GROUND_INSET_B = 0.04;
+    var PERSPECTIVE = 0.10;
+
+    var L = bvb.x - bvb.drawW / 2 + bvb.drawW * GROUND_INSET_X;
+    var R = bvb.x + bvb.drawW / 2 - bvb.drawW * GROUND_INSET_X;
+    var T = bvb.drawY + bvb.drawH * topRatio;
+    var B = bvb.drawY + bvb.drawH * (1 - GROUND_INSET_B);
+    var pinch = (R - L) * PERSPECTIVE;
+
+    return {
+      tlx: L + pinch, tly: T,
+      trx: R - pinch, try_: T,
+      brx: R, bry: B,
+      blx: L, bly: B,
+    };
+  }
+
+  function rectToTrapezoid(box, front) {
+    return {
+      tlx: box.x, tly: box.y,
+      trx: box.x + box.w, try_: box.y,
+      brx: box.x + box.w, bry: box.y + box.h,
+      blx: box.x, bly: box.y + box.h,
+      front: !!front,
+    };
+  }
+
+  function bracketLen(box) {
+    var w = box.brx - box.blx;
+    var h = box.bry - box.tly;
+    return Math.max(10, Math.min(22, Math.min(w, h) * 0.20));
+  }
+
+  function strokeCornerL(ctx, ax, ay, bx, by, cx, cy) {
+    ctx.beginPath();
+    ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.lineTo(cx, cy);
+    ctx.stroke();
+  }
+
+  function drawBracketPair(ctx, box, which, lw) {
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = lw;
+    var len = bracketLen(box);
+
+    if (which === 'top') {
+      strokeCornerL(ctx,
+        box.tlx, box.tly + len,
+        box.tlx, box.tly,
+        box.tlx + len, box.tly);
+      strokeCornerL(ctx,
+        box.trx - len, box.try_,
+        box.trx, box.try_,
+        box.trx, box.try_ + len);
+    } else {
+      strokeCornerL(ctx,
+        box.brx, box.bry - len,
+        box.brx, box.bry,
+        box.brx - len, box.bry);
+      strokeCornerL(ctx,
+        box.blx + len, box.bly,
+        box.blx, box.bly,
+        box.blx, box.bly - len);
+    }
+  }
+
+  function drawBrackets(ctx, box, which, pulse) {
+    var lwMain = 3 + (pulse - 1) * 4;
+    ctx.strokeStyle = 'rgba(240, 192, 80, 0.55)';
+    drawBracketPair(ctx, box, which, lwMain + 3);
+    ctx.strokeStyle = '#ffffff';
+    drawBracketPair(ctx, box, which, lwMain);
+  }
+
+  function drawSelectionRingBack(ctx, e, t, pulse, s) {
+    var box = selectionBoxFor(e, s);
+    if (!box || box.front) return;
+    drawBrackets(ctx, box, 'top', pulse);
+  }
+
+  function drawSelectionRingFront(ctx, e, t, pulse, s) {
+    var box = selectionBoxFor(e, s);
+    if (!box) return;
+    if (box.front) {
+      drawBrackets(ctx, box, 'top', pulse);
+      drawBrackets(ctx, box, 'bottom', pulse);
+      return;
+    }
+    drawBrackets(ctx, box, 'bottom', pulse);
+  }
+
+  function drawSelectionRing(ctx, e, t, pulse, s) {
+    drawSelectionRingBack(ctx, e, t, pulse, s);
+    drawSelectionRingFront(ctx, e, t, pulse, s);
   }
 
   /* ==========================================================================

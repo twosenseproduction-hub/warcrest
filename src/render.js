@@ -38,11 +38,12 @@
 
       Art().drawTerrain(s, ctx);
       s.entities.resources.forEach(function (n) { if (n.amount > 0) Art().drawResource(ctx, n); });
+      drawSelectionBack(s, ctx);
       s.entities.buildings.forEach(function (b) { Art().drawBuilding(ctx, b, RTS.Factions[b.faction], s); });
       s.entities.units.forEach(function (u) { Art().drawUnit(ctx, u, RTS.Factions[u.faction], s); });
       drawProjectiles(s, ctx);
       drawEffects(s, ctx);
-      drawSelection(s, ctx);
+      drawSelectionFront(s, ctx);
       drawGhost(s, ctx);
       drawSelectionBox(s, ctx);
       if (RTS.BuildingMenu) RTS.BuildingMenu.draw(ctx, s);
@@ -102,14 +103,25 @@
     });
   }
 
-  function drawSelection(s, ctx) {
+  function drawSelectionBack(s, ctx) {
     if (!s.selectedIds.length) return;
     var t = s.timers.gameTime;
     var pulse = RTS.Config.reducedMotion ? 1 : 1 + Math.sin(t * 5) * 0.05;
     s.selectedIds.forEach(function (id) {
       var e = RTS.getById(s, id);
       if (!e || e.dead) return;
-      Art().drawSelectionRing(ctx, e, t, pulse, s);
+      Art().drawSelectionRingBack(ctx, e, t, pulse, s);
+    });
+  }
+
+  function drawSelectionFront(s, ctx) {
+    if (!s.selectedIds.length) return;
+    var t = s.timers.gameTime;
+    var pulse = RTS.Config.reducedMotion ? 1 : 1 + Math.sin(t * 5) * 0.05;
+    s.selectedIds.forEach(function (id) {
+      var e = RTS.getById(s, id);
+      if (!e || e.dead) return;
+      Art().drawSelectionRingFront(ctx, e, t, pulse, s);
     });
   }
 

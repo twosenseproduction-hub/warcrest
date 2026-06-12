@@ -66,6 +66,26 @@
     turret: 0.90,
   };
 
+  /* Measured from sprite alpha channels — inset fractions (0..1) per edge. */
+  var BUILDING_TIGHT_INSETS = {
+    Castle:   { l: 0.012, r: 0.012, t: 0.16, b: 0.027 },
+    House1:   { l: 0.062, r: 0.062, t: 0.083, b: 0.099 },
+    House2:   { l: 0.000, r: 0.000, t: 0.120, b: 0.073 },
+    House3:   { l: 0.023, r: 0.023, t: 0.193, b: 0.104 },
+    Tower:    { l: 0.031, r: 0.031, t: 0.180, b: 0.102 },
+    Archery:  { l: 0.016, r: 0.031, t: 0.238, b: 0.062 },
+    Barracks: { l: 0.021, r: 0.021, t: 0.227, b: 0.043 },
+  };
+
+  var BUILDING_TYPE_TO_INSET_KEY = {
+    core:    'Castle',
+    outpost: 'House1',
+    conduit: 'House2',
+    foundry: 'Barracks',
+    forge:   'Archery',
+    turret:  'Tower',
+  };
+
   var GOLD_STONES = [
     'Terrain/Resources/Gold/Gold Stones/Gold Stone 1.png',
     'Terrain/Resources/Gold/Gold Stones/Gold Stone 2.png',
@@ -131,12 +151,22 @@
     var drawW = img.width * sc;
     var drawH = img.height * sc;
     var footRatio = BUILDING_FOOT[b.type] || 0.95;
+    var drawY = footY - drawH * footRatio;
+
+    var key = BUILDING_TYPE_TO_INSET_KEY[b.type] || 'House1';
+    var ins = BUILDING_TIGHT_INSETS[key] || { l: 0, r: 0, t: 0, b: 0 };
+    var tx = b.x - drawW / 2 + drawW * ins.l;
+    var ty = drawY + drawH * ins.t;
+    var tw = drawW * (1 - ins.l - ins.r);
+    var th = drawH * (1 - ins.t - ins.b);
+
     return {
       x: b.x,
       footY: footY,
       drawW: drawW,
       drawH: drawH,
-      drawY: footY - drawH * footRatio,
+      drawY: drawY,
+      tight: { x: tx, y: ty, w: tw, h: th },
     };
   }
 
