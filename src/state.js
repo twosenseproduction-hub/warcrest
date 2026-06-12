@@ -87,6 +87,7 @@
     var e = s.entities;
     for (var i = 0; i < e.units.length; i++) if (e.units[i].id === id) return e.units[i];
     for (var j = 0; j < e.buildings.length; j++) if (e.buildings[j].id === id) return e.buildings[j];
+    for (var k = 0; k < e.resources.length; k++) if (e.resources[k].id === id) return e.resources[k];
     return null;
   };
 

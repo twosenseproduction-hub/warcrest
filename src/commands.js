@@ -252,11 +252,36 @@
     return RTS.nodeForDeposit(s, b);
   };
 
+  RTS.inferLocalNodeForDeposit = function (s, b) {
+    if (!b) return null;
+    if (b.type === 'core') return RTS.findHomeNodeForCore(s, b);
+    if (b.type !== 'outpost') return null;
+    var spec = RTS.Buildings.outpost;
+    var pad = Math.max(spec.w, spec.h) / 2 + 12;
+    var best = null, bd = Infinity;
+    s.entities.resources.forEach(function (n) {
+      if (n.amount <= 0) return;
+      var ringD = dist(b.x, b.y, n.x, n.y);
+      if (ringD < n.r + pad || ringD > n.r + 210) return;
+      if (ringD < bd) { bd = ringD; best = n; }
+    });
+    if (best) return best;
+    return RTS.findHomeNodeForCore(s, b);
+  };
+
   RTS.nodeForDeposit = function (s, b) {
-    if (!b || !b.primaryNodeId) return null;
-    var node = RTS.getById(s, b.primaryNodeId);
-    if (!node || node.kind !== 'resource' || node.amount <= 0) return null;
-    return node;
+    if (!b || !RTS.isDepositBuilding(b)) return null;
+    if (b.primaryNodeId) {
+      var linked = RTS.getById(s, b.primaryNodeId);
+      if (linked && linked.kind === 'resource' && linked.amount > 0) return linked;
+      if (linked) return null;
+    }
+    var inferred = RTS.inferLocalNodeForDeposit(s, b);
+    if (inferred) {
+      RTS.assignPrimaryNodeToDeposit(s, b, inferred);
+      return inferred;
+    }
+    return null;
   };
 
   RTS.depositHasLiveNode = function (s, b) {

@@ -81,7 +81,7 @@
     var now = s.timers.gameTime;
     if (now - s.ai.lastModeChange < cfg.modeDebounce) return;
 
-    var core = RTS.enemyCore(s);
+    var core = enemyCastle(s);
     var pcore = RTS.playerCore(s);
     if (!core) return;
 
@@ -202,7 +202,7 @@
       avgHp /= units.length;
 
       if (avgHp < sq.retreatThreshold && sq.type === 'assault') {
-        var core = RTS.enemyCore(s);
+        var core = enemyCastle(s);
         if (core) {
           sq.targetPos = { x: core.x, y: core.y };
           sq.mode = 'retreat';
@@ -239,7 +239,7 @@
 
   function updateDefenseSquads(s) {
     var cfg = RTS.Config.ai.squads || {};
-    var core = RTS.enemyCore(s);
+    var core = enemyCastle(s);
     if (!core) return;
 
     var threats = s.entities.units.filter(function (u) {
@@ -378,6 +378,14 @@
   }
 
   function homeGoldDepleted(s, core) {
+    if (core && core.type === 'core') {
+      var linked = RTS.nodeForDeposit(s, core);
+      if (linked) return linked.amount < 500;
+      if (core.primaryNodeId) {
+        var dead = RTS.getById(s, core.primaryNodeId);
+        return !dead || dead.amount < 500;
+      }
+    }
     var home = homeGoldNode(s, core);
     return !home || home.amount < 500;
   }
@@ -390,7 +398,7 @@
   }
 
   function findExpansionNode(s, team) {
-    var core = RTS.enemyCore(s);
+    var core = enemyCastle(s);
     if (!core) return null;
     var pcore = RTS.playerCore(s);
     var best = null, bestScore = -Infinity;
@@ -490,7 +498,7 @@
       if (RTS.dist(x, y, node.x, node.y) < node.r + Math.max(hw, hh) + 10) return false;
     }
 
-    var core = RTS.enemyCore(s);
+    var core = enemyCastle(s);
     if (!core || RTS.dist(x, y, core.x, core.y) > 360) return false;
     return true;
   }
@@ -508,7 +516,7 @@
 
   function tryAiBuild(s, type) {
     if (enemyBuildingAny(s, type)) return false;
-    var core = RTS.enemyCore(s);
+    var core = enemyCastle(s);
     if (!core) return false;
     var pcore = RTS.playerCore(s);
     var toward = pcore
@@ -532,7 +540,7 @@
 
   function buildStructures(s) {
     var workers = enemyUnits(s, 'pawn').length;
-    var core = RTS.enemyCore(s);
+    var core = enemyCastle(s);
     if (!core) return;
 
     if (!enemyBuildingAny(s, 'conduit') && workers >= 2 &&
@@ -576,9 +584,15 @@
     });
   }
 
+  function enemyCastle(s) {
+    return s.entities.buildings.find(function (b) {
+      return b.team === TEAM.ENEMY && !b.dead && b.type === 'core';
+    });
+  }
+
   function produce(s) {
     var cfg = RTS.Config.ai;
-    var core = RTS.enemyCore(s);
+    var core = enemyCastle(s);
     if (!core) return;
 
     var workers = enemyUnits(s, 'pawn').length;
