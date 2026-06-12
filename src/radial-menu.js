@@ -15,11 +15,12 @@
   var COIN_ICON = 'assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_03.png';
   var HAMMER_ICON = 'assets/tiny-swords/Terrain/Resources/Tools/Tool_01.png';
 
-  /* Clockwise from due-east (screen: bulge right, spread vertical). */
-  var PRIMARY_ANGLES = [-Math.PI / 6, 0, Math.PI / 6, Math.PI / 3];
-  var PRIMARY_RADIUS = 160;
-  var SECONDARY_RADIUS = 230;
+  /* Tight vertical fan on the building's east/west shoulder. */
+  var PRIMARY_ANGLES = [-0.52, -0.17, 0.17, 0.52, 0.86];
+  var PRIMARY_RADIUS = 68;
+  var SECONDARY_RADIUS = 102;
   var MAX_PRIMARY = 5;
+  var MENU_EDGE_GAP = 22;
 
   function UI() { return RTS.UI || {}; }
 
@@ -105,11 +106,27 @@
     return RTS.Cam.worldToScreen(s, b.x, b.y);
   }
 
-  function arcFlip(s, scrX) {
+  function menuAnchor(s, b) {
+    var center = buildingScreenCenter(s, b);
+    var zoom = s.camera.zoom || 1;
+    var vb = RTS.Assets && RTS.Assets.buildingVisualBounds
+      ? RTS.Assets.buildingVisualBounds(b, s) : null;
+    var halfW = vb ? (vb.drawW / 2) * zoom : Math.max(b.w, b.h) * 0.32 * zoom;
+    var liftY = vb ? -vb.drawH * 0.04 * zoom : 0;
+    var flip = arcFlip(s, center.x, halfW);
+    return {
+      x: center.x + (flip ? -(halfW + MENU_EDGE_GAP) : halfW + MENU_EDGE_GAP),
+      y: center.y + liftY,
+      flip: flip,
+    };
+  }
+
+  function arcFlip(s, centerX, halfW) {
     var cv = RTS.canvas;
     if (!cv) return false;
-    var margin = 88;
-    return scrX + PRIMARY_RADIUS + 72 > cv.clientWidth - margin;
+    var margin = 64;
+    var anchorX = centerX + halfW + MENU_EDGE_GAP;
+    return anchorX + PRIMARY_RADIUS + 36 > cv.clientWidth - margin;
   }
 
   function layoutItems(s) {
@@ -139,8 +156,11 @@
         : '';
 
       btn.innerHTML =
+        '<span class="rcard-ring" aria-hidden="true"></span>' +
+        '<span class="rcard-body">' +
         '<img class="rcard-avatar" src="' + avatar + '" alt="">' +
-        costHtml;
+        costHtml +
+        '</span>';
 
       if (!item.disabled) {
         btn.addEventListener('click', function (ev) {
@@ -202,7 +222,7 @@
     var bestD = Infinity;
     cardCenters().forEach(function (c) {
       var d = Math.hypot(cssX - c.x, cssY - c.y);
-      if (d < 40 && d < bestD) { bestD = d; best = c.idx; }
+      if (d < 34 && d < bestD) { bestD = d; best = c.idx; }
     });
     return best;
   }
@@ -252,13 +272,14 @@
     ctx.building = b;
     items = buildItems(s, b);
     if (!items.length) { RTS.RadialMenu.close(); return; }
-    var scr = buildingScreenCenter(s, b);
-    ctx.cssX = scr.x;
-    ctx.cssY = scr.y;
-    ctx.flip = arcFlip(s, scr.x);
+    var anchor = menuAnchor(s, b);
+    ctx.cssX = anchor.x;
+    ctx.cssY = anchor.y;
+    ctx.flip = anchor.flip;
     if (root) {
-      root.style.left = scr.x + 'px';
-      root.style.top = scr.y + 'px';
+      root.style.left = anchor.x + 'px';
+      root.style.top = anchor.y + 'px';
+      root.classList.toggle('arc-flip', anchor.flip);
     }
     layoutItems(s);
   }
@@ -330,27 +351,26 @@
       items = buildItems(s, building);
       if (!items.length) return false;
 
-      var scr = buildingScreenCenter(s, building);
-      var flip = arcFlip(s, scr.x);
+      var anchor = menuAnchor(s, building);
       var c = s.camera;
 
       ctx = {
         s: s,
         building: building,
         buildingId: building.id,
-        cssX: scr.x,
-        cssY: scr.y,
+        cssX: anchor.x,
+        cssY: anchor.y,
         wx: wx,
         wy: wy,
         hit: building,
-        flip: flip,
+        flip: anchor.flip,
         camX: c.x,
         camY: c.y,
       };
 
-      root.style.left = scr.x + 'px';
-      root.style.top = scr.y + 'px';
-      root.classList.toggle('arc-flip', flip);
+      root.style.left = anchor.x + 'px';
+      root.style.top = anchor.y + 'px';
+      root.classList.toggle('arc-flip', anchor.flip);
       layoutItems(s);
       root.classList.remove('hidden');
       open = true;
