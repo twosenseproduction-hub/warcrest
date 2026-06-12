@@ -764,56 +764,37 @@ html, body {
 #radial-menu.hidden { display: none; }
 #radial-menu .radial-hub { position: relative; width: 0; height: 0; }
 
-/* Hybrid B — cream cards on thumb arc */
+/* Radial arc — icon + cost only */
 .rcard {
   position: absolute; left: 0; top: 0;
   transform: translate(calc(-50% + var(--rx)), calc(-50% + var(--ry)));
-  width: 64px; height: 88px;
-  padding: 8px 6px 6px;
-  box-sizing: border-box;
-  border: 1.5px solid #2a1c0c;
-  border-radius: 4px;
-  background: #e8dcc4;
-  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.28);
-  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px;
   pointer-events: auto;
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
   font: inherit;
   color: inherit;
-  transition: transform 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+  transition: transform 0.12s ease, filter 0.12s ease;
   image-rendering: pixelated;
 }
 .rcard-avatar {
-  width: 40px; height: 40px;
+  width: 52px; height: 52px;
   object-fit: contain;
   border: none; background: none; box-shadow: none; border-radius: 0;
   display: block; flex-shrink: 0;
-}
-.rcard-name {
-  font: 700 11px/1 system-ui, sans-serif;
-  color: #2a1c0c;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  margin-top: 4px;
-  text-align: center;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.rcard-state {
-  font: 700 10px/1 system-ui, sans-serif;
-  color: #2a1c0c;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  margin-top: 2px;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.45));
 }
 .rcard-cost {
   font: 700 11px/1 system-ui, sans-serif;
-  color: #2a1c0c;
-  margin-top: 3px;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85), 0 0 4px rgba(0, 0, 0, 0.65);
   display: flex; align-items: center; gap: 3px;
 }
 .rcard-coin {
@@ -823,10 +804,8 @@ html, body {
 }
 .rcard:hover:not(.disabled),
 .rcard.active:not(.disabled) {
-  background: #ffd76b;
-  border-color: #2a1c0c;
-  transform: translate(calc(-50% + var(--rx)), calc(-50% + var(--ry) - 8px)) scale(1.10);
-  box-shadow: 0 0 0 2px #2a1c0c, 0 0 16px rgba(240, 192, 80, 0.6), 0 4px 0 rgba(0, 0, 0, 0.32);
+  transform: translate(calc(-50% + var(--rx)), calc(-50% + var(--ry) - 6px)) scale(1.12);
+  filter: brightness(1.15);
 }
 .rcard.disabled {
   opacity: 0.45;

@@ -1119,9 +1119,23 @@
   }
 
   /* ==========================================================================
-   * Selection — ground-plane corner brackets with z-order split.
+   * Selection — Cursor_04 corner sprites with z-order split.
    * Top brackets render before buildings (occluded); bottom brackets after.
    * ========================================================================*/
+  var SELECTION_CURSOR_SRC =
+    'assets/tiny-swords/UI%20Elements/UI%20Elements/Cursors/Cursor_04.png';
+  var selectionCursorImg = null;
+  var selectionCursorReady = false;
+  var CURSOR_QUAD = 64;
+
+  (function loadSelectionCursor() {
+    if (typeof Image === 'undefined') return;
+    var img = new Image();
+    img.onload = function () { selectionCursorReady = true; };
+    img.onerror = function () { selectionCursorReady = false; };
+    img.src = SELECTION_CURSOR_SRC;
+    selectionCursorImg = img;
+  })();
   var GROUND_TOP_RATIO_BY_TYPE = {
     core: 0.55,
     turret: 0.66,
@@ -1224,7 +1238,29 @@
     }
   }
 
+  function drawCornerSprite(ctx, img, sx, sy, dx, dy, sz, pulse) {
+    ctx.save();
+    ctx.globalAlpha = 0.88 + (pulse - 1) * 0.12;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, sx, sy, CURSOR_QUAD, CURSOR_QUAD, dx, dy, sz, sz);
+    ctx.restore();
+  }
+
   function drawBrackets(ctx, box, which, pulse) {
+    var scale = 1 + (pulse - 1) * 0.08;
+    var sz = Math.round(bracketLen(box) * 2.6 * scale);
+
+    if (selectionCursorReady && selectionCursorImg) {
+      if (which === 'top') {
+        drawCornerSprite(ctx, selectionCursorImg, 0, 0, box.tlx, box.tly, sz, pulse);
+        drawCornerSprite(ctx, selectionCursorImg, CURSOR_QUAD, 0, box.trx - sz, box.try_, sz, pulse);
+      } else {
+        drawCornerSprite(ctx, selectionCursorImg, 0, CURSOR_QUAD, box.blx, box.bly - sz, sz, pulse);
+        drawCornerSprite(ctx, selectionCursorImg, CURSOR_QUAD, CURSOR_QUAD, box.brx - sz, box.bry - sz, sz, pulse);
+      }
+      return;
+    }
+
     var lwMain = 3 + (pulse - 1) * 4;
     ctx.strokeStyle = 'rgba(240, 192, 80, 0.55)';
     drawBracketPair(ctx, box, which, lwMain + 3);

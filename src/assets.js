@@ -209,6 +209,7 @@
       { base: KINGDOM_BASE, rel: 'Terrain/Resources/Gold/Gold Resource/Gold_Resource.png' },
       { base: KINGDOM_BASE, rel: 'Terrain/Resources/Gold/Gold Resource/Gold_Resource_Highlight.png' },
       { base: KINGDOM_BASE, rel: ARROW },
+      { base: KINGDOM_BASE, rel: 'UI Elements/UI Elements/Cursors/Cursor_04.png' },
     ];
     Object.keys(BUILDING_FILES).forEach(function (t) {
       paths.push({ base: KINGDOM_BASE, rel: 'Buildings/Blue Buildings/' + BUILDING_FILES[t] });

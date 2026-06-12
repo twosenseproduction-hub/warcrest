@@ -1,6 +1,6 @@
 /* ============================================================================
  * Warcrest — radial-menu.js
- * Hybrid B: cream cards on a right-thumb arc, anchored to selected buildings.
+ * Icon-only radial arc, anchored to selected buildings.
  * ==========================================================================*/
 (function (RTS) {
   'use strict';
@@ -13,6 +13,7 @@
   var keyHandler = null;
 
   var COIN_ICON = 'assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_03.png';
+  var HAMMER_ICON = 'assets/tiny-swords/Terrain/Resources/Tools/Tool_01.png';
 
   /* Clockwise from due-east (screen: bulge right, spread vertical). */
   var PRIMARY_ANGLES = [-Math.PI / 6, 0, Math.PI / 6, Math.PI / 3];
@@ -30,8 +31,8 @@
     return UI().unitAvatarUrl ? UI().unitAvatarUrl(factionId, role) : '';
   }
 
-  function buildingAvatarSrc(factionId, type) {
-    return UI().buildingUrl ? UI().buildingUrl(factionId, type) : '';
+  function hammerSrc() {
+    return HAMMER_ICON;
   }
 
   function resolveBuilding(s, hit) {
@@ -54,7 +55,7 @@
         bid: building.id,
         label: 'AUTO-MINE',
         state: building.autoMine ? 'ON' : 'OFF',
-        avatar: unitAvatarSrc(fid, 'pawn'),
+        avatar: HAMMER_ICON,
         cost: 0,
         disabled: !building.built,
       });
@@ -90,7 +91,7 @@
           kind: 'build',
           type: type,
           label: RTS.nameFor(fid, type).toUpperCase(),
-          avatar: buildingAvatarSrc(fid, type),
+          avatar: HAMMER_ICON,
           cost: bspec.cost,
           disabled: !afford,
         });
@@ -137,14 +138,8 @@
           '" alt="">' + item.cost + '</span>'
         : '';
 
-      var stateHtml = item.state
-        ? '<span class="rcard-state">' + item.state + '</span>'
-        : '';
-
       btn.innerHTML =
         '<img class="rcard-avatar" src="' + avatar + '" alt="">' +
-        '<span class="rcard-name">' + item.label + '</span>' +
-        stateHtml +
         costHtml;
 
       if (!item.disabled) {
@@ -207,7 +202,7 @@
     var bestD = Infinity;
     cardCenters().forEach(function (c) {
       var d = Math.hypot(cssX - c.x, cssY - c.y);
-      if (d < 52 && d < bestD) { bestD = d; best = c.idx; }
+      if (d < 40 && d < bestD) { bestD = d; best = c.idx; }
     });
     return best;
   }
