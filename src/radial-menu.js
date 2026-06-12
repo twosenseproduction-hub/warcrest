@@ -15,12 +15,29 @@
   var COIN_ICON = 'assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_03.png';
   var HAMMER_ICON = 'assets/tiny-swords/Terrain/Resources/Tools/Tool_01.png';
 
-  /* Tight vertical fan on the building's east/west shoulder. */
-  var PRIMARY_ANGLES = [-0.52, -0.17, 0.17, 0.52, 0.86];
-  var PRIMARY_RADIUS = 68;
-  var SECONDARY_RADIUS = 102;
+  /* Fan on the building shoulder — tight to sprite edge, spaced by item count. */
+  var PRIMARY_RADIUS = 72;
+  var SECONDARY_RADIUS = 112;
   var MAX_PRIMARY = 5;
-  var MENU_EDGE_GAP = 22;
+  var MENU_EDGE_GAP = 2;
+  var SHOULDER_INSET = 24; /* pull hub toward building so rings sit on the silhouette */
+  var SHOULDER_Y = 0.36; /* anchor height: fraction from tight top toward foot */
+  var BUTTON_CENTER_GAP = 76; /* min px between 58px ring centers */
+  var MAX_ARC = Math.PI * 0.72;
+  var BUTTON_HALF = 29;
+
+  function arcAngles(count, radius) {
+    if (count <= 0) return [];
+    if (count === 1) return [0];
+    var minAng = 2 * Math.asin(Math.min(1, BUTTON_CENTER_GAP / (2 * radius)));
+    var arc = Math.min(MAX_ARC, minAng * (count - 1));
+    arc = Math.max(arc, minAng);
+    var start = -arc / 2;
+    var step = arc / (count - 1);
+    var out = [];
+    for (var i = 0; i < count; i++) out.push(start + step * i);
+    return out;
+  }
 
   function UI() { return RTS.UI || {}; }
 
@@ -107,16 +124,41 @@
   }
 
   function menuAnchor(s, b) {
-    var center = buildingScreenCenter(s, b);
     var zoom = s.camera.zoom || 1;
     var vb = RTS.Assets && RTS.Assets.buildingVisualBounds
       ? RTS.Assets.buildingVisualBounds(b, s) : null;
-    var halfW = vb ? (vb.drawW / 2) * zoom : Math.max(b.w, b.h) * 0.32 * zoom;
-    var liftY = vb ? -vb.drawH * 0.04 * zoom : 0;
-    var flip = arcFlip(s, center.x, halfW);
+    var center = buildingScreenCenter(s, b);
+    var halfW;
+    var anchorY;
+    var flip;
+
+    if (vb && vb.tight) {
+      var t = vb.tight;
+      var left = RTS.Cam.worldToScreen(s, t.x, b.y);
+      var right = RTS.Cam.worldToScreen(s, t.x + t.w, b.y);
+      var top = RTS.Cam.worldToScreen(s, b.x, t.y);
+      var bot = RTS.Cam.worldToScreen(s, b.x, t.y + t.h);
+      halfW = Math.abs(right.x - left.x) / 2;
+      anchorY = top.y + (bot.y - top.y) * SHOULDER_Y;
+      flip = arcFlip(s, center.x, halfW);
+      var edgeX = flip ? left.x : right.x;
+      var inset = SHOULDER_INSET * zoom;
+      return {
+        x: edgeX + (flip ? inset - MENU_EDGE_GAP : -inset + MENU_EDGE_GAP),
+        y: anchorY,
+        flip: flip,
+      };
+    }
+
+    halfW = Math.max(b.w, b.h) * 0.32 * zoom;
+    anchorY = center.y - (vb ? vb.drawH * 0.06 * zoom : 0);
+    flip = arcFlip(s, center.x, halfW);
+    var insetFallback = SHOULDER_INSET * zoom;
     return {
-      x: center.x + (flip ? -(halfW + MENU_EDGE_GAP) : halfW + MENU_EDGE_GAP),
-      y: center.y + liftY,
+      x: center.x + (flip
+        ? -(halfW + MENU_EDGE_GAP) + insetFallback
+        : halfW + MENU_EDGE_GAP - insetFallback),
+      y: anchorY,
       flip: flip,
     };
   }
@@ -124,9 +166,10 @@
   function arcFlip(s, centerX, halfW) {
     var cv = RTS.canvas;
     if (!cv) return false;
-    var margin = 64;
-    var anchorX = centerX + halfW + MENU_EDGE_GAP;
-    return anchorX + PRIMARY_RADIUS + 36 > cv.clientWidth - margin;
+    var margin = 56;
+    var extent = PRIMARY_RADIUS + BUTTON_HALF + 8;
+    var anchorX = centerX + halfW - SHOULDER_INSET + MENU_EDGE_GAP;
+    return anchorX + extent > cv.clientWidth - margin;
   }
 
   function layoutItems(s) {
@@ -179,16 +222,15 @@
       hub.appendChild(btn);
     }
 
+    var primaryAngles = arcAngles(primary.length, PRIMARY_RADIUS);
+    var secondaryAngles = arcAngles(secondary.length, SECONDARY_RADIUS);
+
     primary.forEach(function (item, i) {
-      var ang = PRIMARY_ANGLES[i] != null
-        ? PRIMARY_ANGLES[i]
-        : PRIMARY_ANGLES[PRIMARY_ANGLES.length - 1] + (i - PRIMARY_ANGLES.length + 1) * (Math.PI / 8);
-      placeCard(item, i, ang, PRIMARY_RADIUS);
+      placeCard(item, i, primaryAngles[i], PRIMARY_RADIUS);
     });
 
     secondary.forEach(function (item, i) {
-      var ang = PRIMARY_ANGLES[i % PRIMARY_ANGLES.length];
-      placeCard(item, MAX_PRIMARY + i, ang, SECONDARY_RADIUS);
+      placeCard(item, MAX_PRIMARY + i, secondaryAngles[i], SECONDARY_RADIUS);
     });
 
     highlight(activeIdx);
