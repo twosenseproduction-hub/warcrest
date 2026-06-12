@@ -355,6 +355,10 @@
   function nearestNodeForDeposit(s, dep) {
     var ax = dep.rally ? dep.rally.x : dep.x;
     var ay = dep.rally ? dep.rally.y : dep.y;
+    if (RTS.Harvest) {
+      var probe = { id: '__ai__', x: ax, y: ay, role: 'pawn', harvest: null };
+      return RTS.Harvest.bestNodeForWorker(s, probe, ax, ay);
+    }
     var best = null, bd = Infinity;
     s.entities.resources.forEach(function (n) {
       if (n.amount <= 0) return;
@@ -567,7 +571,7 @@
       var dep = nearestDepositTo(s, w.x, w.y, TEAM.ENEMY);
       if (!dep) return;
       var node = nearestNodeForDeposit(s, dep);
-      if (node) w.harvest = { nodeId: node.id, phase: 'toNode', carry: 0 };
+      if (node) RTS.orderHarvest(s, w, node.id);
     });
   }
 

@@ -251,9 +251,15 @@
   RTS.nearestNodeForBuilding = function (s, b) {
     var ax = b.rally ? b.rally.x : b.x;
     var ay = b.rally ? b.rally.y : b.y;
+    if (RTS.Harvest) {
+      var probe = { id: '__probe__', x: ax, y: ay, role: 'pawn', harvest: null };
+      return RTS.Harvest.bestNodeForWorker(s, probe, ax, ay, {
+        minAmount: RTS.Config.harvest.minNodeAmount,
+      });
+    }
     var best = null, bd = Infinity;
     s.entities.resources.forEach(function (n) {
-      if (n.amount <= 300) return;
+      if (n.amount <= RTS.Config.harvest.minNodeAmount) return;
       var d = dist(ax, ay, n.x, n.y);
       if (d < bd) { bd = d; best = n; }
     });
@@ -348,9 +354,44 @@
 
   RTS.orderHarvest = function (s, worker, nodeId) {
     if (worker.role !== 'pawn') return;
+    var carry = worker.harvest && worker.harvest.carry > 0 ? worker.harvest.carry : 0;
+    var depositId = carry > 0 && worker.harvest ? worker.harvest.depositId : null;
+    var node = RTS.getById(s, nodeId);
+    var slot = null;
+    var phase = 'toNode';
+    var targetNodeId = nodeId;
+
+    if (carry > 0) {
+      phase = 'toBase';
+      targetNodeId = worker.harvest.nodeId || nodeId;
+    } else if (node && RTS.Harvest) {
+      if (RTS.Harvest.nodeAssignedWorkerCount(s, nodeId) >= RTS.Config.harvest.maxWorkersPerNode &&
+          !RTS.Harvest.nodeHasOpenSlot(s, nodeId)) {
+        var alt = RTS.Harvest.bestNodeForWorker(s, worker, worker.x, worker.y, { preferId: nodeId });
+        if (alt) { node = alt; targetNodeId = alt.id; }
+      }
+      slot = RTS.Harvest.bestHarvestSlot(s, node, worker);
+    }
+
     applyUnitCommand(worker, 'harvest', {
-      harvest: { nodeId: nodeId, phase: 'toNode', carry: 0 },
+      harvest: {
+        nodeId: targetNodeId,
+        phase: phase,
+        carry: carry,
+        slotIndex: slot,
+        cycleT: 0,
+        depositId: depositId,
+      },
     });
+    if (phase === 'toBase' && !depositId) {
+      var deps = RTS.deposits(s, worker.team);
+      var bestDep = null, bd = Infinity;
+      deps.forEach(function (b) {
+        var d = dist(worker.x, worker.y, b.x, b.y);
+        if (d < bd) { bd = d; bestDep = b; }
+      });
+      worker.harvest.depositId = bestDep ? bestDep.id : null;
+    }
     if (RTS.Pathfind) RTS.Pathfind.clearNav(worker);
   };
 

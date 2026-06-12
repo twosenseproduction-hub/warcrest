@@ -421,15 +421,16 @@
           hq.autoMine = !hq.autoMine;
           RTS.toast(s, hq.autoMine ? 'Auto-mine enabled' : 'Auto-mine disabled');
           if (hq.autoMine) {
-            var node = RTS.nearestNodeForBuilding(s, hq);
-            if (node) {
-              s.entities.units.forEach(function (u) {
-                if (u.dead || u.team !== RTS.TEAM.PLAYER || u.role !== 'pawn') return;
-                if (u.harvest || u.buildTask || u.moveTo || u.target) return;
-                if (RTS.dist(u.x, u.y, hq.x, hq.y) > 380) return;
-                RTS.orderHarvest(s, u, node.id);
-              });
-            }
+            s.entities.units.forEach(function (u) {
+              if (u.dead || u.team !== RTS.TEAM.PLAYER || u.role !== 'pawn') return;
+              if (u.harvest || u.buildTask || u.moveTo || u.target) return;
+              if (RTS.dist(u.x, u.y, hq.x, hq.y) > 380) return;
+              var node = RTS.Harvest
+                ? RTS.Harvest.bestNodeForWorker(s, u, hq.x, hq.y, { minAmount: RTS.Config.harvest.minNodeAmount })
+                : RTS.nearestNodeForBuilding(s, hq);
+              if (!node) return;
+              RTS.orderHarvest(s, u, node.id);
+            });
           }
           RTS.Audio.play('click');
           RTS.HUD.sync(s);

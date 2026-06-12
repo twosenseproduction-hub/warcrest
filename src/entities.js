@@ -16,7 +16,7 @@
       ranged: !!spec.ranged, splash: spec.splash || 0, heal: spec.heal || 0,
       radius: RTS.SizeRef.pxRadius(role),
       cooldown: 0, target: null, moveTo: null, attackMove: false,
-      harvest: null,            // {nodeId, phase, carry}
+      harvest: null,            // {nodeId, phase, carry, slotIndex, cycleT, depositId}
       buildTask: null,          // {buildingId}
       hitFlash: 0, muzzleFlash: 0, spawnFlash: 0.3, dead: false, corpse: 0,
       facing: 0,

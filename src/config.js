@@ -37,12 +37,19 @@
     passiveTrickle: 0.0,        // passive income/sec (0 = pure harvesting)
 
     harvest: {
-      rate: 8,                  // ore/sec at the node — slower mining pace
+      rate: 8,                  // ore/sec equivalent income (used to derive mine chunk size)
       capacity: 6,              // ore per trip — bank after every 6, then return to mine
-      reach: 42,                // distance to begin mining
+      reach: 42,                // distance to begin mining / slot ring offset
       depositReach: 165,        // ring around Castle/Outpost where ore is banked
       depositStop: 22,          // how close worker walks to the approach point
       depositStuckSec: 1.2,     // force-bank if carrying and in zone this long without moving
+      mineCycleSec: 0.45,       // readable work-swing duration at the node
+      slotCount: 6,             // approach positions around each node perimeter
+      slotReach: 14,            // how close worker must get to its slot before mining
+      idealWorkersPerNode: 2,   // preferred workers per active node
+      maxWorkersPerNode: 4,     // hard cap for assignment scoring
+      lowNodePct: 0.25,         // below this remaining %, nodes are deprioritized
+      minNodeAmount: 300,       // ignore nearly-empty nodes for auto-mine / expansion picks
     },
 
     // AI difficulty / pacing

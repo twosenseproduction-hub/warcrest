@@ -249,6 +249,8 @@
       phase: u.harvest.phase,
       carry: u.harvest.carry,
       depositId: u.harvest.depositId,
+      slotIndex: u.harvest.slotIndex,
+      cycleT: u.harvest.cycleT || 0,
     } : null;
     u._savedBuildTask = u.buildTask ? { buildingId: u.buildTask.buildingId } : null;
     u.resumeMode = u.buildTask ? 'build' : (u.harvest ? 'harvest' : 'idle');
