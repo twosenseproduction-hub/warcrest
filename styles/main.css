@@ -762,27 +762,76 @@ html, body {
   margin: 0; transform: translate(-50%, -50%);
 }
 #radial-menu.hidden { display: none; }
-.radial-hub { position: relative; width: 0; height: 0; }
-.radial-item {
+#radial-menu .radial-hub { position: relative; width: 0; height: 0; }
+
+/* Hybrid B — cream cards on thumb arc */
+.rcard {
   position: absolute; left: 0; top: 0;
   transform: translate(calc(-50% + var(--rx)), calc(-50% + var(--ry)));
-  width: 52px; height: 52px; padding: 4px;
-  border-radius: 50%; border: 2px solid rgba(26, 18, 8, 0.7);
-  background: var(--ts-wood, #6d4c2a) center/100% 100% no-repeat;
-  box-shadow: 0 3px 0 rgba(0,0,0,0.35);
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 1px; pointer-events: none;
+  width: 64px; height: 88px;
+  padding: 8px 6px 6px;
+  box-sizing: border-box;
+  border: 1.5px solid #2a1c0c;
+  border-radius: 4px;
+  background: #e8dcc4;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.28);
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  pointer-events: auto;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  color: inherit;
+  transition: transform 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
   image-rendering: pixelated;
 }
-.radial-item img { width: 18px; height: 18px; object-fit: contain; }
-.radial-item span {
-  font: 600 8px/1 Fredoka, system-ui; color: #fff;
-  text-shadow: 0 1px 0 rgba(0,0,0,0.5);
+.rcard-avatar {
+  width: 40px; height: 40px;
+  object-fit: contain;
+  border: none; background: none; box-shadow: none; border-radius: 0;
+  display: block; flex-shrink: 0;
 }
-.radial-item.active {
-  border-color: #ffc107;
-  box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.45), 0 3px 0 rgba(0,0,0,0.35);
-  transform: translate(calc(-50% + var(--rx)), calc(-50% + var(--ry))) scale(1.12);
+.rcard-name {
+  font: 700 11px/1 system-ui, sans-serif;
+  color: #2a1c0c;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-top: 4px;
+  text-align: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rcard-state {
+  font: 700 10px/1 system-ui, sans-serif;
+  color: #2a1c0c;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+.rcard-cost {
+  font: 700 11px/1 system-ui, sans-serif;
+  color: #2a1c0c;
+  margin-top: 3px;
+  display: flex; align-items: center; gap: 3px;
+}
+.rcard-coin {
+  width: 11px; height: 11px;
+  object-fit: contain;
+  border: none; background: none; box-shadow: none; border-radius: 0;
+}
+.rcard:hover:not(.disabled),
+.rcard.active:not(.disabled) {
+  background: #ffd76b;
+  border-color: #2a1c0c;
+  transform: translate(calc(-50% + var(--rx)), calc(-50% + var(--ry) - 8px)) scale(1.10);
+  box-shadow: 0 0 0 2px #2a1c0c, 0 0 16px rgba(240, 192, 80, 0.6), 0 4px 0 rgba(0, 0, 0, 0.32);
+}
+.rcard.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 @media (orientation: landscape) and (max-height: 480px) {
