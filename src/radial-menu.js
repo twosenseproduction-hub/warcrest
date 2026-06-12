@@ -44,9 +44,9 @@
       out.push({ id: id, label: label, icon: icon || 'sword' });
     }
 
-    var sel = RTS.selectedUnits(s);
-    var combat = sel.filter(function (u) { return u.role !== 'pawn'; });
-    var workers = sel.filter(function (u) { return u.role === 'pawn'; });
+    var sel = RTS.activeSelectedUnits(s);
+    var combat = RTS.activeCombatUnits(s);
+    var workers = RTS.activeWorkers(s);
     var enemy = hit && (hit.kind === 'unit' || hit.kind === 'building') && hit.team === TEAM.ENEMY;
 
     if (hit && hit.kind === 'resource' && hit.amount > 0 && hasWorkers(s)) {
@@ -77,9 +77,9 @@
     var hit = ctx.hit;
     var wx = ctx.wx;
     var wy = ctx.wy;
-    var sel = RTS.selectedUnits(s);
-    var combat = sel.filter(function (u) { return u.role !== 'pawn'; });
-    var workers = sel.filter(function (u) { return u.role === 'pawn'; });
+    var sel = RTS.activeSelectedUnits(s);
+    var combat = RTS.activeCombatUnits(s);
+    var workers = RTS.activeWorkers(s);
     var pal = RTS.Factions[s.playerFaction];
 
     switch (item.id) {

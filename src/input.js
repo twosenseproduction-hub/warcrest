@@ -108,6 +108,124 @@
     if (navigator.vibrate) navigator.vibrate(ms || 10);
   }
 
+  function resolveHitContext(s, wx, wy) {
+    var active = RTS.activeSelectedUnits(s);
+    return {
+      hit: hitTest(s, wx, wy),
+      buildHit: hitTestConstructionSite(s, wx, wy),
+      sel: RTS.selectedUnits(s),
+      active: active,
+      combat: RTS.activeCombatUnits(s),
+      workers: RTS.activeWorkers(s),
+    };
+  }
+
+  function resolveTapIntent(s, wx, wy, additive) {
+    var ctx = resolveHitContext(s, wx, wy);
+    var hit = ctx.hit;
+    var sel = ctx.sel;
+    var combat = ctx.combat;
+    var workers = ctx.workers;
+
+    if (!sel.length && hit && hit.kind === 'resource') {
+      return { type: 'smartMine', nodeId: hit.id, x: wx, y: wy };
+    }
+    if (hit && hit.kind === 'resource' && workers.length) {
+      return { type: 'harvest', nodeId: hit.id, workers: workers };
+    }
+    if (hit && hit.kind === 'building' && hit.team === TEAM.PLAYER && hit.built && !additive) {
+      return { type: 'selectBuilding', buildingId: hit.id };
+    }
+    if (hit && hit.kind === 'unit' && hit.team === TEAM.PLAYER) {
+      return { type: additive || sel.length ? 'toggleUnit' : 'selectUnit', unitId: hit.id };
+    }
+    if (hit && (hit.kind === 'unit' || hit.kind === 'building') && hit.team === TEAM.ENEMY) {
+      var canHit = hit.kind === 'building'
+        ? (RTS.canAttackBuilding ? RTS.canAttackBuilding(hit) : RTS.buildingIsAttackable(hit))
+        : true;
+      if (canHit && combat.length) {
+        return { type: 'attack', targetId: hit.id, x: wx, y: wy, units: combat };
+      }
+    }
+    if (combat.length && (!hit || hit.kind === 'resource')) {
+      return { type: 'moveCombat', x: wx, y: wy, attackMove: s.attackMoveArmed, units: combat };
+    }
+    if (workers.length && !combat.length && (!hit || hit.kind === 'resource')) {
+      return { type: 'moveWorkers', x: wx, y: wy, units: workers };
+    }
+    if (!hit) return { type: 'clearOrClose' };
+    return { type: 'noop' };
+  }
+
+  function executeTapIntent(s, intent, additive) {
+    switch (intent.type) {
+      case 'smartMine': {
+        var nw = nearestWorker(s, intent.x, intent.y);
+        if (!nw) return;
+        RTS.select(s, nw.id, false);
+        RTS.orderHarvest(s, nw, intent.nodeId);
+        RTS.Audio.play('move');
+        RTS.toast(s, 'Mining Halcite');
+        haptic(8);
+        RTS.HUD.sync(s);
+        break;
+      }
+      case 'harvest':
+        intent.workers.forEach(function (w) { RTS.orderHarvest(s, w, intent.nodeId); });
+        RTS.Audio.play('move');
+        RTS.toast(s, 'Harvesting Halcite');
+        haptic(8);
+        break;
+      case 'selectBuilding':
+        s.selectedIds = [intent.buildingId];
+        RTS.clearMacroGroups(s);
+        if (RTS.BuildingMenu) RTS.BuildingMenu.open(s, RTS.getById(s, intent.buildingId));
+        RTS.refreshMode(s);
+        RTS.HUD.sync(s);
+        RTS.Audio.play('click');
+        haptic(6);
+        break;
+      case 'selectUnit':
+        RTS.select(s, intent.unitId, false);
+        if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
+        RTS.Audio.play('click');
+        haptic(6);
+        break;
+      case 'toggleUnit':
+        RTS.toggleSelect(s, intent.unitId);
+        if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
+        RTS.Audio.play('click');
+        haptic(6);
+        break;
+      case 'attack':
+        RTS.orderAttack(s, intent.units, intent.targetId);
+        flash(s, intent.x, intent.y, '#ff5a5a');
+        RTS.log(s, 'Engaging target', 'info');
+        haptic(12);
+        break;
+      case 'moveCombat':
+        RTS.orderMove(s, intent.units, intent.x, intent.y, intent.attackMove);
+        flash(s, intent.x, intent.y, intent.attackMove ? '#ff9a3c' : RTS.Factions[s.playerFaction].primary);
+        haptic(8);
+        break;
+      case 'moveWorkers':
+        RTS.orderMove(s, intent.units, intent.x, intent.y, false);
+        flash(s, intent.x, intent.y, RTS.Factions[s.playerFaction].primary);
+        haptic(8);
+        break;
+      case 'clearOrClose':
+        if (RTS.BuildingMenu && RTS.BuildingMenu.isOpen()) {
+          RTS.BuildingMenu.close(s);
+          RTS.HUD.sync(s);
+        } else {
+          RTS.clearSelection(s);
+        }
+        break;
+      default:
+        break;
+    }
+  }
+
   function tapWorld(s, wx, wy, additive) {
     if (s.inputMode !== 'place-building' && s.ui.buildPanelOpen) {
       s.ui.buildPanelOpen = false;
@@ -131,96 +249,7 @@
       s.ui.buildingMenuHover = null;
     }
 
-    var hit = hitTest(s, wx, wy);
-    var sel = RTS.selectedUnits(s);
-    var combat = sel.filter(function (u) { return u.role !== 'pawn'; });
-    var workers = sel.filter(function (u) { return u.role === 'pawn'; });
-
-    // Smart mine: nothing selected → tap gold sends nearest worker
-    if (!sel.length && hit && hit.kind === 'resource') {
-      var nw = nearestWorker(s, hit.x, hit.y);
-      if (nw) {
-        RTS.select(s, nw.id, false);
-        RTS.orderHarvest(s, nw, hit.id);
-        RTS.Audio.play('move');
-        RTS.toast(s, 'Mining Halcite');
-        haptic(8);
-        RTS.HUD.sync(s);
-        return;
-      }
-    }
-
-    // Worker + resource → harvest
-    if (hit && hit.kind === 'resource' && workers.length) {
-      workers.forEach(function (w) { RTS.orderHarvest(s, w, hit.id); });
-      RTS.Audio.play('move');
-      RTS.toast(s, 'Harvesting Halcite');
-      haptic(8);
-      return;
-    }
-
-    // Friendly building → select + radial production menu
-    if (hit && hit.kind === 'building' && hit.team === TEAM.PLAYER && hit.built && !additive) {
-      s.selectedIds = [hit.id];
-      RTS.clearMacroGroups(s);
-      if (RTS.BuildingMenu) RTS.BuildingMenu.open(s, hit);
-      RTS.refreshMode(s);
-      RTS.HUD.sync(s);
-      RTS.Audio.play('click');
-      haptic(6);
-      return;
-    }
-
-    // Friendly unit → select (or add to group)
-    if (hit && hit.kind === 'unit' && hit.team === TEAM.PLAYER) {
-      if ((additive || sel.length)) {
-        RTS.toggleSelect(s, hit.id);
-      } else {
-        RTS.select(s, hit.id, false);
-      }
-      if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
-      RTS.Audio.play('click');
-      haptic(6);
-      return;
-    }
-
-    // Enemy → attack with selected combat
-    if (hit && hit.kind === 'building' && hit.team === TEAM.ENEMY) {
-      var canHit = RTS.canAttackBuilding
-        ? RTS.canAttackBuilding(hit)
-        : RTS.buildingIsAttackable(hit);
-      if (!canHit) hit = null;
-    }
-    if (hit && (hit.kind === 'unit' || hit.kind === 'building') && hit.team === TEAM.ENEMY && combat.length) {
-      RTS.orderAttack(s, combat, hit.id);
-      flash(s, wx, wy, '#ff5a5a');
-      RTS.log(s, 'Engaging target', 'info');
-      haptic(12);
-      return;
-    }
-
-    // Empty ground → move
-    if (combat.length && (!hit || hit.kind === 'resource')) {
-      RTS.orderMove(s, combat, wx, wy, s.attackMoveArmed);
-      flash(s, wx, wy, s.attackMoveArmed ? '#ff9a3c' : RTS.Factions[s.playerFaction].primary);
-      haptic(8);
-      return;
-    }
-    if (workers.length && !combat.length && (!hit || hit.kind === 'resource')) {
-      RTS.orderMove(s, workers, wx, wy, false);
-      flash(s, wx, wy, RTS.Factions[s.playerFaction].primary);
-      haptic(8);
-      return;
-    }
-
-    if (!hit) {
-      if (RTS.BuildingMenu && RTS.BuildingMenu.isOpen()) {
-        RTS.BuildingMenu.close(s);
-        RTS.HUD.sync(s);
-        return;
-      }
-      RTS.clearSelection(s);
-    }
+    executeTapIntent(s, resolveTapIntent(s, wx, wy, additive), additive);
   }
 
   function showLongPressRing(cssX, cssY) {
@@ -254,8 +283,8 @@
     clearLongPress(s);
     if (s.inputMode === 'place-building') return;
 
-    var combat = RTS.selectedUnits(s).filter(function (u) { return u.role !== 'pawn'; });
-    var workers = RTS.selectedUnits(s).filter(function (u) { return u.role === 'pawn'; });
+    var combat = RTS.activeCombatUnits(s);
+    var workers = RTS.activeWorkers(s);
     var onBare = isBareGround(hit);
     var mode = null;
 
@@ -292,7 +321,7 @@
           haptic(14);
         }
       } else if (anchor.mode === 'attackmove') {
-        var fighters = RTS.selectedUnits(s).filter(function (u) { return u.role !== 'pawn'; });
+        var fighters = RTS.activeCombatUnits(s);
         if (fighters.length) {
           RTS.orderMove(s, fighters, anchor.wx, anchor.wy, true);
           flash(s, anchor.wx, anchor.wy, '#ff9a3c');
@@ -303,7 +332,7 @@
       } else if (anchor.mode === 'build') {
         var site = anchor.hitId ? RTS.getById(s, anchor.hitId) : null;
         if (site && !site.built && !site.dead) {
-          var pawns = RTS.selectedUnits(s).filter(function (u) { return u.role === 'pawn'; });
+          var pawns = RTS.activeWorkers(s);
           if (RTS.orderBuild(s, site, pawns)) {
             flash(s, site.x, site.y, '#69f0ae');
             RTS.toast(s, 'Pawn sent to build');
@@ -504,7 +533,7 @@
           if (p.armyDouble) {
             RTS.selectAllArmy(s);
             RTS.toast(s, 'Army selected');
-            haptic(10);
+            haptic(14);
             lastTap = { t: 0, x: 0, y: 0, empty: false, hitId: null, hitKind: null };
             return;
           }
@@ -687,7 +716,7 @@
         var s = st(); if (!s || !active()) return;
         if (e.key === 'Escape') { if (s.inputMode === 'place-building') RTS.cancelPlacement(s); else RTS.clearSelection(s); }
         if (e.key === 'a' || e.key === 'A') { s.attackMoveArmed = !s.attackMoveArmed; RTS.refreshMode(s); RTS.HUD.sync(s); }
-        if (e.key === 's' || e.key === 'S') { RTS.orderStop(s, RTS.selectedUnits(s)); }
+        if (e.key === 's' || e.key === 'S') { RTS.orderStop(s, RTS.activeSelectedUnits(s)); }
       });
     },
   };

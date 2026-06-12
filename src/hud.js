@@ -46,7 +46,7 @@
           RTS.Audio.play('click');
         }
       });
-      wireRail('btn-rail-stop', function (s) { RTS.orderStop(s, RTS.selectedUnits(s)); RTS.Audio.play('click'); });
+      wireRail('btn-rail-stop', function (s) { RTS.orderStop(s, RTS.activeSelectedUnits(s)); RTS.Audio.play('click'); });
       wireRail('btn-rail-atk', function (s) {
         s.attackMoveArmed = !s.attackMoveArmed; RTS.refreshMode(s); RTS.Audio.play('click'); RTS.HUD.sync(s);
       });
@@ -280,23 +280,21 @@
     p.classList.remove('has-queue', 'has-macro');
     if (!deckOpen(s)) return;
 
-    var units = RTS.selectedUnits(s);
+    var units = RTS.activeSelectedUnits(s);
+    var allUnits = RTS.selectedUnits(s);
     var blds = RTS.selectedBuildings(s);
     var macro = macroBarActive(s);
 
-    if (macro && units.length) {
+    if (macro && allUnits.length) {
       p.classList.add('has-macro');
       var focusRole = s.ui.macroRole || (units.length === 1 ? units[0].role : null);
-      var focusUnits = focusRole
-        ? units.filter(function (u) { return u.role === focusRole; })
-        : units;
-      if (!focusUnits.length) focusUnits = units;
+      var focusUnits = units.length ? units : allUnits;
       var totHp = 0, totMax = 0;
       focusUnits.forEach(function (u) { totHp += u.hp; totMax += u.maxHp; });
       var titleRole = focusRole || 'mixed';
       var title = focusRole
         ? focusUnits.length + ' ' + RTS.nameFor(s.playerFaction, focusRole) + (focusUnits.length > 1 ? 's' : '')
-        : units.length + ' units';
+        : allUnits.length + ' units';
       p.innerHTML = selPortrait(s, focusRole || 'lancer', false) + '<div class="sel-body">' +
         '<div class="sel-title">' + title + '</div>' +
         '<div class="sel-line">Tap a group to command it</div>' +
@@ -415,7 +413,7 @@
   function handleAction(s, data) {
     markUi();
     switch (data.act) {
-      case 'stop': RTS.orderStop(s, RTS.selectedUnits(s)); RTS.Audio.play('click'); break;
+      case 'stop': RTS.orderStop(s, RTS.activeSelectedUnits(s)); RTS.Audio.play('click'); break;
       case 'attackmove': s.attackMoveArmed = !s.attackMoveArmed; RTS.refreshMode(s); RTS.Audio.play('click'); RTS.HUD.sync(s); break;
       case 'toggle-automine':
         var hq = RTS.getById(s, data.bid);

@@ -27,6 +27,7 @@
     s.selectedIds = [];
     s.attackMoveArmed = false;
     s.inputMode = 'select';
+    s.ui.selectionFilter = 'all';
     RTS.clearMacroGroups(s);
     if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
     RTS.HUD.sync(s);
@@ -37,6 +38,7 @@
   RTS.clearMacroGroups = function (s) {
     s.ui.macroGroups = null;
     s.ui.macroRole = null;
+    s.ui.selectionFilter = 'all';
   };
 
   function livingPlayerUnit(s, id) {
@@ -68,6 +70,7 @@
     if (roles.length >= 2) {
       s.ui.macroGroups = map;
       s.ui.macroRole = null;
+      s.ui.selectionFilter = 'all';
       return;
     }
     if (!units.length) {
@@ -76,6 +79,7 @@
     }
     if (roles.length === 1 && s.ui.macroGroups) {
       s.ui.macroRole = roles[0];
+      s.ui.selectionFilter = roles[0];
       return;
     }
     if (!s.ui.macroGroups) RTS.clearMacroGroups(s);
@@ -90,8 +94,8 @@
 
   RTS.selectMacroGroup = function (s, role) {
     if (!s.ui.macroGroups || !s.ui.macroGroups[role] || !s.ui.macroGroups[role].length) return false;
-    s.selectedIds = s.ui.macroGroups[role].slice();
     s.ui.macroRole = role;
+    s.ui.selectionFilter = role;
     if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
     RTS.refreshMode(s);
     RTS.HUD.sync(s);
@@ -100,13 +104,8 @@
 
   RTS.selectMacroAll = function (s) {
     if (!s.ui.macroGroups) return false;
-    var ids = [];
-    RTS.macroGroupRoles(s).forEach(function (role) {
-      ids = ids.concat(s.ui.macroGroups[role]);
-    });
-    if (!ids.length) return false;
-    s.selectedIds = ids;
     s.ui.macroRole = null;
+    s.ui.selectionFilter = 'all';
     if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
     RTS.refreshMode(s);
     RTS.HUD.sync(s);
@@ -144,7 +143,8 @@
   };
 
   RTS.selectAllArmy = function (s) {
-    RTS.clearMacroGroups(s);
+    s.ui.macroRole = null;
+    s.ui.selectionFilter = 'all';
     s.selectedIds = s.entities.units
       .filter(function (u) { return u.team === RTS.TEAM.PLAYER && !u.dead && u.role !== 'pawn'; })
       .map(function (u) { return u.id; });
@@ -155,6 +155,7 @@
     if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
     RTS.refreshMode(s);
     RTS.HUD.sync(s);
+    if (RTS.Audio) RTS.Audio.play('ready');
   };
 
   RTS.selectAllWorkers = function (s) {
@@ -187,13 +188,40 @@
     return s.selectedIds.map(function (id) { return RTS.getById(s, id); })
       .filter(function (e) { return e && e.kind === 'unit' && e.team === RTS.TEAM.PLAYER && !e.dead; });
   };
+
+  /** Bottom-bar subgroup filter — 'all' or a unit role. */
+  RTS.selectionFilter = function (s) {
+    return s.ui.selectionFilter || s.ui.macroRole || 'all';
+  };
+
+  /** Units that receive move/attack/stop commands (respects subgroup refinement). */
+  RTS.activeSelectedUnits = function (s) {
+    var units = RTS.selectedUnits(s);
+    var filter = RTS.selectionFilter(s);
+    if (filter === 'all' || !s.ui.macroGroups) return units;
+    return units.filter(function (u) { return u.role === filter; });
+  };
+
+  RTS.activeCombatUnits = function (s) {
+    return RTS.activeSelectedUnits(s).filter(function (u) { return u.role !== 'pawn'; });
+  };
+
+  RTS.activeWorkers = function (s) {
+    return RTS.activeSelectedUnits(s).filter(function (u) { return u.role === 'pawn'; });
+  };
+
+  RTS.selectedEntities = function (s) {
+    return s.selectedIds.map(function (id) { return RTS.getById(s, id); })
+      .filter(function (e) { return e && !e.dead; });
+  };
+
   RTS.selectedBuildings = function (s) {
     return s.selectedIds.map(function (id) { return RTS.getById(s, id); })
       .filter(function (e) { return e && e.kind === 'building' && e.team === RTS.TEAM.PLAYER && !e.dead; });
   };
 
   RTS.refreshMode = function (s) {
-    var combat = RTS.selectedUnits(s).filter(function (u) { return u.role !== 'pawn'; });
+    var combat = RTS.activeCombatUnits(s);
     if (s.attackMoveArmed && combat.length) s.inputMode = 'attack-target';
     else if (RTS.selectedUnits(s).length) s.inputMode = 'select';
     else s.inputMode = 'select';
@@ -232,16 +260,63 @@
     return best;
   };
 
+  // ---- Normalized unit commands (legacy fields kept in sync) ---------------
+  function applyUnitCommand(u, mode, payload) {
+    payload = payload || {};
+    u.commandMode = mode === 'assistBuild' ? 'build' : mode;
+    u.commandTargetId = payload.targetId || null;
+    u.commandTargetPos = payload.pos ? { x: payload.pos.x, y: payload.pos.y } : null;
+    u.taskPayload = payload.task || null;
+    if (payload.guardOrigin) u.guardOrigin = { x: payload.guardOrigin.x, y: payload.guardOrigin.y };
+
+    u.moveTo = null;
+    u.target = null;
+    u.attackMove = false;
+    u.harvest = null;
+    u.buildTask = null;
+
+    switch (mode) {
+      case 'move':
+        if (payload.pos) u.moveTo = { x: payload.pos.x, y: payload.pos.y };
+        break;
+      case 'attackMove':
+        u.attackMove = true;
+        if (payload.pos) u.moveTo = { x: payload.pos.x, y: payload.pos.y };
+        break;
+      case 'attackTarget':
+        u.target = payload.targetId || null;
+        break;
+      case 'harvest':
+        u.harvest = payload.harvest || null;
+        break;
+      case 'assistBuild':
+        u.buildTask = payload.buildTask || null;
+        if (payload.carryHarvest) u.harvest = payload.carryHarvest;
+        break;
+      case 'idle':
+        break;
+    }
+
+    if (RTS.UnitAI) {
+      if (mode === 'move' || mode === 'attackMove') {
+        RTS.UnitAI.applyCommandFromOrder(u, mode === 'attackMove', payload.pos.x, payload.pos.y);
+      } else if (mode === 'attackTarget') {
+        RTS.UnitAI.applyAttack(u, payload.targetId);
+      } else if (mode === 'idle') {
+        RTS.UnitAI.applyStop(u);
+      }
+    }
+  }
+  RTS.applyUnitCommand = applyUnitCommand;
+
   // ---- Orders --------------------------------------------------------------
   RTS.orderMove = function (s, units, x, y, attackMove) {
     var n = units.length, idx = 0;
+    var mode = attackMove ? 'attackMove' : 'move';
     units.forEach(function (u) {
       var off = spread(idx++, n);
       var tx = x + off.x, ty = y + off.y;
-      u.moveTo = { x: tx, y: ty };
-      u.target = null; u.attackMove = !!attackMove;
-      u.harvest = null; u.buildTask = null;
-      if (RTS.UnitAI) RTS.UnitAI.applyCommandFromOrder(u, attackMove, tx, ty);
+      applyUnitCommand(u, mode, { pos: { x: tx, y: ty }, guardOrigin: { x: u.x, y: u.y } });
       if (RTS.Pathfind) RTS.Pathfind.clearNav(u);
     });
     if (attackMove) RTS.Audio.play('attack');
@@ -257,9 +332,7 @@
       return;
     }
     units.forEach(function (u) {
-      u.target = targetId; u.moveTo = null; u.attackMove = false;
-      u.harvest = null; u.buildTask = null;
-      if (RTS.UnitAI) RTS.UnitAI.applyAttack(u, targetId);
+      applyUnitCommand(u, 'attackTarget', { targetId: targetId, guardOrigin: { x: u.x, y: u.y } });
       if (RTS.Pathfind) RTS.Pathfind.clearNav(u);
     });
     RTS.Audio.play('attack');
@@ -267,17 +340,17 @@
 
   RTS.orderStop = function (s, units) {
     units.forEach(function (u) {
-      u.moveTo = null; u.target = null; u.attackMove = false;
-      u.harvest = null; u.buildTask = null;
-      if (RTS.UnitAI) RTS.UnitAI.applyStop(u);
-      if (RTS.Pathfind) RTS.Pathfind.clearNav(u); u.vx = 0; u.vy = 0;
+      applyUnitCommand(u, 'idle');
+      if (RTS.Pathfind) RTS.Pathfind.clearNav(u);
+      u.vx = 0; u.vy = 0;
     });
   };
 
   RTS.orderHarvest = function (s, worker, nodeId) {
     if (worker.role !== 'pawn') return;
-    worker.harvest = { nodeId: nodeId, phase: 'toNode', carry: 0 };
-    worker.moveTo = null; worker.target = null; worker.buildTask = null;
+    applyUnitCommand(worker, 'harvest', {
+      harvest: { nodeId: nodeId, phase: 'toNode', carry: 0 },
+    });
     if (RTS.Pathfind) RTS.Pathfind.clearNav(worker);
   };
 
@@ -355,12 +428,12 @@
       if (ob.builderId === u.id && ob.id !== b.id) ob.builderId = null;
     });
     var carry = pawnCarryAmount(u);
-    u.target = null;
-    u.moveTo = null;
-    u.harvest = carry > 0
-      ? { nodeId: null, phase: 'toBase', carry: carry, depositId: null }
-      : null;
-    u.buildTask = { buildingId: b.id };
+    applyUnitCommand(u, 'assistBuild', {
+      buildTask: { buildingId: b.id },
+      carryHarvest: carry > 0
+        ? { nodeId: null, phase: 'toBase', carry: carry, depositId: null }
+        : null,
+    });
     u._workPhase = 0;
     u._builderOnSite = false;
     b.builderId = u.id;
