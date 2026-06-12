@@ -59,7 +59,9 @@
 
     // Combat feel
     separation: 150,            // unit push-apart strength
+    pawnSeparationMul: 0.28,    // workers — allow slight overlap at mines / base
     unitCollisionGap: 4,        // minimum px gap between unit hitboxes
+    pawnCollisionGap: -6,       // negative = pawns may overlap slightly
     unitOverlapIterations: 3,   // overlap solver passes per frame
     projectileSpeed: 520,
     hitFlash: 0.16,
@@ -114,35 +116,35 @@
   // ---- Buildings -----------------------------------------------------------
   RTS.Buildings = {
     core: {
-      type: 'core', label: 'Castle', w: 96, h: 96,
+      type: 'core', label: 'Castle', w: 256, h: 192,
       hp: 1600, cost: 0, build: 0, deposit: true,
-      trains: ['pawn'], desc: 'Main base. Trains Pawns and banks Halcite.',
+      trains: ['pawn'], desc: 'Main base. Trains Pawns, banks Halcite, toggles auto-mine.',
     },
     outpost: {
-      type: 'outpost', label: 'Outpost', w: 88, h: 88,
+      type: 'outpost', label: 'Outpost', w: 128, h: 128,
       hp: 1400, cost: 320, build: 42, deposit: true, expansion: true,
       trains: ['pawn'],
       desc: 'Expansion base — build next to a Halcite field. Trains Pawns and banks ore.',
     },
     conduit: {
-      type: 'conduit', label: 'House', w: 60, h: 60,
+      type: 'conduit', label: 'House', w: 128, h: 128,
       hp: 420, cost: 65, build: 10, supply: 8,
       trains: [], desc: 'Raises your supply cap.',
     },
     foundry: {
-      type: 'foundry', label: 'Barracks', w: 78, h: 70,
+      type: 'foundry', label: 'Barracks', w: 160, h: 128,
       hp: 760, cost: 120, build: 18,
       trains: ['lancer', 'archer', 'monk'],
       desc: 'Produces Lancers, Archers, and Monks.',
     },
     forge: {
-      type: 'forge', label: 'Archery', w: 86, h: 78,
+      type: 'forge', label: 'Archery', w: 176, h: 144,
       hp: 980, cost: 175, build: 26,
       trains: ['warrior'],
       desc: 'Produces Warriors.',
     },
     turret: {
-      type: 'turret', label: 'Tower', w: 54, h: 54,
+      type: 'turret', label: 'Tower', w: 112, h: 192,
       hp: 520, cost: 100, build: 14,
       defense: true, dmg: 20, range: 178, rof: 0.7, ranged: true,
       desc: 'Automated defense tower. Fires on nearby foes.',

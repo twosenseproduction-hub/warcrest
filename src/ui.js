@@ -77,10 +77,10 @@
     outpost: 'House1.png',
   };
 
-  /* Human Avatars sheet — 5 cols × 5 faction-color rows (Warrior, Archer, Lancer, Monk, Pawn) */
+  /* Human Avatars sheet — 5 cols × faction-color rows (Warrior, Lancer, Archer, Monk, Pawn) */
   var AVATARS = UI + 'Human Avatars/';
   var UNIT_AVATAR_COL = {
-    warrior: 0, archer: 1, lancer: 2, monk: 3, pawn: 4,
+    warrior: 0, lancer: 1, archer: 2, monk: 3, pawn: 4,
   };
   var FACTION_AVATAR_ROW = { aurex: 0, cinder: 1 };
 

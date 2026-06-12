@@ -17,9 +17,9 @@
     };
   }
 
-  function decorR(kind, rnd) {
-    var base = RTS.SizeRef.decorWorldR(kind);
-    return base * (0.85 + rnd() * 0.3);
+  function decorR(kind, rnd, spriteIdx) {
+    var base = RTS.SizeRef.decorWorldR(kind, spriteIdx);
+    return base * (0.88 + rnd() * 0.24);
   }
 
   function decor(seed, count, worldW, worldH, rockRatio) {
@@ -195,17 +195,16 @@
     var rnd = mulberry(seed || 8801);
     var out = [];
     var cols = grid.cols, rows = grid.rows, TILE = RTS.Terrain.TILE;
-    var baseR = RTS.SizeRef.decorWorldR('tree');
-    var row, col, pos, tallMul;
+    var baseR = RTS.SizeRef.decorWorldR('tree', 0);
+    var row, col, pos;
     for (row = 0; row < rows; row++) {
       for (col = 0; col < cols; col++) {
         if (!grid.forestWall[col + row * cols]) continue;
         pos = coniferJitterXY(col, row, TILE, rnd);
-        tallMul = 3.6 + rnd() * 0.7;
         out.push({
           x: pos.x,
           y: pos.y,
-          r: baseR * tallMul,
+          r: baseR * (0.95 + rnd() * 0.2),
           kind: 'tree',
           forestWall: true,
           tileRow: row,

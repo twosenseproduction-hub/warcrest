@@ -167,17 +167,7 @@
     b.rally = { x: node.x, y: node.y };
     b.autoMine = true;
     if (RTS.Pathfind) RTS.Pathfind.markDirty(s);
-    var workers = enemyUnits(s, 'pawn').filter(function (w) {
-      return !w.harvest && !w.buildTask && !w.moveTo && !w.target;
-    });
-    if (workers.length) {
-      workers.sort(function (a, c) { return RTS.dist(a.x, a.y, x, y) - RTS.dist(c.x, c.y, x, y); });
-      var w = workers[0];
-      w.harvest = null; w.target = null; w.moveTo = null;
-      w.buildTask = { buildingId: b.id };
-      w._workPhase = 0;
-      if (RTS.Pathfind) RTS.Pathfind.clearNav(w);
-    }
+    RTS.assignBuilder(s, b);
     return true;
   }
 
@@ -233,17 +223,7 @@
     s.res.enemy.halcite -= cost;
     var b = RTS.makeBuilding(s, type, TEAM.ENEMY, x, y, s.enemyFaction, false);
     if (RTS.Pathfind) RTS.Pathfind.markDirty(s);
-    var workers = enemyUnits(s, 'pawn').filter(function (w) {
-      return !w.harvest && !w.buildTask && !w.moveTo && !w.target;
-    });
-    if (workers.length) {
-      workers.sort(function (a, c) { return RTS.dist(a.x, a.y, x, y) - RTS.dist(c.x, c.y, x, y); });
-      var w = workers[0];
-      w.harvest = null; w.target = null; w.moveTo = null;
-      w.buildTask = { buildingId: b.id };
-      w._workPhase = 0;
-      if (RTS.Pathfind) RTS.Pathfind.clearNav(w);
-    }
+    RTS.assignBuilder(s, b);
     return true;
   }
 

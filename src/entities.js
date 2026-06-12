@@ -14,7 +14,7 @@
       hp: spec.hp, maxHp: spec.hp,
       speed: spec.speed, dmg: spec.dmg, range: spec.range, rof: spec.rof,
       ranged: !!spec.ranged, splash: spec.splash || 0, heal: spec.heal || 0,
-      radius: RTS.SizeRef.pxRadius(RTS.SizeRef.unitLol(role)),
+      radius: RTS.SizeRef.pxRadius(role),
       cooldown: 0, target: null, moveTo: null, attackMove: false,
       harvest: null,            // {nodeId, phase, carry}
       buildTask: null,          // {buildingId}
@@ -35,6 +35,7 @@
       hp: prebuilt ? spec.hp : Math.max(1, spec.hp * 0.08), maxHp: spec.hp,
       built: !!prebuilt, progress: prebuilt ? 1 : 0, buildTime: spec.build || 0.001,
       queue: [], train: null, rally: null, autoMine: false,
+      builderId: null,
       cooldown: 0, target: null,
       hitFlash: 0, dead: false, spawnFlash: 0.3,
     };
@@ -88,6 +89,16 @@
     if (RTS.Particles && RTS.Particles.ready) {
       RTS.Particles.spawnDust(s, x, y, scale, large);
     }
+  };
+
+  RTS.spawnUnitDust = function (s, u) {
+    if (RTS.Config.reducedMotion) return;
+    if (RTS.Particles && RTS.Particles.ready) RTS.Particles.spawnUnitDust(s, u);
+  };
+
+  RTS.spawnBuildingDust = function (s, b) {
+    if (RTS.Config.reducedMotion) return;
+    if (RTS.Particles && RTS.Particles.ready) RTS.Particles.spawnBuildingDust(s, b);
   };
 
   RTS.spawnExplosion = function (s, x, y, size, color) {

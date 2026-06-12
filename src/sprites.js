@@ -16,6 +16,9 @@
         walk: { file: 'Pawn_Run Pickaxe.png', count: 6, speed: 9 },
         walk_carry: { file: 'Pawn_Run Gold.png', count: 6, speed: 9 },
         work: { file: 'Pawn_Interact Pickaxe.png', count: 6, speed: 10 },
+        idle_hammer: { file: 'Pawn_Idle Hammer.png', count: 8, speed: 2.2 },
+        walk_hammer: { file: 'Pawn_Run Hammer.png', count: 6, speed: 9 },
+        work_hammer: { file: 'Pawn_Interact Hammer.png', count: 6, speed: 10 },
       },
     },
     lancer: {
@@ -119,7 +122,7 @@
 
   function unitDrawRadius(u) {
     var sr = sizeRef();
-    return sr.pxRadius(sr.unitLol(u.role)) * sr.UNIT_VISUAL_SCALE *
+    return sr.pxRadius(u.role) * sr.UNIT_VISUAL_SCALE *
       (1 + (u.spawnFlash || 0) * 0.28);
   }
 
@@ -131,7 +134,7 @@
   }
 
   function unitDrawHeight(r, u, sheet) {
-    return r * sizeRef().HEIGHT_MUL * unitVisualMul(u, sheet);
+    return sizeRef().pxHeight(u.role, unitVisualMul(u, sheet));
   }
 
   function mirroredAngle(facing) {
@@ -266,7 +269,9 @@
     },
 
     pickAnim: function (u, walking) {
-      if (u.role === 'pawn' && u.buildTask && !walking) return 'work';
+      if (u.role === 'pawn' && u.buildTask) {
+        return walking ? 'walk_hammer' : 'work_hammer';
+      }
       if (u.role === 'pawn' && u.harvest) {
         if (u.harvest.phase === 'mining') return 'work';
         if (u.harvest.carry > 0 && walking) return 'walk_carry';

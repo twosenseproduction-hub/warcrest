@@ -217,11 +217,37 @@
   RTS.baseTrain = baseTrain;
 
   // ---- Building placement --------------------------------------------------
+  RTS.assignBuilder = function (s, b, preferredWorker) {
+    if (!b || b.dead || b.built) return null;
+    var team = b.team;
+    var workers = s.entities.units.filter(function (u) {
+      return u.team === team && u.role === 'pawn' && !u.dead &&
+        !u.harvest && !u.buildTask && !u.moveTo && !u.target;
+    });
+    if (!workers.length) return null;
+    var w = preferredWorker;
+    if (!w || workers.indexOf(w) < 0) {
+      workers.sort(function (a, c) {
+        return dist(a.x, a.y, b.x, b.y) - dist(c.x, c.y, b.x, b.y);
+      });
+      w = workers[0];
+    }
+    w.harvest = null;
+    w.target = null;
+    w.moveTo = null;
+    w.buildTask = { buildingId: b.id };
+    w._workPhase = 0;
+    b.builderId = w.id;
+    if (RTS.Pathfind) RTS.Pathfind.clearNav(w);
+    return w;
+  };
+
   RTS.beginPlacement = function (s, type) {
     if (!RTS.canAfford(s, RTS.TEAM.PLAYER, RTS.Buildings[type].cost)) {
       RTS.toast(s, 'Not enough Halcite'); RTS.Audio.play('deny'); return;
     }
     if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
+    s.ui.buildPanelOpen = false;
     s.pending.building = type;
     s.inputMode = 'place-building';
     var hint = type === 'outpost'
@@ -305,17 +331,9 @@
         b.rally = { x: x + 90, y: y };
       }
     }
-    // send nearest idle worker to "build" it (cosmetic walk)
-    var workers = s.entities.units.filter(function (u) {
-      return u.team === RTS.TEAM.PLAYER && u.role === 'pawn' && !u.dead;
-    });
-    if (workers.length) {
-      workers.sort(function (a, c) { return RTS.dist(a.x, a.y, x, y) - RTS.dist(c.x, c.y, x, y); });
-      var w = workers[0];
-      w.harvest = null; w.target = null; w.moveTo = null;
-      w.buildTask = { buildingId: b.id };
-      w._workPhase = 0;
-      if (RTS.Pathfind) RTS.Pathfind.clearNav(w);
+    var selPawn = RTS.selectedUnits(s).find(function (u) { return u.role === 'pawn'; });
+    if (!RTS.assignBuilder(s, b, selPawn)) {
+      RTS.toast(s, 'Need an idle Pawn to build');
     }
     RTS.log(s, RTS.nameFor(s.playerFaction, type) + ' under construction', 'good');
     if (type === 'outpost') RTS.log(s, 'Outpost raised — secure the Halcite', 'good');

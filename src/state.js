@@ -60,6 +60,7 @@
         baseAlarm: 0,                // >0 = base under attack pulse
         toast: null,
         buildingMenuHover: null,
+        buildPanelOpen: false,
       },
 
       settings: {

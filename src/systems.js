@@ -385,12 +385,31 @@
     return b && !b.dead && b.built && RTS.Buildings[b.type].deposit;
   }
 
+  function builderReach(b) {
+    return Math.max(b.w, b.h) / 2 + 28;
+  }
+
+  function builderOnSite(u, b) {
+    return dist(u.x, u.y, b.x, b.y) <= builderReach(b);
+  }
+
+  function syncBuilderLink(s, b) {
+    if (!b || b.built || !b.builderId) return;
+    var builder = RTS.getById(s, b.builderId);
+    if (!builder || builder.dead ||
+        !builder.buildTask || builder.buildTask.buildingId !== b.id) {
+      b.builderId = null;
+    }
+  }
+
   function doBuildTask(s, u, dt) {
     var b = RTS.getById(s, u.buildTask.buildingId);
     if (!b || b.dead) { u.buildTask = null; u.moveTo = null; return; }
-    if (b.built) { u.buildTask = null; u.moveTo = null; return; }
-    var reach = Math.max(b.w, b.h) / 2 + 28;
-    if (dist(u.x, u.y, b.x, b.y) > reach) {
+    if (b.built) { u.buildTask = null; u.moveTo = null; b.builderId = null; return; }
+    if (b.builderId && b.builderId !== u.id) { u.buildTask = null; return; }
+    b.builderId = u.id;
+    var reach = builderReach(b);
+    if (!builderOnSite(u, b)) {
       u._workPhase = 0;
       navMove(s, u, b.x, b.y, dt, reach - 6, { skipBuildingId: b.id });
       finishUnitMove(s, u, dt, false);
@@ -399,6 +418,10 @@
       u._moveHold = 0;
       u.facing = Math.atan2(b.y - u.y, b.x - u.x);
       u._workPhase = (u._workPhase || 0) + dt;
+      if (b.buildTime > 0) {
+        b.progress = Math.min(1, b.progress + dt / b.buildTime);
+        b.hp = Math.max(b.hp, b.maxHp * (0.08 + 0.92 * b.progress));
+      }
     }
   }
 
@@ -414,17 +437,25 @@
     }
 
     if (!b.built) {
-      b.progress = Math.min(1, b.progress + dt / b.buildTime);
+      syncBuilderLink(s, b);
+      if (!b.builderId && RTS.assignBuilder) RTS.assignBuilder(s, b);
       b.hp = Math.max(b.hp, b.maxHp * (0.08 + 0.92 * b.progress));
       if (b.progress >= 1) {
         b.built = true; b.hp = b.maxHp; b.spawnFlash = 0.5;
-        RTS.spawnDust(s, b.x, b.y + b.h * 0.4, 1.2, true);
+        b.builderId = null;
+        RTS.spawnBuildingDust(s, b);
         if (b.team === TEAM.PLAYER) {
           RTS.recalcSupply(s, TEAM.PLAYER);
           RTS.log(s, RTS.nameFor(b.faction, b.type) + ' online', 'good');
           RTS.Audio.play('ready');
           if (RTS.Pathfind) RTS.Pathfind.markDirty(s);
         }
+        s.entities.units.forEach(function (u) {
+          if (u.buildTask && u.buildTask.buildingId === b.id) {
+            u.buildTask = null;
+            u.moveTo = null;
+          }
+        });
       }
       return;
     }
@@ -477,7 +508,7 @@
       RTS.Audio.play('ready');
       RTS.recalcSupply(s, TEAM.PLAYER);
     }
-    RTS.spawnDust(s, u.x, u.y + u.radius * 0.35, 1.1, true);
+    RTS.spawnUnitDust(s, u);
   }
 
   // ---- Combat helpers ------------------------------------------------------
@@ -642,6 +673,9 @@
   }
 
   function unitMinDist(u, o) {
+    if (u.role === 'pawn' && o.role === 'pawn') {
+      return (u.radius + o.radius) * 0.52 + (RTS.Config.pawnCollisionGap || 0);
+    }
     return u.radius + o.radius + RTS.Config.unitCollisionGap;
   }
 
@@ -685,6 +719,7 @@
 
   function softSeparation(s, u, dt) {
     var push = RTS.Config.separation;
+    if (u.role === 'pawn') push *= RTS.Config.pawnSeparationMul || 0.28;
     var units = s.entities.units;
     for (var i = 0; i < units.length; i++) {
       var o = units[i];

@@ -27,10 +27,6 @@
     return c.complete && c.naturalWidth ? c : null;
   }
 
-  function canBuildFrom(b) {
-    return b.type === 'core' || b.type === 'outpost';
-  }
-
   function buildItemList(s, b) {
     var out = [];
     var fid = s.playerFaction;
@@ -63,21 +59,6 @@
           cost: us.cost,
           disabled: !b.built || !afford || !supplyOk,
           label: RTS.nameFor(fid, role),
-        });
-      });
-    }
-
-    if (canBuildFrom(b) && b.built) {
-      RTS.BuildMenu.forEach(function (type) {
-        var bs = RTS.Buildings[type];
-        out.push({
-          kind: 'build',
-          type: type,
-          icon: null,
-          portrait: UI().buildingUrl ? UI().buildingUrl(fid, type) : '',
-          cost: bs.cost,
-          disabled: s.res.player.halcite < bs.cost,
-          label: RTS.nameFor(fid, type),
         });
       });
     }

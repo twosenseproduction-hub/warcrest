@@ -213,6 +213,43 @@
       }
     },
 
+    /** Single dust puff sized to a world-space diameter (e.g. unit footprint). */
+    spawnDustSized: function (s, x, y, diameterPx) {
+      if (!ready || RTS.Config.reducedMotion) return;
+      diameterPx = Math.max(12, diameterPx || 32);
+      var scale = Math.max(0.38, Math.min(1.35, diameterPx / 68));
+      var key = ((x * 3 + y * 5) | 0) % 2 ? 'dust2' : 'dust1';
+      addPfx(s, { sheet: key, x: x, y: y, scale: scale });
+    },
+
+    spawnUnitDust: function (s, u) {
+      if (!u) return;
+      var footY = u.y + u.radius * 0.35;
+      var diam = u.radius * 2 * (RTS.SizeRef ? RTS.SizeRef.UNIT_VISUAL_SCALE : 1.35);
+      if (RTS.Sprites && RTS.Sprites.unitVisualBounds) {
+        var vb = RTS.Sprites.unitVisualBounds(u, s);
+        if (vb) {
+          footY = vb.footY + 2;
+          diam = vb.groundRx * 2.05;
+        }
+      }
+      this.spawnDustSized(s, u.x, footY, diam);
+    },
+
+    spawnBuildingDust: function (s, b) {
+      if (!b) return;
+      var footY = b.y + b.h * 0.4;
+      var diam = b.w * 0.55;
+      if (RTS.Assets && RTS.Assets.buildingVisualBounds) {
+        var vb = RTS.Assets.buildingVisualBounds(b, s);
+        if (vb) {
+          footY = vb.footY + 4;
+          diam = vb.drawW * 0.52;
+        }
+      }
+      this.spawnDustSized(s, b.x, footY, diam);
+    },
+
     spawnWaterSplash: function (s, x, y) {
       if (!ready) return;
       addPfx(s, { sheet: 'splash', x: x, y: y, scale: 1.15 });

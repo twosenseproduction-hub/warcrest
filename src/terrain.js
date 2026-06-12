@@ -333,6 +333,7 @@
     if (!inBounds(grid.cols, grid.rows, cx, cy)) return wy;
     var h = grid.heights[idx(grid.cols, cx, cy)];
     if (h === WATER) return wy;
+    if (h === HIGH) return wy + 14;
     return wy + 10;
   }
 

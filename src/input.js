@@ -1,7 +1,8 @@
 /* ============================================================================
  * EXOFRONT — input.js
  * Camera math + unified touch/mouse input: tap select, command, box select,
- * long-press attack-move, double-tap army + hold command wheel,
+ * long-press attack-move, double-tap empty ground = army (deferred 1st tap),
+ * double-tap + hold empty ground = command wheel, double-tap building = workers,
  * two-finger tap deselect, one-finger pan, two-finger pinch-zoom.
  * ==========================================================================*/
 (function (RTS) {
@@ -91,6 +92,11 @@
   }
 
   function tapWorld(s, wx, wy, additive) {
+    if (s.inputMode !== 'place-building' && s.ui.buildPanelOpen) {
+      s.ui.buildPanelOpen = false;
+      if (RTS.HUD && RTS.HUD.sync) RTS.HUD.sync(s);
+    }
+
     if (s.inputMode === 'place-building' && s.pending.building) {
       RTS.placeBuilding(s, s.pending.building, wx, wy);
       return;
@@ -254,6 +260,14 @@
     p.menuHoldTimer = null;
   }
 
+  function isBareGround(hit) {
+    return !hit;
+  }
+
+  function isFriendlyBuilding(hit) {
+    return !!(hit && hit.kind === 'building' && hit.team === TEAM.PLAYER && hit.built);
+  }
+
   // ---- Init / event wiring -------------------------------------------------
   RTS.Input = {
     init: function (canvas, getState) {
@@ -262,7 +276,8 @@
       var DBL = (RTS.Config.touch && RTS.Config.touch.doubleTapMs) || 320;
       var MENU_HOLD = (RTS.Config.touch && RTS.Config.touch.menuHoldMs) || 280;
       var TWO_TAP = (RTS.Config.touch && RTS.Config.touch.twoFingerTapMs) || 280;
-      var lastTap = { t: 0, x: 0, y: 0 };
+      var lastTap = { t: 0, x: 0, y: 0, empty: false, hitId: null };
+      var pendingTap = null;
 
       function st() { return getState(); }
       function active() { var s = st(); return !!s && s.scene === 'playing'; }
@@ -270,6 +285,23 @@
       function isSurface(e) { return e.target === canvas; }
       function uiBlocked(s) { return performance.now() - (s.ui.lastUiAt || 0) < UIBLOCK; }
       function tapSlop() { return (RTS.Config.touch && RTS.Config.touch.slopPx) || 40; }
+
+      function clearPendingTap() {
+        if (pendingTap && pendingTap.timer) clearTimeout(pendingTap.timer);
+        pendingTap = null;
+      }
+
+      function schedulePendingTap(s, wx, wy, shift) {
+        clearPendingTap();
+        pendingTap = {
+          timer: setTimeout(function () {
+            if (!pendingTap) return;
+            tapWorld(s, wx, wy, shift);
+            pendingTap = null;
+            lastTap = { t: 0, x: 0, y: 0, empty: false, hitId: null };
+          }, DBL),
+        };
+      }
 
       function isSecondTap(cssX, cssY) {
         if (!lastTap.t) return false;
@@ -286,15 +318,19 @@
         var onEmpty = !hit || hit.kind === 'resource';
         var boxArmed = s.boxSelectArmed || shift;
         var secondTap = isSecondTap(cssX, cssY) && s.inputMode !== 'place-building';
+        clearPendingTap();
+        var armyDouble = secondTap && isBareGround(hit) && lastTap.empty;
+        var buildingDouble = secondTap && isFriendlyBuilding(hit) && hit.id === lastTap.hitId;
         s.ui.pointer = {
           cssX: cssX, cssY: cssY, startX: cssX, startY: cssY,
           wx: w.x, wy: w.y, moved: false, panning: false, boxing: false,
           longPressFired: false, menuHoldFired: false, secondTap: secondTap,
+          armyDouble: armyDouble, buildingDouble: buildingDouble,
           onEmpty: onEmpty, useBox: onEmpty && boxArmed, shift: !!shift,
           hitId: hit ? hit.id : null, hit: hit, menuHoldTimer: null,
         };
         if (s.inputMode === 'place-building') { updateGhost(s, w.x, w.y); return; }
-        if (secondTap) {
+        if (armyDouble) {
           clearLongPress(s);
           var pRef = s.ui.pointer;
           pRef.menuHoldTimer = setTimeout(function () {
@@ -304,7 +340,7 @@
               haptic(14);
             }
           }, MENU_HOLD);
-        } else if (onEmpty && !boxArmed) {
+        } else if (onEmpty && !boxArmed && !secondTap) {
           startLongPress(s, w.x, w.y, cssX, cssY);
         }
       }
@@ -334,6 +370,7 @@
           return;
         }
         p.moved = true;
+        clearPendingTap();
         clearLongPress(s);
         clearMenuHold(p);
 
@@ -362,8 +399,9 @@
           clearLongPress(s);
           var pOpen = s.ui.pointer;
           clearMenuHold(pOpen);
+          clearPendingTap();
           s.ui.pointer = null;
-          lastTap.t = 0;
+          lastTap = { t: 0, x: 0, y: 0, empty: false, hitId: null };
           return;
         }
         clearLongPress(s);
@@ -372,7 +410,8 @@
           var pw = RTS.Cam.screenToWorld(s, cssX, cssY);
           RTS.placeBuilding(s, s.pending.building, pw.x, pw.y);
           s.ui.pointer = null;
-          lastTap.t = 0;
+          clearPendingTap();
+          lastTap = { t: 0, x: 0, y: 0, empty: false, hitId: null };
           return;
         }
         var p = s.ui.pointer; s.ui.pointer = null;
@@ -386,18 +425,38 @@
         }
         s.selectionBox = null;
         if (!p.moved && !p.longPressFired && !p.menuHoldFired && !uiBlocked(s)) {
-          if (p.secondTap) {
+          if (p.armyDouble) {
             RTS.selectAllArmy(s);
             RTS.toast(s, 'Army selected');
             haptic(10);
-            lastTap.t = 0;
+            lastTap = { t: 0, x: 0, y: 0, empty: false, hitId: null };
+            return;
+          }
+          if (p.buildingDouble) {
+            RTS.selectAllWorkers(s);
+            if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
+            RTS.toast(s, 'Pawns selected');
+            haptic(10);
+            lastTap = { t: 0, x: 0, y: 0, empty: false, hitId: null };
             return;
           }
           var w = RTS.Cam.screenToWorld(s, cssX, cssY);
-          lastTap = { t: performance.now(), x: cssX, y: cssY };
-          tapWorld(s, w.x, w.y, p.shift);
+          var hitUp = hitTest(s, w.x, w.y);
+          var now = performance.now();
+          if (isBareGround(hitUp) && s.inputMode !== 'place-building') {
+            schedulePendingTap(s, w.x, w.y, p.shift);
+            lastTap = { t: now, x: cssX, y: cssY, empty: true, hitId: null };
+          } else {
+            clearPendingTap();
+            lastTap = {
+              t: now, x: cssX, y: cssY,
+              empty: false,
+              hitId: hitUp ? hitUp.id : null,
+            };
+            tapWorld(s, w.x, w.y, p.shift);
+          }
         } else if (p.secondTap) {
-          lastTap.t = 0;
+          lastTap = { t: 0, x: 0, y: 0, empty: false, hitId: null };
         }
       }
 
@@ -514,6 +573,7 @@
 
       canvas.addEventListener('touchcancel', function () {
         var s = st(); if (!s) { pinch = null; twoFinger = null; return; }
+        clearPendingTap();
         clearLongPress(s); s.ui.pointer = null; s.selectionBox = null;
         pinch = null; twoFinger = null;
         if (RTS.RadialMenu && RTS.RadialMenu.isOpen()) RTS.RadialMenu.close();

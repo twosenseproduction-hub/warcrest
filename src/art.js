@@ -187,7 +187,7 @@
                  Math.min(W, vx + vw) - Math.max(0, vx),
                  Math.min(H, vy + vh) - Math.max(0, vy));
 
-    var tile = 96;
+    var tile = 64;
     var tx0 = Math.max(0, Math.floor(vx / tile) * tile);
     var ty0 = Math.max(0, Math.floor(vy / tile) * tile);
     var tx1 = Math.min(W, vx + vw), ty1 = Math.min(H, vy + vh);

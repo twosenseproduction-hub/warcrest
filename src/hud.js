@@ -25,11 +25,13 @@
       getState = getStateFn;
       ['res-halcite', 'res-supply', 'timer', 'btn-pause', 'command-deck', 'thumb-cluster',
        'selpanel', 'action-tray', 'event-log', 'toast', 'gesture-hint', 'wave-timer',
-       'btn-rail-army', 'btn-rail-stop', 'btn-rail-atk', 'btn-rail-base'].forEach(function (id) {
+       'btn-rail-army', 'btn-rail-stop', 'btn-rail-atk', 'btn-rail-base',
+       'btn-build-hammer', 'build-panel', 'build-panel-grid', 'map-tools'].forEach(function (id) {
         D[id] = $(id);
       });
 
-      ['action-tray', 'selpanel', 'topbar', 'command-deck', 'thumb-cluster', 'minimap-chip'].forEach(function (id) {
+      ['action-tray', 'selpanel', 'topbar', 'command-deck', 'thumb-cluster', 'map-tools',
+       'build-panel', 'btn-build-hammer'].forEach(function (id) {
         var el = document.getElementById(id);
         if (!el) return;
         el.addEventListener('pointerdown', markUi, true);
@@ -47,6 +49,25 @@
         if (core) { RTS.Cam.centerOn(s, core.x, core.y); RTS.Audio.play('click'); }
       });
 
+      if (D['btn-build-hammer']) {
+        D['btn-build-hammer'].addEventListener('click', function () {
+          var s = getState();
+          if (!s || s.scene !== 'playing') return;
+          s.ui.buildPanelOpen = !s.ui.buildPanelOpen;
+          if (s.ui.buildPanelOpen && RTS.BuildingMenu) RTS.BuildingMenu.close(s);
+          RTS.Audio.play('click');
+          RTS.HUD.sync(s);
+        });
+      }
+      if (D['build-panel-grid']) {
+        D['build-panel-grid'].addEventListener('click', function (e) {
+          var btn = e.target.closest('[data-act]');
+          if (!btn) return;
+          if (btn.classList.contains('disabled')) { RTS.Audio.play('deny'); return; }
+          handleAction(getState(), btn.dataset);
+        });
+      }
+
       D['action-tray'] && D['action-tray'].addEventListener('click', function (e) {
         var btn = e.target.closest('[data-act]'); if (!btn) return;
         if (btn.classList.contains('disabled')) { RTS.Audio.play('deny'); return; }
@@ -63,6 +84,11 @@
 
       if (D['btn-rail-atk']) D['btn-rail-atk'].classList.toggle('active', !!s.attackMoveArmed);
 
+      if (D['btn-build-hammer']) {
+        D['btn-build-hammer'].classList.toggle('active', !!s.ui.buildPanelOpen);
+        D['btn-build-hammer'].setAttribute('aria-expanded', s.ui.buildPanelOpen ? 'true' : 'false');
+      }
+      renderBuildPanel(s);
       updateLayout(s);
       updateGestureHint(s);
       renderSelPanel(s);
@@ -133,7 +159,7 @@
   }
 
   function gestureHintText(s) {
-    if (s.inputMode === 'place-building') return 'Tap ground to place · pinch to zoom';
+    if (s.inputMode === 'place-building') return 'Tap ground to place · a Pawn will hammer it up';
     if (s.attackMoveArmed) return 'Tap where to attack-move';
     return '';
   }
@@ -144,7 +170,7 @@
     var text = gestureHintText(s);
     var show = !!text || (s.timers.gameTime < 12 && s.scene === 'playing' && !deckOpen(s));
     if (show && !text) {
-      text = 'Tap a building → train or build · double-tap = army · hold = command wheel';
+      text = 'Hammer by minimap = build · Castle = train pawns · double-tap ground = army';
     }
     el.textContent = text;
     el.classList.toggle('hidden', !show);
@@ -187,7 +213,9 @@
       p.innerHTML = selPortrait(s, u.role, false) + '<div class="sel-body">' +
         '<div class="sel-title">' + RTS.nameFor(u.faction, u.role) + '</div>' +
         bar(u.hp, u.maxHp) +
-        (u.role === 'pawn' && u.harvest
+        (u.role === 'pawn' && u.buildTask
+          ? '<div class="sel-line">building…</div>'
+          : u.role === 'pawn' && u.harvest
           ? '<div class="sel-line">' + (
               u.harvest.phase === 'mining' ? 'mining…'
               : u.harvest.phase === 'toBase' && u.harvest.carry > 0
@@ -213,27 +241,39 @@
            '%"></i></div><b>' + Math.ceil(pct * 100) + '%</b></div>';
   }
 
+  function renderBuildPanel(s) {
+    var panel = D['build-panel'];
+    var grid = D['build-panel-grid'];
+    if (!panel || !grid) return;
+    var open = !!s.ui.buildPanelOpen && s.scene === 'playing';
+    panel.classList.toggle('hidden', !open);
+    panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+    if (!open) { grid.innerHTML = ''; return; }
+    grid.innerHTML = '';
+    RTS.BuildMenu.forEach(function (t) {
+      var spec = RTS.Buildings[t];
+      var disabled = s.res.player.halcite < spec.cost;
+      var btn = actionBtn(
+        UI().buildTrayIcon(s.playerFaction, t, 28),
+        { act: 'build', type: t },
+        disabled,
+        '',
+        spec.cost
+      );
+      var lbl = document.createElement('span');
+      lbl.className = 'lbl';
+      lbl.textContent = RTS.nameFor(s.playerFaction, t);
+      btn.appendChild(lbl);
+      grid.appendChild(btn);
+    });
+  }
+
   function renderTray(s) {
     var tray = D['action-tray']; if (!tray) return;
     tray.innerHTML = '';
 
     if (s.inputMode === 'place-building') {
       tray.appendChild(actionBtn(UI().iconHtml('cancel', 22), { act: 'cancel-place' }, false, 'danger'));
-      return;
-    }
-
-    var units = RTS.selectedUnits(s);
-    var blds = RTS.selectedBuildings(s);
-    var hasWorker = units.some(function (u) { return u.role === 'pawn'; });
-    var hasCore = blds.some(function (b) { return b.type === 'core'; });
-    var buildingOnly = blds.length === 1 && !units.length;
-
-    if ((hasWorker || hasCore) && !buildingOnly) {
-      RTS.BuildMenu.forEach(function (t) {
-        var spec = RTS.Buildings[t];
-        tray.appendChild(actionBtn(UI().buildTrayIcon(s.playerFaction, t, 30),
-          { act: 'build', type: t }, s.res.player.halcite < spec.cost, '', spec.cost));
-      });
     }
   }
 
@@ -276,8 +316,13 @@
         break;
       case 'train':
         var b = RTS.getById(s, data.bid); if (b) RTS.train(s, b, data.role); break;
-      case 'build': RTS.beginPlacement(s, data.type); break;
-      case 'cancel-place': RTS.cancelPlacement(s); RTS.Audio.play('click'); break;
+      case 'build':
+        RTS.beginPlacement(s, data.type);
+        break;
+      case 'cancel-place':
+        RTS.cancelPlacement(s);
+        RTS.Audio.play('click');
+        break;
     }
     RTS.HUD.sync(s);
   }

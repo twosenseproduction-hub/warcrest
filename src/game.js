@@ -55,7 +55,7 @@
       show($('overlay-end'), name === 'won' || name === 'lost');
       var inGame = (name === 'playing' || name === 'paused' || name === 'won' || name === 'lost');
       show(RTS.canvas, inGame);
-      show($('minimap-chip'), inGame);
+      show($('map-tools'), inGame);
       show($('command-deck'), inGame);
     },
 

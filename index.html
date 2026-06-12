@@ -32,8 +32,17 @@
       </div>
     </header>
 
-    <div id="minimap-chip">
-      <canvas id="minimap"></canvas>
+    <div id="map-tools">
+      <div id="minimap-chip">
+        <canvas id="minimap"></canvas>
+      </div>
+      <button type="button" id="btn-build-hammer" class="map-tool-btn ts-round-btn" aria-label="Build structures" aria-expanded="false">
+        <img src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_01.png" alt="" />
+      </button>
+    </div>
+    <div id="build-panel" class="build-panel hidden" aria-hidden="true">
+      <div class="build-panel-head">Raise structure</div>
+      <div id="build-panel-grid" class="build-panel-grid"></div>
     </div>
 
     <div id="thumb-cluster" class="hidden">
@@ -133,8 +142,9 @@
            Pawn mines it and hauls Halcite home automatically.</p></div>
         <div class="howto-card"><b>② Train</b><p>Tap your Castle, Barracks, or Archery —
            a ring of options appears around the building. Queue shows as a number badge.</p></div>
-        <div class="howto-card"><b>③ Build</b><p>Tap your Castle or Outpost for the build ring,
-           then tap a highlighted spot. Outposts go beside distant Halcite to expand.</p></div>
+        <div class="howto-card"><b>③ Build</b><p>Tap the hammer beside the minimap, pick a
+           structure, then tap a valid spot. Your Pawn hammers until it is done. Tap the
+           Castle only to train Pawns and toggle auto-mine.</p></div>
         <div class="howto-card"><b>④ Command</b><p>Tap units to select. Double-tap empty
            ground to grab your whole army. Tap ground to move, an enemy to attack.</p></div>
         <div class="howto-card"><b>⑤ Attack-Move</b><p>Long-press the ground until the ring
@@ -142,7 +152,7 @@
         <div class="howto-card"><b>⑥ Win</b><p>Hold off enemy waves and destroy the
            opposing Castle to win. Lose your base and it's over.</p></div>
       </div>
-      <p class="howto-tip">Drag to pan · pinch to zoom · tap a building → train/build ring · double-tap ground = army · long-press = attack-move.</p>
+      <p class="howto-tip">Hammer by minimap = build · Castle = train pawns · double-tap ground = army · long-press = attack-move.</p>
       <button id="btn-howto-back" class="big-btn">Back</button>
     </div>
   </section>

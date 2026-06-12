@@ -109,8 +109,8 @@
 
   var ARROW = 'Units/Blue Units/Archer/Arrow.png';
 
-  function buildingDrawScale(type, baseW) {
-    return RTS.SizeRef.buildingDrawScale(type, baseW);
+  function buildingDrawScale(type, imgW, imgH) {
+    return RTS.SizeRef.buildingDrawScale(type, imgW, imgH);
   }
 
   function buildingFootY(b, s) {
@@ -123,8 +123,9 @@
     var img = imgSync(asset.rel, asset.base);
     if (!img) return null;
     var footY = buildingFootY(b, s);
-    var drawW = b.w * buildingDrawScale(b.type, b.w);
-    var drawH = drawW * (img.height / img.width);
+    var sc = buildingDrawScale(b.type, img.width, img.height);
+    var drawW = img.width * sc;
+    var drawH = img.height * sc;
     var footRatio = BUILDING_FOOT[b.type] || 0.95;
     return {
       x: b.x,
@@ -205,7 +206,7 @@
       var pad = 80;
       s.map.decor.forEach(function (d) {
         if (d.x < vx - pad || d.x > vx + vw + pad || d.y < vy - pad || d.y > vy + vh + pad) return;
-        drawDecorSprite(ctx, d, theme);
+        drawDecorSprite(ctx, d, theme, s);
       });
     }
 
@@ -228,50 +229,51 @@
     return (Math.floor(t * fps + phase) % frameCount + frameCount) % frameCount;
   }
 
-  function drawDecorSprite(ctx, d, theme) {
+  function drawDecorSprite(ctx, d, theme, s) {
     var h = hashId((d.x | 0) * 73856093 ^ (d.y | 0) * 19349663);
     var t = RTS._renderT || 0;
     var rm = RTS.Config.reducedMotion;
     var list, idx, frameW, frameCount, targetH, footRatio;
 
-    var dec = RTS.SizeRef.DECOR;
     if (d.kind === 'tree') {
       list = DECOR_SPRITES.tree;
       idx = h % list.length;
-      frameW = 192;   /* Tiny Swords tree sheets: 1536px wide = 8 frames of 192 */
+      frameW = 192;
       frameCount = 8;
-      targetH = (d.r || RTS.SizeRef.decorWorldR('tree')) * (dec.treeHeightMul / 2.2);
-      footRatio = 0.88;
+      targetH = RTS.SizeRef.decorDrawHeight('tree', idx);
+      footRatio = 0.9;
     } else if (d.kind === 'rock' || ((theme === 'volcanic' || theme === 'amber') && d.kind !== 'bush')) {
       list = DECOR_SPRITES.rock;
       idx = h % list.length;
       frameW = 0;
+      targetH = RTS.SizeRef.decorDrawHeight('rock');
     } else if (d.kind === 'bush') {
       list = DECOR_SPRITES.bush;
       idx = h % list.length;
       frameW = 128;
       frameCount = 8;
-      targetH = (d.r || RTS.SizeRef.decorWorldR('bush')) * (dec.bushHeightMul / 1.55);
-      footRatio = 0.75;
+      targetH = RTS.SizeRef.decorDrawHeight('bush');
+      footRatio = 0.78;
     } else if (h % 5 === 0) {
       list = DECOR_SPRITES.tree;
       idx = h % list.length;
-      frameW = 192;   /* same 8x192 sheet layout as the tree branch above */
+      frameW = 192;
       frameCount = 8;
-      targetH = (d.r || RTS.SizeRef.decorWorldR('tree')) * (dec.treeHeightMul / 2.2);
-      footRatio = 0.88;
+      targetH = RTS.SizeRef.decorDrawHeight('tree', idx);
+      footRatio = 0.9;
     } else {
       list = DECOR_SPRITES.bush;
       idx = h % list.length;
       frameW = 128;
       frameCount = 8;
-      targetH = (d.r || RTS.SizeRef.decorWorldR('bush')) * (dec.bushHeightMul / 1.55);
-      footRatio = 0.75;
+      targetH = RTS.SizeRef.decorDrawHeight('bush');
+      footRatio = 0.78;
     }
 
     var img = imgSync(list[idx]);
     if (!img) return;
-    var footY = d.y;
+    var grid = s && s.map && s.map.terrainGrid;
+    var footY = grid && RTS.Terrain ? RTS.Terrain.groundY(grid, d.x, d.y) : d.y;
 
     if (frameW) {
       var animFps = d.kind === 'bush' ? 3 : 2.5;
@@ -287,7 +289,7 @@
       return;
     }
 
-    var sc = (d.r || RTS.SizeRef.decorWorldR('rock')) / Math.max(img.width, img.height) * dec.rockScaleMul;
+    var sc = targetH / Math.max(img.height, 1);
     var w = img.width * sc;
     var ht = img.height * sc;
     RTS.Art.drawShadow(ctx, d.x, footY + ht * 0.08, d.r * 0.9, 0.25);
