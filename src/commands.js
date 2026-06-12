@@ -237,9 +237,11 @@
     var n = units.length, idx = 0;
     units.forEach(function (u) {
       var off = spread(idx++, n);
-      u.moveTo = { x: x + off.x, y: y + off.y };
+      var tx = x + off.x, ty = y + off.y;
+      u.moveTo = { x: tx, y: ty };
       u.target = null; u.attackMove = !!attackMove;
       u.harvest = null; u.buildTask = null;
+      if (RTS.UnitAI) RTS.UnitAI.applyCommandFromOrder(u, attackMove, tx, ty);
       if (RTS.Pathfind) RTS.Pathfind.clearNav(u);
     });
     if (attackMove) RTS.Audio.play('attack');
@@ -248,12 +250,16 @@
 
   RTS.orderAttack = function (s, units, targetId) {
     var target = RTS.getById(s, targetId);
-    if (target && target.kind === 'building' && !RTS.buildingIsAttackable(target)) {
+    var attackable = RTS.canAttackBuilding
+      ? RTS.canAttackBuilding(target)
+      : RTS.buildingIsAttackable(target);
+    if (target && target.kind === 'building' && !attackable) {
       return;
     }
     units.forEach(function (u) {
       u.target = targetId; u.moveTo = null; u.attackMove = false;
       u.harvest = null; u.buildTask = null;
+      if (RTS.UnitAI) RTS.UnitAI.applyAttack(u, targetId);
       if (RTS.Pathfind) RTS.Pathfind.clearNav(u);
     });
     RTS.Audio.play('attack');
@@ -263,6 +269,7 @@
     units.forEach(function (u) {
       u.moveTo = null; u.target = null; u.attackMove = false;
       u.harvest = null; u.buildTask = null;
+      if (RTS.UnitAI) RTS.UnitAI.applyStop(u);
       if (RTS.Pathfind) RTS.Pathfind.clearNav(u); u.vx = 0; u.vy = 0;
     });
   };

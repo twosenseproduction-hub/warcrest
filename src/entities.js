@@ -22,6 +22,15 @@
       facing: 0,
     };
     s.entities.units.push(u);
+    if (RTS.UnitAI) RTS.UnitAI.initUnitAIState(u);
+    var rc = (RTS.Config.combat && RTS.Config.combat.roles && RTS.Config.combat.roles[role]) ||
+      (RTS.Config.combat && RTS.Config.combat.roles && RTS.Config.combat.roles.default);
+    if (rc) {
+      u.acquireRange = u.range * (rc.acquireMul || 1.5);
+      u.chaseRange = rc.chaseRange || 200;
+    }
+    u.guardOrigin = { x: x, y: y };
+    u.commandMode = 'idle';
     RTS.recalcSupply(s, team);
     return u;
   };

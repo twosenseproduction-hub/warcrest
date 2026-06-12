@@ -185,8 +185,11 @@
     }
 
     // Enemy → attack with selected combat
-    if (hit && hit.kind === 'building' && hit.team === TEAM.ENEMY && !RTS.buildingIsAttackable(hit)) {
-      hit = null;
+    if (hit && hit.kind === 'building' && hit.team === TEAM.ENEMY) {
+      var canHit = RTS.canAttackBuilding
+        ? RTS.canAttackBuilding(hit)
+        : RTS.buildingIsAttackable(hit);
+      if (!canHit) hit = null;
     }
     if (hit && (hit.kind === 'unit' || hit.kind === 'building') && hit.team === TEAM.ENEMY && combat.length) {
       RTS.orderAttack(s, combat, hit.id);

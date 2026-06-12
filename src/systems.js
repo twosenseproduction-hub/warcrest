@@ -155,6 +155,34 @@
       tryCombatRelease(s, u);
     }
 
+    if (RTS.UnitAI) RTS.UnitAI.initUnitAIState(u);
+
+    // Pawn retaliation (brief self-defense, then resume work)
+    if (RTS.UnitAI && RTS.UnitAI.pawnRetaliateActive(u)) {
+      if (RTS.UnitAI.tickPawnRetaliate(s, u, dt)) {
+        // resumed work below on next frame
+      } else {
+        u.inAttackRange = false;
+        var rt = u.target ? RTS.getById(s, u.target) : null;
+        if (rt && RTS.UnitAI.targetValid(rt)) {
+          var ratk = combatApproach(s, u, rt);
+          if (ratk.inRange) {
+            u.inAttackRange = true;
+            u.vx = 0; u.vy = 0;
+            u.facing = Math.atan2(ratk.aimY - u.y, ratk.aimX - u.x);
+            if (u.cooldown <= 0 && u.dmg > 0) {
+              u.cooldown = u.rof;
+              fire(s, u, rt);
+            }
+          } else {
+            navMove(s, u, ratk.tx, ratk.ty, dt, ratk.stop, { chasing: true });
+          }
+          finishUnitMove(s, u, dt);
+        }
+        return;
+      }
+    }
+
     // Worker behaviours take priority
     if (u.role === 'pawn') {
       if (u.buildTask) { doBuildTask(s, u, dt); return; }
@@ -166,33 +194,9 @@
 
     u.inAttackRange = false;
 
-    // Resolve current explicit target
-    var target = u.target ? RTS.getById(s, u.target) : null;
-    if (target && target.dead) { u.target = null; target = null; }
-    if (target && target.kind === 'building' && !RTS.buildingIsAttackable(target)) {
-      u.target = null; target = null;
-    }
-
-    // Auto-acquire if attack-moving or idle-aggressive
-    if (!target && u.role !== 'pawn' && u.heal === 0) {
-      if (u.attackMove || u.team === TEAM.ENEMY || !u.moveTo) {
-        var combat = RTS.Config.combat || {};
-        var attentionMul = u.attackMove
-          ? (combat.attentionAttackMove || 2.0)
-          : (combat.attentionIdle || 1.55);
-        var foe = nearestEnemy(s, u.x, u.y, u.team, u.range * attentionMul);
-        if (foe) { target = foe; u.target = foe.id; }
-      }
-    }
-
-    if (target && u.attackMove) {
-      var tr0 = target.radius || Math.max(target.w, target.h) / 2;
-      var chaseMul = (RTS.Config.combat && RTS.Config.combat.attentionChase) || 2.1;
-      if (dist(u.x, u.y, target.x, target.y) > u.range * chaseMul + tr0) {
-        u.target = null;
-        target = null;
-      }
-    }
+    var target = RTS.UnitAI
+      ? RTS.UnitAI.resolveCombatTarget(s, u)
+      : resolveLegacyTarget(s, u);
 
     if (target) {
       var atk = combatApproach(s, u, target);
@@ -211,6 +215,9 @@
       navMove(s, u, u.moveTo.x, u.moveTo.y, dt, 6);
       if (dist(u.x, u.y, u.moveTo.x, u.moveTo.y) < 10) {
         u.moveTo = null;
+        if (RTS.UnitAI && u.commandMode === 'attackMove' && u.commandTargetPos) {
+          u.moveTo = { x: u.commandTargetPos.x, y: u.commandTargetPos.y };
+        }
         if (RTS.Pathfind) RTS.Pathfind.clearNav(u);
       }
     } else {
@@ -218,6 +225,33 @@
     }
 
     finishUnitMove(s, u, dt);
+  }
+
+  function resolveLegacyTarget(s, u) {
+    var target = u.target ? RTS.getById(s, u.target) : null;
+    if (target && target.dead) { u.target = null; target = null; }
+    if (target && target.kind === 'building' && !RTS.buildingIsAttackable(target)) {
+      u.target = null; target = null;
+    }
+    if (!target && u.role !== 'pawn' && u.heal === 0) {
+      if (u.attackMove || u.team === TEAM.ENEMY || !u.moveTo) {
+        var combat = RTS.Config.combat || {};
+        var attentionMul = u.attackMove
+          ? (combat.attentionAttackMove || 2.0)
+          : (combat.attentionIdle || 1.55);
+        var foe = nearestEnemy(s, u.x, u.y, u.team, u.range * attentionMul);
+        if (foe) { target = foe; u.target = foe.id; }
+      }
+    }
+    if (target && u.attackMove) {
+      var tr0 = target.radius || Math.max(target.w, target.h) / 2;
+      var chaseMul = (RTS.Config.combat && RTS.Config.combat.attentionChase) || 2.1;
+      if (dist(u.x, u.y, target.x, target.y) > u.range * chaseMul + tr0) {
+        u.target = null;
+        target = null;
+      }
+    }
+    return target;
   }
 
   function fire(s, u, target) {
@@ -563,6 +597,10 @@
     var ty = target.y - (target.radius || (target.h ? target.h * 0.3 : 10));
     RTS.spawnHit(s, target.x, ty, target.team);
 
+    if (target.kind === 'unit' && attacker && RTS.UnitAI) {
+      RTS.UnitAI.onDamaged(s, target, attacker);
+    }
+
     // base-under-attack alarm
     if (target.team === TEAM.PLAYER && target.kind === 'building') {
       s.ui.baseAlarm = 1.2;
@@ -601,6 +639,7 @@
       s.selectedIds = s.selectedIds.filter(function (id) { return id !== e.id; });
       if (RTS.Pathfind) RTS.Pathfind.markDirty(s);
       RTS.Audio.play('boom');
+      if (e.type === 'core') checkEndGame(s);
     }
   }
 
@@ -915,7 +954,8 @@
     var b = s.entities.buildings;
     for (var j = 0; j < b.length; j++) {
       if (b[j].dead || b[j].team !== foeTeam) continue;
-      if (!RTS.buildingIsAttackable(b[j])) continue;
+      if (RTS.canAttackBuilding && !RTS.canAttackBuilding(b[j])) continue;
+      if (!RTS.canAttackBuilding && !RTS.buildingIsAttackable(b[j])) continue;
       var db = dist(x, y, b[j].x, b[j].y);
       if (db < bd) { bd = db; best = b[j]; }
     }

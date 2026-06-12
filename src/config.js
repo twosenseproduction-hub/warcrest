@@ -55,14 +55,49 @@
       maxArmy: 26,              // soft cap on simultaneous enemy combat units
       pawnCount: 3,               // match typical player open
       retaliate: true,
+      difficulty: 'normal',     // easy | normal | hard | brutal
+      modeDebounce: 18,         // seconds between strategy mode switches
+      desiredWorkers: 3,
+      rebuildPriority: ['foundry', 'conduit', 'forge', 'core'],
+      squads: {
+        assaultMinStrength: 4,
+        harassMinStrength: 2,
+        defenseRadius: 420,
+        rallyDist: 90,
+        refreshInterval: 6,
+        retreatHpRatio: 0.32,
+      },
+      difficultyMods: {
+        easy:   { thinkMul: 1.55, assaultMin: 6, refreshMul: 1.4, incomeBonus: 0 },
+        normal: { thinkMul: 1.0,  assaultMin: 4, refreshMul: 1.0, incomeBonus: 0 },
+        hard:   { thinkMul: 0.82, assaultMin: 3, refreshMul: 0.75, incomeBonus: 0.08 },
+        brutal: { thinkMul: 0.68, assaultMin: 3, refreshMul: 0.6,  incomeBonus: 0.15 },
+      },
     },
 
-    // Combat feel
+    // Combat feel — acquisition/chase/return (WC3-inspired)
     combat: {
-      attentionIdle: 1.55,        // idle / guard auto-acquire radius = unit.range × this (was 1.25)
-      attentionAttackMove: 2.0,   // attack-move acquire radius = unit.range × this (was 1.6)
-      attentionChase: 2.1,        // attack-move drop-chase beyond unit.range × this (was 1.65)
-      meleeBuildingStandoff: 8,   // melee gap from building collision edge (was ~center stop range×0.8+tr)
+      attentionIdle: 1.55,
+      attentionAttackMove: 2.0,
+      attentionChase: 2.1,
+      meleeBuildingStandoff: 8,
+      roles: {
+        lancer:  { acquireMul: 1.8, chaseRange: 205 },
+        archer:  { acquireMul: 2.2, chaseRange: 240 },
+        monk:    { acquireMul: 1.5, chaseRange: 165 },
+        warrior: { acquireMul: 1.7, chaseRange: 190 },
+        default: { acquireMul: 1.5, chaseRange: 200 },
+      },
+      pawn: {
+        retaliate: true,
+        dangerRadius: 56,
+        retaliateChase: 72,
+        retaliateDuration: 2.4,
+      },
+      siege: {
+        unfinishedBonus: 42,
+        productionBonus: 30,
+      },
     },
     separation: 150,            // unit push-apart strength
     pawnSeparationMul: 0.28,    // workers — allow slight overlap at mines / base
