@@ -62,14 +62,9 @@
   }
 
   function depositInRange(s, u) {
-    var deps = RTS.deposits(s, u.team);
-    var best = null, bd = Infinity;
-    deps.forEach(function (b) {
-      if (!canDepositAt(u, b, s)) return;
-      var d = dist(u.x, u.y, b.x, b.y);
-      if (d < bd) { bd = d; best = b; }
-    });
-    return best;
+    var dep = resolveReturnDeposit(s, u);
+    if (dep && canDepositAt(u, dep, s)) return dep;
+    return null;
   }
 
   function resumeLinkedHarvest(s, u) {
@@ -115,18 +110,38 @@
     if (RTS.Pathfind) RTS.Pathfind.clearNav(u);
   }
 
+  function isReturnDeposit(b) {
+    return !!(b && !b.dead && RTS.isDepositBuilding && RTS.isDepositBuilding(b));
+  }
+
+  function resolveReturnDeposit(s, u) {
+    var h = u.harvest;
+    if (!h) return null;
+    if (h.depositOwnerId) {
+      var owner = RTS.getById(s, h.depositOwnerId);
+      if (isReturnDeposit(owner)) return owner;
+    }
+    if (h.depositId) {
+      var current = RTS.getById(s, h.depositId);
+      if (isReturnDeposit(current)) return current;
+    }
+    return nearestDeposit(s, u);
+  }
+
+  function assignDepositTarget(s, u) {
+    var dep = resolveReturnDeposit(s, u);
+    u.harvest.depositId = dep ? dep.id : null;
+  }
+
   function tryFinishDeposit(s, u, node) {
-    var dep = depositInRange(s, u);
-    if (dep) {
+    var dep = resolveReturnDeposit(s, u);
+    if (!dep) return false;
+    u.harvest.depositId = dep.id;
+    if (canDepositAt(u, dep, s)) {
       finishDeposit(s, u, node);
       return true;
     }
     return false;
-  }
-
-  function assignDepositTarget(s, u) {
-    var dep = nearestDeposit(s, u);
-    u.harvest.depositId = dep ? dep.id : null;
   }
 
   RTS.update = function (s, dt) {
@@ -586,16 +601,13 @@
     if (u.harvest.phase === 'toBase') {
       if (tryFinishDeposit(s, u, node)) return;
 
-      var dep = u.harvest.depositId ? RTS.getById(s, u.harvest.depositId) : null;
-      if (!dep || dep.dead || !builtDeposit(dep)) {
-        assignDepositTarget(s, u);
-        dep = u.harvest.depositId ? RTS.getById(s, u.harvest.depositId) : null;
-      }
+      var dep = resolveReturnDeposit(s, u);
       if (!dep) {
         if (u.harvest.carry > 0) { u._depositStuckT = (u._depositStuckT || 0) + dt; }
         else if (!resumeLinkedHarvest(s, u)) u.harvest = null;
         return;
       }
+      u.harvest.depositId = dep.id;
 
       if (u.harvest.carry > 0) {
         if (canDepositAt(u, dep, s)) {
@@ -615,10 +627,6 @@
       tryFinishDeposit(s, u, node);
       return;
     }
-  }
-
-  function builtDeposit(b) {
-    return RTS.isDepositBuilding && RTS.isDepositBuilding(b);
   }
 
   function builderReach(b) {
@@ -1178,6 +1186,8 @@
     bestNodeForWorker: bestNodeForWorker,
     scoreNodeForWorker: scoreNodeForWorker,
     mineChunkSize: mineChunkSize,
+    assignReturnDeposit: assignDepositTarget,
+    resolveReturnDeposit: resolveReturnDeposit,
   };
 
   function depositVeinFeedback(s, b) {

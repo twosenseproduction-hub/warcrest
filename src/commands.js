@@ -443,13 +443,18 @@
       },
     });
     if (phase === 'toBase' && !depositId) {
-      var deps = RTS.deposits(s, worker.team);
-      var bestDep = null, bd = Infinity;
-      deps.forEach(function (b) {
-        var d = dist(worker.x, worker.y, b.x, b.y);
-        if (d < bd) { bd = d; bestDep = b; }
-      });
-      worker.harvest.depositId = bestDep ? bestDep.id : null;
+      var ownerDep = opts.depositOwnerId ? RTS.getById(s, opts.depositOwnerId) : null;
+      if (ownerDep && RTS.isDepositBuilding && RTS.isDepositBuilding(ownerDep)) {
+        worker.harvest.depositId = ownerDep.id;
+      } else {
+        var deps = RTS.deposits(s, worker.team);
+        var bestDep = null, bd = Infinity;
+        deps.forEach(function (b) {
+          var d = dist(worker.x, worker.y, b.x, b.y);
+          if (d < bd) { bd = d; bestDep = b; }
+        });
+        worker.harvest.depositId = bestDep ? bestDep.id : null;
+      }
     }
     if (RTS.Pathfind) RTS.Pathfind.clearNav(worker);
   };
@@ -513,13 +518,17 @@
     u.harvest.phase = 'toBase';
     u.harvest.nodeId = null;
     u.harvest.depositId = null;
-    var deps = RTS.deposits(s, u.team);
-    var best = null, bd = Infinity;
-    deps.forEach(function (b) {
-      var d = dist(u.x, u.y, b.x, b.y);
-      if (d < bd) { bd = d; best = b; }
-    });
-    u.harvest.depositId = best ? best.id : null;
+    if (RTS.Harvest && RTS.Harvest.assignReturnDeposit) {
+      RTS.Harvest.assignReturnDeposit(s, u);
+    } else {
+      var deps = RTS.deposits(s, u.team);
+      var best = null, bd = Infinity;
+      deps.forEach(function (b) {
+        var d = dist(u.x, u.y, b.x, b.y);
+        if (d < bd) { bd = d; best = b; }
+      });
+      u.harvest.depositId = best ? best.id : null;
+    }
   };
 
   RTS.redirectPawnToBuild = function (s, u, b) {
