@@ -202,8 +202,9 @@
       p.innerHTML = selPortrait(s, portraitKey, true) + '<div class="sel-body">' +
         '<div class="sel-title">' + RTS.nameFor(b.faction, b.type) + '</div>' +
         bar(b.hp, b.maxHp) +
-        (!b.built ? '<div class="sel-line">' + Math.floor(b.progress * 100) + '% built</div>' :
-          '<div class="sel-line">Tap ground → rally</div>') +
+        (!b.built ? '<div class="sel-line">' + Math.floor(b.progress * 100) +
+          '% · hold to send Pawn</div>' :
+          '<div class="sel-line">Hold ground → rally</div>') +
         '</div>';
       return;
     }
@@ -222,6 +223,8 @@
                 ? 'returning +' + Math.floor(u.harvest.carry)
                 : 'to gold'
             ) + '</div>'
+          : u.role === 'pawn'
+          ? '<div class="sel-line">Hold site → build</div>'
           : '') +
         '</div>';
       return;

@@ -1,7 +1,8 @@
 /* ============================================================================
  * EXOFRONT — input.js
  * Camera math + unified touch/mouse input: tap select, command, box select,
- * long-press attack-move, double-tap empty ground = army (deferred 1st tap),
+ * long-press: rally (production building selected), build site, attack-move;
+ * double-tap empty ground = army (deferred 1st tap),
  * double-tap + hold empty ground = command wheel, double-tap building = workers,
  * two-finger tap deselect, one-finger pan, two-finger pinch-zoom.
  * ==========================================================================*/
@@ -187,19 +188,6 @@
       return;
     }
 
-    // Production building selected → tap ground sets rally point
-    var blds = RTS.selectedBuildings(s);
-    if (!sel.length && blds.length && !hit) {
-      if (RTS.setRallyPoint(s, blds, wx, wy)) {
-        if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
-        flash(s, wx, wy, '#ffc107');
-        RTS.toast(s, 'Rally point set');
-        RTS.Audio.play('click');
-        haptic(8);
-        return;
-      }
-    }
-
     if (!hit) {
       if (RTS.BuildingMenu && RTS.BuildingMenu.isOpen()) {
         RTS.BuildingMenu.close(s);
@@ -226,23 +214,79 @@
     RTS.addEffect(s, { kind: 'cmd', x: wx, y: wy, life: 0.34, max: 0.34, color: color, r: 10 });
   }
 
-  // ---- Long press (attack-move on empty ground) ----------------------------
-  function startLongPress(s, wx, wy, cssX, cssY) {
+  function unfinishedPlayerBuilding(hit) {
+    return !!(hit && hit.kind === 'building' && hit.team === TEAM.PLAYER && !hit.built && !hit.dead);
+  }
+
+  function productionBuildingsSelected(s) {
+    return RTS.selectedBuildings(s).filter(function (b) {
+      return b.built && RTS.isProductionBuilding && RTS.isProductionBuilding(b);
+    });
+  }
+
+  // ---- Long press: rally (building selected), build site, or attack-move ----
+  function startLongPress(s, wx, wy, cssX, cssY, hit) {
     clearLongPress(s);
+    if (s.inputMode === 'place-building') return;
+
     var combat = RTS.selectedUnits(s).filter(function (u) { return u.role !== 'pawn'; });
-    if (!combat.length || s.inputMode === 'place-building') return;
+    var workers = RTS.selectedUnits(s).filter(function (u) { return u.role === 'pawn'; });
+    var onBare = isBareGround(hit);
+    var mode = null;
+
+    if (unfinishedPlayerBuilding(hit)) {
+      mode = 'build';
+    } else if (onBare) {
+      if (productionBuildingsSelected(s).length && !combat.length) mode = 'rally';
+      else if (combat.length) mode = 'attackmove';
+    }
+
+    if (!mode) return;
+
     var ms = (RTS.Config.touch && RTS.Config.touch.longPressMs) || 460;
     showLongPressRing(cssX, cssY);
-    s.ui.longPressAnchor = { wx: wx, wy: wy, cssX: cssX, cssY: cssY, start: performance.now() };
+    s.ui.longPressAnchor = {
+      wx: wx, wy: wy, cssX: cssX, cssY: cssY,
+      mode: mode, hitId: hit ? hit.id : null,
+      start: performance.now(),
+    };
     s.ui.longPressTimer = setTimeout(function () {
       var p = s.ui.pointer;
       if (!p || p.moved) return;
       p.longPressFired = true;
-      RTS.orderMove(s, combat, wx, wy, true);
-      flash(s, wx, wy, '#ff9a3c');
-      RTS.log(s, 'Attack-move ordered', 'info');
-      RTS.toast(s, 'Attack-move');
-      haptic(18);
+      var anchor = s.ui.longPressAnchor;
+      if (!anchor) return;
+
+      if (anchor.mode === 'rally') {
+        var rallyBlds = productionBuildingsSelected(s);
+        if (rallyBlds.length && RTS.setRallyPoint(s, rallyBlds, anchor.wx, anchor.wy)) {
+          if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
+          flash(s, anchor.wx, anchor.wy, '#ffc107');
+          RTS.toast(s, 'Rally point set');
+          RTS.Audio.play('click');
+          haptic(14);
+        }
+      } else if (anchor.mode === 'attackmove') {
+        var fighters = RTS.selectedUnits(s).filter(function (u) { return u.role !== 'pawn'; });
+        if (fighters.length) {
+          RTS.orderMove(s, fighters, anchor.wx, anchor.wy, true);
+          flash(s, anchor.wx, anchor.wy, '#ff9a3c');
+          RTS.log(s, 'Attack-move ordered', 'info');
+          RTS.toast(s, 'Attack-move');
+          haptic(18);
+        }
+      } else if (anchor.mode === 'build') {
+        var site = anchor.hitId ? RTS.getById(s, anchor.hitId) : null;
+        if (site && !site.built && !site.dead) {
+          var pawns = RTS.selectedUnits(s).filter(function (u) { return u.role === 'pawn'; });
+          if (RTS.orderBuild(s, site, pawns)) {
+            flash(s, site.x, site.y, '#69f0ae');
+            RTS.toast(s, 'Pawn sent to build');
+            haptic(14);
+          }
+        }
+      }
+
       hideLongPressRing();
       clearLongPress(s);
     }, ms);
@@ -340,8 +384,9 @@
               haptic(14);
             }
           }, MENU_HOLD);
-        } else if (onEmpty && !boxArmed && !secondTap) {
-          startLongPress(s, w.x, w.y, cssX, cssY);
+        } else if (!secondTap && !boxArmed &&
+            (isBareGround(hit) || unfinishedPlayerBuilding(hit))) {
+          startLongPress(s, w.x, w.y, cssX, cssY, hit);
         }
       }
 

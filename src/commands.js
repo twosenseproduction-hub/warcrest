@@ -217,6 +217,48 @@
   RTS.baseTrain = baseTrain;
 
   // ---- Building placement --------------------------------------------------
+  RTS.orderBuild = function (s, building, workers) {
+    if (!building || building.dead || building.built || building.team !== RTS.TEAM.PLAYER) {
+      return false;
+    }
+    workers = (workers || []).filter(function (u) {
+      return u && !u.dead && u.role === 'pawn' && u.team === RTS.TEAM.PLAYER;
+    });
+    if (workers.length) {
+      workers.sort(function (a, c) {
+        return dist(a.x, a.y, building.x, building.y) - dist(c.x, c.y, building.x, building.y);
+      });
+      var w = workers[0];
+      w.harvest = null;
+      w.target = null;
+      w.moveTo = null;
+      w.buildTask = { buildingId: building.id };
+      w._workPhase = 0;
+      building.builderId = w.id;
+      if (RTS.Pathfind) RTS.Pathfind.clearNav(w);
+      if (building.team === RTS.TEAM.PLAYER) {
+        RTS.log(s, 'Pawn sent to build', 'good');
+        RTS.Audio.play('move');
+        RTS.HUD.sync(s);
+      }
+      return true;
+    }
+    var assigned = RTS.assignBuilder(s, building);
+    if (!assigned) {
+      if (building.team === RTS.TEAM.PLAYER) {
+        RTS.toast(s, 'Need an idle Pawn');
+        RTS.Audio.play('deny');
+      }
+      return false;
+    }
+    if (building.team === RTS.TEAM.PLAYER) {
+      RTS.log(s, 'Pawn sent to build', 'good');
+      RTS.Audio.play('move');
+      RTS.HUD.sync(s);
+    }
+    return true;
+  };
+
   RTS.assignBuilder = function (s, b, preferredWorker) {
     if (!b || b.dead || b.built) return null;
     var team = b.team;
