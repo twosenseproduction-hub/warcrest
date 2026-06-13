@@ -316,11 +316,20 @@
       var drawW = (fw / fh) * drawH;
       var footRatio = fh >= 300 ? 0.91 : 0.94;
       var drawY = footY - drawH * footRatio;
+      var insetX = 0.18;
+      var insetTop = 0.08;
+      var insetBot = 0.05;
       return {
         x: u.x, footY: footY, drawW: drawW, drawH: drawH, drawY: drawY,
         groundRx: Math.max(r * 0.95, drawW * 0.24),
         groundRy: Math.max(r * 0.36, 8),
         bodyCy: drawY + drawH * 0.55,
+        tight: {
+          x: u.x - drawW / 2 + drawW * insetX,
+          y: drawY + drawH * insetTop,
+          w: drawW * (1 - insetX * 2),
+          h: drawH * (1 - insetTop - insetBot),
+        },
       };
     },
 

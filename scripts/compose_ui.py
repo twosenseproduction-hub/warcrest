@@ -90,7 +90,7 @@ def extract_sword_icon(sheet_path, row):
     bbox = row_img.getbbox()
     return row_img.crop(bbox) if bbox else row_img
 
-def compose_sword(sheet_path, row, out_w):
+def compose_sword(sheet_path, row, out_w, out_h=72):
     """Horizontal 3-slice sword banner: hilt | blade (stretch) | tip."""
     im = Image.open(sheet_path).convert('RGBA')
     y = row * 64
@@ -99,10 +99,11 @@ def compose_sword(sheet_path, row, out_w):
     right = im.crop((320, y, 412, y + 64))
     mid_w = out_w - left.width - right.width
     mid_stretched = mid.resize((max(1, mid_w), 64), Image.NEAREST)
-    canvas = Image.new('RGBA', (out_w, 64), (0, 0, 0, 0))
-    canvas.paste(left, (0, 0))
-    canvas.paste(mid_stretched, (left.width, 0))
-    canvas.paste(right, (left.width + mid_w, 0))
+    canvas = Image.new('RGBA', (out_w, out_h), (0, 0, 0, 0))
+    y_off = max(0, (out_h - 64) // 2)
+    canvas.paste(left, (0, y_off))
+    canvas.paste(mid_stretched, (left.width, y_off))
+    canvas.paste(right, (left.width + mid_w, y_off))
     return canvas
 
 def main():

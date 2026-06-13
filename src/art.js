@@ -1126,16 +1126,19 @@
         return rectToTrapezoid(vb.tight, true);
       }
       if (vb) {
+        var insetX = 0.18;
+        var insetTop = 0.08;
+        var insetBot = 0.05;
         return rectToTrapezoid({
-          x: vb.x - (vb.groundRx || e.radius) * 1.0,
-          y: vb.footY - (vb.groundRy || e.radius * 0.4) * 1.6,
-          w: (vb.groundRx || e.radius) * 2.0,
-          h: (vb.groundRy || e.radius * 0.4) * 2.2,
+          x: vb.x - vb.drawW / 2 + vb.drawW * insetX,
+          y: vb.drawY + vb.drawH * insetTop,
+          w: vb.drawW * (1 - insetX * 2),
+          h: vb.drawH * (1 - insetTop - insetBot),
         }, true);
       }
       return rectToTrapezoid({
-        x: e.x - e.radius, y: e.y - e.radius * 0.7,
-        w: e.radius * 2, h: e.radius * 1.4,
+        x: e.x - e.radius * 0.85, y: e.y - e.radius * 1.1,
+        w: e.radius * 1.7, h: e.radius * 1.35,
       }, true);
     }
 
@@ -1221,7 +1224,7 @@
 
   function drawBrackets(ctx, box, which, pulse) {
     var scale = 1 + (pulse - 1) * 0.08;
-    var sz = Math.round(bracketLen(box) * 2.6 * scale);
+    var sz = Math.round(bracketLen(box) * 2.35 * scale);
 
     if (selectionCursorReady && selectionCursorImg) {
       if (which === 'top') {
