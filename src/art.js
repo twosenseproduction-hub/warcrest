@@ -338,36 +338,63 @@
   }
 
   /* ==========================================================================
-   * Halcite pile — flat cel gold, no gradients.
+   * Halcite pile — stable coin layout, organic mound base, gem crown.
+   * Coins arranged in explicit back→front painter order; ground ellipse gives
+   * the impression of a real pile sitting on the terrain.
    * ========================================================================*/
   function drawResource(ctx, n) {
     if (RTS.Assets && RTS.Assets.ready && RTS.Assets.drawResource(ctx, n)) return;
     var pct = n.amount / n.max;
-    var sc = 0.55 + 0.45 * pct;
-    var x = n.x, y = n.y;
+    var sc  = 0.55 + 0.45 * pct;   // shrinks as depleted
+    var x = n.x, y = n.y, r = n.r;
 
-    drawShadow(ctx, x, y + n.r * 0.18, n.r * sc * 0.95, 0.3);
+    // Soft shadow
+    drawShadow(ctx, x, y + r * 0.28 * sc, r * sc * 1.05, 0.32);
 
-    ctx.fillStyle = hexA('#ffd54f', 0.22);
-    pCircle(ctx, x, y, n.r + 8); ctx.fill();
+    // Flat glow halo — ellipse so it reads as a ground pool, not a ring
+    ctx.fillStyle = hexA('#ffd54f', 0.18);
+    pEllipse(ctx, x, y + r * 0.08, r * 1.18 * sc, r * 0.55 * sc);
+    ctx.fill();
 
-    for (var i = 0; i < 5; i++) {
-      var oxx = Math.cos(i * 1.3) * n.r * 0.38 * sc;
-      var oyy = Math.sin(i * 1.3) * n.r * 0.22 * sc - i * 2.5;
-      drawCoin(ctx, x + oxx, y + oyy, n.r * 0.36 * sc);
+    // Dark dirt base ellipse — anchors the pile visually
+    ctx.fillStyle = hexA('#c8860a', 0.35);
+    pEllipse(ctx, x, y + r * 0.32 * sc, r * 0.88 * sc, r * 0.24 * sc);
+    ctx.fill();
+
+    // Coins — explicit stable positions, back row first (painter's order)
+    // Layout: [ox_fraction, oy_fraction, size_factor]
+    var coinR = r * 0.38 * sc;
+    var coinLayout = [
+      [ -0.44,  0.18, 1.00 ],   // back-left
+      [  0.44,  0.14, 1.00 ],   // back-right
+      [ -0.12, -0.06, 1.05 ],   // back-center
+      [ -0.52,  0.44, 0.90 ],   // front-left
+      [  0.42,  0.44, 0.90 ],   // front-right
+    ];
+    for (var i = 0; i < coinLayout.length; i++) {
+      var cl = coinLayout[i];
+      drawCoin(ctx,
+        x + cl[0] * r * sc,
+        y + cl[1] * r * sc,
+        coinR * cl[2]
+      );
     }
-    drawGem(ctx, x, y - n.r * 0.16 * sc, n.r * 0.52 * sc);
 
+    // Center gem — drawn last so it always crowns the pile
+    drawGem(ctx, x, y - r * 0.22 * sc, r * 0.50 * sc);
+
+    // Amount label
     var label = Math.ceil(n.amount);
     ctx.font = 'bold 12px Fredoka, system-ui';
     ctx.textAlign = 'center';
     var tw = ctx.measureText(label).width + 16;
-    pRRect(ctx, x - tw / 2, y + n.r * sc + 6, tw, 18, 9);
+    var labelY = y + r * sc + 6;
+    pRRect(ctx, x - tw / 2, labelY, tw, 18, 9);
     ctx.fillStyle = TEXT_INK; ctx.fill();
-    pRRect(ctx, x - tw / 2 + 1.5, y + n.r * sc + 7.5, tw - 3, 15, 7.5);
+    pRRect(ctx, x - tw / 2 + 1.5, labelY + 1.5, tw - 3, 15, 7.5);
     ctx.fillStyle = '#ffc107'; ctx.fill();
     ctx.fillStyle = TEXT_INK;
-    ctx.fillText(label, x, y + n.r * sc + 19);
+    ctx.fillText(label, x, labelY + 13);
   }
 
   function drawCoin(ctx, x, y, r) {
