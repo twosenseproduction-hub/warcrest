@@ -16,6 +16,48 @@
     return base + rel.split('/').map(encodeURIComponent).join('/');
   }
 
+  /* Warren Maw source art often ships on black/white — key at load for transparent draw. */
+  function keyWarrenMaw(img) {
+    var w = img.width;
+    var h = img.height;
+    var canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    var ctx = canvas.getContext('2d');
+    if (!ctx) return Promise.resolve(img);
+    ctx.drawImage(img, 0, 0);
+    var data = ctx.getImageData(0, 0, w, h);
+    var px = data.data;
+    for (var i = 0; i < px.length; i += 4) {
+      var r = px[i];
+      var g = px[i + 1];
+      var b = px[i + 2];
+      if ((r <= 25 && g <= 25 && b <= 25) || (r >= 248 && g >= 248 && b >= 248)) {
+        px[i] = px[i + 1] = px[i + 2] = 0;
+        px[i + 3] = 0;
+      }
+    }
+    ctx.putImageData(data, 0, 0);
+    return new Promise(function (resolve) {
+      var out = new Image();
+      out.onload = function () { resolve(out); };
+      out.onerror = function () { resolve(img); };
+      out.src = canvas.toDataURL('image/png');
+    });
+  }
+
+  function resolveLoadedImg(promise, img, resolve, base, rel) {
+    if (base === RAIDER_BASE && rel === 'Warren_Maw.png') {
+      keyWarrenMaw(img).then(function (keyed) {
+        promise._img = keyed;
+        resolve(keyed);
+      });
+      return;
+    }
+    promise._img = img;
+    resolve(img);
+  }
+
   function loadImg(rel, base) {
     base = base || KINGDOM_BASE;
     var key = base + rel;
@@ -25,7 +67,7 @@
     }
     var promise = new Promise(function (resolve, reject) {
       var img = new Image();
-      img.onload = function () { promise._img = img; resolve(img); };
+      img.onload = function () { resolveLoadedImg(promise, img, resolve, base, rel); };
       img.onerror = function () {
         delete cache[key];
         reject(new Error('asset: ' + key));
