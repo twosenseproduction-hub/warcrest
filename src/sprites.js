@@ -361,12 +361,17 @@
       if (animName === 'work' || animName === 'work_hammer') {
         return Math.floor((u._workPhase || 0) * clip.speed) % clip.count;
       }
-      if (animName === 'idle_hammer') {
-        return Math.floor((u._walkPhase || 0) * clip.speed) % clip.count;
+      // Idle clips — use dedicated idle phase ticked every draw call
+      if (animName === 'idle' || animName === 'idle_hammer') {
+        var idleFps = clip.speed || clip.fps || 4;
+        return Math.floor((u._idlePhase || 0) * idleFps) % clip.count;
       }
+      // Guard uses idle phase too (warrior standing in attack range)
       if (animName === 'guard') {
-        return Math.floor((u._walkPhase || 0) * clip.speed) % clip.count;
+        var guardFps = clip.speed || clip.fps || 4;
+        return Math.floor((u._idlePhase || 0) * guardFps) % clip.count;
       }
+      // Walk clips
       return Math.floor((u._walkPhase || 0) * clip.speed) % clip.count;
     },
 
@@ -464,12 +469,18 @@
 
       var dx = u.x - (u._ax != null ? u._ax : u.x);
       var dy = u.y - (u._ay != null ? u._ay : u.y);
-      if (Math.hypot(dx, dy) > 0.8) {
-        u._walkPhase = (u._walkPhase || 0) + Math.hypot(dx, dy) * 0.022;
+      var dist = Math.hypot(dx, dy);
+      if (dist > 0.8) {
+        u._walkPhase = (u._walkPhase || 0) + dist * 0.022;
         u._moveHold = 4;
+        u._idlePhase = u._idlePhase || 0; // don't reset idle phase
       } else if (u._moveHold > 0) {
         u._moveHold--;
       }
+      // Always tick idle phase with real elapsed time.
+      // dt is not directly available here, so derive it from a stable 60fps assumption.
+      // The game runs requestAnimationFrame — use a fixed 1/60 tick per draw call.
+      u._idlePhase = ((u._idlePhase || 0) + (1 / 60));
       u._ax = u.x;
       u._ay = u.y;
 

@@ -7,8 +7,9 @@
 
   RTS.makeUnit = function (s, role, team, x, y, factionId) {
     var spec = RTS.Units[role];
+    var id = RTS.nextId();
     var u = {
-      id: RTS.nextId(), kind: 'unit', role: role, team: team,
+      id: id, kind: 'unit', role: role, team: team,
       faction: factionId || (team === RTS.TEAM.PLAYER ? s.playerFaction : s.enemyFaction),
       x: x, y: y, vx: 0, vy: 0,
       hp: spec.hp, maxHp: spec.hp,
@@ -20,6 +21,7 @@
       buildTask: null,          // {buildingId}
       hitFlash: 0, muzzleFlash: 0, spawnFlash: 0.3, dead: false, corpse: 0,
       facing: 0,
+      _idlePhase: (id * 1.618) % 6.2832,
     };
     s.entities.units.push(u);
     if (RTS.UnitAI) RTS.UnitAI.initUnitAIState(u);
