@@ -807,19 +807,11 @@
   }
 
   function pasturePenRect(b) {
-    if (b.faction === 'cinder') {
-      return {
-        cx: b.x - b.w * 0.14,
-        cy: b.y + b.h * 0.04,
-        hw: b.w * 0.16,
-        hh: b.h * 0.13,
-      };
-    }
     return {
-      cx: b.x,
-      cy: b.y,
-      hw: b.w * 0.38,
-      hh: b.h * 0.28,
+      cx: b.x - b.w * 0.14,
+      cy: b.y + b.h * 0.04,
+      hw: b.w * 0.16,
+      hh: b.h * 0.13,
     };
   }
 

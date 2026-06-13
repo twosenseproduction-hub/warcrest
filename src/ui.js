@@ -128,6 +128,9 @@
     if (type === 'conduit' && factionId === 'cinder') {
       return enc('assets/raider/', 'Pig_Sty.png');
     }
+    if (type === 'conduit' && factionId === 'aurex') {
+      return enc('assets/kingdom/', 'Shepherds_Hut.png');
+    }
     var file = BUILDING_FILE[type] || BUILDING_FILE.foundry;
     var color = RTS.Assets ? RTS.Assets.factionColor(factionId) : 'Blue';
     return enc(TS, 'Buildings/' + color + ' Buildings/' + file);

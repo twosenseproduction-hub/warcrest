@@ -6,6 +6,7 @@
   'use strict';
 
   var KINGDOM_BASE = 'assets/tiny-swords/';
+  var KINGDOM_CUSTOM_BASE = 'assets/kingdom/';
   var ENEMY_BASE = 'assets/tiny-swords-enemy/';
   var LIVESTOCK_BASE = 'assets/livestock/';
   var RAIDER_BASE = 'assets/raider/';
@@ -54,6 +55,9 @@
 
   function preloadFactionAssets(factionIds) {
     (factionIds || []).forEach(function (fid) {
+      if (fid === 'aurex') {
+        loadImg(SHEPHERDS_HUT, KINGDOM_CUSTOM_BASE);
+      }
       if (fid === 'cinder') {
         loadImg('Warren_Maw.png', RAIDER_BASE);
         loadImg(PIG_STY, RAIDER_BASE);
@@ -97,7 +101,8 @@
     Warren_Maw: { l: 0.008, r: 0.008, t: 0.011, b: 0.011 },
     House1:   { l: 0.062, r: 0.062, t: 0.083, b: 0.099 },
     House2:   { l: 0.000, r: 0.000, t: 0.120, b: 0.073 },
-    PigSty:    { l: 0.06, r: 0.06, t: 0.10, b: 0.05 },
+    PigSty:       { l: 0.06, r: 0.06, t: 0.10, b: 0.05 },
+    ShepherdsHut: { l: 0.06, r: 0.06, t: 0.10, b: 0.05 },
     House3:   { l: 0.023, r: 0.023, t: 0.193, b: 0.104 },
     Tower:    { l: 0.031, r: 0.031, t: 0.180, b: 0.102 },
     Archery:  { l: 0.016, r: 0.031, t: 0.238, b: 0.062 },
@@ -162,10 +167,16 @@
   var ARROW = 'Units/Blue Units/Archer/Arrow.png';
   var GNOLL_BONE = 'Enemies/Gnoll/Gnoll_Bone.png';
   var PIG_STY = 'Pig_Sty.png';
+  var SHEPHERDS_HUT = 'Shepherds_Hut.png';
 
   function buildingDrawScale(b, type, imgW, imgH) {
-    var drawType = (b.type === 'conduit' && b.faction === 'cinder') ? 'forge' : type;
+    var drawType = (b.type === 'conduit' && bspecIsPasturePen(b)) ? 'forge' : type;
     return RTS.SizeRef.buildingDrawScale(drawType, imgW, imgH);
+  }
+
+  function bspecIsPasturePen(b) {
+    var bspec = RTS.Buildings && RTS.Buildings[b.type];
+    return !!(bspec && bspec.isPasture);
   }
 
   function buildingFootY(b, s) {
@@ -241,6 +252,7 @@
   function buildingInsetKey(b) {
     if (b.type === 'core' && b.faction === 'cinder') return 'Warren_Maw';
     if (b.type === 'conduit' && b.faction === 'cinder') return 'PigSty';
+    if (b.type === 'conduit' && b.faction === 'aurex') return 'ShepherdsHut';
     return BUILDING_TYPE_TO_INSET_KEY[b.type] || 'House1';
   }
 
@@ -250,6 +262,9 @@
     }
     if (b.type === 'conduit' && b.faction === 'cinder') {
       return { base: RAIDER_BASE, rel: PIG_STY, frames: 1 };
+    }
+    if (b.type === 'conduit' && b.faction === 'aurex') {
+      return { base: KINGDOM_CUSTOM_BASE, rel: SHEPHERDS_HUT, frames: 1 };
     }
     var file = BUILDING_FILES[b.type] || BUILDING_FILES.foundry;
     return {
@@ -282,6 +297,7 @@
       paths.push({ base: KINGDOM_BASE, rel: 'Buildings/Blue Buildings/' + BUILDING_FILES[t] });
       paths.push({ base: KINGDOM_BASE, rel: 'Buildings/Red Buildings/' + BUILDING_FILES[t] });
     });
+    paths.push({ base: KINGDOM_CUSTOM_BASE, rel: SHEPHERDS_HUT });
     paths.push({ base: RAIDER_BASE, rel: 'Warren_Maw.png' });
     paths.push({ base: RAIDER_BASE, rel: PIG_STY });
     GOLD_STONES.forEach(function (p) {
@@ -517,7 +533,7 @@
 
     var bspec = RTS.Buildings[b.type];
     var isPen = !!(bspec && bspec.isPasture);
-    var isPigSty = isPen && b.faction === 'cinder';
+    var isCompoundPen = isPen && (b.faction === 'cinder' || b.faction === 'aurex');
 
     var vb = buildingVisualBounds(b, s);
     if (!vb) return false;
@@ -534,7 +550,7 @@
 
     RTS.Art.drawShadow(ctx, x, footY + 4, Math.max(b.w, b.h) * 0.5, 0.36);
 
-    if (isPen && !isPigSty && RTS.Art.drawPasturePenGround) {
+    if (isPen && !isCompoundPen && RTS.Art.drawPasturePenGround) {
       RTS.Art.drawPasturePenGround(ctx, b.x, b.y, b.w, b.h);
     }
 
@@ -548,7 +564,7 @@
     ctx.drawImage(img, sx, 0, src.w, src.h, dx, dy, dw, dh);
     ctx.restore();
 
-    if (isPen && !isPigSty && RTS.Art.drawPasturePenFence) {
+    if (isPen && !isCompoundPen && RTS.Art.drawPasturePenFence) {
       RTS.Art.drawPasturePenFence(ctx, b.x, b.y, b.w, b.h);
     }
 

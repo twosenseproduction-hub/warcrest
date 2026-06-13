@@ -194,7 +194,7 @@
       desc: 'Expansion base — build beside an Ironstone field. Trains workers and banks ore.',
     },
     conduit: {
-      type: 'conduit', label: 'Sheep Pen', w: 192, h: 192,
+      type: 'conduit', label: "Shepherd's Hut", w: 192, h: 192,
       hp: 420, cost: 65, build: 10,
       isPasture: true,
       trains: ['_livestock'],
@@ -237,7 +237,7 @@
       accent: '#FFD54F',
       shapeStyle: 'angular',
       names: {
-        core: 'Citadel Keep', conduit: 'Sheep Pen', foundry: 'Barracks',
+        core: 'Citadel Keep', conduit: "Shepherd's Hut", foundry: 'Barracks',
         forge: 'War Forge', turret: 'Arrow Tower', outpost: 'Forward Bastion',
         pawn: 'Pawn', lancer: 'Lancer', archer: 'Archer',
         monk: 'Monk', warrior: 'Warrior',

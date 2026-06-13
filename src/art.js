@@ -1472,7 +1472,7 @@
     if (img && clip) {
       var fw = clip.frameW;
       var fh = img.height;
-      var sc = a.species === 'pig' ? 0.30 : 0.55;
+      var sc = a.species === 'pig' ? 0.30 : 0.38;
       var dw = fw * sc;
       var dh = fh * sc;
       if (a.facing < 0) {
