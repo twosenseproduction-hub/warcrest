@@ -15,10 +15,19 @@
   var WIN_SRC = 'assets/audio/fanfare-win.wav';
   var LOSE_SRC = 'assets/audio/fanfare-lose.wav';
   var FANFARE_GAIN = 0.58;
+  var SHOT_SRC = 'assets/audio/arrow-shot.wav';
+  var SHOT_GAIN = 0.16;
+  var COIN_SRC = 'assets/audio/mine-pickaxe.wav';
+  var COIN_GAIN = 0.18;
+  var BOOM_SRC = 'assets/audio/building-explosion.wav';
+  var BOOM_GAIN = 0.38;
 
   var meleeBuffer = null;
   var winBuffer = null;
   var loseBuffer = null;
+  var shotBuffer = null;
+  var coinBuffer = null;
+  var boomBuffer = null;
 
   function ensure() {
     if (ctx) return ctx;
@@ -105,6 +114,9 @@
     loadSample(MELEE_SRC, function (b) { meleeBuffer = b; });
     loadSample(WIN_SRC, function (b) { winBuffer = b; });
     loadSample(LOSE_SRC, function (b) { loseBuffer = b; });
+    loadSample(SHOT_SRC, function (b) { shotBuffer = b; });
+    loadSample(COIN_SRC, function (b) { coinBuffer = b; });
+    loadSample(BOOM_SRC, function (b) { boomBuffer = b; });
   }
 
   function duckMusicFor(ms) {
@@ -158,6 +170,24 @@
     });
   }
 
+  function playArrowShot() {
+    playBuffer(shotBuffer, SHOT_GAIN, [0.96, 1.08], 0, function () {
+      blip(720, 0.04, 'square', 0.12, 480);
+    });
+  }
+
+  function playMineHit() {
+    playBuffer(coinBuffer, COIN_GAIN, [0.92, 1.06], 0, function () {
+      blip(880, 0.07, 'triangle', 0.22, 1100);
+    });
+  }
+
+  function playBuildingExplosion() {
+    playBuffer(boomBuffer, BOOM_GAIN, [0.98, 1.02], 0, function () {
+      blip(120, 0.22, 'sawtooth', 0.3, 50);
+    });
+  }
+
   function blip(freq, dur, type, gain, slideTo) {
     if (!enabled) return;
     var c = ensure(); if (!c) return;
@@ -190,10 +220,10 @@
     attack: function () { blip(300, 0.08, 'square', 0.25, 220); },
     build:  function () { blip(330, 0.12, 'triangle', 0.25, 500); },
     ready:  function () { blip(660, 0.09, 'triangle', 0.28, 880); },
-    coin:   function () { throttled('coin', 120, function () { blip(880, 0.07, 'triangle', 0.22, 1100); }); },
-    shot:   function () { throttled('shot', 55, function () { blip(720, 0.04, 'square', 0.12, 480); }); },
+    coin:   function () { throttled('coin', 140, playMineHit); },
+    shot:   function () { throttled('shot', 70, playArrowShot); },
     melee:  function () { throttled('melee', 85, playMeleeHit); },
-    boom:   function () { throttled('boom', 80, function () { blip(120, 0.22, 'sawtooth', 0.3, 50); }); },
+    boom:   function () { throttled('boom', 120, playBuildingExplosion); },
     win:    playWinFanfare,
     lose:   playLoseFanfare,
   };
