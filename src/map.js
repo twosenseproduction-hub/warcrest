@@ -382,6 +382,48 @@
     return out;
   }
 
+  function initPathGrid(meta) {
+    var TILE = RTS.TILE || 64;
+    var cols = Math.ceil((meta.w || W()) / TILE);
+    var rows = Math.ceil((meta.h || H()) / TILE);
+    var grid = [];
+    var r, c, h;
+    for (r = 0; r < rows; r++) {
+      grid[r] = [];
+      for (c = 0; c < cols; c++) grid[r][c] = 0;
+    }
+    meta.pathGrid = grid;
+    meta.pathGridCols = cols;
+    meta.pathGridRows = rows;
+
+    var terrain = meta.terrainGrid;
+    if (terrain && RTS.Terrain) {
+      var WATER = RTS.Terrain.WATER;
+      for (r = 0; r < rows; r++) {
+        for (c = 0; c < cols; c++) {
+          if (c >= terrain.cols || r >= terrain.rows) {
+            grid[r][c] = 1;
+            continue;
+          }
+          h = terrain.heights[c + r * terrain.cols];
+          if (h === WATER) grid[r][c] = 1;
+          else if (terrain.forestWall && terrain.forestWall[c + r * terrain.cols]) {
+            grid[r][c] = 1;
+          }
+        }
+      }
+    }
+    return grid;
+  }
+
+  function syncMapBuildingFootprints(s) {
+    if (!s.map || !s.map.pathGrid) return;
+    s.entities.buildings.forEach(function (b) {
+      if (b.dead) return;
+      RTS.markBuildingFootprint(s, b, true);
+    });
+  }
+
   function finishMap(s, meta) {
     meta.w = meta.w || W();
     meta.h = meta.h || H();
@@ -416,8 +458,12 @@
         meta.decor = (meta.decor || []).concat(
           forestWallTrees(meta.terrainGrid, meta.forestWallSeed || 8801));
       }
+      initPathGrid(meta);
+    } else {
+      initPathGrid(meta);
     }
     s.map = meta;
+    syncMapBuildingFootprints(s);
     RTS.recalcSupply(s, RTS.TEAM.PLAYER);
     RTS.recalcSupply(s, RTS.TEAM.ENEMY);
     if (RTS.linkDepositHomeNodes) RTS.linkDepositHomeNodes(s);
@@ -430,13 +476,24 @@
   function spawnBase(s, team, cx, cy, faction, isEnemy, opts) {
     opts = opts || {};
     var core = RTS.makeBuilding(s, 'core', team, cx, cy, faction, true);
+    RTS.markBuildingFootprint(s, core, true);
     var rallyDx = opts.rallyDx != null ? opts.rallyDx : (isEnemy ? -130 : 130);
     var rallyDy = opts.rallyDy != null ? opts.rallyDy : (isEnemy ? 40 : -40);
     core.rally = { x: cx + rallyDx, y: cy + rallyDy };
     core.autoMine = true;
-    if (opts.conduit) RTS.makeBuilding(s, 'conduit', team, opts.conduit.x, opts.conduit.y, faction, true);
-    if (opts.foundry) RTS.makeBuilding(s, 'foundry', team, opts.foundry.x, opts.foundry.y, faction, true);
-    if (opts.forge) RTS.makeBuilding(s, 'forge', team, opts.forge.x, opts.forge.y, faction, true);
+    var b;
+    if (opts.conduit) {
+      b = RTS.makeBuilding(s, 'conduit', team, opts.conduit.x, opts.conduit.y, faction, true);
+      RTS.markBuildingFootprint(s, b, true);
+    }
+    if (opts.foundry) {
+      b = RTS.makeBuilding(s, 'foundry', team, opts.foundry.x, opts.foundry.y, faction, true);
+      RTS.markBuildingFootprint(s, b, true);
+    }
+    if (opts.forge) {
+      b = RTS.makeBuilding(s, 'forge', team, opts.forge.x, opts.forge.y, faction, true);
+      RTS.markBuildingFootprint(s, b, true);
+    }
     var workers = opts.workers != null ? opts.workers : 0;
     for (var i = 0; i < workers; i++) {
       var ox = isEnemy ? -70 - i * 26 : 70 + i * 26;

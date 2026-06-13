@@ -18,6 +18,23 @@
     };
   };
 
+  RTS.markBuildingFootprint = function (s, b, blocked) {
+    var grid = s.map && s.map.pathGrid;
+    if (!grid) return;
+    var T = RTS.TILE;
+    var col = Math.round(b.x / T);
+    var row = Math.round(b.y / T);
+    var halfW = Math.round(b.w / T / 2);
+    var halfH = Math.round(b.h / T / 2);
+    for (var r = row - halfH; r < row + halfH; r++) {
+      for (var c = col - halfW; c < col + halfW; c++) {
+        if (grid[r] && grid[r][c] !== undefined) {
+          grid[r][c] = blocked ? 1 : 0;
+        }
+      }
+    }
+  };
+
   // ---- Selection -----------------------------------------------------------
   RTS.select = function (s, id, additive) {
     if (!additive) { s.selectedIds = []; RTS.clearMacroGroups(s); }
@@ -676,6 +693,7 @@
     s.entities.buildings = s.entities.buildings.filter(function (x) { return x.id !== b.id; });
     s.selectedIds = s.selectedIds.filter(function (id) { return id !== b.id; });
 
+    RTS.markBuildingFootprint(s, b, false);
     if (RTS.Pathfind) RTS.Pathfind.markDirty(s);
     RTS.recalcSupply(s, b.team);
     if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
@@ -814,6 +832,7 @@
     s.res.player.halcite -= RTS.Buildings[type].cost;
     var b = RTS.makeBuilding(s, type, RTS.TEAM.PLAYER, x, y, s.playerFaction, false);
     if (RTS.Pathfind) RTS.Pathfind.markDirty(s);
+    RTS.markBuildingFootprint(s, b, true);
     if (type === 'outpost') {
       var ringNode = nearResourceRing(s, x, y, RTS.Buildings[type].w / 2, RTS.Buildings[type].h / 2);
       if (ringNode) {

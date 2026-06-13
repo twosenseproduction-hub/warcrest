@@ -450,6 +450,7 @@
     if (!RTS.canAfford(s, TEAM.ENEMY, cost)) return false;
     s.res.enemy.halcite -= cost;
     var b = RTS.makeBuilding(s, 'outpost', TEAM.ENEMY, x, y, s.enemyFaction, false);
+    RTS.markBuildingFootprint(s, b, true);
     b.rally = { x: node.x, y: node.y };
     b.autoMine = true;
     RTS.assignPrimaryNodeToDeposit(s, b, node);
@@ -509,6 +510,7 @@
     if (!RTS.canAfford(s, TEAM.ENEMY, cost)) return false;
     s.res.enemy.halcite -= cost;
     var b = RTS.makeBuilding(s, type, TEAM.ENEMY, x, y, s.enemyFaction, false);
+    RTS.markBuildingFootprint(s, b, true);
     if (RTS.Pathfind) RTS.Pathfind.markDirty(s);
     RTS.assignBuilder(s, b);
     return true;

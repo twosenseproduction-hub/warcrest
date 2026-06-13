@@ -740,6 +740,7 @@
       if (b.progress >= 1) {
         b.built = true; b.hp = b.maxHp; b.spawnFlash = 0.5;
         b.builderId = null;
+        RTS.markBuildingFootprint(s, b, true);
         RTS.spawnBuildingDust(s, b);
         RTS.recalcSupply(s, b.team);
         if (b.team === TEAM.PLAYER) {
@@ -877,6 +878,7 @@
         RTS.log(s, 'Enemy ' + RTS.nameFor(e.faction, e.type) + ' destroyed', 'good');
       }
       s.selectedIds = s.selectedIds.filter(function (id) { return id !== e.id; });
+      RTS.markBuildingFootprint(s, e, false);
       if (RTS.Pathfind) RTS.Pathfind.markDirty(s);
       RTS.Audio.play('boom');
       if (e.type === 'core') checkEndGame(s);
