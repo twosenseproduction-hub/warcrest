@@ -1,11 +1,11 @@
-# Claude Prompt — EXOFRONT Mobile RTS
+# Claude Prompt — Warcrest: Battle for the Ashfen Reach
 
-Copy everything below the line into Claude. Attach this repo's `rts-game/` folder if you want it to improve the existing code rather than start fresh.
+Copy everything below the line into Claude. Attach this repo's source folder if you want it to improve the existing code rather than start fresh.
 
 ---
 
 ```
-You are building a complete, playable, single-player mobile RTS web game called EXOFRONT: Battle for the Ashfen Basin.
+You are building a complete, playable, single-player mobile RTS web game called WARCREST: Battle for the Ashfen Reach.
 
 IMPORTANT EXECUTION RULES
 - Do NOT give me a plan only. Write the actual app code.
@@ -22,10 +22,10 @@ A standalone, mobile-first real-time strategy game that runs locally in the brow
 No backend. No login. No multiplayer. No build step required (plain HTML/CSS/JS).
 No external game assets from copyrighted titles.
 
-The emotional target: the clarity and juice of a top mobile strategy game (think Clash Royale's readability, bold cartoon style, chunky UI, satisfying feedback) — but with ORIGINAL factions, ORIGINAL unit designs, ORIGINAL names, and ORIGINAL art. Do NOT copy StarCraft, Clash Royale characters, Blizzard factions, Supercell assets, or any copyrighted names/art/layout/lore.
+The emotional target: the clarity and juice of a top mobile strategy game (think Clash Royale's readability, bold cartoon style, chunky UI, satisfying feedback) — but with ORIGINAL art inspired by the Tiny Swords pixel art aesthetic (by Pixel Frog). Do NOT copy Clash Royale characters, Blizzard factions, Supercell assets, or any copyrighted names/art/layout/lore.
 
-Game title: EXOFRONT
-Map name: The Ashfen Basin
+Game title: WARCREST
+Map name: The Ashfen Reach
 Mode: Single skirmish vs AI
 
 ---
@@ -33,9 +33,9 @@ Mode: Single skirmish vs AI
 ## PRIMARY GOAL
 
 Make a fully playable mobile RTS with:
-- Original factions, buildings, units, UI skin, terrain, and iconography
+- Factions, buildings, units, UI skin, terrain, and iconography inspired by the Tiny Swords medieval fantasy aesthetic
 - Touch-first controls that feel natural without a manual
-- Cartoon arena graphics with premium mobile-game polish
+- Cartoon pixel-art arena graphics with premium mobile-game polish
 - Enough content to feel like a real game, not a tech demo
 - Match length target: 6–12 minutes; fun within first 60 seconds
 
@@ -43,9 +43,9 @@ Make a fully playable mobile RTS with:
 
 ## ART DIRECTION (CRITICAL — THIS IS THE MAIN PRIORITY)
 
-Visual style: premium mobile cartoon strategy aesthetic.
+Visual style: premium mobile cartoon strategy, medieval fantasy pixel art aesthetic.
 
-Reference the FEEL of top mobile strategy games (bold outlines, chibi proportions, glossy cel-shading, bright saturated colors, chunky UI, satisfying juice) — but create 100% original characters and buildings.
+Reference the FEEL of Tiny Swords by Pixel Frog (bold outlines, chibi proportions, warm earthy colors, chunky UI, satisfying juice) — but create 100% original canvas-drawn characters and buildings.
 
 ### Graphics requirements
 1. **Units must look like characters, not geometric placeholders**
@@ -57,27 +57,26 @@ Reference the FEEL of top mobile strategy games (bold outlines, chibi proportion
    - Facing direction visible (weapon/tool points toward target)
    - Optional: subtle idle bob animation (sin wave on Y)
 
-2. **Buildings must look like arena structures, not flat rectangles**
-   - Chunky cartoon architecture: castle tower, hut with peaked roof, forge chimney, cannon turret
+2. **Buildings must look like medieval structures, not flat rectangles**
+   - Chunky cartoon architecture: stone castle tower, wooden hut with peaked roof, forge with chimney, arrow turret
    - Construction scaffold overlay while building
    - Faction-colored trim and flags/banners
    - Gloss highlights on roofs/walls
 
 3. **Terrain: bright arena board**
-   - Lush green grass base with subtle diamond tile pattern (like a polished arena)
+   - Lush green grass base with subtle tile pattern
    - Sandy patches near each base spawn
-   - Cartoon bushes as decor (not grey rocks)
-   - Gold coin/crystal piles for resource nodes with count pill label
+   - Cartoon bushes and rocks as decor
+   - Glowing Ironstone crystal piles for resource nodes with count pill label
 
 4. **UI: mobile game HUD**
-   - Blue sky gradient menus
+   - Warm parchment/stone menu aesthetic
    - Golden 3D beveled buttons (dark outline, drop shadow, press-down state)
-   - Fredoka or similar rounded display font
-   - Resource pills centered in top bar (Halcite gold icon + Supply cap)
+   - Rounded medieval display font
+   - Resource pills centered in top bar (Ironstone icon + Supply cap)
    - Bottom action tray: large scrollable buttons (min 76×72px) with icon + label + cost
    - Right-side floating quick-action rail: Army, Stop, Attack-Move, Center Base (52px circles)
    - Chunky health bars: dark outline, green/yellow/red fill, white shine strip
-   - White glowing selection ring + ground ellipse
 
 5. **Juice / feedback**
    - Hit flash (white overlay)
@@ -91,23 +90,24 @@ Reference the FEEL of top mobile strategy games (bold outlines, chibi proportion
 6. **Implementation options (pick the best for quality)**
    - Preferred: dedicated `src/art.js` with rich canvas drawing functions per unit/building/terrain
    - Also acceptable: original local SVG assets in `assets/` rendered to canvas
-   - Also acceptable: small sprite sheets you generate as inline SVG or PNG
    - NOT acceptable: plain circles/triangles/hexagons as final art
    - NOT acceptable: fetching external copyrighted sprite sheets
 
 ---
 
-## FACTIONS (ORIGINAL)
+## FACTIONS (ORIGINAL — TINY SWORDS INSPIRED)
 
-### Player-selectable: Aurex Directive
-- Fantasy: disciplined high-tech order, precision, clean geometry, rail-fire
-- Colors: cyan `#26c6da`, light cyan `#80deea`, dark teal `#00838f`, gold accent `#fff176`
-- Visual style: angular armor, clean helmets, bright energy weapons
+### Player-selectable: The Iron Crown
+- Fantasy: disciplined medieval kingdom, precision, order, stone fortresses
+- Colors: royal blue `#1565C0`, silver `#CFD8DC`, gold `#FFD54F`
+- Visual style: armored knights, robed monks, mounted lancers, stone keeps
+- Core Building: **The Citadel Keep** (HP 1600)
 
-### Enemy AI: Cinder Pact
-- Fantasy: bio-mechanical scavenger horde, salvage, furnaces, spite
-- Colors: orange `#ff7043`, peach `#ffab91`, dark orange `#d84315`, yellow accent `#ffee58`
-- Visual style: rough welded plates, hoods, rust, crude weapons
+### Enemy AI: The Raider Horde
+- Fantasy: chaotic creature coalition, goblins, trolls, gnomes, and worse — pouring from the wilds
+- Colors: swamp green `#558B2F`, muddy brown `#5D4037`, bone white `#F5F5DC`
+- Visual style: crude leather armor, bone totems, skull banners, fire pits
+- Core Building: **The Warren Maw** (HP 1600)
 
 Each faction renames the same unit/building archetypes (see content spec below).
 
@@ -116,36 +116,43 @@ Each faction renames the same unit/building archetypes (see content spec below).
 ## CONTENT SPEC
 
 ### Resource
-- **Halcite** — single harvestable resource (gold crystals/coins on map)
+- **Ironstone** — single harvestable resource (glowing crystal/ore deposits on map)
 - Workers mine → carry → deposit at core
 - Clear UI: resource counter pulses on income, "+N" float text on delivery
 
 ### Buildings (5 types)
-| Type | Aurex name | Cinder name | Role |
-|------|-----------|-------------|------|
-| core | Citadel | Furnace Maw | Main base, trains workers, deposit point. HP 1600. |
-| conduit | Conduit | Bellows | +8 supply cap. Cost 80, build 10s. HP 420. |
-| foundry | Foundry | Scrap Pit | Trains light/scout/support. Cost 150, build 18s. HP 760. |
-| forge | War Forge | Slag Forge | Trains heavy/siege. Cost 220, build 26s. HP 980. |
-| turret | Sentinel | Spire Gun | Auto-defense tower. Cost 120, build 14s. HP 520. Dmg 20, range 178. |
+| Type     | Iron Crown name  | Raider Horde name | Role |
+|----------|-----------------|-------------------|------|
+| core     | Citadel Keep    | Warren Maw        | Main base, trains workers, deposit point. HP 1600. |
+| conduit  | Banner Post     | Totem Stake       | +8 supply cap. Cost 80, build 10s. HP 420. |
+| foundry  | Barracks        | War Pit           | Trains light/scout/support. Cost 150, build 18s. HP 760. |
+| forge    | War Forge       | Skull Forge       | Trains heavy/siege. Cost 220, build 26s. HP 980. |
+| turret   | Arrow Tower     | Bone Spire        | Auto-defense tower. Cost 120, build 14s. HP 520. Dmg 20, range 178. |
 
 ### Units (6 archetypes per faction)
-| Role | Aurex | Cinder | Stats (base) |
-|------|-------|--------|--------------|
-| worker | Drudge | Grub | HP 55, spd 100, dmg 5, rng 22, cost 50, supply 1. Harvests + builds. |
-| light | Lancer | Spitter | HP 64, spd 124, dmg 9, rng 132, ranged, cost 75, supply 1. |
-| scout | Skiff | Runner | HP 46, spd 188, dmg 7, rng 96, ranged, cost 60, supply 1. |
-| heavy | Bulwark | Brute | HP 230, spd 62, dmg 30, rng 46, melee, cost 150, supply 3. |
-| siege | Mortar | Lobber | HP 120, spd 56, dmg 46, rng 236, splash 46, cost 200, supply 3. |
-| support | Mender | Stitcher | HP 80, spd 108, heal 12, rng 110, cost 120, supply 2. |
+| Role    | Iron Crown   | Raider Horde   | Stats (base) |
+|---------|-------------|----------------|--------------|
+| worker  | Pawn        | Gnome          | HP 55, spd 100, dmg 5, rng 22, cost 50, supply 1. Harvests + builds. |
+| light   | Archer      | Goblin Raider  | HP 64, spd 124, dmg 9, rng 132, ranged, cost 75, supply 1. |
+| scout   | Lancer      | Thief          | HP 46, spd 188, dmg 7, rng 96, ranged, cost 60, supply 1. |
+| heavy   | Warrior     | Troll          | HP 230, spd 62, dmg 30, rng 46, melee, cost 150, supply 3. |
+| siege   | Catapult    | Minotaur       | HP 120, spd 56, dmg 46, rng 236, splash 46, cost 200, supply 3. |
+| support | Monk        | Root Troll     | HP 80, spd 108, heal 12, rng 110, cost 120, supply 2. |
 
 Train times (seconds): worker 7, light 9, scout 8, support 12, heavy 16, siege 20.
 
-### Map: Ashfen Basin
+### Bonus / Elite Units (late-game wave variants)
+These enemy types escalate the AI's threat as the match progresses:
+- **Gnoll** — Mid-wave shock trooper; faster than a Troll, hits harder than a Goblin Raider
+- **Caveborn** — Underground ambush unit; spawns near contested Ironstone nodes
+- **Skull** — Undead fringe unit; appears in late-game Horde waves
+- **Panda / Pirate Fish** — Wildcard mercenary units; future unlockables or neutral creeps
+
+### Map: Ashfen Reach
 - World size: 2600 × 1800
-- Player base: bottom-left (Citadel + Foundry + 3 workers)
-- Enemy base: top-right (core + Foundry + Forge + 4 workers)
-- 7 Halcite nodes: 2 near each base, 3 contested center
+- Player base: bottom-left (Citadel Keep + Barracks + 3 Pawns)
+- Enemy base: top-right (Warren Maw + War Pit + Skull Forge + 4 Gnomes)
+- 7 Ironstone nodes: 2 near each base, 3 contested center
 - Win: destroy enemy core. Lose: your core destroyed.
 
 ---
@@ -155,8 +162,8 @@ Train times (seconds): worker 7, light 9, scout 8, support 12, heavy 16, siege 2
 ### 1. Economy
 - Worker harvest loop: walk to node → mine → walk to core → deposit
 - Carry capacity: 12, mine rate: 26/sec
-- Starting Halcite: 250
-- Supply cap: 12 from core, +8 per Conduit, max 80
+- Starting Ironstone: 250
+- Supply cap: 12 from core, +8 per Banner Post / Totem Stake, max 80
 
 ### 2. Base building
 - Select worker → Build menu → tap valid placement spot
@@ -176,13 +183,14 @@ Train times (seconds): worker 7, light 9, scout 8, support 12, heavy 16, siege 2
 - Death → corpse fade → explosion effect
 
 ### 4. AI opponent
-- Passive income: 9.5 Halcite/sec
+- Passive income: 9.5 Ironstone/sec
 - Maintains 4 workers harvesting
 - Produces mixed army (light/scout/support/heavy/siege rotation)
 - Army cap grows over time (max 26)
 - Attack waves: first at 70s, then every 52s
+- Late-game waves include elite units (Gnoll, Caveborn, Skull)
 - Waves attack-move toward player core
-- Event log: "Enemy scouts probing" / "Cinder assault wave inbound!"
+- Event log: "Raiders prowling the Reach" / "Horde assault wave inbound!"
 
 ### 5. Touch controls (mobile-first)
 - Tap: select unit/building, command move/attack/harvest
@@ -203,19 +211,19 @@ Train times (seconds): worker 7, light 9, scout 8, support 12, heavy 16, siege 2
 - Rally points shown when building selected
 - Minimap (top-right, compact on phone)
 - Event log (max 6 messages, 2 visible on phone)
-- Toast notifications for errors ("Not enough Halcite", "Supply cap reached")
+- Toast notifications for errors ("Not enough Ironstone", "Supply cap reached")
 
 ---
 
 ## APP FLOW / SCREENS
 
-1. **Main menu** — logo EXOFRONT, Skirmish, How to Play, Settings
-2. **Faction select** — Aurex vs Cinder cards with traits; player picks one, other is AI
+1. **Main menu** — logo WARCREST, Skirmish, How to Play, Settings
+2. **Faction select** — Iron Crown vs Raider Horde cards with traits; player picks one, other is AI
 3. **Onboarding overlay** — first-play tips (4 bullets), stored in localStorage
 4. **Gameplay** — canvas + HUD
 5. **Pause menu** — Resume, Settings, Restart, Quit to Menu
 6. **Settings** — audio toggle, SFX volume slider, always-show-health toggle
-7. **Win/Loss overlay** — stats (time, kills, units built, halcite mined), Play Again, Main Menu
+7. **Win/Loss overlay** — stats (time, kills, units built, ironstone mined), Play Again, Main Menu
 8. **How to Play** — 6 cards explaining harvest/train/build/command/attack-move/win
 
 Audio: WebAudio synth only (no audio files). Short blips for click, move, attack, build, ready, shot, boom, win, lose.
@@ -234,16 +242,19 @@ Audio: WebAudio synth only (no audio files). Short blips for click, move, attack
 
 ### Project structure
 ```
-rts-game/
+warcrest/
 ├── index.html
 ├── README.md
 ├── styles/main.css
-├── assets/          (optional: original SVG/PNG if you use file-based art)
+├── assets/
+│   ├── tiny-swords/        ← Human faction sprites (Pixel Frog)
+│   ├── tiny-swords-enemy/  ← Enemy faction sprites (Pixel Frog)
+│   └── ui/                 ← UI elements
 └── src/
     ├── config.js    ← ALL balance values, factions, unit/building specs
     ├── state.js     ← central game state object
     ├── entities.js  ← factories for units, buildings, resources, effects
-    ├── map.js       ← Ashfen Basin layout
+    ├── map.js       ← Ashfen Reach layout
     ├── commands.js  ← selection, orders, training, building placement
     ├── art.js       ← ★ ALL cartoon drawing (units, buildings, terrain, VFX)
     ├── render.js    ← camera transform, render loop, minimap
@@ -269,7 +280,7 @@ rts-game/
 - First meaningful choice within ~30 seconds (train worker vs light vs build conduit)
 - First combat pressure at ~70 seconds (first AI wave)
 - Match length: 6–12 minutes
-- Worker mining loop must be obvious from visuals alone (carry bag, +N float, gold node)
+- Worker mining loop must be obvious from visuals alone (carry bag, +N float, crystal node)
 - Heavy/siege units feel expensive but impactful
 
 ---
@@ -308,7 +319,7 @@ rts-game/
 
 ## OPTIONAL: IMPROVE EXISTING CODEBASE
 
-If I attach the current `rts-game/` folder, you may refactor it rather than rewrite from scratch. The existing game has all systems working (economy, combat, AI, touch input, menus). Your job is primarily to **elevate the art and mobile UX** to premium mobile-game quality while keeping gameplay intact.
+If I attach the current source folder, you may refactor it rather than rewrite from scratch. The existing game has all systems working (economy, combat, AI, touch input, menus). Your job is primarily to **elevate the art and mobile UX** to premium mobile-game quality while keeping gameplay intact.
 
 Key files today:
 - `src/art.js` — cartoon canvas drawing (needs major quality pass)
