@@ -71,6 +71,9 @@
       state.playerFaction = factionId;
       state.enemyFaction = factionId === 'aurex' ? 'cinder' : 'aurex';
       applyFactionTheme(factionId);
+      if (RTS.Assets && RTS.Assets.preloadFactions) {
+        RTS.Assets.preloadFactions([state.playerFaction, state.enemyFaction]);
+      }
       RTS.buildMap(state, state.mapId);
       this.scene('playing');           // make canvas visible before sizing
       RTS.Render.resize(state);

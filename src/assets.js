@@ -25,7 +25,10 @@
     var promise = new Promise(function (resolve, reject) {
       var img = new Image();
       img.onload = function () { promise._img = img; resolve(img); };
-      img.onerror = function () { reject(new Error('asset: ' + key)); };
+      img.onerror = function () {
+        delete cache[key];
+        reject(new Error('asset: ' + key));
+      };
       img.src = url(base, rel);
     });
     cache[key] = promise;
@@ -36,6 +39,21 @@
     base = base || KINGDOM_BASE;
     var p = cache[base + rel];
     return (p && p._img) ? p._img : null;
+  }
+
+  function ensureImg(rel, base) {
+    var img = imgSync(rel, base);
+    if (img) return img;
+    loadImg(rel, base).catch(function (err) {
+      console.warn('Warcrest asset load failed:', err.message);
+    });
+    return null;
+  }
+
+  function preloadFactionAssets(factionIds) {
+    (factionIds || []).forEach(function (fid) {
+      if (fid === 'cinder') loadImg('Raider_Stronghold.png', RAIDER_BASE);
+    });
   }
 
   function factionColor(fid) {
@@ -136,7 +154,12 @@
 
   var ARROW = 'Units/Blue Units/Archer/Arrow.png';
 
-  function buildingDrawScale(type, imgW, imgH) {
+  function buildingDrawScale(b, type, imgW, imgH) {
+    if (type === 'core' && b.faction === 'cinder') {
+      var scW = 320 / Math.max(imgW, 1);
+      var scH = 210 / Math.max(imgH, 1);
+      return Math.min(scW, scH);
+    }
     return RTS.SizeRef.buildingDrawScale(type, imgW, imgH);
   }
 
@@ -147,10 +170,10 @@
 
   function buildingVisualBounds(b, s) {
     var asset = buildingAsset(b);
-    var img = imgSync(asset.rel, asset.base);
+    var img = ensureImg(asset.rel, asset.base);
     if (!img) return null;
     var footY = buildingFootY(b, s);
-    var sc = buildingDrawScale(b.type, img.width, img.height);
+    var sc = buildingDrawScale(b, b.type, img.width, img.height);
     var drawW = img.width * sc;
     var drawH = img.height * sc;
     var footRatio = BUILDING_FOOT[b.type] || 0.95;
@@ -460,7 +483,7 @@
   function drawBuilding(ctx, b, f, s) {
     if (b.dead) return false;
     var asset = buildingAsset(b);
-    var img = imgSync(asset.rel, asset.base);
+    var img = ensureImg(asset.rel, asset.base);
     if (!img) return false;
 
     var vb = buildingVisualBounds(b, s);
@@ -627,11 +650,15 @@
         self.ready = true;
         if (cb) cb();
       }).catch(function (err) {
-        console.error('EXOFRONT Tiny Swords load failed', err);
-        self.ready = false;
+        console.error('Warcrest asset pack load failed', err);
+        ready = true;
+        self.ready = true;
         if (cb) cb(err);
       });
     },
+
+    preloadFactions: preloadFactionAssets,
+    ensureImg: function (rel, base) { return ensureImg(rel, base); },
 
     drawTerrain: drawTerrain,
     drawResource: drawResource,
