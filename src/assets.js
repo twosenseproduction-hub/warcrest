@@ -6,6 +6,7 @@
   'use strict';
 
   var KINGDOM_BASE = 'assets/tiny-swords/';
+  var ENEMY_BASE = 'assets/tiny-swords-enemy/';
   var RAIDER_BASE = 'assets/raider/';
   var TILE = 64;
   var cache = {};
@@ -88,7 +89,7 @@
   /* Measured from sprite alpha channels — inset fractions (0..1) per edge. */
   var BUILDING_TIGHT_INSETS = {
     Castle:   { l: 0.012, r: 0.012, t: 0.16, b: 0.027 },
-    Warren_Maw: { l: 0.05, r: 0.05, t: 0.11, b: 0.04 },
+    Warren_Maw: { l: 0.002, r: 0.002, t: 0.003, b: 0.003 },
     House1:   { l: 0.062, r: 0.062, t: 0.083, b: 0.099 },
     House2:   { l: 0.000, r: 0.000, t: 0.120, b: 0.073 },
     House3:   { l: 0.023, r: 0.023, t: 0.193, b: 0.104 },
@@ -155,10 +156,6 @@
   var ARROW = 'Units/Blue Units/Archer/Arrow.png';
 
   function buildingDrawScale(b, type, imgW, imgH) {
-    if (type === 'core' && b.faction === 'cinder') {
-      /* Warren Maw — width-led so the wide orc stronghold reads at full scale. */
-      return 512 / Math.max(imgW, 1);
-    }
     return RTS.SizeRef.buildingDrawScale(type, imgW, imgH);
   }
 
@@ -637,9 +634,11 @@
     KINGDOM_BASE: KINGDOM_BASE,
     BASE: KINGDOM_BASE,
     url: function (rel) { return url(KINGDOM_BASE, rel); },
-    loadImg: function (rel) { return loadImg(rel, KINGDOM_BASE); },
-    img: function (rel) { return imgSync(rel, KINGDOM_BASE); },
+    ENEMY_BASE: ENEMY_BASE,
+    loadImg: function (rel, base) { return loadImg(rel, base || KINGDOM_BASE); },
+    img: function (rel, base) { return imgSync(rel, base || KINGDOM_BASE); },
     packBase: function () { return KINGDOM_BASE; },
+    enemyBase: function () { return ENEMY_BASE; },
     factionColor: factionColor,
 
     load: function (cb) {

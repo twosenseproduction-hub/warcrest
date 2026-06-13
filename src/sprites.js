@@ -62,6 +62,56 @@
     },
   };
 
+  /* Cinder horde — tiny-swords-enemy pack (no faction color folders). */
+  var ENEMY_ROLE_DEF = {
+    pawn: {
+      folder: 'Enemies/Gnome', frameH: 192, scale: 1,
+      clips: {
+        idle: { file: 'Gnome_Idle.png', count: 8, speed: 2.2 },
+        walk: { file: 'Gnome_Run.png', count: 6, speed: 9 },
+        walk_carry: { file: 'Gnome_Run.png', count: 6, speed: 9 },
+        work: { file: 'Gnome_Attack.png', count: 7, speed: 10 },
+        idle_hammer: { file: 'Gnome_Idle.png', count: 8, speed: 2.2 },
+        walk_hammer: { file: 'Gnome_Run.png', count: 6, speed: 9 },
+        work_hammer: { file: 'Gnome_Attack.png', count: 7, speed: 10 },
+      },
+    },
+    lancer: {
+      folder: 'Enemies/Thief', frameH: 192, scale: 1,
+      clips: {
+        idle: { file: 'Thief_Idle.png', count: 6, speed: 2.2 },
+        walk: { file: 'Thief_Run.png', count: 6, speed: 10 },
+        attack: { file: 'Thief_Attack.png', count: 6, fps: 14, impactFrame: 2 },
+      },
+    },
+    archer: {
+      folder: 'Enemies/Goblin Raiders/Spear Goblin', frameH: 256, scale: 1,
+      clips: {
+        idle: { file: 'Spear Goblin_Idle.png', count: 8, speed: 2.2 },
+        walk: { file: 'Spear Goblin_Run.png', count: 6, speed: 9 },
+        attack: { file: 'Spear Goblin_Attack Strong.png', count: 8, fps: 14, releaseFrame: 4 },
+      },
+    },
+    monk: {
+      folder: 'Enemies/Goblin Raiders/Hex Shaman', frameH: 192, scale: 1,
+      clips: {
+        idle: { file: 'Hex Shaman_Idle.png', count: 8, speed: 2.2 },
+        walk: { file: 'Hex Shaman_Run.png', count: 4, speed: 9 },
+        attack: { file: 'Hex Shaman_Attack.png', count: 10, fps: 10, releaseFrame: 5 },
+        heal_effect: { file: 'Hex Shaman_Explosion Spell.png', count: 10, fps: 10 },
+      },
+    },
+    warrior: {
+      folder: 'Enemies/Troll', frameH: 384, scale: 0.72,
+      clips: {
+        idle: { file: 'Troll_Idle.png', count: 12, speed: 2.0 },
+        walk: { file: 'Troll_Walk.png', count: 10, speed: 7 },
+        guard: { file: 'Troll_Idle.png', count: 12, speed: 2.0 },
+        attack: { file: 'Troll_Attack.png', count: 6, fps: 10, impactFrame: 2 },
+      },
+    },
+  };
+
   var sheets = {};
 
   function phaseOf(id) {
@@ -77,19 +127,32 @@
     return clip.count / clipFps(clip);
   }
 
+  function roleDef(factionId, role) {
+    return factionId === 'cinder' ? ENEMY_ROLE_DEF[role] : ROLE_DEF[role];
+  }
+
+  function assetBase(factionId) {
+    return factionId === 'cinder' ? RTS.Assets.ENEMY_BASE : RTS.Assets.KINGDOM_BASE;
+  }
+
   function unitPath(factionId, role, file) {
-    var def = ROLE_DEF[role];
+    var def = roleDef(factionId, role);
+    if (!def) return '';
+    if (factionId === 'cinder') {
+      return def.folder + '/' + file;
+    }
     var color = RTS.Assets.factionColor(factionId);
     return 'Units/' + color + ' Units/' + def.unit + '/' + file;
   }
 
   function loadRoleSheet(factionId, role) {
-    var def = ROLE_DEF[role];
+    var def = roleDef(factionId, role);
     if (!def) return Promise.resolve(null);
+    var base = assetBase(factionId);
     var clipKeys = Object.keys(def.clips);
     var promises = clipKeys.map(function (ck) {
       var clip = def.clips[ck];
-      return RTS.Assets.loadImg(unitPath(factionId, role, clip.file)).then(function (img) {
+      return RTS.Assets.loadImg(unitPath(factionId, role, clip.file), base).then(function (img) {
         return { key: ck, img: img, meta: clip };
       });
     });
@@ -134,7 +197,8 @@
   }
 
   function unitDrawHeight(r, u, sheet) {
-    return sizeRef().pxHeight(u.role, unitVisualMul(u, sheet));
+    var mul = unitVisualMul(u, sheet) * ((sheet && sheet.scale) || 1);
+    return sizeRef().pxHeight(u.role, mul);
   }
 
   function mirroredAngle(facing) {
@@ -184,6 +248,7 @@
     ready: false,
     sheets: sheets,
     roles: ROLE_DEF,
+    enemyRoles: ENEMY_ROLE_DEF,
 
     load: function (cb) {
       var self = this;

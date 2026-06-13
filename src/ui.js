@@ -6,6 +6,7 @@
   'use strict';
 
   var TS = 'assets/tiny-swords/';
+  var ENEMY_TS = 'assets/tiny-swords-enemy/';
   var UI = 'UI Elements/UI Elements/';
   var FLAT = 'assets/ui/';
 
@@ -84,7 +85,34 @@
   };
   var FACTION_AVATAR_ROW = { aurex: 0, cinder: 1 };
 
+  /* Cinder horde — named portrait PNGs where available; idle strips otherwise. */
+  var ENEMY_UNIT_STRIP = {
+    pawn: { folder: 'Enemies/Gnome', file: 'Gnome_Idle.png', frames: 8, fw: 192, fh: 192 },
+    lancer: { folder: 'Enemies/Thief', file: 'Thief_Idle.png', frames: 6, fw: 192, fh: 192 },
+    archer: { folder: 'Enemies/Goblin Raiders/Spear Goblin', file: 'Spear Goblin_Idle.png', frames: 8, fw: 256, fh: 256 },
+    monk: { folder: 'Enemies/Goblin Raiders/Hex Shaman', file: 'Hex Shaman_Idle.png', frames: 8, fw: 192, fh: 192 },
+    warrior: { folder: 'Enemies/Troll', file: 'Troll_Idle.png', frames: 12, fw: 384, fh: 384, trayZoom: 0.62, posY: 'bottom' },
+  };
+
+  var ENEMY_UNIT_AVATAR = {
+    archer: 'Spear Goblin.png',
+    monk: 'Hex Shaman.png',
+  };
+
+  function enemyStripUrl(role) {
+    var def = ENEMY_UNIT_STRIP[role];
+    if (!def) return '';
+    return enc(ENEMY_TS, def.folder + '/' + def.file);
+  }
+
+  function enemyAvatarUrl(role) {
+    var file = ENEMY_UNIT_AVATAR[role];
+    if (!file) return '';
+    return enc(ENEMY_TS, 'Enemy Avatars/' + file);
+  }
+
   function unitStripUrl(factionId, role) {
+    if (factionId === 'cinder') return enemyStripUrl(role);
     var def = UNIT_STRIP[role];
     if (!def) return '';
     var color = RTS.Assets ? RTS.Assets.factionColor(factionId) : 'Blue';
@@ -109,6 +137,7 @@
   }
 
   function unitAvatarUrl(factionId, role) {
+    if (factionId === 'cinder') return enemyAvatarUrl(role);
     var col = UNIT_AVATAR_COL[role];
     if (col == null) return '';
     var row = FACTION_AVATAR_ROW[factionId];
@@ -116,6 +145,24 @@
     var idx = row * 5 + col + 1;
     var file = 'Avatars_' + (idx < 10 ? '0' : '') + idx + '.png';
     return enc(TS, AVATARS + file);
+  }
+
+  function enemyStripPortraitHtml(role, px) {
+    var def = ENEMY_UNIT_STRIP[role];
+    if (!def) return '';
+    px = px || 36;
+    if (RTS.SizeRef) px = Math.round(px * RTS.SizeRef.trayScale(role));
+    var zoom = def.trayZoom || 1;
+    var url = enemyStripUrl(role);
+    var aspect = (def.fw || 192) / (def.fh || 192);
+    var w = Math.round(px * aspect);
+    var posX = def.posX ? '--pos-x:' + def.posX + ';' : '';
+    var posY = def.posY ? '--pos-y:' + def.posY + ';' : '';
+    var zoomStyle = zoom !== 1
+      ? 'transform:scale(' + zoom + ');transform-origin:bottom center;'
+      : '';
+    return '<span class="ts-strip-portrait" style="--frames:' + def.frames + ';' + posX + posY + zoomStyle +
+      'width:' + w + 'px;height:' + px + 'px;background-image:url(\'' + url + '\')"></span>';
   }
 
   function avatarPortraitHtml(factionId, role, px) {
@@ -127,6 +174,7 @@
   }
 
   function stripPortraitHtml(factionId, role, px) {
+    if (factionId === 'cinder') return enemyStripPortraitHtml(role, px);
     var def = UNIT_STRIP[role];
     if (!def) return '';
     px = px || 36;
@@ -157,6 +205,15 @@
   }
 
   function roleTrayIcon(factionId, role, px) {
+    if (factionId === 'cinder') {
+      var av = enemyAvatarUrl(role);
+      if (av) {
+        px = px || 30;
+        return '<img class="ts-avatar-portrait" src="' + av +
+          '" width="' + px + '" height="' + px + '" alt="" />';
+      }
+      return enemyStripPortraitHtml(role, px || 30);
+    }
     return avatarPortraitHtml(factionId, role, px || 30);
   }
 

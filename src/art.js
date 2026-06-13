@@ -1085,8 +1085,7 @@
   RTS.Art.drawUnitOverlays = drawUnitOverlays;
 
   function drawUnit(ctx, u, f, s) {
-    var useSprites = RTS.Sprites && RTS.Sprites.ready && u.faction !== 'cinder';
-    if (useSprites) {
+    if (RTS.Sprites && RTS.Sprites.ready) {
       RTS.Sprites.drawUnit(ctx, u, f, s);
       return;
     }
