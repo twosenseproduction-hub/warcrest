@@ -96,6 +96,7 @@
     var terrain = s.map && s.map.terrainGrid;
     var r, c, i;
 
+    // Step 1 — copy terrain/water from pathGrid OR compute from terrain
     if (pathGrid) {
       for (r = 0; r < rows; r++) {
         if (!pathGrid[r]) continue;
@@ -116,13 +117,15 @@
         }
       }
       overlayForestWall(blocked, cols, rows, terrain);
-      var buildings = s.entities.buildings;
-      for (i = 0; i < buildings.length; i++) {
-        var b = buildings[i];
-        if (b.dead || !b.built) continue;
-        if (skipId && b.id === skipId) continue;
-        markRectBlocked(blocked, cols, rows, buildingObstacleRect(b, s, 16));
-      }
+    }
+
+    // Step 2 — ALWAYS mark buildings as blocked, regardless of terrain source
+    var buildings = s.entities.buildings;
+    for (i = 0; i < buildings.length; i++) {
+      var b = buildings[i];
+      if (b.dead || !b.built) continue;
+      if (skipId && b.id === skipId) continue;
+      markRectBlocked(blocked, cols, rows, buildingObstacleRect(b, s, 16));
     }
 
     if (skipId) {
