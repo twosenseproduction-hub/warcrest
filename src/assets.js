@@ -156,8 +156,9 @@
 
   function buildingDrawScale(b, type, imgW, imgH) {
     if (type === 'core' && b.faction === 'cinder') {
-      var scW = 320 / Math.max(imgW, 1);
-      var scH = 210 / Math.max(imgH, 1);
+      /* Warren Maw — wide stronghold; target ~8 tiles wide on the map. */
+      var scW = 512 / Math.max(imgW, 1);
+      var scH = 340 / Math.max(imgH, 1);
       return Math.min(scW, scH);
     }
     return RTS.SizeRef.buildingDrawScale(type, imgW, imgH);

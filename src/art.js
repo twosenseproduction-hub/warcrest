@@ -621,6 +621,22 @@
 
   function minionPalette(f, team) {
     var enemy = team !== 'player';
+    if (f.id === 'cinder') {
+      return {
+        horde: true,
+        trim: f.primary,
+        trimHi: '#aed581',
+        trimDark: f.dark,
+        accent: f.accent,
+        steel: '#5d4037',
+        steelHi: '#8d6e63',
+        steelLo: '#3e2723',
+        leather: '#4e342e',
+        skin: enemy ? '#689f38' : '#7cb342',
+        cape: mix(f.dark, '#33691e', enemy ? 0.45 : 0.62),
+        glow: '#dce775',
+      };
+    }
     return {
       trim: f.primary,
       trimHi: f.secondary,
@@ -809,6 +825,16 @@
     drawMinionLeg(ctx, -r * 0.26, r * 0.7, r * 0.32, r * 0.58, leg * 0.38, pal);
     drawMinionLeg(ctx, r * 0.26, r * 0.7, r * 0.32, r * 0.58, -leg * 0.38, pal);
     drawMinionTorso(ctx, r * 0.92, pal);
+    if (pal.horde) {
+      ctx.fillStyle = pal.skin;
+      pCircle(ctx, -r * 0.42, -r * 0.72, r * 0.14);
+      ctx.fill();
+      pCircle(ctx, r * 0.42, -r * 0.72, r * 0.14);
+      ctx.fill();
+      ctx.strokeStyle = ink(pal.trimDark);
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
     ctx.fillStyle = '#6d4c33';
     pRRect(ctx, -r * 0.42, r * 0.05, r * 0.84, r * 0.72, r * 0.12);
     ctx.fill();
@@ -1002,7 +1028,18 @@
     ctx.restore();
   }
 
-  function renderUnitPose(ctx, role, r, pal, anim, t, ph) {
+  function renderUnitPose(ctx, role, r, pal, anim, t, ph, factionId) {
+    if (factionId === 'cinder') {
+      switch (role) {
+        case 'pawn': drawWorkerMinion(ctx, r * 0.82, pal, anim, t, ph); break;
+        case 'lancer': drawScoutMinion(ctx, r * 0.92, pal, anim, t, ph); break;
+        case 'archer': drawScoutMinion(ctx, r * 0.88, pal, anim, t, ph); break;
+        case 'monk': drawSupportMinion(ctx, r * 1.08, pal, anim, t, ph); break;
+        case 'warrior': drawHeavyMinion(ctx, r * 1.32, pal, anim, t, ph); break;
+        default: drawMeleeMinion(ctx, r, pal, anim, t, ph);
+      }
+      return;
+    }
     switch (role) {
       case 'pawn': drawWorkerMinion(ctx, r, pal, anim, t, ph); break;
       case 'lancer': drawScoutMinion(ctx, r, pal, anim, t, ph); break;
@@ -1048,7 +1085,8 @@
   RTS.Art.drawUnitOverlays = drawUnitOverlays;
 
   function drawUnit(ctx, u, f, s) {
-    if (RTS.Sprites && RTS.Sprites.ready) {
+    var useSprites = RTS.Sprites && RTS.Sprites.ready && u.faction !== 'cinder';
+    if (useSprites) {
       RTS.Sprites.drawUnit(ctx, u, f, s);
       return;
     }
@@ -1070,7 +1108,7 @@
     ctx.save();
     ctx.translate(u.x, u.y - anim.bob);
     ctx.scale(flip, 1);
-    renderUnitPose(ctx, u.role, r, pal, anim, t, phaseOf(u));
+    renderUnitPose(ctx, u.role, r, pal, anim, t, phaseOf(u), u.faction);
     ctx.restore();
     drawUnitOverlays(ctx, u, f, s, r, pal);
   }
