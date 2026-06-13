@@ -84,16 +84,24 @@
   function acquireRadius(u) {
     var rc = roleCfg(u);
     var combat = RTS.Config.combat || {};
+    var base = u.acquireRange || u.range * (rc.acquireMul || combat.attentionIdle || 1.55);
     if (u.commandMode === 'attackMove') {
-      return u.range * (combat.attentionAttackMove || 2.0);
+      return Math.max(base, u.range * (combat.attentionAttackMove || 2.0));
     }
     if (u.commandMode === 'guard' || u.commandMode === 'hold') {
-      return u.acquireRange || u.range * (rc.acquireMul || 1.5);
+      return base;
     }
     if (u.team === TEAM.ENEMY && u.role !== 'pawn') {
-      return u.acquireRange || u.range * (rc.acquireMul || 1.8);
+      return base;
     }
-    return u.range * (combat.attentionIdle || 1.55);
+    return base;
+  }
+
+  function targetDist(s, u, target) {
+    if (RTS.combatTargetDist) {
+      return RTS.combatTargetDist(s, u.x, u.y, target, u.radius);
+    }
+    return dist(u.x, u.y, target.x, target.y);
   }
 
   function unitCanAutoAcquire(s, u) {
@@ -101,10 +109,11 @@
     if (u.commandMode === 'attackMove') return true;
     if (u.commandMode === 'guard' || u.commandMode === 'hold') return true;
     if (u.commandMode === 'retaliate') return true;
+    if (u.commandMode === 'attack') return true;
     if (u.team === TEAM.ENEMY && u.role !== 'pawn') return true;
-    if (u.commandMode === 'move') return false;
     if (u.commandMode === 'harvest' || u.commandMode === 'build') return false;
-    if (!u.moveTo && u.commandMode === 'idle') return true;
+    if (u.commandMode === 'move' && u.moveTo) return false;
+    if (!u.moveTo) return true;
     return false;
   }
 
@@ -135,7 +144,7 @@
 
   function scoreTarget(s, u, candidate, origin) {
     var score = 0;
-    var d = dist(u.x, u.y, candidate.x, candidate.y);
+    var d = targetDist(s, u, candidate);
     score -= d * 0.04;
 
     if (candidate.kind === 'unit') {
@@ -168,20 +177,19 @@
 
   function collectEnemies(s, u, maxR) {
     var foeTeam = u.team === TEAM.PLAYER ? TEAM.ENEMY : TEAM.PLAYER;
+    var pad = (RTS.Config.combat && RTS.Config.combat.buildingAcquirePad) || 12;
     var list = [];
     var i;
     for (i = 0; i < s.entities.units.length; i++) {
       var eu = s.entities.units[i];
       if (!RTS.canBeAttacked(eu) || eu.team !== foeTeam) continue;
-      var du = dist(u.x, u.y, eu.x, eu.y);
-      if (du <= maxR) list.push(eu);
+      if (targetDist(s, u, eu) <= maxR) list.push(eu);
     }
     for (i = 0; i < s.entities.buildings.length; i++) {
       var b = s.entities.buildings[i];
       if (b.dead || b.team !== foeTeam) continue;
       if (!canAttackBuilding(b)) continue;
-      var db = dist(u.x, u.y, b.x, b.y);
-      if (db <= maxR) list.push(b);
+      if (targetDist(s, u, b) <= maxR + pad) list.push(b);
     }
     return list;
   }

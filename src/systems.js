@@ -31,22 +31,36 @@
       ? RTS.Config.harvest.depositTriggerR : 38;
   }
 
+  function depositApproachStop() {
+    var H = RTS.Config.harvest;
+    var triggerR = depositTriggerRadius();
+    var configured = H.depositApproachStop != null ? H.depositApproachStop : 12;
+    return Math.min(configured, Math.max(8, triggerR * 0.4));
+  }
+
   function depositApproachPoint(u, dep, s) {
     var rect = depositRect(dep, s);
-    var H = RTS.Config.harvest;
-    var margin = (u.radius || 10) + Math.max(10, (H.depositStop || 22) * 0.45);
+    var triggerR = depositTriggerRadius();
+    var stop = depositApproachStop();
+    /* Target must land inside triggerR after nav stop: standoff + stop <= triggerR */
+    var standoff = Math.max(4, triggerR - stop - 4);
+    var entranceX = (rect.l + rect.r) * 0.5;
+    var entranceY = rect.b;
     var cx = Math.max(rect.l, Math.min(u.x, rect.r));
     var cy = Math.max(rect.t, Math.min(u.y, rect.b));
     var dx = u.x - cx, dy = u.y - cy;
     var edgeD = Math.sqrt(dx * dx + dy * dy);
     if (edgeD < 0.5) {
-      var entranceX = (rect.l + rect.r) * 0.5;
-      var entranceY = rect.b + margin;
-      return { x: entranceX, y: entranceY };
+      var ax = u.x - entranceX, ay = u.y - entranceY;
+      var ad = Math.sqrt(ax * ax + ay * ay) || 1;
+      return {
+        x: entranceX + (ax / ad) * standoff,
+        y: entranceY + standoff * 0.35,
+      };
     }
     return {
-      x: cx + (dx / edgeD) * (edgeD + margin),
-      y: cy + (dy / edgeD) * (edgeD + margin),
+      x: cx + (dx / edgeD) * standoff,
+      y: cy + (dy / edgeD) * standoff,
     };
   }
 
@@ -259,6 +273,9 @@
         u.moveTo = null;
         if (RTS.UnitAI && u.commandMode === 'attackMove' && u.commandTargetPos) {
           u.moveTo = { x: u.commandTargetPos.x, y: u.commandTargetPos.y };
+        } else if (u.commandMode === 'move') {
+          u.commandMode = 'idle';
+          u.attackMove = false;
         }
         if (RTS.Pathfind) RTS.Pathfind.clearNav(u);
       }
@@ -278,7 +295,7 @@
         var attentionMul = u.attackMove
           ? (combat.attentionAttackMove || 2.0)
           : (combat.attentionIdle || 1.55);
-        var foe = nearestEnemy(s, u.x, u.y, u.team, u.range * attentionMul);
+        var foe = nearestEnemy(s, u.x, u.y, u.team, u.range * attentionMul, u.radius);
         if (foe) { target = foe; u.target = foe.id; }
       }
     }
@@ -622,7 +639,7 @@
       }
 
       var approach = depositApproachPoint(u, dep, s);
-      navMove(s, u, approach.x, approach.y, dt, H.depositStop, { skipBuildingId: dep.id });
+      navMove(s, u, approach.x, approach.y, dt, depositApproachStop(), { skipBuildingId: dep.id });
       finishUnitMove(s, u, dt, false);
       tryFinishDeposit(s, u, node);
       return;
@@ -1081,6 +1098,19 @@
     return Math.sqrt(dx * dx + dy * dy);
   }
 
+  /** Edge-aware distance for combat acquisition (buildings use collision rect, units use radii). */
+  function combatTargetDist(s, ux, uy, target, uRadius) {
+    if (!target) return Infinity;
+    if (target.kind === 'building') {
+      return distToBuildingEdge(s, ux, uy, target);
+    }
+    var tr = target.radius || 0;
+    var ur = uRadius || 0;
+    return Math.max(0, dist(ux, uy, target.x, target.y) - tr - ur);
+  }
+  RTS.combatTargetDist = combatTargetDist;
+  RTS.distToBuildingEdge = distToBuildingEdge;
+
   function buildingApproachPoint(s, u, building) {
     var rect = buildingCollisionRect(s, building);
     var cx = Math.max(rect.l, Math.min(u.x, rect.r));
@@ -1165,20 +1195,21 @@
     clampToWorld(u);
   }
 
-  function nearestEnemy(s, x, y, team, maxR) {
+  function nearestEnemy(s, x, y, team, maxR, uRadius) {
     var best = null, bd = maxR;
     var foeTeam = team === TEAM.PLAYER ? TEAM.ENEMY : TEAM.PLAYER;
+    var pad = (RTS.Config.combat && RTS.Config.combat.buildingAcquirePad) || 12;
     var u = s.entities.units;
     for (var i = 0; i < u.length; i++) {
       if (!RTS.canBeAttacked(u[i]) || u[i].team !== foeTeam) continue;
-      var d = dist(x, y, u[i].x, u[i].y);
+      var d = combatTargetDist(s, x, y, u[i], uRadius);
       if (d < bd) { bd = d; best = u[i]; }
     }
     var b = s.entities.buildings;
     for (var j = 0; j < b.length; j++) {
       if (!RTS.canBeAttacked(b[j]) || b[j].team !== foeTeam) continue;
-      var db = dist(x, y, b[j].x, b[j].y);
-      if (db < bd) { bd = db; best = b[j]; }
+      var db = combatTargetDist(s, x, y, b[j], uRadius);
+      if (db <= maxR + pad && db < bd) { bd = db; best = b[j]; }
     }
     return best;
   }

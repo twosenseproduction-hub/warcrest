@@ -47,7 +47,8 @@
       capacity: 6,              // ore per trip — bank after every 6, then return to mine
       reach: 42,                // distance to begin mining / slot ring offset
       depositReach: 165,        // max range to pick/keep a deposit building target (not bank radius)
-      depositStop: 22,          // how close worker walks to the approach point
+      depositStop: 22,          // default nav stop for other contexts
+      depositApproachStop: 12,  // how close pawn walks to the deposit approach point
       depositTriggerR: 38,      // bank ore only when this close to building edge (~1 tile)
       depositStuckSec: 1.2,     // force-bank if carrying, in trigger zone, and not moving
       mineCycleSec: 0.45,       // readable work-swing duration at the node
@@ -91,10 +92,11 @@
 
     // Combat feel — acquisition/chase/return (WC3-inspired)
     combat: {
-      attentionIdle: 1.55,
+      attentionIdle: 1.55,        // fallback mul when role acquireMul missing
       attentionAttackMove: 2.0,
       attentionChase: 2.1,
       meleeBuildingStandoff: 8,
+      buildingAcquirePad: 12,     // extra acquire slack beyond edge for large buildings
       roles: {
         lancer:  { acquireMul: 1.8, chaseRange: 205 },
         archer:  { acquireMul: 2.2, chaseRange: 240 },
