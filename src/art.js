@@ -1472,7 +1472,7 @@
     if (img && clip) {
       var fw = clip.frameW;
       var fh = img.height;
-      var sc = a.species === 'pig' ? 0.42 : 0.48;
+      var sc = a.species === 'pig' ? 0.36 : 0.42;
       var dw = fw * sc;
       var dh = fh * sc;
       ctx.imageSmoothingEnabled = false;

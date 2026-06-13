@@ -806,13 +806,40 @@
     return (b.faction === 'cinder') ? 'pig' : 'sheep';
   }
 
-  function pasturePenRect(b) {
+  var PASTURE_PEN_UV = { u0: 0.13, u1: 0.58, v0: 0.45, v1: 0.97 };
+
+  function pasturePenRect(b, s) {
+    var vb = RTS.Assets && RTS.Assets.buildingVisualBounds
+      ? RTS.Assets.buildingVisualBounds(b, s) : null;
+    if (vb) {
+      var uv = PASTURE_PEN_UV;
+      var uMid = (uv.u0 + uv.u1) * 0.5;
+      var vMid = (uv.v0 + uv.v1) * 0.5;
+      var cx = vb.x - vb.drawW * 0.5 + uMid * vb.drawW;
+      var cy = vb.drawY + vMid * vb.drawH;
+      var hw = (uv.u1 - uv.u0) * vb.drawW * 0.5 * 0.84;
+      var hh = (uv.v1 - uv.v0) * vb.drawH * 0.5 * 0.84;
+      return { cx: cx, cy: cy, hw: hw, hh: hh };
+    }
     return {
       cx: b.x - b.w * 0.14,
       cy: b.y + b.h * 0.04,
-      hw: b.w * 0.16,
-      hh: b.h * 0.13,
+      hw: b.w * 0.16 * 0.84,
+      hh: b.h * 0.13 * 0.84,
     };
+  }
+
+  function livestockFootRadius(species) {
+    var sc = species === 'pig' ? 0.36 : 0.42;
+    var fw = species === 'pig' ? 192 : 128;
+    return fw * sc * 0.28;
+  }
+
+  function clampLivestockToPen(a, pen) {
+    var rx = livestockFootRadius(a.species);
+    var ry = rx * 0.72;
+    a.x = Math.max(pen.cx - pen.hw + rx, Math.min(pen.cx + pen.hw - rx, a.x));
+    a.y = Math.max(pen.cy - pen.hh + ry, Math.min(pen.cy + pen.hh - ry, a.y));
   }
 
   function spawnLivestock(s, b) {
@@ -821,7 +848,8 @@
     var liveCount = b.livestock.filter(function (a) { return !a.dead; }).length;
     if (liveCount >= lc.maxPerPasture) return;
     var species = livestockSpecies(b);
-    var pen = pasturePenRect(b);
+    var pen = pasturePenRect(b, s);
+    var rx = livestockFootRadius(species);
     var idleClip = RTS.Livestock ? RTS.Livestock.clip(species, 'idle') : null;
     var idleFrames = idleClip ? idleClip.frames : 4;
     var animal = {
@@ -829,8 +857,8 @@
       kind: 'livestock',
       species: species,
       buildingId: b.id,
-      x: pen.cx + (Math.random() - 0.5) * pen.hw * 1.4,
-      y: pen.cy + (Math.random() - 0.5) * pen.hh * 1.4,
+      x: pen.cx + (Math.random() - 0.5) * Math.max(6, (pen.hw - rx) * 1.6),
+      y: pen.cy + (Math.random() - 0.5) * Math.max(6, (pen.hh - rx * 0.72) * 1.6),
       dead: false,
       animClip: 'idle',
       animFrame: Math.random() * idleFrames | 0,
@@ -841,6 +869,7 @@
       facing: Math.random() < 0.5 ? 1 : -1,
     };
     b.livestock.push(animal);
+    clampLivestockToPen(animal, pen);
     RTS.recalcSupply(s, b.team);
     if (b.team === TEAM.PLAYER) {
       var name = species === 'pig' ? 'Pig' : 'Sheep';
@@ -855,7 +884,7 @@
 
   function updateLivestock(s, b, dt) {
     if (!b.livestock) return;
-    var pen = pasturePenRect(b);
+    var pen = pasturePenRect(b, s);
 
     b.livestock.forEach(function (a) {
       if (a.dead) return;
@@ -886,9 +915,8 @@
       if (a.animClip === 'walk') {
         a.x += a.wanderVx * dt;
         a.y += a.wanderVy * dt;
-        a.x = Math.max(pen.cx - pen.hw, Math.min(pen.cx + pen.hw, a.x));
-        a.y = Math.max(pen.cy - pen.hh, Math.min(pen.cy + pen.hh, a.y));
       }
+      clampLivestockToPen(a, pen);
 
       var clipData = RTS.Livestock ? RTS.Livestock.clip(a.species, a.animClip) : null;
       var fps = (a.animClip === 'walk') ? 10 : 5;
