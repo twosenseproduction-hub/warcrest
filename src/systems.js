@@ -9,14 +9,6 @@
   var TEAM = RTS.TEAM;
   function dist(ax, ay, bx, by) { var dx = bx - ax, dy = by - ay; return Math.sqrt(dx * dx + dy * dy); }
 
-  function depositZoneRadius(dep) {
-    var reach = RTS.Config.harvest.depositReach;
-    var base = Math.max(dep.w, dep.h);
-    if (dep.type === 'core') return Math.max(reach, base * 1.65);
-    if (dep.type === 'outpost') return Math.max(reach * 0.85, base * 1.5);
-    return base * 1.4 + 40;
-  }
-
   function depositRect(dep, s) {
     if (RTS.Assets && RTS.Assets.buildingCollisionRect) {
       return RTS.Assets.buildingCollisionRect(dep, s);
@@ -25,40 +17,42 @@
     return { l: dep.x - hw, r: dep.x + hw, t: dep.y - hh, b: dep.y + hh * 0.55 };
   }
 
-  function pointNearRect(x, y, rect, pad) {
-    return x >= rect.l - pad && x <= rect.r + pad &&
-           y >= rect.t - pad && y <= rect.b + pad;
+  /** Distance from unit to nearest edge of the deposit building base rect (0 if inside). */
+  function depositEdgeDist(u, dep, s) {
+    var rect = depositRect(dep, s);
+    var cx = Math.max(rect.l, Math.min(u.x, rect.r));
+    var cy = Math.max(rect.t, Math.min(u.y, rect.b));
+    var dx = u.x - cx, dy = u.y - cy;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function depositTriggerRadius() {
+    return RTS.Config.harvest.depositTriggerR != null
+      ? RTS.Config.harvest.depositTriggerR : 38;
   }
 
   function depositApproachPoint(u, dep, s) {
-    var zoneR = depositZoneRadius(dep);
     var rect = depositRect(dep, s);
-    var ax = u.x - dep.x, ay = u.y - dep.y;
-    var d = Math.sqrt(ax * ax + ay * ay) || 1;
-    var ring = Math.max(zoneR * 0.58, Math.max(dep.w, dep.h) * 0.75);
-    var tx = dep.x + (ax / d) * ring;
-    var ty = dep.y + (ay / d) * ring;
-    var margin = (u.radius || 10) + 14;
-    if (pointNearRect(tx, ty, rect, margin)) {
-      var cx = Math.max(rect.l, Math.min(tx, rect.r));
-      var cy = Math.max(rect.t, Math.min(ty, rect.b));
-      var dx = tx - cx, dy = ty - cy;
-      var edgeD = Math.sqrt(dx * dx + dy * dy) || 0.01;
-      tx = cx + (dx / edgeD) * (margin + 8);
-      ty = cy + (dy / edgeD) * (margin + 8);
+    var H = RTS.Config.harvest;
+    var margin = (u.radius || 10) + Math.max(10, (H.depositStop || 22) * 0.45);
+    var cx = Math.max(rect.l, Math.min(u.x, rect.r));
+    var cy = Math.max(rect.t, Math.min(u.y, rect.b));
+    var dx = u.x - cx, dy = u.y - cy;
+    var edgeD = Math.sqrt(dx * dx + dy * dy);
+    if (edgeD < 0.5) {
+      var entranceX = (rect.l + rect.r) * 0.5;
+      var entranceY = rect.b + margin;
+      return { x: entranceX, y: entranceY };
     }
-    return { x: tx, y: ty };
+    return {
+      x: cx + (dx / edgeD) * (edgeD + margin),
+      y: cy + (dy / edgeD) * (edgeD + margin),
+    };
   }
 
   function canDepositAt(u, dep, s) {
-    var carrying = u.harvest && u.harvest.carry > 0;
-    var zoneR = depositZoneRadius(dep);
-    var dCenter = dist(u.x, u.y, dep.x, dep.y);
-    if (dCenter <= zoneR) return true;
-    var rect = depositRect(dep, s);
-    var pad = carrying ? 96 : 64;
-    if (pointNearRect(u.x, u.y, rect, pad)) return true;
-    return carrying && dCenter <= zoneR * 1.18;
+    if (!u.harvest || u.harvest.carry <= 0) return false;
+    return depositEdgeDist(u, dep, s) <= depositTriggerRadius();
   }
 
   function depositInRange(s, u) {
@@ -91,10 +85,20 @@
   }
 
   function finishDeposit(s, u, node) {
+    var dep = resolveReturnDeposit(s, u);
     var amt = Math.floor(u.harvest.carry);
     if (amt > 0) {
       s.res[u.team].halcite += amt;
-      if (u.team === TEAM.PLAYER) { s.stats.harvested += amt; RTS.spawnFloat(s, u.x, u.y - 18, '+' + amt); }
+      if (u.team === TEAM.PLAYER) {
+        var fx = u.x, fy = u.y - 18;
+        if (dep) {
+          var rect = depositRect(dep, s);
+          fx = (rect.l + rect.r) * 0.5;
+          fy = rect.b - 6;
+        }
+        s.stats.harvested += amt;
+        RTS.spawnFloat(s, fx, fy, '+' + amt);
+      }
       if (RTS.Audio) RTS.Audio.play('coin');
     }
     u.harvest.carry = 0;
@@ -608,7 +612,7 @@
       if (u.harvest.carry > 0) {
         if (canDepositAt(u, dep, s)) {
           u._depositStuckT = (u._depositStuckT || 0) + dt;
-          if (u._depositStuckT >= H.depositStuckSec) {
+          if (u._depositStuckT >= H.depositStuckSec && depositEdgeDist(u, dep, s) <= depositTriggerRadius()) {
             finishDeposit(s, u, node);
             return;
           }

@@ -46,9 +46,10 @@
       rate: 8,                  // ore/sec equivalent income (used to derive mine chunk size)
       capacity: 6,              // ore per trip — bank after every 6, then return to mine
       reach: 42,                // distance to begin mining / slot ring offset
-      depositReach: 165,        // ring around Castle/Outpost where ore is banked
+      depositReach: 165,        // max range to pick/keep a deposit building target (not bank radius)
       depositStop: 22,          // how close worker walks to the approach point
-      depositStuckSec: 1.2,     // force-bank if carrying and in zone this long without moving
+      depositTriggerR: 38,      // bank ore only when this close to building edge (~1 tile)
+      depositStuckSec: 1.2,     // force-bank if carrying, in trigger zone, and not moving
       mineCycleSec: 0.45,       // readable work-swing duration at the node
       slotCount: 6,             // approach positions around each node perimeter
       slotReach: 14,            // how close worker must get to its slot before mining
