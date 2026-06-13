@@ -36,4 +36,9 @@ fi
 echo "Deploying Warcrest → exofront-game"
 echo "  path: $(pwd)"
 echo "  git:  $(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')"
-exec fly deploy "$@"
+FLY="$(command -v fly || command -v flyctl || true)"
+if [[ -z "$FLY" ]]; then
+  echo "ERROR: fly/flyctl not found in PATH." >&2
+  exit 1
+fi
+exec "$FLY" deploy "$@"
