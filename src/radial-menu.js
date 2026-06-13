@@ -91,7 +91,7 @@
           bid: building.id,
           role: role,
           label: RTS.nameFor(fid, role).toUpperCase(),
-          avatar: unitAvatarSrc(fid, role),
+          avatar: UI().roleTrayIcon ? UI().roleTrayIcon(fid, role, 34) : unitAvatarSrc(fid, role),
           cost: us.cost,
           disabled: !afford || !supplyOk,
         });
@@ -212,11 +212,14 @@
         ? '<span class="rcard-cost"><img class="rcard-coin" src="' + goldCoinSrc() +
           '" alt="">' + item.cost + '</span>'
         : '';
+      var avatarHtml = typeof item.avatar === 'string' && item.avatar.indexOf('<') >= 0
+        ? item.avatar
+        : (avatar ? '<img class="rcard-avatar" src="' + avatar + '" alt="">' : '');
 
       btn.innerHTML =
         '<span class="rcard-ring" aria-hidden="true"></span>' +
         '<span class="rcard-body">' +
-        '<img class="rcard-avatar" src="' + avatar + '" alt="">' +
+        avatarHtml +
         costHtml +
         '</span>';
 

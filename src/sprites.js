@@ -221,8 +221,14 @@
   }
 
   function resolveAttackKey(u, sheet) {
-    if (u.role === 'lancer') return lancerAttackKey(u.facing);
-    if (u.role === 'warrior') return u._attackVariant === 2 ? 'attack2' : 'attack';
+    if (u.role === 'lancer') {
+      if (sheet.clips.attack_r) return lancerAttackKey(u.facing);
+      return 'attack';
+    }
+    if (u.role === 'warrior') {
+      if (sheet.clips.attack2 && u._attackVariant === 2) return 'attack2';
+      return 'attack';
+    }
     return 'attack';
   }
 

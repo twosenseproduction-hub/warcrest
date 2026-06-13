@@ -58,7 +58,7 @@ No installation, no dependencies.
 
 ### The loop
 1. Mine **Ironstone** with workers (**Pawn** / **Gnome**).
-2. Build **Barracks** / **War Pit** → train **Lancer** / **Thief**, then **Archer** / **Goblin Raider** and **Monk** / **Root Troll**.
+2. Build **Barracks** / **War Pit** → train **Lancer** / **Thief**, then **Archer** / **Goblin Raider** and **Monk** / **Hex Shaman**.
 3. Build **War Forge** / **Skull Forge** → train **Warrior** / **Troll**.
 4. Raise **supply** with **Banner Post** / **Totem Stake**, defend Horde waves, destroy the enemy keep.
 
@@ -70,7 +70,7 @@ No installation, no dependencies.
 - **Warrior** — armored frontline (War Forge).
 
 ### Raider Horde units (same roles, different names)
-- **Gnome**, **Thief**, **Goblin Raider**, **Root Troll**, **Troll**
+- **Gnome**, **Thief**, **Goblin Raider**, **Hex Shaman**, **Troll**
 
 ### Buildings (Iron Crown / Raider Horde)
 - **Citadel Keep** / **Warren Maw** — trains workers, banks Ironstone.

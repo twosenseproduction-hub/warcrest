@@ -165,12 +165,24 @@
       'width:' + w + 'px;height:' + px + 'px;background-image:url(\'' + url + '\')"></span>';
   }
 
-  function avatarPortraitHtml(factionId, role, px) {
+  function factionPortraitHtml(factionId, role, px) {
+    px = px || 36;
+    if (factionId === 'cinder') {
+      var av = enemyAvatarUrl(role);
+      if (av) {
+        return '<img class="ts-avatar-portrait" src="' + av +
+          '" width="' + px + '" height="' + px + '" alt="" />';
+      }
+      return enemyStripPortraitHtml(role, px);
+    }
     var url = unitAvatarUrl(factionId, role);
     if (!url) return '';
-    px = px || 36;
     return '<img class="ts-avatar-portrait" src="' + url +
       '" width="' + px + '" height="' + px + '" alt="" />';
+  }
+
+  function avatarPortraitHtml(factionId, role, px) {
+    return factionPortraitHtml(factionId, role, px);
   }
 
   function stripPortraitHtml(factionId, role, px) {
@@ -205,16 +217,7 @@
   }
 
   function roleTrayIcon(factionId, role, px) {
-    if (factionId === 'cinder') {
-      var av = enemyAvatarUrl(role);
-      if (av) {
-        px = px || 30;
-        return '<img class="ts-avatar-portrait" src="' + av +
-          '" width="' + px + '" height="' + px + '" alt="" />';
-      }
-      return enemyStripPortraitHtml(role, px || 30);
-    }
-    return avatarPortraitHtml(factionId, role, px || 30);
+    return factionPortraitHtml(factionId, role, px || 30);
   }
 
   function buildTrayIcon(factionId, type, px) {

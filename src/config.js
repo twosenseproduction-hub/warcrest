@@ -250,7 +250,7 @@
         core: 'Warren Maw', conduit: 'Totem Stake', foundry: 'War Pit',
         forge: 'Skull Forge', turret: 'Bone Spire', outpost: 'Raider Camp',
         pawn: 'Gnome', lancer: 'Thief', archer: 'Goblin Raider',
-        monk: 'Root Troll', warrior: 'Troll',
+        monk: 'Hex Shaman', warrior: 'Troll',
       },
     },
   };
