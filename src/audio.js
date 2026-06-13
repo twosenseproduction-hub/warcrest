@@ -10,6 +10,15 @@
   var music = null, musicStarted = false;
   var MUSIC_SRC = 'assets/audio/moonlit-citadel.mp3';
   var MUSIC_GAIN = 0.42;
+  var MELEE_SRC = 'assets/audio/sword-hit-metal.wav';
+  var MELEE_GAIN = 0.14;
+  var WIN_SRC = 'assets/audio/fanfare-win.wav';
+  var LOSE_SRC = 'assets/audio/fanfare-lose.wav';
+  var FANFARE_GAIN = 0.58;
+
+  var meleeBuffer = null;
+  var winBuffer = null;
+  var loseBuffer = null;
 
   function ensure() {
     if (ctx) return ctx;
@@ -78,6 +87,77 @@
     document.addEventListener('keydown', unlock, true);
   }
 
+  function loadSample(url, setter) {
+    fetch(url)
+      .then(function (res) { return res.ok ? res.arrayBuffer() : null; })
+      .then(function (buf) {
+        if (!buf) return;
+        var c = ensure();
+        if (!c) return;
+        c.decodeAudioData(buf, function (decoded) {
+          setter(decoded);
+        }, function () {});
+      })
+      .catch(function () {});
+  }
+
+  function loadSamples() {
+    loadSample(MELEE_SRC, function (b) { meleeBuffer = b; });
+    loadSample(WIN_SRC, function (b) { winBuffer = b; });
+    loadSample(LOSE_SRC, function (b) { loseBuffer = b; });
+  }
+
+  function duckMusicFor(ms) {
+    if (!music || music.paused) return;
+    music.volume = musicLevel() * 0.18;
+    setTimeout(function () { syncMusicVolume(); }, ms);
+  }
+
+  function playBuffer(buffer, gainMul, pitchRange, duckMs, fallback) {
+    if (!enabled) return;
+    var c = ensure();
+    if (!c) return;
+    if (c.state === 'suspended') c.resume();
+
+    if (!buffer) {
+      if (fallback) fallback();
+      return;
+    }
+
+    if (duckMs) duckMusicFor(duckMs);
+
+    var src = c.createBufferSource();
+    src.buffer = buffer;
+    if (pitchRange) {
+      src.playbackRate.value = pitchRange[0] + Math.random() * (pitchRange[1] - pitchRange[0]);
+    }
+    var g = c.createGain();
+    g.gain.value = gainMul * volume;
+    src.connect(g);
+    g.connect(c.destination);
+    src.start(0);
+  }
+
+  function playMeleeHit() {
+    playBuffer(meleeBuffer, MELEE_GAIN, [0.94, 1.06], 0, function () {
+      blip(220, 0.05, 'sawtooth', 0.14, 140);
+    });
+  }
+
+  function playWinFanfare() {
+    playBuffer(winBuffer, FANFARE_GAIN, null, 3500, function () {
+      blip(523, 0.12, 'triangle', 0.3);
+      setTimeout(function () { blip(784, 0.18, 'triangle', 0.3); }, 130);
+    });
+  }
+
+  function playLoseFanfare() {
+    playBuffer(loseBuffer, FANFARE_GAIN, null, 3500, function () {
+      blip(330, 0.2, 'sawtooth', 0.3, 110);
+      setTimeout(function () { blip(160, 0.3, 'sawtooth', 0.3, 70); }, 160);
+    });
+  }
+
   function blip(freq, dur, type, gain, slideTo) {
     if (!enabled) return;
     var c = ensure(); if (!c) return;
@@ -112,10 +192,10 @@
     ready:  function () { blip(660, 0.09, 'triangle', 0.28, 880); },
     coin:   function () { throttled('coin', 120, function () { blip(880, 0.07, 'triangle', 0.22, 1100); }); },
     shot:   function () { throttled('shot', 55, function () { blip(720, 0.04, 'square', 0.12, 480); }); },
-    melee:  function () { throttled('melee', 70, function () { blip(220, 0.05, 'sawtooth', 0.14, 140); }); },
+    melee:  function () { throttled('melee', 85, playMeleeHit); },
     boom:   function () { throttled('boom', 80, function () { blip(120, 0.22, 'sawtooth', 0.3, 50); }); },
-    win:    function () { blip(523, 0.12, 'triangle', 0.3); setTimeout(function(){blip(784,0.18,'triangle',0.3);}, 130); },
-    lose:   function () { blip(330, 0.2, 'sawtooth', 0.3, 110); setTimeout(function(){blip(160,0.3,'sawtooth',0.3,70);}, 160); },
+    win:    playWinFanfare,
+    lose:   playLoseFanfare,
   };
 
   RTS.Audio = {
@@ -143,5 +223,6 @@
   };
 
   bindMusicAutostart();
+  loadSamples();
 
 })(window.RTS = window.RTS || {});
