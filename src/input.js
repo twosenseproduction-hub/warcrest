@@ -62,7 +62,7 @@
     s.entities.buildings.forEach(function (b) {
       if (b.dead) return;
       if (!RTS.buildingIsTappable(b)) return;
-      var pad = 10 + slop * 0.4;
+      var pad = 4 + slop * 0.15;
       if (wx >= b.x - b.w / 2 - pad && wx <= b.x + b.w / 2 + pad &&
           wy >= b.y - b.h / 2 - pad && wy <= b.y + b.h / 2 + pad) {
         cands.push({ e: b, sort: (b.team === TEAM.PLAYER ? 20 : 120) + RTS.dist(wx, wy, b.x, b.y) });
@@ -83,7 +83,7 @@
     var best = null, bd = Infinity;
     s.entities.buildings.forEach(function (b) {
       if (b.dead || b.team !== TEAM.PLAYER || b.built) return;
-      var pad = 10 + slop * 0.4;
+      var pad = 4 + slop * 0.15;
       if (wx >= b.x - b.w / 2 - pad && wx <= b.x + b.w / 2 + pad &&
           wy >= b.y - b.h / 2 - pad && wy <= b.y + b.h / 2 + pad) {
         var d = RTS.dist(wx, wy, b.x, b.y);
