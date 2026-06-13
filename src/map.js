@@ -386,33 +386,21 @@
     var TILE = RTS.TILE || 64;
     var cols = Math.ceil((meta.w || W()) / TILE);
     var rows = Math.ceil((meta.h || H()) / TILE);
+    var terrain = meta.terrainGrid;
     var grid = [];
-    var r, c, h;
+    var r, c, wx, wy;
     for (r = 0; r < rows; r++) {
       grid[r] = [];
-      for (c = 0; c < cols; c++) grid[r][c] = 0;
+      for (c = 0; c < cols; c++) {
+        wx = c * TILE + TILE / 2;
+        wy = r * TILE + TILE / 2;
+        var isWater = RTS.Terrain && RTS.Terrain.isWater(terrain, wx, wy);
+        grid[r][c] = isWater ? 1 : 0;
+      }
     }
     meta.pathGrid = grid;
     meta.pathGridCols = cols;
     meta.pathGridRows = rows;
-
-    var terrain = meta.terrainGrid;
-    if (terrain && RTS.Terrain) {
-      var WATER = RTS.Terrain.WATER;
-      for (r = 0; r < rows; r++) {
-        for (c = 0; c < cols; c++) {
-          if (c >= terrain.cols || r >= terrain.rows) {
-            grid[r][c] = 1;
-            continue;
-          }
-          h = terrain.heights[c + r * terrain.cols];
-          if (h === WATER) grid[r][c] = 1;
-          else if (terrain.forestWall && terrain.forestWall[c + r * terrain.cols]) {
-            grid[r][c] = 1;
-          }
-        }
-      }
-    }
     return grid;
   }
 

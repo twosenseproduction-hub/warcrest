@@ -6,7 +6,7 @@
 (function (RTS) {
   'use strict';
 
-  var CELL = 48;
+  var CELL = RTS.TILE || 64;
   var SQRT2 = 1.41421356237;
   var WAYPOINT_R = 22;
   var STUCK_REPLAN = 0.4;
@@ -40,19 +40,46 @@
     return { l: b.x - hw, r: b.x + hw, t: b.y - hh, b: b.y + hh * 0.55 };
   }
 
-  function markRectBlocked(blocked, cols, rows, rect) {
-    var x0 = Math.max(0, Math.floor(rect.l / CELL));
-    var y0 = Math.max(0, Math.floor(rect.t / CELL));
-    var x1 = Math.min(cols - 1, Math.floor(rect.r / CELL));
-    var y1 = Math.min(rows - 1, Math.floor(rect.b / CELL));
+  function markRectBlocked(blocked, cols, rows, rect, cell) {
+    cell = cell || CELL;
+    var x0 = Math.max(0, Math.floor(rect.l / cell));
+    var y0 = Math.max(0, Math.floor(rect.t / cell));
+    var x1 = Math.min(cols - 1, Math.floor(rect.r / cell));
+    var y1 = Math.min(rows - 1, Math.floor(rect.b / cell));
     var cx, cy, wx, wy, i;
     for (cy = y0; cy <= y1; cy++) {
       for (cx = x0; cx <= x1; cx++) {
-        wx = cx * CELL + CELL * 0.5;
-        wy = cy * CELL + CELL * 0.5;
+        wx = cx * cell + cell * 0.5;
+        wy = cy * cell + cell * 0.5;
         if (wx >= rect.l && wx <= rect.r && wy >= rect.t && wy <= rect.b) {
           i = cellIdx(cols, cx, cy);
           blocked[i] = 1;
+        }
+      }
+    }
+  }
+
+  function unblockBuildingFootprint(b, blocked, cols, rows, tile) {
+    tile = tile || CELL;
+    var col = Math.round(b.x / tile);
+    var row = Math.round(b.y / tile);
+    var halfW = Math.round(b.w / tile / 2);
+    var halfH = Math.round(b.h / tile / 2);
+    var r, c;
+    for (r = row - halfH; r < row + halfH; r++) {
+      for (c = col - halfW; c < col + halfW; c++) {
+        if (inCell(cols, rows, c, r)) blocked[cellIdx(cols, c, r)] = 0;
+      }
+    }
+  }
+
+  function overlayForestWall(blocked, cols, rows, terrain) {
+    if (!terrain || !terrain.forestWall) return;
+    var r, c;
+    for (r = 0; r < rows && r < terrain.rows; r++) {
+      for (c = 0; c < cols && c < terrain.cols; c++) {
+        if (terrain.forestWall[c + r * terrain.cols]) {
+          blocked[cellIdx(cols, c, r)] = 1;
         }
       }
     }
@@ -65,37 +92,42 @@
     var cols = Math.ceil(W / CELL);
     var rows = Math.ceil(H / CELL);
     var blocked = new Uint8Array(cols * rows);
-    var grid = s.map && s.map.terrainGrid;
-    var WATER = RTS.Terrain && RTS.Terrain.WATER;
+    var pathGrid = s.map && s.map.pathGrid;
+    var terrain = s.map && s.map.terrainGrid;
+    var r, c, i;
 
-    if (grid && WATER != null) {
-      var TILE = RTS.Terrain.TILE || 64;
-      var cx, cy, wx, wy, tcx, tcy, h;
-      for (cy = 0; cy < rows; cy++) {
-        for (cx = 0; cx < cols; cx++) {
-          wx = cx * CELL + CELL * 0.5;
-          wy = cy * CELL + CELL * 0.5;
-          tcx = Math.floor(wx / TILE);
-          tcy = Math.floor(wy / TILE);
-          if (tcx < 0 || tcy < 0 || tcx >= grid.cols || tcy >= grid.rows) {
-            blocked[cellIdx(cols, cx, cy)] = 1;
-            continue;
-          }
-          h = grid.heights[tcx + tcy * grid.cols];
-          if (h === WATER) blocked[cellIdx(cols, cx, cy)] = 1;
-          else if (grid.forestWall && grid.forestWall[tcx + tcy * grid.cols]) {
-            blocked[cellIdx(cols, cx, cy)] = 1;
+    if (pathGrid) {
+      for (r = 0; r < rows; r++) {
+        if (!pathGrid[r]) continue;
+        for (c = 0; c < cols; c++) {
+          if (pathGrid[r][c]) blocked[cellIdx(cols, c, r)] = 1;
+        }
+      }
+      overlayForestWall(blocked, cols, rows, terrain);
+    } else if (terrain && RTS.Terrain) {
+      var wx, wy;
+      for (r = 0; r < rows; r++) {
+        for (c = 0; c < cols; c++) {
+          wx = c * CELL + CELL * 0.5;
+          wy = r * CELL + CELL * 0.5;
+          if (RTS.Terrain.isWater(terrain, wx, wy)) {
+            blocked[cellIdx(cols, c, r)] = 1;
           }
         }
       }
+      overlayForestWall(blocked, cols, rows, terrain);
+      var buildings = s.entities.buildings;
+      for (i = 0; i < buildings.length; i++) {
+        var b = buildings[i];
+        if (b.dead || !b.built) continue;
+        if (skipId && b.id === skipId) continue;
+        markRectBlocked(blocked, cols, rows, buildingObstacleRect(b, s, 16));
+      }
     }
 
-    var buildings = s.entities.buildings;
-    for (var i = 0; i < buildings.length; i++) {
-      var b = buildings[i];
-      if (b.dead || !b.built) continue;
-      if (skipId && b.id === skipId) continue;
-      markRectBlocked(blocked, cols, rows, buildingObstacleRect(b, s, 16));
+    if (skipId) {
+      var skipB = RTS.getById(s, skipId);
+      if (skipB && !skipB.dead) unblockBuildingFootprint(skipB, blocked, cols, rows);
     }
 
     return {
