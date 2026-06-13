@@ -28,6 +28,16 @@
     D['res-supply'].className = sp.supplyUsed >= sp.supplyCap ? 'val warn' : 'val';
   }
 
+  function syncRailBaseIcon(s) {
+    var btn = D['btn-rail-base'];
+    if (!btn || !s) return;
+    var img = btn.querySelector('img');
+    if (!img || !RTS.UI || !RTS.UI.buildingUrl) return;
+    var fid = s.playerFaction || 'aurex';
+    var url = RTS.UI.buildingUrl(fid, 'core');
+    if (img.getAttribute('src') !== url) img.setAttribute('src', url);
+  }
+
   RTS.HUD = {
     init: function (getStateFn) {
       getState = getStateFn;
@@ -97,6 +107,7 @@
 
     sync: function (s) {
       syncResources(s);
+      syncRailBaseIcon(s);
 
       if (D['btn-rail-atk']) D['btn-rail-atk'].classList.toggle('active', !!s.attackMoveArmed);
 

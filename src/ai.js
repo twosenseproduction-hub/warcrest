@@ -298,10 +298,10 @@
     assignSquadOrders(s, sq);
 
     if (s.timers.waveNumber === 0) {
-      RTS.log(s, 'Raiders prowling the Reach', 'warn');
+      RTS.log(s, RTS.Factions[s.enemyFaction].name + ' scouts prowling the Reach', 'warn');
     } else {
-      RTS.log(s, 'Horde assault wave inbound!', 'bad');
-      RTS.toast(s, 'Wave incoming — defend your keep');
+      RTS.log(s, RTS.Factions[s.enemyFaction].name + ' assault wave inbound!', 'bad');
+      RTS.toast(s, 'Wave incoming — defend your ' + RTS.nameFor(s.playerFaction, 'core'));
     }
   }
 
@@ -472,7 +472,8 @@
         var x = node.x + Math.cos(ang) * ringDist;
         var y = node.y + Math.sin(ang) * ringDist;
         if (aiPlaceOutpost(s, x, y, node)) {
-          RTS.log(s, 'Enemy raising a Raider Camp at a new Ironstone field', 'warn');
+          RTS.log(s, 'Enemy raising a ' + RTS.nameFor(s.enemyFaction, 'outpost') +
+            ' at a new Ironstone field', 'warn');
           return true;
         }
       }

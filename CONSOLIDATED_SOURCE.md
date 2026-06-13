@@ -1,4 +1,4 @@
-# EXOFRONT — Consolidated Source Bundle
+# WARCREST — Consolidated Source Bundle
 Single-file reference for Claude. Paste or attach this ONE file instead of the whole folder.
 
 
@@ -12,7 +12,7 @@ Single-file reference for Claude. Paste or attach this ONE file instead of the w
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <meta name="theme-color" content="#1565c0" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
-<title>EXOFRONT — Ashfen Basin</title>
+<title>WARCREST — Ashfen Reach</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet" />
@@ -28,7 +28,7 @@ Single-file reference for Claude. Paste or attach this ONE file instead of the w
   <div id="hud" class="hidden">
     <header id="topbar">
       <div class="tb-left">
-        <span id="faction-name" class="faction">Aurex Directive</span>
+        <span id="faction-name" class="faction">Iron Crown</span>
       </div>
       <div class="tb-res">
         <span class="res"><i class="ic-halcite">⬡</i><span id="res-halcite" class="val">0</span></span>
@@ -70,7 +70,7 @@ Single-file reference for Claude. Paste or attach this ONE file instead of the w
       <div class="logo">
         <div class="logo-mark">◢◤</div>
         <h1 class="logo-text">EXO<span>FRONT</span></h1>
-        <p class="logo-sub">Command the Ashfen Basin</p>
+        <p class="logo-sub">Command the Ashfen Reach</p>
       </div>
       <div class="menu-buttons">
         <button id="btn-play" class="big-btn primary">▶ Skirmish</button>
@@ -90,7 +90,7 @@ Single-file reference for Claude. Paste or attach this ONE file instead of the w
       <div class="faction-cards">
         <button class="faction-card aurex" data-faction="aurex">
           <div class="fc-emblem aurex-em">◈</div>
-          <h3>Aurex Directive</h3>
+          <h3>Iron Crown</h3>
           <div class="fc-tag">Precision · Order · Light</div>
           <p>A disciplined high-tech order that wages war with clean geometry and
              rail-fire. Fast to tech and brutal in formation.</p>
@@ -99,7 +99,7 @@ Single-file reference for Claude. Paste or attach this ONE file instead of the w
         </button>
         <button class="faction-card cinder" data-faction="cinder">
           <div class="fc-emblem cinder-em">⛬</div>
-          <h3>Cinder Pact</h3>
+          <h3>Raider Horde</h3>
           <div class="fc-tag">Burn · Scavenge · Endure</div>
           <p>A scavenger horde of bio-mechanical raiders welded from salvage and spite.
              Slow to start, terrifying once the furnaces are lit.</p>
@@ -117,11 +117,11 @@ Single-file reference for Claude. Paste or attach this ONE file instead of the w
     <div class="panel-inner">
       <h2 class="screen-title">How to Play</h2>
       <div class="howto-grid">
-        <div class="howto-card"><b>① Harvest</b><p>Select a Drudge, then tap a glowing
-           Halcite crystal. It mines and returns to your Citadel automatically.</p></div>
-        <div class="howto-card"><b>② Train</b><p>Select your Citadel to train Drudges,
+        <div class="howto-card"><b>① Harvest</b><p>Select a Pawn, then tap a glowing
+           Ironstone crystal. It mines and returns to your Citadel automatically.</p></div>
+        <div class="howto-card"><b>② Train</b><p>Select your Citadel to train Pawns,
            or a Foundry / War Forge to build combat units.</p></div>
-        <div class="howto-card"><b>③ Build</b><p>Select a Drudge, tap <i>Build</i>, choose a
+        <div class="howto-card"><b>③ Build</b><p>Select a Pawn, tap <i>Build</i>, choose a
            structure, then tap a highlighted spot near your base.</p></div>
         <div class="howto-card"><b>④ Command</b><p>Tap units to select, drag a box for many.
            Tap ground to move, tap an enemy to attack.</p></div>
@@ -181,8 +181,8 @@ Single-file reference for Claude. Paste or attach this ONE file instead of the w
     <div class="overlay-card">
       <h2>Welcome, Commander</h2>
       <ul class="onboard-list">
-        <li><b>Economy:</b> tap a Drudge → tap a crystal to mine Halcite.</li>
-        <li><b>Army:</b> select your Foundry → train Lancers.</li>
+        <li><b>Economy:</b> tap a Pawn → tap a crystal to mine Ironstone.</li>
+        <li><b>Army:</b> select your Foundry → train Archers.</li>
         <li><b>Move:</b> select units, tap the ground. Tap an enemy to attack.</li>
         <li><b>Defend:</b> a Cinder wave is coming — build up before it lands.</li>
       </ul>
@@ -214,7 +214,7 @@ Single-file reference for Claude. Paste or attach this ONE file instead of the w
 ## FILE: styles/main.css
 ```
 /* ============================================================================
- * EXOFRONT — main.css
+ * WARCREST — main.css
  * Cartoon mobile-strategy UI: bold panels, golden buttons, Fredoka type.
  * ==========================================================================*/
 :root {
@@ -556,7 +556,7 @@ html, body {
 ## FILE: src/config.js
 ```
 /* ============================================================================
- * EXOFRONT — config.js
+ * WARCREST — config.js
  * Central balance + tuning constants. Tweak values here to rebalance the game.
  * All game systems read from RTS.Config / RTS.Units / RTS.Buildings.
  * ==========================================================================*/
@@ -576,7 +576,7 @@ html, body {
     touch: { slopPx: isMobile ? 34 : 18, dragPx: isMobile ? 16 : 12, uiBlockMs: 380 },
 
     // Economy
-    startResources: 250,        // starting Halcite for the player
+    startResources: 250,        // starting Ironstone for the player
     startSupplyCap: 12,         // supply provided by the Core
     supplyPerPylon: 8,          // supply added per Conduit
     maxSupplyCap: 80,
@@ -619,40 +619,40 @@ html, body {
   RTS.TEAM = { PLAYER: 'player', ENEMY: 'enemy', NEUTRAL: 'neutral' };
 
   // ---- Roles (shared archetypes used by both factions) ---------------------
-  // costs in Halcite, times in seconds, ranges/speeds in world units.
+  // costs in Ironstone, times in seconds, ranges/speeds in world units.
   RTS.Units = {
     worker: {
-      role: 'worker', label: 'Drudge', glyph: 'circle',
+      role: 'worker', label: 'Pawn', glyph: 'circle',
       hp: 55, speed: 100, dmg: 5, range: 22, rof: 1.0,
       cost: 50, supply: 1, build: 0, canHarvest: true, canBuild: true,
-      desc: 'Harvests Halcite and raises structures.',
+      desc: 'Harvests Ironstone and raises structures.',
     },
     light: {
-      role: 'light', label: 'Lancer', glyph: 'tri',
+      role: 'light', label: 'Archer', glyph: 'tri',
       hp: 64, speed: 124, dmg: 9, range: 132, rof: 0.62,
       cost: 75, supply: 1, build: 0, ranged: true,
       desc: 'Cheap mobile ranged trooper. Strong in numbers.',
     },
     scout: {
-      role: 'scout', label: 'Skiff', glyph: 'diamond',
+      role: 'scout', label: 'Lancer', glyph: 'diamond',
       hp: 46, speed: 188, dmg: 7, range: 96, rof: 0.5,
       cost: 60, supply: 1, build: 0, ranged: true,
       desc: 'Fast recon raider. Picks off workers and stragglers.',
     },
     heavy: {
-      role: 'heavy', label: 'Bulwark', glyph: 'hex',
+      role: 'heavy', label: 'Warrior', glyph: 'hex',
       hp: 230, speed: 62, dmg: 30, range: 46, rof: 0.85,
       cost: 150, supply: 3, build: 0,
       desc: 'Slow armored bruiser. Soaks damage at the front.',
     },
     siege: {
-      role: 'siege', label: 'Mortar', glyph: 'pent',
+      role: 'siege', label: 'Catapult', glyph: 'pent',
       hp: 120, speed: 56, dmg: 46, range: 236, rof: 2.0,
       cost: 200, supply: 3, build: 0, ranged: true, splash: 46,
       desc: 'Long-range area damage. Devastating vs clusters and bases.',
     },
     support: {
-      role: 'support', label: 'Mender', glyph: 'cross',
+      role: 'support', label: 'Monk', glyph: 'cross',
       hp: 80, speed: 108, dmg: 0, range: 110, rof: 0.7, heal: 12,
       cost: 120, supply: 2, build: 0, healer: true,
       desc: 'Repairs nearby allied units. Keep it behind the line.',
@@ -664,7 +664,7 @@ html, body {
     core: {
       type: 'core', label: 'Citadel', w: 96, h: 96,
       hp: 1600, cost: 0, build: 0, deposit: true,
-      trains: ['worker'], desc: 'Main base. Trains Drudges and banks Halcite.',
+      trains: ['worker'], desc: 'Main base. Trains Pawns and banks Ironstone.',
     },
     conduit: {
       type: 'conduit', label: 'Conduit', w: 60, h: 60,
@@ -675,13 +675,13 @@ html, body {
       type: 'foundry', label: 'Foundry', w: 78, h: 70,
       hp: 760, cost: 150, build: 18,
       trains: ['light', 'scout', 'support'],
-      desc: 'Produces Lancers, Skiffs and Menders.',
+      desc: 'Produces Archers, Lancers and Monks.',
     },
     forge: {
       type: 'forge', label: 'War Forge', w: 86, h: 78,
       hp: 980, cost: 220, build: 26,
       trains: ['heavy', 'siege'],
-      desc: 'Produces Bulwarks and Mortars.',
+      desc: 'Produces Warriors and Catapults.',
     },
     turret: {
       type: 'turret', label: 'Sentinel', w: 54, h: 54,
@@ -698,7 +698,7 @@ html, body {
   RTS.Factions = {
     aurex: {
       id: 'aurex',
-      name: 'Aurex Directive',
+      name: 'Iron Crown',
       tagline: 'Precision. Order. Light.',
       blurb: 'A disciplined high-tech order that wages war with clean geometry, ' +
              'rail-fire and immaculate logistics. Fast to tech, brutal in formation.',
@@ -710,13 +710,13 @@ html, body {
       names: {
         core: 'Citadel', conduit: 'Conduit', foundry: 'Foundry',
         forge: 'War Forge', turret: 'Sentinel',
-        worker: 'Drudge', light: 'Lancer', scout: 'Skiff',
-        heavy: 'Bulwark', siege: 'Mortar', support: 'Mender',
+        worker: 'Pawn', light: 'Archer', scout: 'Lancer',
+        heavy: 'Warrior', siege: 'Catapult', support: 'Monk',
       },
     },
     cinder: {
       id: 'cinder',
-      name: 'Cinder Pact',
+      name: 'Raider Horde',
       tagline: 'Burn. Scavenge. Endure.',
       blurb: 'A scavenger horde of bio-mechanical raiders welded from salvage and ' +
              'spite. Slow to start, terrifying once the furnaces are lit.',
@@ -726,7 +726,7 @@ html, body {
       accent: '#ffee58',
       shapeStyle: 'rough',
       names: {
-        core: 'Furnace Maw', conduit: 'Bellows', foundry: 'Scrap Pit',
+        core: 'Warren Maw', conduit: 'Bellows', foundry: 'Scrap Pit',
         forge: 'Slag Forge', turret: 'Spire Gun',
         worker: 'Grub', light: 'Spitter', scout: 'Runner',
         heavy: 'Brute', siege: 'Lobber', support: 'Stitcher',
@@ -749,7 +749,7 @@ html, body {
 ## FILE: src/state.js
 ```
 /* ============================================================================
- * EXOFRONT — state.js
+ * WARCREST — state.js
  * Single central game-state object + small accessors. No scattered globals.
  * ==========================================================================*/
 (function (RTS) {
@@ -887,7 +887,7 @@ html, body {
 ## FILE: src/entities.js
 ```
 /* ============================================================================
- * EXOFRONT — entities.js
+ * WARCREST — entities.js
  * Factories for units, buildings, resource nodes, projectiles, effects.
  * ==========================================================================*/
 (function (RTS) {
@@ -985,9 +985,9 @@ html, body {
 ## FILE: src/map.js
 ```
 /* ============================================================================
- * EXOFRONT — map.js
- * Builds the single playable map: "The Ashfen Basin".
- * Player base bottom-left, enemy base top-right, Halcite fields between.
+ * WARCREST — map.js
+ * Builds the single playable map: "The Ashfen Reach".
+ * Player base bottom-left, enemy base top-right, Ironstone fields between.
  * Also generates a stable terrain detail layer (decor) for the biome look.
  * ==========================================================================*/
 (function (RTS) {
@@ -1026,7 +1026,7 @@ html, body {
       RTS.makeUnit(s, 'worker', RTS.TEAM.ENEMY, ecx - 70 - k * 26, ecy + 64, ef);
     }
 
-    // ---- Halcite fields ----
+    // ---- Ironstone fields ----
     // Two near each base, two contested in the middle.
     RTS.makeResource(s, pcx + 40, pcy - 200, 1500);
     RTS.makeResource(s, pcx + 240, pcy + 30, 1300);
@@ -1062,7 +1062,7 @@ html, body {
 ## FILE: src/commands.js
 ```
 /* ============================================================================
- * EXOFRONT — commands.js
+ * WARCREST — commands.js
  * Selection + issuing orders (move / attack / harvest / stop / build / train).
  * ==========================================================================*/
 (function (RTS) {
@@ -1194,7 +1194,7 @@ html, body {
     var spec = RTS.Units[role];
     if (!building.built) { if (team === RTS.TEAM.PLAYER) RTS.toast(s, 'Building not finished'); return false; }
     if (!RTS.canAfford(s, team, spec.cost)) {
-      if (team === RTS.TEAM.PLAYER) { RTS.toast(s, 'Not enough Halcite'); RTS.log(s, 'Not enough Halcite', 'warn'); RTS.Audio.play('deny'); }
+      if (team === RTS.TEAM.PLAYER) { RTS.toast(s, 'Not enough Ironstone'); RTS.log(s, 'Not enough Ironstone', 'warn'); RTS.Audio.play('deny'); }
       return false;
     }
     if (!RTS.hasSupply(s, team, spec.supply)) {
@@ -1228,7 +1228,7 @@ html, body {
   // ---- Building placement --------------------------------------------------
   RTS.beginPlacement = function (s, type) {
     if (!RTS.canAfford(s, RTS.TEAM.PLAYER, RTS.Buildings[type].cost)) {
-      RTS.toast(s, 'Not enough Halcite'); RTS.Audio.play('deny'); return;
+      RTS.toast(s, 'Not enough Ironstone'); RTS.Audio.play('deny'); return;
     }
     s.pending.building = type;
     s.inputMode = 'place-building';
@@ -1274,7 +1274,7 @@ html, body {
 
   RTS.placeBuilding = function (s, type, x, y) {
     if (!RTS.canPlaceAt(s, type, x, y)) { RTS.toast(s, 'Invalid location'); RTS.Audio.play('deny'); return false; }
-    if (!RTS.canAfford(s, RTS.TEAM.PLAYER, RTS.Buildings[type].cost)) { RTS.toast(s, 'Not enough Halcite'); RTS.Audio.play('deny'); return false; }
+    if (!RTS.canAfford(s, RTS.TEAM.PLAYER, RTS.Buildings[type].cost)) { RTS.toast(s, 'Not enough Ironstone'); RTS.Audio.play('deny'); return false; }
     s.res.player.halcite -= RTS.Buildings[type].cost;
     var b = RTS.makeBuilding(s, type, RTS.TEAM.PLAYER, x, y, s.playerFaction, false);
     // send nearest idle worker to "build" it (cosmetic walk)
@@ -1303,7 +1303,7 @@ html, body {
 ## FILE: src/art.js
 ```
 /* ============================================================================
- * EXOFRONT — art.js
+ * WARCREST — art.js
  * Original cartoon arena art: bold outlines, chibi units, glossy cel-shading.
  * Inspired by mobile strategy polish — NOT copied assets or characters.
  * ==========================================================================*/
@@ -1401,7 +1401,7 @@ html, body {
     ctx.beginPath(); ctx.ellipse(0, 0, r, r * 0.6, 0, 0, Math.PI * 2); ctx.fill();
   }
 
-  // ---- Halcite pile (cartoon gold heap) ------------------------------------
+  // ---- Ironstone pile (cartoon gold heap) ------------------------------------
   function drawResource(ctx, n) {
     var pct = n.amount / n.max;
     var sc = 0.55 + 0.45 * pct;
@@ -1879,7 +1879,7 @@ html, body {
 ## FILE: src/render.js
 ```
 /* ============================================================================
- * EXOFRONT — render.js
+ * WARCREST — render.js
  * Canvas renderer — delegates cartoon art to art.js
  * ==========================================================================*/
 (function (RTS) {
@@ -2058,7 +2058,7 @@ html, body {
 ## FILE: src/systems.js
 ```
 /* ============================================================================
- * EXOFRONT — systems.js
+ * WARCREST — systems.js
  * The simulation: movement, targeting, combat, harvesting, construction,
  * production, projectiles, effects, separation, and win/loss detection.
  * ==========================================================================*/
@@ -2481,7 +2481,7 @@ html, body {
 ## FILE: src/ai.js
 ```
 /* ============================================================================
- * EXOFRONT — ai.js
+ * WARCREST — ai.js
  * Enemy faction brain. Harvests, produces a growing army, and launches waves
  * at the player. Not a genius — but it builds a real, escalating match.
  * ==========================================================================*/
@@ -2598,7 +2598,7 @@ html, body {
     if (s.timers.waveNumber === 0) {
       RTS.log(s, 'Enemy scouts probing your front', 'warn');
     } else {
-      RTS.log(s, 'Cinder assault wave inbound!', 'bad');
+      RTS.log(s, 'Horde assault wave inbound!', 'bad');
       RTS.toast(s, 'Wave incoming — defend the Citadel');
     }
   }
@@ -2610,7 +2610,7 @@ html, body {
 ## FILE: src/input.js
 ```
 /* ============================================================================
- * EXOFRONT — input.js
+ * WARCREST — input.js
  * Camera math + unified touch/mouse input: tap select, command, box select,
  * long-press attack-move, one-finger pan, two-finger pinch-zoom + pan,
  * and building placement.
@@ -2702,7 +2702,7 @@ html, body {
     if (hit && hit.kind === 'resource' && workers.length) {
       workers.forEach(function (w) { RTS.orderHarvest(s, w, hit.id); });
       RTS.Audio.play('move');
-      RTS.toast(s, 'Harvesting Halcite');
+      RTS.toast(s, 'Harvesting Ironstone');
       return;
     }
 
@@ -2963,7 +2963,7 @@ html, body {
 ## FILE: src/audio.js
 ```
 /* ============================================================================
- * EXOFRONT — audio.js
+ * WARCREST — audio.js
  * Tiny WebAudio synth. No external files — all sounds generated as short blips.
  * Respects the in-game audio toggle. Lazily created on first user gesture.
  * ==========================================================================*/
@@ -3035,7 +3035,7 @@ html, body {
 ## FILE: src/hud.js
 ```
 /* ============================================================================
- * EXOFRONT — hud.js
+ * WARCREST — hud.js
  * DOM HUD: top bar, contextual action tray, selection panel, event log, toast,
  * mode banner. Rebuilds the action tray from the current selection each sync.
  * ==========================================================================*/
@@ -3250,7 +3250,7 @@ html, body {
     }
 
     if (!units.length && !blds.length) {
-      tray.appendChild(infoBtn('Select your Citadel to train Drudges'));
+      tray.appendChild(infoBtn('Select your Citadel to train Pawns'));
     }
   }
 
@@ -3300,7 +3300,7 @@ html, body {
 ## FILE: src/game.js
 ```
 /* ============================================================================
- * EXOFRONT — game.js
+ * WARCREST — game.js
  * Scene flow (menu / faction select / settings / how-to / play / pause / end),
  * match lifecycle, menu wiring, and the main requestAnimationFrame loop.
  * Bootstraps everything on DOMContentLoaded.
@@ -3359,7 +3359,7 @@ html, body {
       if (core) RTS.Cam.centerOn(state, core.x, core.y);
       RTS.HUD.sync(state);
       RTS.HUD.renderLog(state);
-      RTS.log(state, 'Battle for the Ashfen Basin begins', 'good');
+      RTS.log(state, 'Battle for the Ashfen Reach begins', 'good');
       RTS.Audio.resume();
       lastT = performance.now();
 
@@ -3399,7 +3399,7 @@ html, body {
         stat('Time', fmt(s.timers.gameTime)) +
         stat('Kills', s.stats.kills) +
         stat('Units built', s.stats.unitsBuilt) +
-        stat('Halcite mined', Math.floor(s.stats.harvested));
+        stat('Ironstone mined', Math.floor(s.stats.harvested));
     }
     RTS.Audio.play(won ? 'win' : 'lose');
     if (won && !RTS.Config.reducedMotion) { s.screenFlash = 0.6; s.flashColor = '#34e0c4'; }

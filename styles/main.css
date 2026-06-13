@@ -252,15 +252,16 @@ html, body {
   image-rendering: pixelated;
 }
 .faction-card:active { transform: scale(0.98); }
-.faction-card.aurex { box-shadow: 0 4px 0 rgba(0,0,0,0.35), 0 0 0 3px rgba(38, 198, 218, 0.45); }
-.faction-card.cinder { box-shadow: 0 4px 0 rgba(0,0,0,0.35), 0 0 0 3px rgba(255, 112, 67, 0.45); }
+.faction-card.aurex { box-shadow: 0 4px 0 rgba(0,0,0,0.35), 0 0 0 3px rgba(21, 101, 192, 0.55); }
+.faction-card.cinder { box-shadow: 0 4px 0 rgba(0,0,0,0.35), 0 0 0 3px rgba(85, 139, 47, 0.55); }
 .fc-emblem { font-size: 36px; margin-bottom: 6px; }
 .fc-avatar {
   width: 64px; height: 64px; object-fit: contain; margin-bottom: 8px;
   image-rendering: pixelated; filter: drop-shadow(0 3px 0 rgba(0,0,0,0.35));
 }
+.fc-avatar.fc-stronghold { width: 96px; height: 64px; object-fit: cover; object-position: center 40%; }
 .aurex-em { color: var(--teal-2); }
-.cinder-em { color: var(--orange); }
+.cinder-em { color: #aed581; }
 .faction-card h3 { margin: 0 0 4px; font-size: 20px; }
 .fc-tag { font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
 .faction-card p { font-size: 13px; line-height: 1.45; margin: 0 0 10px; opacity: 0.9; }
@@ -421,6 +422,11 @@ html, body {
   animation: wavePulse 1s ease infinite;
 }
 @keyframes wavePulse { 50% { opacity: 0.65; } }
+
+/* Player faction HUD accents (set on body in game.js) */
+body.player-cinder .res-pill.supply { border-color: rgba(129, 199, 132, 0.45); }
+body.player-cinder .wave-badge { border-color: rgba(129, 199, 132, 0.22); }
+body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 
 .tb-right {
   display: flex; align-items: center; gap: 4px;

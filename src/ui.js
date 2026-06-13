@@ -92,6 +92,9 @@
   }
 
   function buildingUrl(factionId, type) {
+    if (type === 'core' && factionId === 'cinder') {
+      return enc('assets/raider/', 'Raider_Stronghold.png');
+    }
     var file = BUILDING_FILE[type] || BUILDING_FILE.foundry;
     var color = RTS.Assets ? RTS.Assets.factionColor(factionId) : 'Blue';
     return enc(TS, 'Buildings/' + color + ' Buildings/' + file);

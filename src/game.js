@@ -45,6 +45,11 @@
 
     scene: function (name) {
       state.scene = name;
+      if (name === 'menu' || name === 'factionselect' || name === 'mapselect' || name === 'howto' || name === 'settings') {
+        document.body.classList.remove('player-aurex', 'player-cinder');
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', '#1565c0');
+      }
       show($('screen-menu'), name === 'menu');
       show($('screen-map'), name === 'mapselect');
       show($('screen-faction'), name === 'factionselect');
@@ -65,6 +70,7 @@
       state.mapId = mapId || state.mapId || 'sapphire_shores';
       state.playerFaction = factionId;
       state.enemyFaction = factionId === 'aurex' ? 'cinder' : 'aurex';
+      applyFactionTheme(factionId);
       RTS.buildMap(state, state.mapId);
       this.scene('playing');           // make canvas visible before sizing
       RTS.Render.resize(state);
@@ -72,8 +78,11 @@
       if (core) RTS.Cam.centerOn(state, core.x, core.y);
       RTS.HUD.sync(state);
       RTS.HUD.renderLog(state);
+      updateOnboarding(state);
       var intro = (state.map && state.map.intro) || 'Battle begins';
       RTS.log(state, intro, 'good');
+      RTS.log(state, 'Lead the ' + RTS.Factions[factionId].name + ' — destroy the ' +
+        RTS.nameFor(state.enemyFaction, 'core'), 'info');
       RTS.Audio.resume();
       lastT = performance.now();
 
@@ -105,8 +114,10 @@
     var t = $('end-title'), m = $('end-msg'), st = $('end-stats'), ic = $('end-icon');
     if (t) t.textContent = won ? 'VICTORY' : 'DEFEAT';
     if (m) m.textContent = won
-      ? ((s.map && s.map.win) || 'The enemy heartland falls. The Reach is yours.')
-      : ((s.map && s.map.lose) || 'Your ' + RTS.nameFor(s.playerFaction, 'core') + ' has fallen — for now.');
+      ? ((s.map && s.map.win) || ('The ' + RTS.nameFor(s.enemyFaction, 'core') +
+         ' falls. The Reach is yours.'))
+      : ((s.map && s.map.lose) || ('Your ' + RTS.nameFor(s.playerFaction, 'core') +
+         ' has fallen — for now.'));
     if (ic) {
       ic.src = won ? 'assets/ui/sword-icon-win.png' : 'assets/ui/sword-icon-lose.png';
       ic.style.filter = won ? '' : 'grayscale(0.7)';
@@ -124,6 +135,22 @@
     if (won && !RTS.Config.reducedMotion) { s.screenFlash = 0.6; s.flashColor = '#34e0c4'; }
   };
   function stat(k, v) { return '<div class="end-stat"><span>' + k + '</span><b>' + v + '</b></div>'; }
+
+  function applyFactionTheme(factionId) {
+    var fid = factionId || 'aurex';
+    var f = RTS.Factions[fid];
+    document.body.classList.remove('player-aurex', 'player-cinder');
+    document.body.classList.add('player-' + fid);
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta && f) meta.setAttribute('content', f.primary);
+  }
+
+  function updateOnboarding(s) {
+    var tip = $('onboard-defend-tip');
+    if (!tip || !s) return;
+    var enemy = RTS.Factions[s.enemyFaction];
+    tip.innerHTML = '<b>Defend:</b> ' + enemy.name + ' waves are coming — build up before they land.';
+  }
 
   // ---- Menu wiring ---------------------------------------------------------
   var settingsReturn = 'menu';

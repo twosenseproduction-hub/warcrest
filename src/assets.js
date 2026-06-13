@@ -6,6 +6,7 @@
   'use strict';
 
   var KINGDOM_BASE = 'assets/tiny-swords/';
+  var RAIDER_BASE = 'assets/raider/';
   var TILE = 64;
   var cache = {};
   var ready = false;
@@ -69,6 +70,7 @@
   /* Measured from sprite alpha channels — inset fractions (0..1) per edge. */
   var BUILDING_TIGHT_INSETS = {
     Castle:   { l: 0.012, r: 0.012, t: 0.16, b: 0.027 },
+    Raider_Stronghold: { l: 0.06, r: 0.06, t: 0.14, b: 0.04 },
     House1:   { l: 0.062, r: 0.062, t: 0.083, b: 0.099 },
     House2:   { l: 0.000, r: 0.000, t: 0.120, b: 0.073 },
     House3:   { l: 0.023, r: 0.023, t: 0.193, b: 0.104 },
@@ -154,7 +156,7 @@
     var footRatio = BUILDING_FOOT[b.type] || 0.95;
     var drawY = footY - drawH * footRatio;
 
-    var key = BUILDING_TYPE_TO_INSET_KEY[b.type] || 'House1';
+    var key = buildingInsetKey(b);
     var ins = BUILDING_TIGHT_INSETS[key] || { l: 0, r: 0, t: 0, b: 0 };
     var tx = b.x - drawW / 2 + drawW * ins.l;
     var ty = drawY + drawH * ins.t;
@@ -194,7 +196,15 @@
     return { l: b.x - hw, r: b.x + hw, t: b.y - hh, b: b.y + hh * 0.55 };
   }
 
+  function buildingInsetKey(b) {
+    if (b.type === 'core' && b.faction === 'cinder') return 'Raider_Stronghold';
+    return BUILDING_TYPE_TO_INSET_KEY[b.type] || 'House1';
+  }
+
   function buildingAsset(b) {
+    if (b.type === 'core' && b.faction === 'cinder') {
+      return { base: RAIDER_BASE, rel: 'Raider_Stronghold.png', frames: 1 };
+    }
     var file = BUILDING_FILES[b.type] || BUILDING_FILES.foundry;
     return {
       base: KINGDOM_BASE,
@@ -226,6 +236,7 @@
       paths.push({ base: KINGDOM_BASE, rel: 'Buildings/Blue Buildings/' + BUILDING_FILES[t] });
       paths.push({ base: KINGDOM_BASE, rel: 'Buildings/Red Buildings/' + BUILDING_FILES[t] });
     });
+    paths.push({ base: RAIDER_BASE, rel: 'Raider_Stronghold.png' });
     GOLD_STONES.forEach(function (p) {
       paths.push({ base: KINGDOM_BASE, rel: p });
       paths.push({ base: KINGDOM_BASE, rel: p.replace('.png', '_Highlight.png') });
