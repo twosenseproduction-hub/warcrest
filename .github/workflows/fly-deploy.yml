@@ -1,0 +1,27 @@
+name: Deploy Warcrest to Fly
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: warcrest-fly-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy exofront-game
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy (guarded)
+        run: ./scripts/deploy.sh --ha=false
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
