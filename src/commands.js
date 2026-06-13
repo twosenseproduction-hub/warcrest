@@ -790,6 +790,8 @@
     var ok = true;
     s.entities.buildings.forEach(function (b) {
       if (b.dead) return;
+      // Same-type buildings may be placed adjacent to each other — skip overlap check.
+      if (b.type === type) return;
       var ox = Math.abs(b.x - x), oy = Math.abs(b.y - y);
       if (ox < (b.w / 2 + hw + 14) && oy < (b.h / 2 + hh + 14)) ok = false;
     });
