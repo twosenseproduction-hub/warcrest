@@ -90,8 +90,15 @@
   };
 
   var HEIGHT_MUL = 2.05;
-  /* Pawn 192px frames → ~64px on screen at foot radius UNIT.pawn */
-  var UNIT_VISUAL_SCALE = REF.charH / (UNIT.pawn * HEIGHT_MUL);
+  /*
+   * Global unit draw multiplier — tune here when units feel too small vs buildings.
+   * Base scale maps pawn foot radius + HEIGHT_MUL to REF.charH (1 tile). Sprites have
+   * ~30% transparent headroom (footRatio ~0.70), so visible bodies read ~35–45% of
+   * Barracks (128px) until this multiplier is applied.
+   */
+  var GLOBAL_UNIT_SCALE = 2.0;
+  var UNIT_VISUAL_SCALE =
+    (REF.charH / (UNIT.pawn * HEIGHT_MUL)) * GLOBAL_UNIT_SCALE;
   var LANCER_VISUAL_MUL = 1.12;
   var LANCER_TRAY_ZOOM = 1.22;
 
@@ -291,6 +298,7 @@
     MINION: LOL.minion_melee,
     MINION_PX: UNIT.pawn,
     GLOBAL_SCALE: 1,
+    GLOBAL_UNIT_SCALE: GLOBAL_UNIT_SCALE,
     HEIGHT_MUL: HEIGHT_MUL,
     UNIT_VISUAL_SCALE: UNIT_VISUAL_SCALE,
     LANCER_VISUAL_MUL: LANCER_VISUAL_MUL,
