@@ -496,7 +496,12 @@
 
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.drawImage(img, 0, 0, img.width, img.height, x - drawW / 2, drawY, drawW, drawH);
+    ctx.imageSmoothingEnabled = false;
+    var dx = Math.round(x - drawW / 2);
+    var dy = Math.round(drawY);
+    var dw = Math.round(drawW);
+    var dh = Math.round(drawH);
+    ctx.drawImage(img, 0, 0, img.width, img.height, dx, dy, dw, dh);
     ctx.restore();
 
     if (!built) {
