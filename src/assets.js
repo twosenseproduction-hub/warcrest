@@ -52,7 +52,7 @@
 
   function preloadFactionAssets(factionIds) {
     (factionIds || []).forEach(function (fid) {
-      if (fid === 'cinder') loadImg('Raider_Stronghold.png', RAIDER_BASE);
+      if (fid === 'cinder') loadImg('Warren_Maw.png', RAIDER_BASE);
     });
   }
 
@@ -88,7 +88,7 @@
   /* Measured from sprite alpha channels — inset fractions (0..1) per edge. */
   var BUILDING_TIGHT_INSETS = {
     Castle:   { l: 0.012, r: 0.012, t: 0.16, b: 0.027 },
-    Raider_Stronghold: { l: 0.06, r: 0.06, t: 0.14, b: 0.04 },
+    Warren_Maw: { l: 0.05, r: 0.05, t: 0.11, b: 0.04 },
     House1:   { l: 0.062, r: 0.062, t: 0.083, b: 0.099 },
     House2:   { l: 0.000, r: 0.000, t: 0.120, b: 0.073 },
     House3:   { l: 0.023, r: 0.023, t: 0.193, b: 0.104 },
@@ -156,10 +156,8 @@
 
   function buildingDrawScale(b, type, imgW, imgH) {
     if (type === 'core' && b.faction === 'cinder') {
-      /* Warren Maw — wide stronghold; target ~8 tiles wide on the map. */
-      var scW = 512 / Math.max(imgW, 1);
-      var scH = 340 / Math.max(imgH, 1);
-      return Math.min(scW, scH);
+      /* Warren Maw — width-led so the wide orc stronghold reads at full scale. */
+      return 512 / Math.max(imgW, 1);
     }
     return RTS.SizeRef.buildingDrawScale(type, imgW, imgH);
   }
@@ -221,13 +219,13 @@
   }
 
   function buildingInsetKey(b) {
-    if (b.type === 'core' && b.faction === 'cinder') return 'Raider_Stronghold';
+    if (b.type === 'core' && b.faction === 'cinder') return 'Warren_Maw';
     return BUILDING_TYPE_TO_INSET_KEY[b.type] || 'House1';
   }
 
   function buildingAsset(b) {
     if (b.type === 'core' && b.faction === 'cinder') {
-      return { base: RAIDER_BASE, rel: 'Raider_Stronghold.png', frames: 1 };
+      return { base: RAIDER_BASE, rel: 'Warren_Maw.png', frames: 1 };
     }
     var file = BUILDING_FILES[b.type] || BUILDING_FILES.foundry;
     return {
@@ -260,7 +258,7 @@
       paths.push({ base: KINGDOM_BASE, rel: 'Buildings/Blue Buildings/' + BUILDING_FILES[t] });
       paths.push({ base: KINGDOM_BASE, rel: 'Buildings/Red Buildings/' + BUILDING_FILES[t] });
     });
-    paths.push({ base: RAIDER_BASE, rel: 'Raider_Stronghold.png' });
+    paths.push({ base: RAIDER_BASE, rel: 'Warren_Maw.png' });
     GOLD_STONES.forEach(function (p) {
       paths.push({ base: KINGDOM_BASE, rel: p });
       paths.push({ base: KINGDOM_BASE, rel: p.replace('.png', '_Highlight.png') });

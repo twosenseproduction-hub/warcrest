@@ -93,7 +93,7 @@
 
   function buildingUrl(factionId, type) {
     if (type === 'core' && factionId === 'cinder') {
-      return enc('assets/raider/', 'Raider_Stronghold.png');
+      return enc('assets/raider/', 'Warren_Maw.png');
     }
     var file = BUILDING_FILE[type] || BUILDING_FILE.foundry;
     var color = RTS.Assets ? RTS.Assets.factionColor(factionId) : 'Blue';
