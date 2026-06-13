@@ -114,11 +114,23 @@
   };
 
   RTS.buildingIsAttackable = function (b) {
-    return !!b && !b.dead && (b.built || b.progress > 0);
+    if (!b || b.dead || b.hp <= 0) return false;
+    /* Real structure only — not a fresh scaffold waiting for a builder. */
+    return b.built || b.progress > 0;
   };
 
   RTS.buildingIsTappable = function (b) {
-    return RTS.buildingIsAttackable(b);
+    if (!b || b.dead) return false;
+    if (b.built || b.progress > 0) return true;
+    /* Player can tap an unstarted site to cancel construction. */
+    return b.team === RTS.TEAM.PLAYER && !b.built;
+  };
+
+  RTS.canBeAttacked = function (e) {
+    if (!e || e.dead) return false;
+    if (e.kind === 'unit') return true;
+    if (e.kind === 'building') return RTS.buildingIsAttackable(e);
+    return false;
   };
 
   RTS.recalcSupply = function (s, team) {

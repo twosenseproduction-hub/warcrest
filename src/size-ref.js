@@ -79,6 +79,65 @@
   var LANCER_VISUAL_MUL = 1.12;
   var LANCER_TRAY_ZOOM = 1.22;
 
+  /*
+   * Per-role sprite + selection calibration (measured from Tiny Swords idle frames).
+   * footRatio — fraction from sprite top to the bottom of visible art (feet/shadow).
+   * Prior values (~0.86–0.94) assumed feet near the sheet bottom; actual art ends near
+   * 0.62–0.71, which pushed brackets ~10px below the visible pawn.
+   */
+  var UNIT_VISUAL = {
+    pawn:    { footRatio: 0.698, selectRxMul: 0.36, selectRyMul: 0.10 },
+    lancer:  { footRatio: 0.616, selectRxMul: 0.34, selectRyMul: 0.11 },
+    archer:  { footRatio: 0.703, selectRxMul: 0.35, selectRyMul: 0.10 },
+    monk:    { footRatio: 0.693, selectRxMul: 0.36, selectRyMul: 0.10 },
+    warrior: { footRatio: 0.708, selectRxMul: 0.38, selectRyMul: 0.11 },
+  };
+
+  function unitVisualSpec(role) {
+    return UNIT_VISUAL[role] || UNIT_VISUAL.pawn;
+  }
+
+  function unitFootRatio(role, frameH) {
+    return unitVisualSpec(role).footRatio;
+  }
+
+  function unitFootOffset(role) {
+    return unitVisualSpec(role).footRatio;
+  }
+
+  function unitSelectionEllipse(role, vb) {
+    var spec = unitVisualSpec(role);
+    if (!vb) {
+      return { cx: 0, soleY: 0, rx: 8, ry: 3 };
+    }
+    return {
+      cx: vb.x,
+      soleY: vb.soleY != null ? vb.soleY : vb.footY,
+      rx: Math.max(6, vb.drawW * spec.selectRxMul),
+      ry: Math.max(2, vb.drawH * spec.selectRyMul),
+    };
+  }
+
+  function selectionFootBox(role, vb) {
+    var ell = unitSelectionEllipse(role, vb);
+    return {
+      cx: ell.cx,
+      footY: ell.soleY,
+      rx: ell.rx,
+      ry: ell.ry,
+      yPad: 0,
+    };
+  }
+
+  function selectionEllipse(role) {
+    return unitVisualSpec(role);
+  }
+
+  function selectionRadius(role) {
+    var spec = unitVisualSpec(role);
+    return Math.max(6, Math.round(64 * spec.selectRxMul));
+  }
+
   var RESOURCE_TAP_MIN_PX = 28;
 
   function pxRadius(roleOrLol) {
@@ -163,6 +222,14 @@
     buildingLol: function () { return LOL.turret; },
     buildingDrawScale: buildingDrawScale,
     buildingDrawTarget: buildingDrawTarget,
+    selectionEllipse: selectionEllipse,
+    selectionFootBox: selectionFootBox,
+    selectionRadius: selectionRadius,
+    UNIT_VISUAL: UNIT_VISUAL,
+    unitVisualSpec: unitVisualSpec,
+    unitFootRatio: unitFootRatio,
+    unitFootOffset: unitFootOffset,
+    unitSelectionEllipse: unitSelectionEllipse,
     resourceR: function () {
       return Math.max(TILE * 0.55, RESOURCE_TAP_MIN_PX);
     },

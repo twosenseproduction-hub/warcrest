@@ -74,13 +74,11 @@
   }
 
   function canAttackBuilding(b) {
-    return !!b && !b.dead;
+    return RTS.buildingIsAttackable(b);
   }
 
   function targetValid(target) {
-    if (!target || target.dead) return false;
-    if (target.kind === 'building') return canAttackBuilding(target);
-    return true;
+    return RTS.canBeAttacked(target);
   }
 
   function acquireRadius(u) {
@@ -174,7 +172,7 @@
     var i;
     for (i = 0; i < s.entities.units.length; i++) {
       var eu = s.entities.units[i];
-      if (eu.dead || eu.team !== foeTeam) continue;
+      if (!RTS.canBeAttacked(eu) || eu.team !== foeTeam) continue;
       var du = dist(u.x, u.y, eu.x, eu.y);
       if (du <= maxR) list.push(eu);
     }

@@ -1118,28 +1118,31 @@
     outpost: 0.62,
   };
 
+  function unitSelectionBox(u, s) {
+    var vb = RTS.Sprites && s && RTS.Sprites.unitVisualBounds
+      ? RTS.Sprites.unitVisualBounds(u, s) : null;
+    var foot = RTS.SizeRef && RTS.SizeRef.selectionFootBox
+      ? RTS.SizeRef.selectionFootBox(u.role, vb)
+      : { cx: u.x, footY: u.y + 10, rx: 8, ry: 3, yPad: 0 };
+    var cx = foot.cx;
+    var soleY = foot.footY;
+    var rx = foot.rx;
+    var ry = foot.ry;
+    var top = soleY - ry * 2;
+    var bot = soleY + (foot.yPad || 0);
+    return {
+      tlx: cx - rx, tly: top,
+      trx: cx + rx, try_: top,
+      brx: cx + rx, bry: bot,
+      blx: cx - rx, bly: bot,
+      front: false,
+      feetOnly: true,
+    };
+  }
+
   function selectionBoxFor(e, s) {
     if (e.kind === 'unit') {
-      var vb = RTS.Sprites && RTS.Sprites.unitVisualBounds && s
-        ? RTS.Sprites.unitVisualBounds(e, s) : null;
-      if (vb && vb.tight) {
-        return rectToTrapezoid(vb.tight, true);
-      }
-      if (vb) {
-        var insetX = 0.18;
-        var insetTop = 0.08;
-        var insetBot = 0.05;
-        return rectToTrapezoid({
-          x: vb.x - vb.drawW / 2 + vb.drawW * insetX,
-          y: vb.drawY + vb.drawH * insetTop,
-          w: vb.drawW * (1 - insetX * 2),
-          h: vb.drawH * (1 - insetTop - insetBot),
-        }, true);
-      }
-      return rectToTrapezoid({
-        x: e.x - e.radius * 0.85, y: e.y - e.radius * 1.1,
-        w: e.radius * 1.7, h: e.radius * 1.35,
-      }, true);
+      return unitSelectionBox(e, s);
     }
 
     var bvb = RTS.Assets && RTS.Assets.buildingVisualBounds && s
@@ -1178,7 +1181,18 @@
   function bracketLen(box) {
     var w = box.brx - box.blx;
     var h = box.bry - box.tly;
-    return Math.max(10, Math.min(22, Math.min(w, h) * 0.20));
+    if (box.feetOnly) {
+      return Math.max(10, Math.min(18, w * 0.30, h * 0.42));
+    }
+    return Math.max(8, Math.min(22, Math.min(w, h) * 0.42));
+  }
+
+  function bracketSpriteSz(box, pulse) {
+    var scale = 1 + (pulse - 1) * 0.08;
+    if (box.feetOnly) {
+      return Math.round(bracketLen(box) * 2.45 * scale);
+    }
+    return Math.round(bracketLen(box) * 2.35 * scale);
   }
 
   function strokeCornerL(ctx, ax, ay, bx, by, cx, cy) {
@@ -1223,8 +1237,7 @@
   }
 
   function drawBrackets(ctx, box, which, pulse) {
-    var scale = 1 + (pulse - 1) * 0.08;
-    var sz = Math.round(bracketLen(box) * 2.35 * scale);
+    var sz = bracketSpriteSz(box, pulse);
 
     if (selectionCursorReady && selectionCursorImg) {
       if (which === 'top') {
@@ -1237,7 +1250,7 @@
       return;
     }
 
-    var lwMain = 3 + (pulse - 1) * 4;
+    var lwMain = box.feetOnly ? 4 + (pulse - 1) * 4 : 3 + (pulse - 1) * 4;
     ctx.strokeStyle = 'rgba(240, 192, 80, 0.55)';
     drawBracketPair(ctx, box, which, lwMain + 3);
     ctx.strokeStyle = '#ffffff';
@@ -1247,12 +1260,17 @@
   function drawSelectionRingBack(ctx, e, t, pulse, s) {
     var box = selectionBoxFor(e, s);
     if (!box || box.front) return;
+    if (box.feetOnly) {
+      drawBrackets(ctx, box, 'top', pulse);
+      drawBrackets(ctx, box, 'bottom', pulse);
+      return;
+    }
     drawBrackets(ctx, box, 'top', pulse);
   }
 
   function drawSelectionRingFront(ctx, e, t, pulse, s) {
     var box = selectionBoxFor(e, s);
-    if (!box) return;
+    if (!box || box.feetOnly) return;
     if (box.front) {
       drawBrackets(ctx, box, 'top', pulse);
       drawBrackets(ctx, box, 'bottom', pulse);

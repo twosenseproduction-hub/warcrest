@@ -314,13 +314,17 @@
       var fw = clip ? (clip.frameW || sheet.frameW) : sheet.frameW;
       var fh = sheet.frameH;
       var drawW = (fw / fh) * drawH;
-      var footRatio = fh >= 300 ? 0.91 : 0.94;
+      var footRatio = RTS.SizeRef && RTS.SizeRef.unitFootRatio
+        ? RTS.SizeRef.unitFootRatio(u.role, fh)
+        : (fh >= 300 ? 0.91 : 0.94);
       var drawY = footY - drawH * footRatio;
+      var soleY = drawY + drawH * footRatio;
       var insetX = 0.18;
       var insetTop = 0.08;
       var insetBot = 0.05;
       return {
-        x: u.x, footY: footY, drawW: drawW, drawH: drawH, drawY: drawY,
+        x: u.x, footY: footY, soleY: soleY, footRatio: footRatio,
+        drawW: drawW, drawH: drawH, drawY: drawY,
         groundRx: Math.max(r * 0.95, drawW * 0.24),
         groundRy: Math.max(r * 0.36, 8),
         bodyCy: drawY + drawH * 0.55,
@@ -345,7 +349,10 @@
       var drawH = unitDrawHeight(r, target, sheet);
       var fw = clip.frameW || sheet.frameW;
       var drawW = (fw / sheet.frameH) * drawH;
-      var drawY = footY - drawH * 0.94;
+      var footRatio = RTS.SizeRef && RTS.SizeRef.unitFootRatio
+        ? RTS.SizeRef.unitFootRatio(target.role, sheet.frameH)
+        : 0.94;
+      var drawY = footY - drawH * footRatio;
       var sx = fi * fw;
       ctx.save();
       ctx.globalAlpha = 0.88;

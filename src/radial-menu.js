@@ -172,6 +172,21 @@
     return anchorX + extent > cv.clientWidth - margin;
   }
 
+  function wireCardTap(btn, fn) {
+    var lastAt = 0;
+    function run(ev) {
+      if (ev.type === 'pointerup' && ev.pointerType === 'mouse' && ev.button !== 0) return;
+      var now = performance.now();
+      if (now - lastAt < 280) return;
+      lastAt = now;
+      ev.stopPropagation();
+      ev.preventDefault();
+      fn(ev);
+    }
+    btn.addEventListener('pointerup', run);
+    btn.addEventListener('click', run);
+  }
+
   function layoutItems(s) {
     if (!hub || !items.length || !ctx || !ctx.building) return;
     hub.innerHTML = '';
@@ -206,9 +221,7 @@
         '</span>';
 
       if (!item.disabled) {
-        btn.addEventListener('click', function (ev) {
-          ev.stopPropagation();
-          ev.preventDefault();
+        wireCardTap(btn, function () {
           if (!ctx || !open) return;
           var idx = parseInt(btn.dataset.idx, 10);
           var live = items[idx];

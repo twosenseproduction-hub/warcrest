@@ -127,14 +127,42 @@
 
   function drawGhost(s, ctx) {
     if (s.inputMode !== 'place-building' || !s.ui.ghost) return;
-    var g = s.ui.ghost, spec = RTS.Buildings[g.type];
+
+    var g = s.ui.ghost;
+    var draw = RTS.SizeRef && RTS.SizeRef.buildingDrawTarget
+      ? RTS.SizeRef.buildingDrawTarget(g.type)
+      : RTS.Buildings[g.type];
+
+    var gx = g.x;
+    var gy = g.y - draw.h / 2;
+    var gw = draw.w;
+    var gh = draw.h;
+
+    if (RTS.Assets && RTS.Assets.buildingVisualBounds) {
+      var vb = RTS.Assets.buildingVisualBounds({
+        x: g.x, y: g.y, type: g.type,
+        w: draw.w, h: draw.h,
+        faction: s.playerFaction, dead: false,
+      }, s);
+      if (vb) {
+        gx = vb.x;
+        gy = vb.drawY;
+        gw = vb.drawW;
+        gh = vb.drawH;
+      }
+    }
+
     var col = g.valid ? '#66bb6a' : '#ef5350';
+
     ctx.globalAlpha = 0.55;
     ctx.fillStyle = RTS.hexA(col, 0.35);
-    ctx.fillRect(g.x - spec.w / 2, g.y - spec.h / 2, spec.w, spec.h);
+    ctx.fillRect(gx - gw / 2, gy, gw, gh);
+
     ctx.globalAlpha = 1;
-    ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.setLineDash([8, 5]);
-    ctx.strokeRect(g.x - spec.w / 2, g.y - spec.h / 2, spec.w, spec.h);
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 3;
+    ctx.setLineDash([8, 5]);
+    ctx.strokeRect(gx - gw / 2, gy, gw, gh);
     ctx.setLineDash([]);
 
     if (g.type === 'outpost') {

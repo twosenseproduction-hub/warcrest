@@ -584,9 +584,8 @@ html, body {
   opacity: 1; padding-top: 6px;
   padding-left: max(8px, env(safe-area-inset-left));
   padding-right: max(8px, env(safe-area-inset-right));
-  pointer-events: none;
+  pointer-events: auto;
 }
-#command-deck.expanded > * { pointer-events: auto; }
 @media (min-width: 520px) { :root { --deck-expanded-h: 104px; --cmd-btn: 48px; } }
 
 #selpanel {
@@ -805,6 +804,7 @@ html, body {
   position: absolute; z-index: 30; pointer-events: none;
   margin: 0; transform: translate(-50%, -50%);
 }
+#radial-menu:not(.hidden) { pointer-events: auto; }
 #radial-menu.hidden { display: none; }
 #radial-menu .radial-hub { position: relative; width: 0; height: 0; }
 

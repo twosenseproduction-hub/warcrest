@@ -55,46 +55,36 @@
         if (core) { RTS.Cam.centerOn(s, core.x, core.y); RTS.Audio.play('click'); }
       });
 
-      if (D['btn-build-hammer']) {
-        D['btn-build-hammer'].addEventListener('click', function () {
-          var s = getState();
-          if (!s || s.scene !== 'playing') return;
-          s.ui.buildPanelOpen = !s.ui.buildPanelOpen;
-          if (s.ui.buildPanelOpen && RTS.BuildingMenu) RTS.BuildingMenu.close(s);
-          RTS.Audio.play('click');
-          RTS.HUD.sync(s);
-        });
-      }
-      if (D['build-panel-grid']) {
-        D['build-panel-grid'].addEventListener('click', function (e) {
-          var btn = e.target.closest('[data-act]');
-          if (!btn) return;
-          if (btn.classList.contains('disabled')) { RTS.Audio.play('deny'); return; }
-          handleAction(getState(), btn.dataset);
-        });
-      }
+      wireTap(D['btn-build-hammer'], function () {
+        var s = getState();
+        if (!s || s.scene !== 'playing') return;
+        s.ui.buildPanelOpen = !s.ui.buildPanelOpen;
+        if (s.ui.buildPanelOpen && RTS.BuildingMenu) RTS.BuildingMenu.close(s);
+        RTS.Audio.play('click');
+        RTS.HUD.sync(s);
+      });
 
-      D['action-tray'] && D['action-tray'].addEventListener('click', function (e) {
-        var btn = e.target.closest('[data-act]'); if (!btn) return;
+      wireDelegatedTap(D['build-panel-grid'], '[data-act]', function (e, btn) {
         if (btn.classList.contains('disabled')) { RTS.Audio.play('deny'); return; }
         handleAction(getState(), btn.dataset);
       });
 
-      if (D['unit-group-strip']) {
-        D['unit-group-strip'].addEventListener('click', function (e) {
-          var chip = e.target.closest('[data-macro-role]');
-          if (!chip) return;
-          var s = getState();
-          if (!s) return;
-          markUi();
-          var role = chip.dataset.macroRole;
-          if (role === 'all') {
-            if (RTS.selectMacroAll(s)) RTS.Audio.play('click');
-          } else if (RTS.selectMacroGroup(s, role)) {
-            RTS.Audio.play('click');
-          }
-        });
-      }
+      wireDelegatedTap(D['action-tray'], '[data-act]', function (e, btn) {
+        if (btn.classList.contains('disabled')) { RTS.Audio.play('deny'); return; }
+        handleAction(getState(), btn.dataset);
+      });
+
+      wireDelegatedTap(D['unit-group-strip'], '[data-macro-role]', function (e, chip) {
+        var s = getState();
+        if (!s) return;
+        markUi();
+        var role = chip.dataset.macroRole;
+        if (role === 'all') {
+          if (RTS.selectMacroAll(s)) RTS.Audio.play('click');
+        } else if (RTS.selectMacroGroup(s, role)) {
+          RTS.Audio.play('click');
+        }
+      });
     },
 
     sync: function (s) {
@@ -155,10 +145,33 @@
 
   function markUi() { var s = getState(); if (s) s.ui.lastUiAt = performance.now(); }
 
+  function wireTap(el, fn) {
+    if (!el) return;
+    var lastAt = 0;
+    function run(e) {
+      if (e.type === 'pointerup' && e.pointerType === 'mouse' && e.button !== 0) return;
+      var now = performance.now();
+      if (now - lastAt < 280) return;
+      lastAt = now;
+      fn(e);
+    }
+    el.addEventListener('pointerup', run);
+    el.addEventListener('click', run);
+  }
+
+  function wireDelegatedTap(el, selector, fn) {
+    if (!el) return;
+    wireTap(el, function (e) {
+      var btn = e.target.closest(selector);
+      if (!btn || !el.contains(btn)) return;
+      fn(e, btn);
+    });
+  }
+
   function wireRail(id, fn) {
     var el = D[id]; if (!el) return;
     el.addEventListener('pointerdown', markUi, true);
-    el.addEventListener('click', function () { var s = getState(); if (s) fn(s); });
+    wireTap(el, function () { var s = getState(); if (s) fn(s); });
   }
 
   function macroBarActive(s) {
@@ -312,7 +325,7 @@
         bar(b.hp, b.maxHp) +
         queueHtml +
         (!b.built ? '<div class="sel-line">' + Math.floor(b.progress * 100) +
-          '% · hold to send Pawn</div>' :
+          '% · tap Cancel Build below</div>' :
           '<div class="sel-line">Hold ground → rally</div>') +
         '</div>';
       return;
@@ -399,11 +412,18 @@
 
     if (s.inputMode === 'place-building') {
       tray.appendChild(actionBtn(UI().iconHtml('cancel', 22), { act: 'cancel-place' }, false, 'danger'));
+      return;
+    }
+
+    var blds = RTS.selectedBuildings(s);
+    if (blds.length === 1 && !blds[0].built) {
+      tray.appendChild(actionBtn(UI().iconHtml('cancel', 22), { act: 'cancel-build', bid: blds[0].id }, false, 'danger'));
     }
   }
 
   function actionBtn(icon, data, disabled, extra, cost) {
     var b = document.createElement('button');
+    b.type = 'button';
     b.className = 'act' + (disabled ? ' disabled' : '') + (extra ? ' ' + extra : '');
     for (var k in data) b.dataset[k] = data[k];
     b.innerHTML = '<span class="ico">' + icon + '</span>' +
@@ -415,6 +435,7 @@
   RTS.HUD.performAction = function (s, data) { handleAction(s, data); };
 
   function handleAction(s, data) {
+    if (!s || !data || !data.act) return;
     markUi();
     switch (data.act) {
       case 'stop': RTS.orderStop(s, RTS.activeSelectedUnits(s)); RTS.Audio.play('click'); break;
@@ -446,6 +467,14 @@
       case 'cancel-place':
         RTS.cancelPlacement(s);
         RTS.Audio.play('click');
+        break;
+      case 'cancel-build':
+        if (RTS.cancelConstruction(s, data.bid)) RTS.Audio.play('click');
+        else RTS.Audio.play('deny');
+        break;
+      case 'cancel-train':
+        if (RTS.cancelTrainQueueItem(s, data.bid, parseInt(data.qidx, 10))) RTS.Audio.play('click');
+        else RTS.Audio.play('deny');
         break;
     }
     RTS.HUD.sync(s);

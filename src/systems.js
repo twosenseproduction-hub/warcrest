@@ -267,10 +267,7 @@
 
   function resolveLegacyTarget(s, u) {
     var target = u.target ? RTS.getById(s, u.target) : null;
-    if (target && target.dead) { u.target = null; target = null; }
-    if (target && target.kind === 'building' && !RTS.buildingIsAttackable(target)) {
-      u.target = null; target = null;
-    }
+    if (target && !RTS.canBeAttacked(target)) { u.target = null; target = null; }
     if (!target && u.role !== 'pawn' && u.heal === 0) {
       if (u.attackMove || u.team === TEAM.ENEMY || !u.moveTo) {
         var combat = RTS.Config.combat || {};
@@ -896,7 +893,7 @@
   function splashDamage(s, x, y, radius, dmg, team) {
     function hit(arr) {
       arr.forEach(function (e) {
-        if (e.dead || e.team === team || e.team === TEAM.NEUTRAL) return;
+        if (!RTS.canBeAttacked(e) || e.team === team || e.team === TEAM.NEUTRAL) return;
         var er = e.radius || Math.max(e.w, e.h) / 2;
         var d = dist(x, y, e.x, e.y);
         if (d <= radius + er) {
@@ -1169,15 +1166,13 @@
     var foeTeam = team === TEAM.PLAYER ? TEAM.ENEMY : TEAM.PLAYER;
     var u = s.entities.units;
     for (var i = 0; i < u.length; i++) {
-      if (u[i].dead || u[i].team !== foeTeam) continue;
+      if (!RTS.canBeAttacked(u[i]) || u[i].team !== foeTeam) continue;
       var d = dist(x, y, u[i].x, u[i].y);
       if (d < bd) { bd = d; best = u[i]; }
     }
     var b = s.entities.buildings;
     for (var j = 0; j < b.length; j++) {
-      if (b[j].dead || b[j].team !== foeTeam) continue;
-      if (RTS.canAttackBuilding && !RTS.canAttackBuilding(b[j])) continue;
-      if (!RTS.canAttackBuilding && !RTS.buildingIsAttackable(b[j])) continue;
+      if (!RTS.canBeAttacked(b[j]) || b[j].team !== foeTeam) continue;
       var db = dist(x, y, b[j].x, b[j].y);
       if (db < bd) { bd = db; best = b[j]; }
     }

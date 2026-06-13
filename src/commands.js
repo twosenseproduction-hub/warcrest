@@ -386,12 +386,7 @@
 
   RTS.orderAttack = function (s, units, targetId) {
     var target = RTS.getById(s, targetId);
-    var attackable = RTS.canAttackBuilding
-      ? RTS.canAttackBuilding(target)
-      : RTS.buildingIsAttackable(target);
-    if (target && target.kind === 'building' && !attackable) {
-      return;
-    }
+    if (!target || !RTS.canBeAttacked(target)) return;
     units.forEach(function (u) {
       applyUnitCommand(u, 'attackTarget', { targetId: targetId, guardOrigin: { x: u.x, y: u.y } });
       if (RTS.Pathfind) RTS.Pathfind.clearNav(u);
@@ -619,8 +614,87 @@
 
   RTS.cancelPlacement = function (s) {
     s.pending.building = null;
+    s.ui.ghost = null;
     s.inputMode = 'select';
     RTS.HUD.sync(s);
+  };
+
+  function constructionRefund(b) {
+    var spec = RTS.Buildings[b.type];
+    if (!spec) return 0;
+    if (b.progress <= 0) return spec.cost;
+    return Math.round(spec.cost * (1 - b.progress));
+  }
+
+  function releaseBuildersFromBuilding(s, b) {
+    s.entities.units.forEach(function (u) {
+      if (u.dead) return;
+      if (u.buildTask && u.buildTask.buildingId === b.id) {
+        u.buildTask = null;
+        u.moveTo = null;
+        u._builderOnSite = false;
+        if (RTS.UnitAI) RTS.UnitAI.applyStop(u);
+        if (RTS.resumeCarryAfterBuild) RTS.resumeCarryAfterBuild(u, s);
+      }
+      if (u.target === b.id) u.target = null;
+    });
+    b.builderId = null;
+  }
+
+  RTS.cancelConstruction = function (s, buildingId) {
+    var b = RTS.getById(s, buildingId);
+    if (!b || b.dead || b.kind !== 'building') return false;
+    if (b.team !== RTS.TEAM.PLAYER || b.built) return false;
+
+    var refund = constructionRefund(b);
+    var resKey = b.team === RTS.TEAM.PLAYER ? 'player' : 'enemy';
+    s.res[resKey].halcite += refund;
+
+    releaseBuildersFromBuilding(s, b);
+
+    s.entities.projectiles = s.entities.projectiles.filter(function (p) {
+      return p.targetId !== b.id;
+    });
+    s.entities.units.forEach(function (u) {
+      if (u.target === b.id) u.target = null;
+    });
+
+    s.entities.buildings = s.entities.buildings.filter(function (x) { return x.id !== b.id; });
+    s.selectedIds = s.selectedIds.filter(function (id) { return id !== b.id; });
+
+    if (RTS.Pathfind) RTS.Pathfind.markDirty(s);
+    RTS.recalcSupply(s, b.team);
+    if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
+
+    var label = RTS.nameFor(b.faction, b.type);
+    RTS.log(s, label + ' canceled — +' + refund + ' Halcite', 'info');
+    RTS.toast(s, 'Build canceled · +' + refund + ' Halcite');
+    RTS.Audio.play('click');
+    RTS.HUD.sync(s);
+    return true;
+  };
+
+  RTS.cancelTrainQueueItem = function (s, buildingId, index) {
+    var b = RTS.getById(s, buildingId);
+    if (!b || b.dead || b.kind !== 'building' || b.team !== RTS.TEAM.PLAYER) return false;
+    if (!b.built || !b.queue.length) return false;
+    index = index == null ? 0 : index;
+    if (index < 0 || index >= b.queue.length) return false;
+
+    var job = b.queue[index];
+    var spec = RTS.Units[job.role];
+    if (!spec) return false;
+
+    var refund = spec.cost;
+    s.res.player.halcite += refund;
+    b.queue.splice(index, 1);
+    b.train = b.queue[0] || null;
+
+    RTS.log(s, RTS.nameFor(b.faction, job.role) + ' training canceled — +' + refund, 'info');
+    RTS.toast(s, 'Training canceled · +' + refund);
+    RTS.Audio.play('click');
+    RTS.HUD.sync(s);
+    return true;
   };
 
   function nearResourceRing(s, x, y, hw, hh) {

@@ -136,14 +136,17 @@
     if (hit && hit.kind === 'building' && hit.team === TEAM.PLAYER && hit.built && !additive) {
       return { type: 'selectBuilding', buildingId: hit.id };
     }
+    if (hit && hit.kind === 'building' && hit.team === TEAM.PLAYER && !hit.built && !additive) {
+      return { type: 'selectConstruction', buildingId: hit.id };
+    }
     if (hit && hit.kind === 'unit' && hit.team === TEAM.PLAYER) {
       return { type: additive || sel.length ? 'toggleUnit' : 'selectUnit', unitId: hit.id };
     }
-    if (hit && (hit.kind === 'unit' || hit.kind === 'building') && hit.team === TEAM.ENEMY) {
-      var canHit = hit.kind === 'building'
-        ? (RTS.canAttackBuilding ? RTS.canAttackBuilding(hit) : RTS.buildingIsAttackable(hit))
-        : true;
-      if (canHit && combat.length) {
+    if (hit && hit.team === TEAM.ENEMY && RTS.canBeAttacked(hit)) {
+      if (hit.kind === 'unit' && combat.length) {
+        return { type: 'attack', targetId: hit.id, x: wx, y: wy, units: combat };
+      }
+      if (hit.kind === 'building' && combat.length) {
         return { type: 'attack', targetId: hit.id, x: wx, y: wy, units: combat };
       }
     }
@@ -180,6 +183,15 @@
         s.selectedIds = [intent.buildingId];
         RTS.clearMacroGroups(s);
         if (RTS.BuildingMenu) RTS.BuildingMenu.open(s, RTS.getById(s, intent.buildingId));
+        RTS.refreshMode(s);
+        RTS.HUD.sync(s);
+        RTS.Audio.play('click');
+        haptic(6);
+        break;
+      case 'selectConstruction':
+        s.selectedIds = [intent.buildingId];
+        RTS.clearMacroGroups(s);
+        if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
         RTS.refreshMode(s);
         RTS.HUD.sync(s);
         RTS.Audio.play('click');
