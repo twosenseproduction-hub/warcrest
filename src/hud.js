@@ -20,6 +20,14 @@
 
   function $(id) { return document.getElementById(id); }
 
+  function syncResources(s) {
+    if (!D['res-halcite']) return;
+    D['res-halcite'].textContent = Math.floor(s.res.player.halcite);
+    var sp = s.res.player;
+    D['res-supply'].textContent = sp.supplyUsed + '/' + sp.supplyCap;
+    D['res-supply'].className = sp.supplyUsed >= sp.supplyCap ? 'val warn' : 'val';
+  }
+
   RTS.HUD = {
     init: function (getStateFn) {
       getState = getStateFn;
@@ -88,11 +96,7 @@
     },
 
     sync: function (s) {
-      if (!D['res-halcite']) return;
-      D['res-halcite'].textContent = Math.floor(s.res.player.halcite);
-      var sp = s.res.player;
-      D['res-supply'].textContent = sp.supplyUsed + '/' + sp.supplyCap;
-      D['res-supply'].className = sp.supplyUsed >= sp.supplyCap ? 'val warn' : 'val';
+      syncResources(s);
 
       if (D['btn-rail-atk']) D['btn-rail-atk'].classList.toggle('active', !!s.attackMoveArmed);
 
@@ -121,6 +125,7 @@
     },
 
     tick: function (s, dt) {
+      syncResources(s);
       if (D['timer']) D['timer'].textContent = fmtTime(s.timers.gameTime);
       if (D['wave-timer']) {
         var rem = Math.max(0, s.timers.nextWave - s.timers.gameTime);
