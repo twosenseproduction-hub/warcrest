@@ -46,7 +46,7 @@
   var BUILDING_DRAW = {
     core: { w: 256, h: 192 },
     outpost: { w: 128, h: 128 },
-    conduit: { w: 128, h: 128 },
+    conduit: { w: 176, h: 144 },
     foundry: { w: 160, h: 128 },
     forge: { w: 176, h: 144 },
     turret: { w: 56, h: 96 },

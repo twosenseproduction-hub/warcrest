@@ -81,6 +81,23 @@
 
     if (spec.trains && spec.trains.length && building.built) {
       spec.trains.forEach(function (role) {
+        if (role === '_livestock') {
+          var lc = RTS.Config.livestock;
+          var canQ = RTS.canQueueLivestock ? RTS.canQueueLivestock(s, building) : true;
+          var afford = s.res.player.halcite >= lc.trainCost;
+          var isHorde = fid === 'cinder';
+          out.push({
+            id: 'train-livestock-' + building.id,
+            kind: 'train',
+            bid: building.id,
+            role: '_livestock',
+            label: (isHorde ? 'RAISE PIG' : 'RAISE SHEEP'),
+            avatar: UI().iconHtml ? UI().iconHtml(isHorde ? 'pig' : 'sheep', 34) : HAMMER_ICON,
+            cost: lc.trainCost,
+            disabled: !afford || !canQ,
+          });
+          return;
+        }
         var us = RTS.Units[role];
         if (!us) return;
         var afford = s.res.player.halcite >= us.cost;
@@ -109,7 +126,9 @@
           kind: 'build',
           type: type,
           label: RTS.nameFor(fid, type).toUpperCase(),
-          avatar: HAMMER_ICON,
+          avatar: UI().buildingPortraitHtml
+            ? UI().buildingPortraitHtml(fid, type, 34)
+            : HAMMER_ICON,
           cost: bspec.cost,
           disabled: !afford,
         });
@@ -206,6 +225,8 @@
       btn.style.setProperty('--rx', rx + 'px');
       btn.style.setProperty('--ry', ry + 'px');
       btn.disabled = !!item.disabled;
+      btn.title = item.label || '';
+      btn.setAttribute('aria-label', item.label || 'Action');
 
       var avatar = item.avatar || '';
       var costHtml = item.cost > 0

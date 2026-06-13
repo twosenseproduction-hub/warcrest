@@ -32,7 +32,13 @@
     // Economy
     startResources: 280,        // starting Ironstone — slightly higher for slower harvest pace
     startSupplyCap: 12,         // supply provided by the Core
-    supplyPerPylon: 8,          // supply added per Conduit
+    supplyPerPylon: 8,          // legacy — supply now comes from livestock per pen
+    livestock: {
+      maxPerPasture: 3,
+      supplyPerAnimal: 4,
+      trainTime: 14,
+      trainCost: 30,
+    },
     maxSupplyCap: 80,
     passiveTrickle: 0.0,        // passive income/sec (0 = pure harvesting)
 
@@ -188,9 +194,11 @@
       desc: 'Expansion base — build beside an Ironstone field. Trains workers and banks ore.',
     },
     conduit: {
-      type: 'conduit', label: 'Banner Post', w: 128, h: 128,
-      hp: 420, cost: 65, build: 10, supply: 8,
-      trains: [], desc: 'Raises your supply cap.',
+      type: 'conduit', label: 'Sheep Pen', w: 192, h: 192,
+      hp: 420, cost: 65, build: 10,
+      isPasture: true,
+      trains: ['_livestock'],
+      desc: 'Raise sheep (or pigs) in a fenced pen. Each animal raises your supply cap.',
     },
     foundry: {
       type: 'foundry', label: 'Barracks', w: 192, h: 128,
@@ -229,7 +237,7 @@
       accent: '#FFD54F',
       shapeStyle: 'angular',
       names: {
-        core: 'Citadel Keep', conduit: 'Banner Post', foundry: 'Barracks',
+        core: 'Citadel Keep', conduit: 'Sheep Pen', foundry: 'Barracks',
         forge: 'War Forge', turret: 'Arrow Tower', outpost: 'Forward Bastion',
         pawn: 'Pawn', lancer: 'Lancer', archer: 'Archer',
         monk: 'Monk', warrior: 'Warrior',
@@ -247,7 +255,7 @@
       accent: '#F5F5DC',
       shapeStyle: 'angular',
       names: {
-        core: 'Warren Maw', conduit: 'Totem Stake', foundry: 'War Pit',
+        core: 'Warren Maw', conduit: 'Pig Sty', foundry: 'War Pit',
         forge: 'Skull Forge', turret: 'Bone Spire', outpost: 'Raider Camp',
         pawn: 'Gnome', lancer: 'Spear Goblin', archer: 'Gnoll',
         monk: 'Hex Shaman', warrior: 'Troll',

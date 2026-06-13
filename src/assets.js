@@ -7,6 +7,7 @@
 
   var KINGDOM_BASE = 'assets/tiny-swords/';
   var ENEMY_BASE = 'assets/tiny-swords-enemy/';
+  var LIVESTOCK_BASE = 'assets/livestock/';
   var RAIDER_BASE = 'assets/raider/';
   var TILE = 64;
   var cache = {};
@@ -55,6 +56,7 @@
     (factionIds || []).forEach(function (fid) {
       if (fid === 'cinder') {
         loadImg('Warren_Maw.png', RAIDER_BASE);
+        loadImg(PIG_STY, RAIDER_BASE);
         loadImg(GNOLL_BONE, ENEMY_BASE);
       }
     });
@@ -95,6 +97,7 @@
     Warren_Maw: { l: 0.008, r: 0.008, t: 0.011, b: 0.011 },
     House1:   { l: 0.062, r: 0.062, t: 0.083, b: 0.099 },
     House2:   { l: 0.000, r: 0.000, t: 0.120, b: 0.073 },
+    PigSty:    { l: 0.06, r: 0.06, t: 0.10, b: 0.05 },
     House3:   { l: 0.023, r: 0.023, t: 0.193, b: 0.104 },
     Tower:    { l: 0.031, r: 0.031, t: 0.180, b: 0.102 },
     Archery:  { l: 0.016, r: 0.031, t: 0.238, b: 0.062 },
@@ -158,9 +161,11 @@
 
   var ARROW = 'Units/Blue Units/Archer/Arrow.png';
   var GNOLL_BONE = 'Enemies/Gnoll/Gnoll_Bone.png';
+  var PIG_STY = 'Pig_Sty.png';
 
   function buildingDrawScale(b, type, imgW, imgH) {
-    return RTS.SizeRef.buildingDrawScale(type, imgW, imgH);
+    var drawType = (b.type === 'conduit' && b.faction === 'cinder') ? 'forge' : type;
+    return RTS.SizeRef.buildingDrawScale(drawType, imgW, imgH);
   }
 
   function buildingFootY(b, s) {
@@ -168,14 +173,28 @@
     return grid && RTS.Terrain ? RTS.Terrain.groundY(grid, b.x, b.y) : b.y;
   }
 
+  function buildingSourceSize(asset, img) {
+    return {
+      w: asset.frameW || img.width,
+      h: asset.frameH || img.height,
+      frames: asset.frames || 1,
+    };
+  }
+
+  function buildingFrameIndex(asset, s) {
+    if (!asset.frames || asset.frames <= 1 || !s || !s.timers) return 0;
+    return Math.floor(s.timers.gameTime * 3) % asset.frames;
+  }
+
   function buildingVisualBounds(b, s) {
     var asset = buildingAsset(b);
     var img = ensureImg(asset.rel, asset.base);
     if (!img) return null;
+    var src = buildingSourceSize(asset, img);
     var footY = buildingFootY(b, s);
-    var sc = buildingDrawScale(b, b.type, img.width, img.height);
-    var drawW = img.width * sc;
-    var drawH = img.height * sc;
+    var sc = buildingDrawScale(b, b.type, src.w, src.h);
+    var drawW = src.w * sc;
+    var drawH = src.h * sc;
     var footRatio = BUILDING_FOOT[b.type] || 0.95;
     var drawY = footY - drawH * footRatio;
 
@@ -221,12 +240,16 @@
 
   function buildingInsetKey(b) {
     if (b.type === 'core' && b.faction === 'cinder') return 'Warren_Maw';
+    if (b.type === 'conduit' && b.faction === 'cinder') return 'PigSty';
     return BUILDING_TYPE_TO_INSET_KEY[b.type] || 'House1';
   }
 
   function buildingAsset(b) {
     if (b.type === 'core' && b.faction === 'cinder') {
       return { base: RAIDER_BASE, rel: 'Warren_Maw.png', frames: 1 };
+    }
+    if (b.type === 'conduit' && b.faction === 'cinder') {
+      return { base: RAIDER_BASE, rel: PIG_STY, frames: 1 };
     }
     var file = BUILDING_FILES[b.type] || BUILDING_FILES.foundry;
     return {
@@ -260,6 +283,7 @@
       paths.push({ base: KINGDOM_BASE, rel: 'Buildings/Red Buildings/' + BUILDING_FILES[t] });
     });
     paths.push({ base: RAIDER_BASE, rel: 'Warren_Maw.png' });
+    paths.push({ base: RAIDER_BASE, rel: PIG_STY });
     GOLD_STONES.forEach(function (p) {
       paths.push({ base: KINGDOM_BASE, rel: p });
       paths.push({ base: KINGDOM_BASE, rel: p.replace('.png', '_Highlight.png') });
@@ -267,6 +291,11 @@
     DECOR_SPRITES.bush.forEach(function (p) { paths.push({ base: KINGDOM_BASE, rel: p }); });
     DECOR_SPRITES.tree.forEach(function (p) { paths.push({ base: KINGDOM_BASE, rel: p }); });
     DECOR_SPRITES.rock.forEach(function (p) { paths.push({ base: KINGDOM_BASE, rel: p }); });
+    Object.keys(LIVESTOCK_CLIPS).forEach(function (species) {
+      Object.keys(LIVESTOCK_CLIPS[species]).forEach(function (clipName) {
+        paths.push({ base: LIVESTOCK_BASE, rel: species + '/' + LIVESTOCK_CLIPS[species][clipName].file });
+      });
+    });
     return Promise.all(paths.map(function (p) { return loadImg(p.rel, p.base); }));
   }
 
@@ -486,6 +515,10 @@
     var img = ensureImg(asset.rel, asset.base);
     if (!img) return false;
 
+    var bspec = RTS.Buildings[b.type];
+    var isPen = !!(bspec && bspec.isPasture);
+    var isPigSty = isPen && b.faction === 'cinder';
+
     var vb = buildingVisualBounds(b, s);
     if (!vb) return false;
     var x = vb.x;
@@ -495,8 +528,15 @@
     var drawY = vb.drawY;
     var built = b.built;
     var alpha = built ? 1 : 0.65 + b.progress * 0.35;
+    var src = buildingSourceSize(asset, img);
+    var frame = buildingFrameIndex(asset, s);
+    var sx = frame * src.w;
 
     RTS.Art.drawShadow(ctx, x, footY + 4, Math.max(b.w, b.h) * 0.5, 0.36);
+
+    if (isPen && !isPigSty && RTS.Art.drawPasturePenGround) {
+      RTS.Art.drawPasturePenGround(ctx, b.x, b.y, b.w, b.h);
+    }
 
     ctx.save();
     ctx.globalAlpha = alpha;
@@ -505,8 +545,12 @@
     var dy = Math.round(drawY);
     var dw = Math.round(drawW);
     var dh = Math.round(drawH);
-    ctx.drawImage(img, 0, 0, img.width, img.height, dx, dy, dw, dh);
+    ctx.drawImage(img, sx, 0, src.w, src.h, dx, dy, dw, dh);
     ctx.restore();
+
+    if (isPen && !isPigSty && RTS.Art.drawPasturePenFence) {
+      RTS.Art.drawPasturePenFence(ctx, b.x, b.y, b.w, b.h);
+    }
 
     if (!built) {
       var br = vb.boundary;
@@ -681,6 +725,41 @@
     drawSpriteHealthBar: drawSpriteHealthBar,
     buildingVisualBounds: buildingVisualBounds,
     buildingCollisionRect: buildingCollisionRect,
+  };
+
+  var LIVESTOCK_CLIPS = {
+    sheep: {
+      idle: { file: 'Sheep_Idle.png', frames: 4, frameW: 192 },
+      walk: { file: 'Sheep_Move.png', frames: 4, frameW: 128 },
+    },
+    pig: {
+      idle: { file: 'Pig_Idle.png', frames: 4, frameW: 480 },
+      walk: { file: 'Pig_Run.png', frames: 4, frameW: 192 },
+    },
+  };
+
+  function livestockClip(species, clipName) {
+    var sp = LIVESTOCK_CLIPS[species];
+    return sp ? (sp[clipName] || sp.idle) : null;
+  }
+
+  function loadLivestockImg(species, clipName) {
+    var clip = livestockClip(species, clipName);
+    if (!clip) return Promise.resolve(null);
+    return loadImg(species + '/' + clip.file, LIVESTOCK_BASE);
+  }
+
+  function livestockImgSync(species, clipName) {
+    var clip = livestockClip(species, clipName);
+    if (!clip) return null;
+    return imgSync(species + '/' + clip.file, LIVESTOCK_BASE);
+  }
+
+  RTS.Livestock = {
+    clip: livestockClip,
+    imgSync: livestockImgSync,
+    loadImg: loadLivestockImg,
+    CLIPS: LIVESTOCK_CLIPS,
   };
 
 })(window.RTS = window.RTS || {});

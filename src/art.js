@@ -26,6 +26,9 @@
     drawBuilding: drawBuilding,
     drawUnit: drawUnit,
     drawProjectile: drawProjectile,
+    drawLivestock: drawLivestock,
+    drawPasturePenGround: drawPasturePenGroundWorld,
+    drawPasturePenFence: drawPasturePenFenceWorld,
     drawSelectionRing: drawSelectionRing,
     drawSelectionRingBack: drawSelectionRingBack,
     drawSelectionRingFront: drawSelectionRingFront,
@@ -441,7 +444,7 @@
     switch (b.type) {
       case 'core': drawCastle(ctx, b, f, t, rm); break;
       case 'outpost': drawCastle(ctx, b, f, t, rm * 0.88); break;
-      case 'conduit': drawConduit(ctx, b, f, t, rm); break;
+      case 'conduit': drawPasture(ctx, b, f, t, rm); break;
       case 'foundry': drawBarracks(ctx, b, f); break;
       case 'forge': drawForge(ctx, b, f, t, rm); break;
       case 'turret': drawCannonTower(ctx, b, f, t, rm); break;
@@ -528,6 +531,66 @@
     ctx.closePath();
     ctx.strokeStyle = ink(col); ctx.lineWidth = 3; ctx.stroke();
     specDot(ctx, x - r * 0.2, y - r * 0.4, r * 0.18);
+  }
+
+  function drawPasturePenGround(ctx, w, h) {
+    ctx.beginPath();
+    ctx.ellipse(0, h * 0.1, w * 0.44, h * 0.3, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(120,180,80,0.28)';
+    ctx.fill();
+  }
+
+  function drawPasturePenFence(ctx, w, h) {
+    var fenceColor = '#8B6914';
+    var fenceRailColor = '#a07820';
+    var postY1 = h * 0.05;
+    var postY2 = h * 0.38;
+    var posts = [-w * 0.44, -w * 0.22, 0, w * 0.22, w * 0.44];
+    ctx.strokeStyle = fenceRailColor; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(-w * 0.44, postY1 + 6); ctx.lineTo(w * 0.44, postY1 + 6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-w * 0.44, postY2 - 6); ctx.lineTo(w * 0.44, postY2 - 6); ctx.stroke();
+    posts.forEach(function (px) {
+      ctx.fillStyle = fenceColor;
+      ctx.strokeStyle = ink(fenceColor); ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.rect(px - 4, postY1, 8, postY2 - postY1);
+      ctx.fill(); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(px - 4, postY1);
+      ctx.lineTo(px, postY1 - 7);
+      ctx.lineTo(px + 4, postY1);
+      ctx.closePath();
+      ctx.fillStyle = liteC(fenceColor); ctx.fill();
+    });
+    ctx.clearRect(-w * 0.11, postY2 - 14, w * 0.22, 20);
+  }
+
+  function drawPasturePenGroundWorld(ctx, bx, by, w, h) {
+    ctx.save();
+    ctx.translate(bx, by);
+    drawPasturePenGround(ctx, w, h);
+    ctx.restore();
+  }
+
+  function drawPasturePenFenceWorld(ctx, bx, by, w, h) {
+    ctx.save();
+    ctx.translate(bx, by);
+    drawPasturePenFence(ctx, w, h);
+    ctx.restore();
+  }
+
+  function drawPasture(ctx, b, f, t, rm) {
+    var w = b.w, h = b.h;
+    drawPasturePenGround(ctx, w, h);
+    celRRect(ctx, -w * 0.25, -h * 0.38, w * 0.5, h * 0.55, 7, f.primary, 4);
+    ctx.beginPath();
+    ctx.moveTo(-w * 0.28, -h * 0.38);
+    ctx.lineTo(0, -h * 0.65);
+    ctx.lineTo(w * 0.28, -h * 0.38);
+    ctx.closePath();
+    ctx.fillStyle = f.dark; ctx.fill();
+    ctx.strokeStyle = ink(f.dark); ctx.lineWidth = 3; ctx.stroke();
+    drawPasturePenFence(ctx, w, h);
   }
 
   function drawBarracks(ctx, b, f) {
@@ -1397,6 +1460,51 @@
    * ========================================================================*/
   function drawShadow(ctx, x, y, r, alpha) {
     /* shadows disabled */
+  }
+
+  function drawAnimal(ctx, a, s) {
+    var clip = RTS.Livestock ? RTS.Livestock.clip(a.species, a.animClip) : null;
+    var img  = RTS.Livestock ? RTS.Livestock.imgSync(a.species, a.animClip) : null;
+
+    ctx.save();
+    ctx.translate(a.x, a.y);
+
+    if (img && clip) {
+      var fw = clip.frameW;
+      var fh = img.height;
+      var sc = a.species === 'pig' ? 0.30 : 0.55;
+      var dw = fw * sc;
+      var dh = fh * sc;
+      if (a.facing < 0) {
+        ctx.scale(-1, 1);
+      }
+      ctx.drawImage(
+        img,
+        a.animFrame * fw, 0, fw, fh,
+        -dw / 2, -dh * 0.85,
+        dw, dh
+      );
+    } else {
+      ctx.beginPath();
+      ctx.arc(0, 0, 8, 0, Math.PI * 2);
+      ctx.fillStyle = a.species === 'pig' ? '#e8a0a0' : '#f0f0f0';
+      ctx.fill();
+      ctx.strokeStyle = '#888'; ctx.lineWidth = 1.5; ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  function drawLivestock(ctx, s) {
+    s.entities.buildings.forEach(function (b) {
+      if (!b.built || b.dead) return;
+      var bspec = RTS.Buildings[b.type];
+      if (!bspec || !bspec.isPasture || !b.livestock) return;
+      b.livestock.forEach(function (a) {
+        if (a.dead) return;
+        drawAnimal(ctx, a, s);
+      });
+    });
   }
 
 })(window.RTS = window.RTS || {});

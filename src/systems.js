@@ -739,6 +739,9 @@
       b.hp = Math.max(b.hp, b.maxHp * (0.08 + 0.92 * b.progress));
       if (b.progress >= 1) {
         b.built = true; b.hp = b.maxHp; b.spawnFlash = 0.5;
+        if (RTS.Buildings[b.type] && RTS.Buildings[b.type].isPasture) {
+          if (!b.livestock) b.livestock = [];
+        }
         b.builderId = null;
         RTS.markBuildingFootprint(s, b, true);
         RTS.spawnBuildingDust(s, b);
@@ -783,12 +786,136 @@
       job.remaining -= dt;
       if (job.remaining <= 0) {
         b.queue.shift();
-        spawnTrained(s, b, job.role);
+        if (job.role === '_livestock') {
+          spawnLivestock(s, b);
+        } else {
+          spawnTrained(s, b, job.role);
+        }
         b.train = b.queue[0] || null;
         if (b.team === TEAM.PLAYER) RTS.HUD.sync(s);
       }
     } else { b.train = null; }
+
+    if (RTS.Buildings[b.type] && RTS.Buildings[b.type].isPasture && b.livestock) {
+      updateLivestock(s, b, dt);
+    }
   }
+
+  /* ---- Livestock system -------------------------------------------------- */
+  function livestockSpecies(b) {
+    return (b.faction === 'cinder') ? 'pig' : 'sheep';
+  }
+
+  function pasturePenRect(b) {
+    if (b.faction === 'cinder') {
+      return {
+        cx: b.x - b.w * 0.14,
+        cy: b.y + b.h * 0.04,
+        hw: b.w * 0.16,
+        hh: b.h * 0.13,
+      };
+    }
+    return {
+      cx: b.x,
+      cy: b.y,
+      hw: b.w * 0.38,
+      hh: b.h * 0.28,
+    };
+  }
+
+  function spawnLivestock(s, b) {
+    if (!b.livestock) b.livestock = [];
+    var lc = RTS.Config.livestock;
+    var liveCount = b.livestock.filter(function (a) { return !a.dead; }).length;
+    if (liveCount >= lc.maxPerPasture) return;
+    var species = livestockSpecies(b);
+    var pen = pasturePenRect(b);
+    var animal = {
+      id: RTS.nextId(),
+      kind: 'livestock',
+      species: species,
+      buildingId: b.id,
+      x: pen.cx + (Math.random() - 0.5) * pen.hw * 1.4,
+      y: pen.cy + (Math.random() - 0.5) * pen.hh * 1.4,
+      dead: false,
+      animClip: 'idle',
+      animFrame: Math.random() * 4 | 0,
+      animTimer: Math.random() * 0.5,
+      wanderTimer: 1 + Math.random() * 2,
+      wanderVx: 0,
+      wanderVy: 0,
+      facing: Math.random() < 0.5 ? 1 : -1,
+    };
+    b.livestock.push(animal);
+    RTS.recalcSupply(s, b.team);
+    if (b.team === TEAM.PLAYER) {
+      var name = species === 'pig' ? 'Pig' : 'Sheep';
+      RTS.log(s, name + ' joined the pen', 'good');
+      RTS.Audio.play('ready');
+    }
+  }
+
+  var LIVESTOCK_SPEED = 28;
+  var WANDER_IDLE_RANGE  = [1.2, 3.0];
+  var WANDER_MOVE_RANGE  = [0.6, 1.4];
+
+  function updateLivestock(s, b, dt) {
+    if (!b.livestock) return;
+    var pen = pasturePenRect(b);
+
+    b.livestock.forEach(function (a) {
+      if (a.dead) return;
+
+      a.wanderTimer -= dt;
+      if (a.wanderTimer <= 0) {
+        if (a.animClip === 'walk') {
+          a.animClip = 'idle';
+          a.wanderVx = 0;
+          a.wanderVy = 0;
+          a.wanderTimer = WANDER_IDLE_RANGE[0] +
+            Math.random() * (WANDER_IDLE_RANGE[1] - WANDER_IDLE_RANGE[0]);
+        } else {
+          var ang = Math.random() * Math.PI * 2;
+          a.wanderVx = Math.cos(ang) * LIVESTOCK_SPEED;
+          a.wanderVy = Math.sin(ang) * LIVESTOCK_SPEED * 0.55;
+          a.facing   = a.wanderVx >= 0 ? 1 : -1;
+          a.animClip = 'walk';
+          a.wanderTimer = WANDER_MOVE_RANGE[0] +
+            Math.random() * (WANDER_MOVE_RANGE[1] - WANDER_MOVE_RANGE[0]);
+        }
+      }
+
+      if (a.animClip === 'walk') {
+        a.x += a.wanderVx * dt;
+        a.y += a.wanderVy * dt;
+        a.x = Math.max(pen.cx - pen.hw, Math.min(pen.cx + pen.hw, a.x));
+        a.y = Math.max(pen.cy - pen.hh, Math.min(pen.cy + pen.hh, a.y));
+      }
+
+      var clipData = RTS.Livestock ? RTS.Livestock.clip(a.species, a.animClip) : null;
+      var fps = (a.animClip === 'walk') ? 8 : 4;
+      a.animTimer += dt;
+      if (a.animTimer >= 1 / fps) {
+        a.animTimer -= 1 / fps;
+        var frameCount = clipData ? clipData.frames : 4;
+        a.animFrame = (a.animFrame + 1) % frameCount;
+      }
+    });
+  }
+
+  RTS.canQueueLivestock = function (s, b) {
+    if (!b || !b.built) return false;
+    var lc = RTS.Config.livestock;
+    if (!lc) return false;
+    var liveCount = (b.livestock || []).filter(function (a) { return !a.dead; }).length;
+    var queued    = (b.queue    || []).filter(function (j) { return j.role === '_livestock'; }).length;
+    return (liveCount + queued) < lc.maxPerPasture;
+  };
+
+  RTS.pasturePenRect = pasturePenRect;
+  RTS.livestockSpecies = function (b) {
+    return (b.faction === 'cinder') ? 'pig' : 'sheep';
+  };
 
   function spawnTrained(s, b, role) {
     var ang = b.team === TEAM.PLAYER ? -0.4 : Math.PI - 0.4;
@@ -866,6 +993,10 @@
       if (e.team === TEAM.PLAYER) s.stats.unitsLost++;
       s.selectedIds = s.selectedIds.filter(function (id) { return id !== e.id; });
     } else {
+      if (e.livestock) {
+        e.livestock.forEach(function (a) { a.dead = true; });
+        RTS.recalcSupply(s, e.team);
+      }
       if (RTS.Particles) RTS.Particles.clearBuildingFires(s, e.id);
       var boomY = e.y - e.h * 0.22;
       var boomSize = Math.max(e.w, e.h) * 0.75;

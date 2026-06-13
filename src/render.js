@@ -40,6 +40,7 @@
       s.entities.resources.forEach(function (n) { if (n.amount > 0) Art().drawResource(ctx, n); });
       drawSelectionBack(s, ctx);
       s.entities.buildings.forEach(function (b) { Art().drawBuilding(ctx, b, RTS.Factions[b.faction], s); });
+      if (Art().drawLivestock) Art().drawLivestock(ctx, s);
       s.entities.units.forEach(function (u) { Art().drawUnit(ctx, u, RTS.Factions[u.faction], s); });
       drawProjectiles(s, ctx);
       drawEffects(s, ctx);

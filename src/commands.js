@@ -503,6 +503,34 @@
   // ---- Training ------------------------------------------------------------
   RTS.train = function (s, building, role) {
     var team = building.team;
+
+    if (role === '_livestock') {
+      var lc = RTS.Config.livestock;
+      if (!building.built) {
+        if (team === RTS.TEAM.PLAYER) RTS.toast(s, 'Building not finished');
+        return false;
+      }
+      if (!RTS.canAfford(s, team, lc.trainCost)) {
+        if (team === RTS.TEAM.PLAYER) {
+          RTS.toast(s, 'Not enough ' + RTS.resourceLabel());
+          RTS.Audio.play('deny');
+        }
+        return false;
+      }
+      if (RTS.canQueueLivestock && !RTS.canQueueLivestock(s, building)) {
+        if (team === RTS.TEAM.PLAYER) {
+          RTS.toast(s, 'Pen is full (max 3)');
+          RTS.Audio.play('deny');
+        }
+        return false;
+      }
+      s.res[team].halcite -= lc.trainCost;
+      building.queue.push({ role: '_livestock', remaining: lc.trainTime, total: lc.trainTime });
+      if (!building.train) building.train = building.queue[0];
+      if (team === RTS.TEAM.PLAYER) { RTS.Audio.play('click'); RTS.HUD.sync(s); }
+      return true;
+    }
+
     var spec = RTS.Units[role];
     if (!building.built) { if (team === RTS.TEAM.PLAYER) RTS.toast(s, 'Building not finished'); return false; }
     if (!RTS.canAfford(s, team, spec.cost)) {
@@ -514,7 +542,7 @@
       return false;
     }
     if (!RTS.hasSupply(s, team, spec.supply)) {
-      if (team === RTS.TEAM.PLAYER) { RTS.toast(s, 'Supply cap reached — build a House'); RTS.log(s, 'Supply blocked', 'warn'); RTS.Audio.play('deny'); }
+      if (team === RTS.TEAM.PLAYER) { RTS.toast(s, 'Supply cap reached — raise more livestock'); RTS.log(s, 'Supply blocked', 'warn'); RTS.Audio.play('deny'); }
       return false;
     }
     s.res[team].halcite -= spec.cost;
@@ -719,15 +747,22 @@
     if (index < 0 || index >= b.queue.length) return false;
 
     var job = b.queue[index];
-    var spec = RTS.Units[job.role];
-    if (!spec) return false;
-
-    var refund = spec.cost;
+    var refund;
+    if (job.role === '_livestock') {
+      refund = RTS.Config.livestock.trainCost;
+    } else {
+      var spec = RTS.Units[job.role];
+      if (!spec) return false;
+      refund = spec.cost;
+    }
     s.res.player.halcite += refund;
     b.queue.splice(index, 1);
     b.train = b.queue[0] || null;
 
-    RTS.log(s, RTS.nameFor(b.faction, job.role) + ' training canceled — +' + refund, 'info');
+    var cancelLabel = job.role === '_livestock'
+      ? (b.faction === 'cinder' ? 'Pig' : 'Sheep')
+      : RTS.nameFor(b.faction, job.role);
+    RTS.log(s, cancelLabel + ' training canceled — +' + refund, 'info');
     RTS.toast(s, 'Training canceled · +' + refund);
     RTS.Audio.play('click');
     RTS.HUD.sync(s);

@@ -59,6 +59,8 @@
     gear: UI + 'Icons/Icon_10.png',
     info: UI + 'Icons/Icon_11.png',
     music: UI + 'Icons/Icon_12.png',
+    sheep: UI + 'Icons/Icon_04.png',
+    pig: UI + 'Icons/Icon_04.png',
   };
 
   var UNIT_STRIP = {
@@ -71,7 +73,7 @@
 
   var BUILDING_FILE = {
     core: 'Castle.png',
-    conduit: 'House1.png',
+    conduit: 'House2.png',
     foundry: 'Barracks.png',
     forge: 'Archery.png',
     turret: 'Tower.png',
@@ -122,6 +124,9 @@
   function buildingUrl(factionId, type) {
     if (type === 'core' && factionId === 'cinder') {
       return enc('assets/raider/', 'Warren_Maw.png');
+    }
+    if (type === 'conduit' && factionId === 'cinder') {
+      return enc('assets/raider/', 'Pig_Sty.png');
     }
     var file = BUILDING_FILE[type] || BUILDING_FILE.foundry;
     var color = RTS.Assets ? RTS.Assets.factionColor(factionId) : 'Blue';

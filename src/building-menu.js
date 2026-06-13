@@ -47,6 +47,23 @@
 
     if (spec.trains && spec.trains.length) {
       spec.trains.forEach(function (role) {
+        if (role === '_livestock') {
+          var lc = RTS.Config.livestock;
+          var canQ   = RTS.canQueueLivestock ? RTS.canQueueLivestock(s, b) : true;
+          var afford = s.res.player.halcite >= lc.trainCost;
+          var isHorde = fid === 'cinder';
+          out.push({
+            kind: 'train',
+            bid: b.id,
+            role: '_livestock',
+            icon: isHorde ? 'pig' : 'sheep',
+            portrait: null,
+            cost: lc.trainCost,
+            disabled: !b.built || !afford || !canQ,
+            label: isHorde ? 'Raise Pig' : 'Raise Sheep',
+          });
+          return;
+        }
         var us = RTS.Units[role];
         var afford = s.res.player.halcite >= us.cost;
         var supplyOk = s.res.player.supplyUsed + us.supply <= s.res.player.supplyCap;

@@ -139,9 +139,15 @@
       if (u.team === team && !u.dead) used += (RTS.Units[u.role].supply || 1);
     });
     var cap = RTS.Config.startSupplyCap;
+    var lc = RTS.Config.livestock;
     s.entities.buildings.forEach(function (b) {
-      if (b.team === team && !b.dead && b.built && RTS.Buildings[b.type].supply) {
-        cap += RTS.Buildings[b.type].supply;
+      if (b.team !== team || b.dead || !b.built) return;
+      var bspec = RTS.Buildings[b.type];
+      if (!bspec) return;
+      if (bspec.supply) cap += bspec.supply;
+      if (bspec.isPasture && b.livestock && lc) {
+        var live = b.livestock.filter(function (a) { return !a.dead; }).length;
+        cap += live * lc.supplyPerAnimal;
       }
     });
     cap = Math.min(cap, RTS.Config.maxSupplyCap);
