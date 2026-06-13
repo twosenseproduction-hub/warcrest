@@ -89,7 +89,7 @@
   /* Measured from sprite alpha channels — inset fractions (0..1) per edge. */
   var BUILDING_TIGHT_INSETS = {
     Castle:   { l: 0.012, r: 0.012, t: 0.16, b: 0.027 },
-    Warren_Maw: { l: 0.002, r: 0.002, t: 0.003, b: 0.003 },
+    Warren_Maw: { l: 0.008, r: 0.008, t: 0.011, b: 0.011 },
     House1:   { l: 0.062, r: 0.062, t: 0.083, b: 0.099 },
     House2:   { l: 0.000, r: 0.000, t: 0.120, b: 0.073 },
     House3:   { l: 0.023, r: 0.023, t: 0.193, b: 0.104 },
