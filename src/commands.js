@@ -96,8 +96,13 @@
     var roles = Object.keys(map);
     if (roles.length >= 2) {
       s.ui.macroGroups = map;
-      s.ui.macroRole = null;
-      s.ui.selectionFilter = 'all';
+      // Preserve subgroup filter — selectedIds stays the full army; macroRole narrows commands.
+      if (s.ui.macroRole && map[s.ui.macroRole] && map[s.ui.macroRole].length) {
+        s.ui.selectionFilter = s.ui.macroRole;
+      } else {
+        s.ui.macroRole = null;
+        s.ui.selectionFilter = 'all';
+      }
       return;
     }
     if (!units.length) {

@@ -1139,6 +1139,18 @@
   function unitSelectionBox(u, s) {
     var vb = RTS.Sprites && s && RTS.Sprites.unitVisualBounds
       ? RTS.Sprites.unitVisualBounds(u, s) : null;
+    if (vb && vb.tight) {
+      var t = vb.tight;
+      var soleY = vb.soleY != null ? vb.soleY : vb.footY;
+      var footPad = 2;
+      return {
+        tlx: t.x, tly: t.y,
+        trx: t.x + t.w, try_: t.y,
+        brx: t.x + t.w, bry: soleY + footPad,
+        blx: t.x, bly: soleY + footPad,
+        front: true,
+      };
+    }
     var foot = RTS.SizeRef && RTS.SizeRef.selectionFootBox
       ? RTS.SizeRef.selectionFootBox(u.role, vb)
       : { cx: u.x, footY: u.y + 10, rx: 8, ry: 3, yPad: 0 };
