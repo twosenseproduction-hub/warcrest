@@ -53,7 +53,10 @@
 
   function preloadFactionAssets(factionIds) {
     (factionIds || []).forEach(function (fid) {
-      if (fid === 'cinder') loadImg('Warren_Maw.png', RAIDER_BASE);
+      if (fid === 'cinder') {
+        loadImg('Warren_Maw.png', RAIDER_BASE);
+        loadImg(GNOLL_BONE, ENEMY_BASE);
+      }
     });
   }
 
@@ -154,6 +157,7 @@
   };
 
   var ARROW = 'Units/Blue Units/Archer/Arrow.png';
+  var GNOLL_BONE = 'Enemies/Gnoll/Gnoll_Bone.png';
 
   function buildingDrawScale(b, type, imgW, imgH) {
     return RTS.SizeRef.buildingDrawScale(type, imgW, imgH);
@@ -617,15 +621,21 @@
   }
 
   function drawProjectile(ctx, p) {
-    var img = imgSync(ARROW);
+    var useBone = p.faction === 'cinder' && p.role === 'archer';
+    var img = imgSync(useBone ? GNOLL_BONE : ARROW, useBone ? ENEMY_BASE : KINGDOM_BASE);
     if (!img) return false;
     var dx = p.x - p.lastX, dy = p.y - p.lastY;
     var ang = Math.atan2(dy, dx);
-    var sz = p.splash ? 22 : 16;
+    var sz = p.splash ? 22 : (useBone ? 18 : 16);
     ctx.save();
     ctx.translate(p.x, p.y);
     ctx.rotate(ang);
-    ctx.drawImage(img, -sz / 2, -sz / 2, sz, sz);
+    if (useBone) {
+      var fw = 64, fh = 64;
+      ctx.drawImage(img, 0, 0, fw, fh, -sz / 2, -sz / 2, sz, sz);
+    } else {
+      ctx.drawImage(img, -sz / 2, -sz / 2, sz, sz);
+    }
     ctx.restore();
     return true;
   }

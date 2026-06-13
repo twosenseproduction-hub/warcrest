@@ -77,19 +77,19 @@
       },
     },
     lancer: {
-      folder: 'Enemies/Thief', frameH: 192, scale: 1,
-      clips: {
-        idle: { file: 'Thief_Idle.png', count: 6, speed: 2.2 },
-        walk: { file: 'Thief_Run.png', count: 6, speed: 10 },
-        attack: { file: 'Thief_Attack.png', count: 6, fps: 14, impactFrame: 2 },
-      },
-    },
-    archer: {
       folder: 'Enemies/Goblin Raiders/Spear Goblin', frameH: 256, scale: 1,
       clips: {
         idle: { file: 'Spear Goblin_Idle.png', count: 8, speed: 2.2 },
-        walk: { file: 'Spear Goblin_Run.png', count: 6, speed: 9 },
-        attack: { file: 'Spear Goblin_Attack Strong.png', count: 8, fps: 14, releaseFrame: 4 },
+        walk: { file: 'Spear Goblin_Run.png', count: 6, speed: 10 },
+        attack: { file: 'Spear Goblin_Attack Strong.png', count: 8, fps: 14, impactFrame: 3 },
+      },
+    },
+    archer: {
+      folder: 'Enemies/Gnoll', frameH: 192, scale: 1,
+      clips: {
+        idle: { file: 'Gnoll_Idle.png', count: 6, speed: 2.2 },
+        walk: { file: 'Gnoll_Walk.png', count: 8, speed: 9 },
+        attack: { file: 'Gnoll_Throw.png', count: 8, fps: 14, releaseFrame: 4 },
       },
     },
     monk: {

@@ -88,14 +88,14 @@
   /* Cinder horde — named portrait PNGs where available; idle strips otherwise. */
   var ENEMY_UNIT_STRIP = {
     pawn: { folder: 'Enemies/Gnome', file: 'Gnome_Idle.png', frames: 8, fw: 192, fh: 192 },
-    lancer: { folder: 'Enemies/Thief', file: 'Thief_Idle.png', frames: 6, fw: 192, fh: 192 },
-    archer: { folder: 'Enemies/Goblin Raiders/Spear Goblin', file: 'Spear Goblin_Idle.png', frames: 8, fw: 256, fh: 256 },
+    lancer: { folder: 'Enemies/Goblin Raiders/Spear Goblin', file: 'Spear Goblin_Idle.png', frames: 8, fw: 256, fh: 256 },
+    archer: { folder: 'Enemies/Gnoll', file: 'Gnoll_Idle.png', frames: 6, fw: 192, fh: 192 },
     monk: { folder: 'Enemies/Goblin Raiders/Hex Shaman', file: 'Hex Shaman_Idle.png', frames: 8, fw: 192, fh: 192 },
     warrior: { folder: 'Enemies/Troll', file: 'Troll_Idle.png', frames: 12, fw: 384, fh: 384, trayZoom: 0.62, posY: 'bottom' },
   };
 
   var ENEMY_UNIT_AVATAR = {
-    archer: 'Spear Goblin.png',
+    lancer: 'Spear Goblin.png',
     monk: 'Hex Shaman.png',
   };
 
