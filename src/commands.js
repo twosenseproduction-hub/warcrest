@@ -8,6 +8,16 @@
   function dist(ax, ay, bx, by) { var dx = bx - ax, dy = by - ay; return Math.sqrt(dx * dx + dy * dy); }
   RTS.dist = dist;
 
+  var TILE = 64;
+  RTS.TILE = TILE;
+
+  RTS.snapToGrid = function (x, y) {
+    return {
+      x: Math.round(x / TILE) * TILE,
+      y: Math.round(y / TILE) * TILE,
+    };
+  };
+
   // ---- Selection -----------------------------------------------------------
   RTS.select = function (s, id, additive) {
     if (!additive) { s.selectedIds = []; RTS.clearMacroGroups(s); }
@@ -786,6 +796,9 @@
   };
 
   RTS.placeBuilding = function (s, type, x, y) {
+    var snapped = RTS.snapToGrid(x, y);
+    x = snapped.x;
+    y = snapped.y;
     if (!RTS.canPlaceAt(s, type, x, y)) {
       var denyMsg = type === 'outpost'
         ? 'Build in the ring beside Ironstone, away from other keeps'

@@ -193,19 +193,19 @@
       trains: [], desc: 'Raises your supply cap.',
     },
     foundry: {
-      type: 'foundry', label: 'Barracks', w: 160, h: 128,
+      type: 'foundry', label: 'Barracks', w: 192, h: 128,
       hp: 760, cost: 120, build: 18,
       trains: ['lancer', 'archer', 'monk'],
       desc: 'Produces Lancers, Archers, and Monks.',
     },
     forge: {
-      type: 'forge', label: 'War Forge', w: 176, h: 144,
+      type: 'forge', label: 'War Forge', w: 192, h: 192,
       hp: 980, cost: 175, build: 26,
       trains: ['warrior'],
       desc: 'Produces Warriors.',
     },
     turret: {
-      type: 'turret', label: 'Arrow Tower', w: 56, h: 96,
+      type: 'turret', label: 'Arrow Tower', w: 64, h: 128,
       hp: 520, cost: 100, build: 14,
       defense: true, dmg: 20, range: 178, rof: 0.7, ranged: true,
       desc: 'Automated defense tower. Fires on nearby foes.',

@@ -588,8 +588,9 @@
       }
 
       function updateGhost(s, wx, wy) {
-        s.ui.ghost = { x: wx, y: wy, type: s.pending.building,
-                       valid: RTS.canPlaceAt(s, s.pending.building, wx, wy) };
+        var snapped = RTS.snapToGrid(wx, wy);
+        s.ui.ghost = { type: s.pending.building, x: snapped.x, y: snapped.y,
+                       valid: RTS.canPlaceAt(s, s.pending.building, snapped.x, snapped.y) };
       }
 
       // --- Mouse ---
