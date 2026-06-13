@@ -1472,16 +1472,17 @@
     if (img && clip) {
       var fw = clip.frameW;
       var fh = img.height;
-      var sc = a.species === 'pig' ? 0.30 : 0.38;
+      var sc = a.species === 'pig' ? 0.42 : 0.48;
       var dw = fw * sc;
       var dh = fh * sc;
+      ctx.imageSmoothingEnabled = false;
       if (a.facing < 0) {
         ctx.scale(-1, 1);
       }
       ctx.drawImage(
         img,
         a.animFrame * fw, 0, fw, fh,
-        -dw / 2, -dh * 0.85,
+        -dw / 2, -dh * 0.82,
         dw, dh
       );
     } else {

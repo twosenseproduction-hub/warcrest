@@ -822,6 +822,8 @@
     if (liveCount >= lc.maxPerPasture) return;
     var species = livestockSpecies(b);
     var pen = pasturePenRect(b);
+    var idleClip = RTS.Livestock ? RTS.Livestock.clip(species, 'idle') : null;
+    var idleFrames = idleClip ? idleClip.frames : 4;
     var animal = {
       id: RTS.nextId(),
       kind: 'livestock',
@@ -831,7 +833,7 @@
       y: pen.cy + (Math.random() - 0.5) * pen.hh * 1.4,
       dead: false,
       animClip: 'idle',
-      animFrame: Math.random() * 4 | 0,
+      animFrame: Math.random() * idleFrames | 0,
       animTimer: Math.random() * 0.5,
       wanderTimer: 1 + Math.random() * 2,
       wanderVx: 0,
@@ -862,6 +864,8 @@
       if (a.wanderTimer <= 0) {
         if (a.animClip === 'walk') {
           a.animClip = 'idle';
+          a.animFrame = 0;
+          a.animTimer = 0;
           a.wanderVx = 0;
           a.wanderVy = 0;
           a.wanderTimer = WANDER_IDLE_RANGE[0] +
@@ -872,6 +876,8 @@
           a.wanderVy = Math.sin(ang) * LIVESTOCK_SPEED * 0.55;
           a.facing   = a.wanderVx >= 0 ? 1 : -1;
           a.animClip = 'walk';
+          a.animFrame = 0;
+          a.animTimer = 0;
           a.wanderTimer = WANDER_MOVE_RANGE[0] +
             Math.random() * (WANDER_MOVE_RANGE[1] - WANDER_MOVE_RANGE[0]);
         }
@@ -885,7 +891,7 @@
       }
 
       var clipData = RTS.Livestock ? RTS.Livestock.clip(a.species, a.animClip) : null;
-      var fps = (a.animClip === 'walk') ? 8 : 4;
+      var fps = (a.animClip === 'walk') ? 10 : 5;
       a.animTimer += dt;
       if (a.animTimer >= 1 / fps) {
         a.animTimer -= 1 / fps;

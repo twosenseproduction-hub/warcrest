@@ -745,11 +745,11 @@
 
   var LIVESTOCK_CLIPS = {
     sheep: {
-      idle: { file: 'Sheep_Idle.png', frames: 4, frameW: 192 },
+      idle: { file: 'Sheep_Idle.png', frames: 6, frameW: 128 },
       walk: { file: 'Sheep_Move.png', frames: 4, frameW: 128 },
     },
     pig: {
-      idle: { file: 'Pig_Idle.png', frames: 4, frameW: 480 },
+      idle: { file: 'Pig_Idle.png', frames: 10, frameW: 192 },
       walk: { file: 'Pig_Run.png', frames: 4, frameW: 192 },
     },
   };
