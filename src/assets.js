@@ -61,6 +61,7 @@
       if (fid === 'cinder') {
         loadImg('Warren_Maw.png', RAIDER_BASE);
         loadImg(PIG_STY, RAIDER_BASE);
+        loadImg(WAR_PIT, RAIDER_BASE);
         loadImg(GNOLL_BONE, ENEMY_BASE);
       }
     });
@@ -99,6 +100,7 @@
   var BUILDING_TIGHT_INSETS = {
     Castle:   { l: 0.012, r: 0.012, t: 0.16, b: 0.027 },
     Warren_Maw: { l: 0.008, r: 0.008, t: 0.011, b: 0.011 },
+    War_Pit:  { l: 0.010, r: 0.010, t: 0.020, b: 0.010 },
     House1:   { l: 0.062, r: 0.062, t: 0.083, b: 0.099 },
     House2:   { l: 0.000, r: 0.000, t: 0.120, b: 0.073 },
     PigSty:       { l: 0.06, r: 0.06, t: 0.10, b: 0.05 },
@@ -168,6 +170,7 @@
   var GNOLL_BONE = 'Enemies/Gnoll/Gnoll_Bone.png';
   var PIG_STY = 'Pig_Sty.png';
   var SHEPHERDS_HUT = 'Shepherds_Hut.png';
+  var WAR_PIT = 'War_Pit.png';
 
   function buildingDrawScale(b, type, imgW, imgH) {
     var drawType = (b.type === 'conduit' && bspecIsPasturePen(b)) ? 'forge' : type;
@@ -251,6 +254,7 @@
 
   function buildingInsetKey(b) {
     if (b.type === 'core' && b.faction === 'cinder') return 'Warren_Maw';
+    if (b.type === 'foundry' && b.faction === 'cinder') return 'War_Pit';
     if (b.type === 'conduit' && b.faction === 'cinder') return 'PigSty';
     if (b.type === 'conduit' && b.faction === 'aurex') return 'ShepherdsHut';
     return BUILDING_TYPE_TO_INSET_KEY[b.type] || 'House1';
@@ -262,6 +266,9 @@
     }
     if (b.type === 'conduit' && b.faction === 'cinder') {
       return { base: RAIDER_BASE, rel: PIG_STY, frames: 1 };
+    }
+    if (b.type === 'foundry' && b.faction === 'cinder') {
+      return { base: RAIDER_BASE, rel: WAR_PIT, frames: 1 };
     }
     if (b.type === 'conduit' && b.faction === 'aurex') {
       return { base: KINGDOM_CUSTOM_BASE, rel: SHEPHERDS_HUT, frames: 1 };
@@ -299,6 +306,7 @@
     });
     paths.push({ base: KINGDOM_CUSTOM_BASE, rel: SHEPHERDS_HUT });
     paths.push({ base: RAIDER_BASE, rel: 'Warren_Maw.png' });
+    paths.push({ base: RAIDER_BASE, rel: WAR_PIT });
     paths.push({ base: RAIDER_BASE, rel: PIG_STY });
     GOLD_STONES.forEach(function (p) {
       paths.push({ base: KINGDOM_BASE, rel: p });
