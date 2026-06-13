@@ -105,8 +105,8 @@
     var t = $('end-title'), m = $('end-msg'), st = $('end-stats'), ic = $('end-icon');
     if (t) t.textContent = won ? 'VICTORY' : 'DEFEAT';
     if (m) m.textContent = won
-      ? ((s.map && s.map.win) || 'The enemy core is shattered. Victory is yours.')
-      : ((s.map && s.map.lose) || 'Your Castle has fallen — for now.');
+      ? ((s.map && s.map.win) || 'The enemy heartland falls. The Reach is yours.')
+      : ((s.map && s.map.lose) || 'Your ' + RTS.nameFor(s.playerFaction, 'core') + ' has fallen — for now.');
     if (ic) {
       ic.src = won ? 'assets/ui/sword-icon-win.png' : 'assets/ui/sword-icon-lose.png';
       ic.style.filter = won ? '' : 'grayscale(0.7)';
@@ -118,7 +118,7 @@
         stat('Time', fmt(s.timers.gameTime)) +
         stat('Kills', s.stats.kills) +
         stat('Units built', s.stats.unitsBuilt) +
-        stat('Halcite mined', Math.floor(s.stats.harvested));
+        stat(RTS.resourceLabel() + ' mined', Math.floor(s.stats.harvested));
     }
     RTS.Audio.play(won ? 'win' : 'lose');
     if (won && !RTS.Config.reducedMotion) { s.screenFlash = 0.6; s.flashColor = '#34e0c4'; }

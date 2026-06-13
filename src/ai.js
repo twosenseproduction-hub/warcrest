@@ -298,10 +298,10 @@
     assignSquadOrders(s, sq);
 
     if (s.timers.waveNumber === 0) {
-      RTS.log(s, 'Enemy scouts probing your front', 'warn');
+      RTS.log(s, 'Raiders prowling the Reach', 'warn');
     } else {
-      RTS.log(s, 'Cinder assault wave inbound!', 'bad');
-      RTS.toast(s, 'Wave incoming — defend the Castle');
+      RTS.log(s, 'Horde assault wave inbound!', 'bad');
+      RTS.toast(s, 'Wave incoming — defend your keep');
     }
   }
 
@@ -471,7 +471,7 @@
         var x = node.x + Math.cos(ang) * ringDist;
         var y = node.y + Math.sin(ang) * ringDist;
         if (aiPlaceOutpost(s, x, y, node)) {
-          RTS.log(s, 'Enemy raising an Outpost at a new Halcite field', 'warn');
+          RTS.log(s, 'Enemy raising a Raider Camp at a new Ironstone field', 'warn');
           return true;
         }
       }

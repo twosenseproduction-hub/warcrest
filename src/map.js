@@ -481,8 +481,8 @@
         terrainMask: { cols: mg.cols, rows: mg.rows, heights: mg.heights },
       },
       intro: 'Sapphire Shores — forested isles linked by a shallow lane',
-      win: 'The enemy Castle crumbles. The archipelago is yours.',
-      lose: 'Your line broke against the tide. The shores fall.',
+      win: 'The enemy heartland falls. The Reach is yours.',
+      lose: 'Your keep falls. The shores are lost.',
     });
   }
 
@@ -655,7 +655,7 @@
       id: 'crown_isthmus',
       name: 'Crown Isthmus',
       tagline: 'NW vs SE through a narrow waist',
-      blurb: 'Twin elevated corners joined by a tight isthmus. Contested gold sits in the choke.',
+      blurb: 'Twin elevated corners joined by a tight isthmus. Contested Ironstone sits in the choke.',
       build: buildCrownIsthmus,
     },
   };

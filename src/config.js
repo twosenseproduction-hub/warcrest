@@ -1,5 +1,5 @@
 /* ============================================================================
- * EXOFRONT — config.js
+ * Warcrest — config.js
  * Central balance + tuning constants. Tweak values here to rebalance the game.
  * All game systems read from RTS.Config / RTS.Units / RTS.Buildings.
  * ==========================================================================*/
@@ -30,14 +30,14 @@
     },
 
     // Economy
-    startResources: 280,        // starting Halcite — slightly higher for slower harvest pace
+    startResources: 280,        // starting Ironstone — slightly higher for slower harvest pace
     startSupplyCap: 12,         // supply provided by the Core
     supplyPerPylon: 8,          // supply added per Conduit
     maxSupplyCap: 80,
     passiveTrickle: 0.0,        // passive income/sec (0 = pure harvesting)
 
     mineAmounts: {
-      starting: 12500,          // home gold beside each Castle
+      starting: 12500,          // home Ironstone beside each Citadel Keep / Warren Maw
       expansion: 5000,            // all other map nodes
       startRadius: 300,           // px from base to count as starting gold
     },
@@ -132,17 +132,21 @@
     reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   };
 
+  // Display name for the harvestable resource (internal key remains halcite in state).
+  RTS.Resource = { label: 'Ironstone' };
+  RTS.resourceLabel = function () { return RTS.Resource.label; };
+
   // ---- Teams ---------------------------------------------------------------
   RTS.TEAM = { PLAYER: 'player', ENEMY: 'enemy', NEUTRAL: 'neutral' };
 
   // ---- Units (keys match Tiny Swords: Pawn, Lancer, Archer, Monk, Warrior) --
-  // costs in Halcite, times in seconds, ranges/speeds in world units.
+  // costs in Ironstone, times in seconds, ranges/speeds in world units.
   RTS.Units = {
     pawn: {
       role: 'pawn', label: 'Pawn', glyph: 'circle',
       hp: 55, speed: 100, dmg: 5, range: 22, rof: 1.0,
       cost: 40, supply: 1, build: 0, canHarvest: true, canBuild: true,
-      desc: 'Harvests Halcite and raises structures.',
+      desc: 'Harvests Ironstone and raises structures.',
     },
     lancer: {
       role: 'lancer', label: 'Lancer', glyph: 'diamond',
@@ -173,18 +177,18 @@
   // ---- Buildings -----------------------------------------------------------
   RTS.Buildings = {
     core: {
-      type: 'core', label: 'Castle', w: 256, h: 192,
+      type: 'core', label: 'Citadel Keep', w: 256, h: 192,
       hp: 1600, cost: 0, build: 0, deposit: true,
-      trains: ['pawn'], desc: 'Main base. Trains Pawns, banks Halcite, toggles auto-mine.',
+      trains: ['pawn'], desc: 'Main base. Trains workers, banks Ironstone, toggles auto-mine.',
     },
     outpost: {
-      type: 'outpost', label: 'Outpost', w: 128, h: 128,
+      type: 'outpost', label: 'Forward Bastion', w: 128, h: 128,
       hp: 1400, cost: 320, build: 42, deposit: true, expansion: true,
       trains: ['pawn'],
-      desc: 'Expansion base — build next to a Halcite field. Trains Pawns and banks ore.',
+      desc: 'Expansion base — build beside an Ironstone field. Trains workers and banks ore.',
     },
     conduit: {
-      type: 'conduit', label: 'House', w: 128, h: 128,
+      type: 'conduit', label: 'Banner Post', w: 128, h: 128,
       hp: 420, cost: 65, build: 10, supply: 8,
       trains: [], desc: 'Raises your supply cap.',
     },
@@ -195,13 +199,13 @@
       desc: 'Produces Lancers, Archers, and Monks.',
     },
     forge: {
-      type: 'forge', label: 'Archery', w: 176, h: 144,
+      type: 'forge', label: 'War Forge', w: 176, h: 144,
       hp: 980, cost: 175, build: 26,
       trains: ['warrior'],
       desc: 'Produces Warriors.',
     },
     turret: {
-      type: 'turret', label: 'Tower', w: 56, h: 96,
+      type: 'turret', label: 'Arrow Tower', w: 56, h: 96,
       hp: 520, cost: 100, build: 14,
       defense: true, dmg: 20, range: 178, rof: 0.7, ranged: true,
       desc: 'Automated defense tower. Fires on nearby foes.',
@@ -215,38 +219,38 @@
   RTS.Factions = {
     aurex: {
       id: 'aurex',
-      name: 'Aurex Kingdom',
-      tagline: 'Steel. Banners. Order.',
-      blurb: 'A disciplined medieval kingdom — pawns, archers, and knights marching ' +
-             'under blue banners. Fast to tech, brutal in formation.',
-      primary: '#26c6da',   // bright cartoon cyan
-      secondary: '#80deea',
-      dark: '#00838f',
-      accent: '#fff176',
+      name: 'Iron Crown',
+      tagline: 'Steel · Banners · Order',
+      blurb: 'A disciplined medieval kingdom — armored knights, robed monks, and stone ' +
+             'keeps under royal blue banners. Fast to tech, brutal in formation.',
+      primary: '#1565C0',
+      secondary: '#CFD8DC',
+      dark: '#0D47A1',
+      accent: '#FFD54F',
       shapeStyle: 'angular',
       names: {
-        core: 'Castle', conduit: 'House', foundry: 'Barracks',
-        forge: 'Archery', turret: 'Tower', outpost: 'Outpost',
+        core: 'Citadel Keep', conduit: 'Banner Post', foundry: 'Barracks',
+        forge: 'War Forge', turret: 'Arrow Tower', outpost: 'Forward Bastion',
         pawn: 'Pawn', lancer: 'Lancer', archer: 'Archer',
         monk: 'Monk', warrior: 'Warrior',
       },
     },
     cinder: {
       id: 'cinder',
-      name: 'Crimson Kingdom',
-      tagline: 'Iron. Banners. Conquest.',
-      blurb: 'Red-banner knights — the same ranks as the blue kingdom, sworn to a ' +
-             'rival crown. Slow to muster, relentless once the line advances.',
-      primary: '#ff7043',
-      secondary: '#ffab91',
-      dark: '#d84315',
-      accent: '#ffee58',
+      name: 'Raider Horde',
+      tagline: 'Bone · Fire · Chaos',
+      blurb: 'A chaotic coalition pouring from the wilds — gnomes, goblins, trolls, and worse. ' +
+             'Crude totems, skull banners, relentless attrition.',
+      primary: '#558B2F',
+      secondary: '#5D4037',
+      dark: '#33691E',
+      accent: '#F5F5DC',
       shapeStyle: 'angular',
       names: {
-        core: 'Castle', conduit: 'House', foundry: 'Barracks',
-        forge: 'Archery', turret: 'Tower', outpost: 'Outpost',
-        pawn: 'Pawn', lancer: 'Lancer', archer: 'Archer',
-        monk: 'Monk', warrior: 'Warrior',
+        core: 'Warren Maw', conduit: 'Totem Stake', foundry: 'War Pit',
+        forge: 'Skull Forge', turret: 'Bone Spire', outpost: 'Raider Camp',
+        pawn: 'Gnome', lancer: 'Thief', archer: 'Goblin Raider',
+        monk: 'Root Troll', warrior: 'Troll',
       },
     },
   };

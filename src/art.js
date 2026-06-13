@@ -338,7 +338,7 @@
   }
 
   /* ==========================================================================
-   * Halcite pile — stable coin layout, organic mound base, gem crown.
+   * Ironstone pile — stable coin layout, organic mound base, gem crown.
    * Coins arranged in explicit back→front painter order; ground ellipse gives
    * the impression of a real pile sitting on the terrain.
    * ========================================================================*/

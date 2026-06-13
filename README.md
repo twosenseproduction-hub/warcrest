@@ -1,14 +1,13 @@
-# EXOFRONT — Battle for the Ashfen Basin
+# Warcrest — Battle for the Ashfen Reach
 
 A standalone, single-player, **mobile-first real-time strategy game** that runs
-entirely in the browser. No backend, no accounts, no build step, no external
-assets — all art is drawn procedurally on a `<canvas>` and all sounds are
-synthesized at runtime with the Web Audio API.
+entirely in the browser. No backend, no accounts, no build step. Art uses the
+Tiny Swords pixel pack (Pixel Frog) with original Warcrest faction naming and lore.
 
-Two original factions clash over a contested resource basin:
+Two factions clash over contested **Ironstone** in the Reach:
 
-- **Aurex Directive** — a precise, high-tech order (teal). Fast tech, ranged focus.
-- **Cinder Pact** — a rough, bio-mechanical scavenger horde (orange). Heavy armor, attrition.
+- **Iron Crown** — disciplined medieval kingdom (royal blue). Fast tech, ranged focus.
+- **Raider Horde** — chaotic coalition from the wilds (swamp green / bone). Heavy bruisers, attrition.
 
 You command one faction against an AI opponent that harvests, produces a growing
 army, and launches escalating attack waves.
@@ -49,40 +48,43 @@ No installation, no dependencies.
 | Move | Tap ground | Left-click ground |
 | Attack | Tap an enemy | Left-click enemy / right-click |
 | Attack-move | **Long-press** ground (or arm **Atk-Move**) | Press `A` then click |
-| Harvest | Select Drudge → tap a Halcite crystal | same |
-| Build | Select Drudge → **Build** → tap a glowing spot | same |
+| Harvest | Tap Ironstone (or select worker → tap node) | same |
+| Build | Hammer button → pick structure → tap valid spot | same |
 | Pan camera | Drag one finger | Drag |
 | Zoom | Pinch | Mouse wheel |
-| Select whole army | **Army** button | same |
+| Select whole army | **Army** button / double-tap ground | same |
 
-**Goal:** destroy the enemy core. **Lose** if your core (Citadel / Furnace Maw) falls.
+**Goal:** destroy the enemy core (**Warren Maw** if you lead the Iron Crown, or **Citadel Keep** if you lead the Horde). **Lose** if your core falls.
 
 ### The loop
-1. Mine **Halcite** with **Pawns**.
-2. Build **Barracks** → train **Lancer** (opener), then **Archer** and **Monk**.
-3. Build **Archery** → train **Warrior** (frontline).
-4. Raise **supply** with **Houses**, defend waves, destroy the enemy Castle.
+1. Mine **Ironstone** with workers (**Pawn** / **Gnome**).
+2. Build **Barracks** / **War Pit** → train **Lancer** / **Thief**, then **Archer** / **Goblin Raider** and **Monk** / **Root Troll**.
+3. Build **War Forge** / **Skull Forge** → train **Warrior** / **Troll**.
+4. Raise **supply** with **Banner Post** / **Totem Stake**, defend Horde waves, destroy the enemy keep.
 
-### Units (Tiny Swords roster)
-- **Pawn** — harvests Halcite, raises structures (Castle).
-- **Lancer** — fast skirmisher; your opening army unit (Barracks).
+### Iron Crown units
+- **Pawn** — harvests Ironstone, raises structures.
+- **Lancer** — fast skirmisher (Barracks).
 - **Archer** — ranged backbone (Barracks).
-- **Monk** — heals allies behind the line (Barracks).
-- **Warrior** — armored frontline (Archery).
+- **Monk** — heals allies (Barracks).
+- **Warrior** — armored frontline (War Forge).
 
-### Buildings
-- **Castle** — trains Pawns, banks Halcite.
-- **House** — raises supply cap.
-- **Barracks** — Lancer, Archer, Monk.
-- **Archery** — Warrior.
-- **Tower** — automated defense.
+### Raider Horde units (same roles, different names)
+- **Gnome**, **Thief**, **Goblin Raider**, **Root Troll**, **Troll**
+
+### Buildings (Iron Crown / Raider Horde)
+- **Citadel Keep** / **Warren Maw** — trains workers, banks Ironstone.
+- **Banner Post** / **Totem Stake** — raises supply cap.
+- **Barracks** / **War Pit** — light and support units.
+- **War Forge** / **Skull Forge** — heavy units.
+- **Arrow Tower** / **Bone Spire** — automated defense.
 
 ---
 
 ## Project structure
 
 ```
-rts-game/
+warcrest/
 ├── index.html          # DOM shell: menus, HUD, overlays, script order
 ├── README.md
 ├── styles/
@@ -91,19 +93,18 @@ rts-game/
     ├── config.js        # ⭐ ALL balance values, factions, unit/building specs
     ├── state.js         # central game state + accessors
     ├── entities.js      # factories: units, buildings, resources, fx
-    ├── map.js           # the single map "Ashfen Basin"
+    ├── map.js           # Sapphire Shores (Ashfen Reach)
     ├── commands.js      # selection + orders + training + placement
     ├── audio.js         # WebAudio synth (no audio files)
     ├── systems.js       # simulation: movement, combat, harvest, build, win/loss
-    ├── ai.js            # enemy faction brain (economy + waves)
+    ├── ai.js            # Raider Horde AI (economy + waves)
     ├── input.js         # camera + touch/mouse: tap/box/long-press/pinch
-    ├── render.js        # canvas renderer + minimap (all art procedural)
+    ├── render.js        # canvas renderer + minimap
     ├── hud.js           # DOM HUD: action tray, selection panel, event log
     └── game.js          # scenes, menu wiring, match lifecycle, main loop
 ```
 
-Everything attaches to a single global `window.RTS` namespace, so the code is
-modular across files but still runs without a module loader.
+Everything attaches to a single global `window.RTS` namespace.
 
 ---
 
@@ -120,7 +121,7 @@ modular across files but still runs without a module loader.
 - **Train times:** `RTS.baseTrain()` in `src/commands.js`.
 - **AI difficulty & pressure:** `Config.ai` — `income`, `firstWaveAt`,
   `waveInterval`, `maxArmy`, `pawnCount`.
-- **Faction colors / names:** `RTS.Factions` in `config.js`.
+- **Faction colors / names / lore:** `RTS.Factions` and `RTS.Resource` in `config.js`.
 
 ### Quick difficulty presets
 - **Easier:** raise `Config.ai.firstWaveAt`, raise `Config.ai.waveInterval`,
@@ -137,4 +138,5 @@ wave lands around 70s so you have time to establish an economy first.
 Single-player only. No multiplayer, no servers, no accounts, no cloud save, no
 monetization, no campaign. One map, one skirmish mode, two factions.
 
-All names, factions, units, buildings, lore, art, and UI language are original.
+Faction naming and lore are original to Warcrest; unit/building sprites use the
+Tiny Swords art pack under its license.

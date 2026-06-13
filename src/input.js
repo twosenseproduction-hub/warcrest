@@ -168,7 +168,7 @@
         RTS.select(s, nw.id, false);
         RTS.orderHarvest(s, nw, intent.nodeId);
         RTS.Audio.play('move');
-        RTS.toast(s, 'Mining Halcite');
+        RTS.toast(s, 'Mining ' + RTS.resourceLabel());
         haptic(8);
         RTS.HUD.sync(s);
         break;
@@ -176,7 +176,7 @@
       case 'harvest':
         intent.workers.forEach(function (w) { RTS.orderHarvest(s, w, intent.nodeId); });
         RTS.Audio.play('move');
-        RTS.toast(s, 'Harvesting Halcite');
+        RTS.toast(s, 'Harvesting ' + RTS.resourceLabel());
         haptic(8);
         break;
       case 'selectBuilding':

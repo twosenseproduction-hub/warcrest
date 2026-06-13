@@ -206,7 +206,7 @@
   }
 
   function gestureHintText(s) {
-    if (s.inputMode === 'place-building') return 'Tap ground to place · a Pawn will hammer it up';
+    if (s.inputMode === 'place-building') return 'Tap ground to place · a worker will hammer it up';
     if (s.attackMoveArmed) return 'Tap where to attack-move';
     return '';
   }
@@ -348,7 +348,7 @@
               u.harvest.phase === 'mining' ? 'mining…'
               : u.harvest.phase === 'toBase' && u.harvest.carry > 0
                 ? 'returning +' + Math.floor(u.harvest.carry)
-                : 'to gold'
+                : 'to Ironstone'
             ) + '</div>'
           : u.role === 'pawn'
           ? '<div class="sel-line">Hold site → build</div>'

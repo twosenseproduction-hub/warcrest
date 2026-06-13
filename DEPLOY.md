@@ -1,9 +1,9 @@
-# Deploy EXOFRONT (separate from Sift)
+# Deploy Warcrest (separate from Sift)
 
 This game runs as its **own Fly.io app** — it does not share the `sift-twosense`
 Docker image, database, or deploy pipeline.
 
-| | Main Sift | EXOFRONT |
+| | Main Sift | Warcrest |
 |---|-----------|----------|
 | Fly app | `sift-twosense` | `exofront-game` |
 | URL | `app.siftnow.io` | `exofront.siftnow.io` |

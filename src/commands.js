@@ -474,7 +474,11 @@
     var spec = RTS.Units[role];
     if (!building.built) { if (team === RTS.TEAM.PLAYER) RTS.toast(s, 'Building not finished'); return false; }
     if (!RTS.canAfford(s, team, spec.cost)) {
-      if (team === RTS.TEAM.PLAYER) { RTS.toast(s, 'Not enough Halcite'); RTS.log(s, 'Not enough Halcite', 'warn'); RTS.Audio.play('deny'); }
+      if (team === RTS.TEAM.PLAYER) {
+        RTS.toast(s, 'Not enough ' + RTS.resourceLabel());
+        RTS.log(s, 'Not enough ' + RTS.resourceLabel(), 'warn');
+        RTS.Audio.play('deny');
+      }
       return false;
     }
     if (!RTS.hasSupply(s, team, spec.supply)) {
@@ -597,14 +601,14 @@
 
   RTS.beginPlacement = function (s, type) {
     if (!RTS.canAfford(s, RTS.TEAM.PLAYER, RTS.Buildings[type].cost)) {
-      RTS.toast(s, 'Not enough Halcite'); RTS.Audio.play('deny'); return;
+      RTS.toast(s, 'Not enough ' + RTS.resourceLabel()); RTS.Audio.play('deny'); return;
     }
     if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
     s.ui.buildPanelOpen = false;
     s.pending.building = type;
     s.inputMode = 'place-building';
     var hint = type === 'outpost'
-      ? 'Tap a glowing ring near Halcite to raise an Outpost'
+      ? 'Tap a glowing ring near Ironstone to raise a Forward Bastion'
       : type === 'turret'
         ? 'Tap open land to place a Tower'
         : 'Tap a highlighted spot to build ' + RTS.nameFor(s.playerFaction, type);
@@ -667,8 +671,8 @@
     if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
 
     var label = RTS.nameFor(b.faction, b.type);
-    RTS.log(s, label + ' canceled — +' + refund + ' Halcite', 'info');
-    RTS.toast(s, 'Build canceled · +' + refund + ' Halcite');
+    RTS.log(s, label + ' canceled — +' + refund + ' ' + RTS.resourceLabel(), 'info');
+    RTS.toast(s, 'Build canceled · +' + refund + ' ' + RTS.resourceLabel());
     RTS.Audio.play('click');
     RTS.HUD.sync(s);
     return true;
@@ -784,14 +788,16 @@
   RTS.placeBuilding = function (s, type, x, y) {
     if (!RTS.canPlaceAt(s, type, x, y)) {
       var denyMsg = type === 'outpost'
-        ? 'Build in the ring beside Halcite, away from other Castles'
+        ? 'Build in the ring beside Ironstone, away from other keeps'
         : type === 'turret'
           ? 'Tower needs open land — not water or trees'
           : 'Invalid location';
       RTS.toast(s, denyMsg);
       RTS.Audio.play('deny'); return false;
     }
-    if (!RTS.canAfford(s, RTS.TEAM.PLAYER, RTS.Buildings[type].cost)) { RTS.toast(s, 'Not enough Halcite'); RTS.Audio.play('deny'); return false; }
+    if (!RTS.canAfford(s, RTS.TEAM.PLAYER, RTS.Buildings[type].cost)) {
+      RTS.toast(s, 'Not enough ' + RTS.resourceLabel()); RTS.Audio.play('deny'); return false;
+    }
     s.res.player.halcite -= RTS.Buildings[type].cost;
     var b = RTS.makeBuilding(s, type, RTS.TEAM.PLAYER, x, y, s.playerFaction, false);
     if (RTS.Pathfind) RTS.Pathfind.markDirty(s);
@@ -809,7 +815,7 @@
       RTS.toast(s, 'No Pawn available to build');
     }
     RTS.log(s, RTS.nameFor(s.playerFaction, type) + ' under construction', 'good');
-    if (type === 'outpost') RTS.log(s, 'Outpost raised — secure the Halcite', 'good');
+    if (type === 'outpost') RTS.log(s, 'Forward Bastion raised — secure the Ironstone', 'good');
     RTS.Audio.play('build');
     s.pending.building = null;
     s.inputMode = 'select';
