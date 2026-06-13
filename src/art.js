@@ -1109,15 +1109,6 @@
     img.src = SELECTION_CURSOR_SRC;
     selectionCursorImg = img;
   })();
-  var GROUND_TOP_RATIO_BY_TYPE = {
-    core: 0.55,
-    turret: 0.66,
-    conduit: 0.62,
-    foundry: 0.58,
-    forge: 0.58,
-    outpost: 0.62,
-  };
-
   function unitSelectionBox(u, s) {
     var vb = RTS.Sprites && s && RTS.Sprites.unitVisualBounds
       ? RTS.Sprites.unitVisualBounds(u, s) : null;
@@ -1128,14 +1119,14 @@
     var soleY = foot.footY;
     var rx = foot.rx;
     var ry = foot.ry;
-    var top = soleY - ry * 2;
+    var top = soleY - ry;
     var bot = soleY + (foot.yPad || 0);
     return {
       tlx: cx - rx, tly: top,
       trx: cx + rx, try_: top,
       brx: cx + rx, bry: bot,
       blx: cx - rx, bly: bot,
-      front: false,
+      front: true,
       feetOnly: true,
     };
   }
@@ -1149,22 +1140,15 @@
       ? RTS.Assets.buildingVisualBounds(e, s) : null;
     if (!bvb) return null;
 
-    var topRatio = GROUND_TOP_RATIO_BY_TYPE[e.type] || 0.58;
-    var GROUND_INSET_X = 0.05;
-    var GROUND_INSET_B = 0.04;
-    var PERSPECTIVE = 0.10;
-
-    var L = bvb.x - bvb.drawW / 2 + bvb.drawW * GROUND_INSET_X;
-    var R = bvb.x + bvb.drawW / 2 - bvb.drawW * GROUND_INSET_X;
-    var T = bvb.drawY + bvb.drawH * topRatio;
-    var B = bvb.drawY + bvb.drawH * (1 - GROUND_INSET_B);
-    var pinch = (R - L) * PERSPECTIVE;
+    var br = bvb.boundary || (RTS.SizeRef && RTS.SizeRef.buildingBoundaryRect
+      ? RTS.SizeRef.buildingBoundaryRect(e.type, bvb) : null);
+    if (!br) return null;
 
     return {
-      tlx: L + pinch, tly: T,
-      trx: R - pinch, try_: T,
-      brx: R, bry: B,
-      blx: L, bly: B,
+      tlx: br.left, tly: br.top,
+      trx: br.right, try_: br.top,
+      brx: br.right, bry: br.bottom,
+      blx: br.left, bly: br.bottom,
     };
   }
 
@@ -1182,7 +1166,7 @@
     var w = box.brx - box.blx;
     var h = box.bry - box.tly;
     if (box.feetOnly) {
-      return Math.max(10, Math.min(18, w * 0.30, h * 0.42));
+      return Math.max(7, Math.min(11, w * 0.24, h * 0.26));
     }
     return Math.max(8, Math.min(22, Math.min(w, h) * 0.42));
   }
@@ -1190,7 +1174,10 @@
   function bracketSpriteSz(box, pulse) {
     var scale = 1 + (pulse - 1) * 0.08;
     if (box.feetOnly) {
-      return Math.round(bracketLen(box) * 2.45 * scale);
+      var w = box.brx - box.blx;
+      var h = box.bry - box.tly;
+      var side = Math.min(w, h);
+      return Math.round(Math.max(14, Math.min(22, side * 0.54)) * scale);
     }
     return Math.round(bracketLen(box) * 2.35 * scale);
   }
@@ -1250,7 +1237,7 @@
       return;
     }
 
-    var lwMain = box.feetOnly ? 4 + (pulse - 1) * 4 : 3 + (pulse - 1) * 4;
+    var lwMain = 3 + (pulse - 1) * 4;
     ctx.strokeStyle = 'rgba(240, 192, 80, 0.55)';
     drawBracketPair(ctx, box, which, lwMain + 3);
     ctx.strokeStyle = '#ffffff';
@@ -1260,17 +1247,16 @@
   function drawSelectionRingBack(ctx, e, t, pulse, s) {
     var box = selectionBoxFor(e, s);
     if (!box || box.front) return;
-    if (box.feetOnly) {
-      drawBrackets(ctx, box, 'top', pulse);
-      drawBrackets(ctx, box, 'bottom', pulse);
-      return;
-    }
     drawBrackets(ctx, box, 'top', pulse);
   }
 
   function drawSelectionRingFront(ctx, e, t, pulse, s) {
     var box = selectionBoxFor(e, s);
-    if (!box || box.feetOnly) return;
+    if (!box) return;
+    if (box.feetOnly) {
+      drawBrackets(ctx, box, 'bottom', pulse);
+      return;
+    }
     if (box.front) {
       drawBrackets(ctx, box, 'top', pulse);
       drawBrackets(ctx, box, 'bottom', pulse);

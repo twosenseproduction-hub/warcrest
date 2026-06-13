@@ -52,6 +52,22 @@
     turret: { w: 56, h: 96 },
   };
 
+  /*
+   * Visual boundary tuning — applied on top of alpha-measured tight sprite rect
+   * from assets.js (not gameplay footprint from RTS.Buildings).
+   *
+   * wMul/hMul scale the tight mass; pad* trim in px; yOffset shifts box down (+).
+   * Reference corrected sizes @ 1x (world px): see buildingBoundary() comments.
+   */
+  var BUILDING_VISUAL_BOUNDARY = {
+    core:    { wMul: 1.00, hMul: 1.00, padL: 1, padR: 1, padT: 0, padB: 3, xOffset: 0, yOffset: 0 },
+    conduit: { wMul: 1.00, hMul: 1.00, padL: 0, padR: 0, padT: 0, padB: 2, xOffset: 0, yOffset: 0 },
+    foundry: { wMul: 1.00, hMul: 1.00, padL: 1, padR: 1, padT: 0, padB: 2, xOffset: 0, yOffset: 0 },
+    forge:   { wMul: 1.00, hMul: 1.00, padL: 0, padR: 0, padT: 0, padB: 2, xOffset: 0, yOffset: 0 },
+    turret:  { wMul: 1.00, hMul: 1.00, padL: 1, padR: 1, padT: 0, padB: 2, xOffset: 0, yOffset: 0 },
+    outpost: { wMul: 1.00, hMul: 1.00, padL: 0, padR: 0, padT: 0, padB: 2, xOffset: 0, yOffset: 0 },
+  };
+
   /* Legacy LoL keys kept for tier helpers only. */
   var LOL = {
     minion_melee: 48,
@@ -85,12 +101,17 @@
    * Prior values (~0.86–0.94) assumed feet near the sheet bottom; actual art ends near
    * 0.62–0.71, which pushed brackets ~10px below the visible pawn.
    */
+  /*
+   * selectWMul — selection width vs tight body width (>1 = wider than torso).
+   * selectTopFrac — top bracket height as fraction down the tight body rect.
+   * selectFootPad — px below sole for bottom bracket baseline.
+   */
   var UNIT_VISUAL = {
-    pawn:    { footRatio: 0.698, selectRxMul: 0.36, selectRyMul: 0.10 },
-    lancer:  { footRatio: 0.616, selectRxMul: 0.34, selectRyMul: 0.11 },
-    archer:  { footRatio: 0.703, selectRxMul: 0.35, selectRyMul: 0.10 },
-    monk:    { footRatio: 0.693, selectRxMul: 0.36, selectRyMul: 0.10 },
-    warrior: { footRatio: 0.708, selectRxMul: 0.38, selectRyMul: 0.11 },
+    pawn:    { footRatio: 0.698, selectWMul: 1.14, selectTopFrac: 0.36, selectFootPad: 3 },
+    lancer:  { footRatio: 0.616, selectWMul: 1.10, selectTopFrac: 0.30, selectFootPad: 3 },
+    archer:  { footRatio: 0.703, selectWMul: 1.12, selectTopFrac: 0.34, selectFootPad: 3 },
+    monk:    { footRatio: 0.693, selectWMul: 1.12, selectTopFrac: 0.36, selectFootPad: 3 },
+    warrior: { footRatio: 0.708, selectWMul: 1.16, selectTopFrac: 0.32, selectFootPad: 3 },
   };
 
   function unitVisualSpec(role) {
@@ -106,26 +127,37 @@
   }
 
   function unitSelectionEllipse(role, vb) {
-    var spec = unitVisualSpec(role);
-    if (!vb) {
-      return { cx: 0, soleY: 0, rx: 8, ry: 3 };
-    }
+    var box = selectionFootBox(role, vb);
     return {
-      cx: vb.x,
-      soleY: vb.soleY != null ? vb.soleY : vb.footY,
-      rx: Math.max(6, vb.drawW * spec.selectRxMul),
-      ry: Math.max(2, vb.drawH * spec.selectRyMul),
+      cx: box.cx,
+      soleY: box.footY,
+      rx: box.rx,
+      ry: box.ry,
     };
   }
 
   function selectionFootBox(role, vb) {
-    var ell = unitSelectionEllipse(role, vb);
+    var spec = unitVisualSpec(role);
+    if (!vb) {
+      return { cx: 0, footY: 0, rx: 14, ry: 10, yPad: 3 };
+    }
+    var soleY = vb.soleY != null ? vb.soleY : vb.footY;
+    var footPad = spec.selectFootPad != null ? spec.selectFootPad : 3;
+    var tight = vb.tight;
+    if (tight) {
+      var wMul = spec.selectWMul != null ? spec.selectWMul : 1.12;
+      var topFrac = spec.selectTopFrac != null ? spec.selectTopFrac : 0.36;
+      var rx = Math.max(10, tight.w * wMul * 0.5);
+      var topY = tight.y + tight.h * topFrac;
+      var ry = Math.max(8, soleY - topY);
+      return { cx: vb.x, footY: soleY, rx: rx, ry: ry, yPad: footPad };
+    }
     return {
-      cx: ell.cx,
-      footY: ell.soleY,
-      rx: ell.rx,
-      ry: ell.ry,
-      yPad: 0,
+      cx: vb.x,
+      footY: soleY,
+      rx: Math.max(10, vb.drawW * 0.38),
+      ry: Math.max(8, vb.drawH * 0.18),
+      yPad: footPad,
     };
   }
 
@@ -135,7 +167,8 @@
 
   function selectionRadius(role) {
     var spec = unitVisualSpec(role);
-    return Math.max(6, Math.round(64 * spec.selectRxMul));
+    var wMul = spec.selectWMul != null ? spec.selectWMul : 1.12;
+    return Math.max(10, Math.round(26 * wMul));
   }
 
   var RESOURCE_TAP_MIN_PX = 28;
@@ -164,6 +197,67 @@
 
   function buildingDrawTarget(type) {
     return BUILDING_DRAW[type] || BUILDING_DRAW.foundry;
+  }
+
+  function buildingBoundary(type) {
+    return BUILDING_VISUAL_BOUNDARY[type] || BUILDING_VISUAL_BOUNDARY.foundry;
+  }
+
+  /** World-space visual boundary rect hugging visible building mass (not gameplay footprint). */
+  function buildingBoundaryRect(type, vb) {
+    if (!vb) return null;
+    var spec = buildingBoundary(type);
+    var tight = vb.tight;
+    var cx = vb.x + (spec.xOffset || 0);
+    var footY = vb.footY;
+
+    if (tight) {
+      var wMul = spec.wMul != null ? spec.wMul : 1;
+      var hMul = spec.hMul != null ? spec.hMul : 1;
+      var padL = spec.padL || 0;
+      var padR = spec.padR || 0;
+      var padT = spec.padT || 0;
+      var padB = spec.padB || 0;
+      var yOff = spec.yOffset || 0;
+      var w = Math.max(8, tight.w * wMul - padL - padR);
+      var h = Math.max(8, tight.h * hMul - padT - padB);
+      var top = tight.y + padT + yOff;
+      var left = cx - w / 2;
+      return {
+        cx: cx,
+        cy: top + h / 2,
+        w: w,
+        h: h,
+        left: left,
+        right: left + w,
+        top: top,
+        bottom: top + h,
+        footY: footY,
+      };
+    }
+
+    /* Fallback when tight insets unavailable — still tighter than full sprite rect. */
+    var dw = vb.drawW || 64;
+    var dh = vb.drawH || 64;
+    var drawY = vb.drawY != null ? vb.drawY : footY - dh * 0.9;
+    var topRatio = spec.topRatio != null ? spec.topRatio : 0.28;
+    var botPad = spec.botRatio != null ? spec.botRatio : 0.03;
+    var w = Math.max(8, dw * (spec.wMul != null ? spec.wMul : 0.88));
+    var top = drawY + dh * topRatio + (spec.yOffset || 0);
+    var bottom = drawY + dh * (1 - botPad);
+    var h = Math.max(8, bottom - top);
+    var left = cx - w / 2;
+    return {
+      cx: cx,
+      cy: top + h / 2,
+      w: w,
+      h: h,
+      left: left,
+      right: left + w,
+      top: top,
+      bottom: bottom,
+      footY: footY,
+    };
   }
 
   function decorDrawHeight(kind, spriteIdx) {
@@ -222,6 +316,9 @@
     buildingLol: function () { return LOL.turret; },
     buildingDrawScale: buildingDrawScale,
     buildingDrawTarget: buildingDrawTarget,
+    BUILDING_VISUAL_BOUNDARY: BUILDING_VISUAL_BOUNDARY,
+    buildingBoundary: buildingBoundary,
+    buildingBoundaryRect: buildingBoundaryRect,
     selectionEllipse: selectionEllipse,
     selectionFootBox: selectionFootBox,
     selectionRadius: selectionRadius,

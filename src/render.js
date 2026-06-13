@@ -137,9 +137,10 @@
     var gy = g.y - draw.h / 2;
     var gw = draw.w;
     var gh = draw.h;
+    var vb = null;
 
     if (RTS.Assets && RTS.Assets.buildingVisualBounds) {
-      var vb = RTS.Assets.buildingVisualBounds({
+      vb = RTS.Assets.buildingVisualBounds({
         x: g.x, y: g.y, type: g.type,
         w: draw.w, h: draw.h,
         faction: s.playerFaction, dead: false,
@@ -153,17 +154,31 @@
     }
 
     var col = g.valid ? '#66bb6a' : '#ef5350';
+    var br = vb && vb.boundary;
 
-    ctx.globalAlpha = 0.55;
-    ctx.fillStyle = RTS.hexA(col, 0.35);
-    ctx.fillRect(gx - gw / 2, gy, gw, gh);
+    if (br) {
+      ctx.globalAlpha = 0.55;
+      ctx.fillStyle = RTS.hexA(col, 0.35);
+      ctx.fillRect(br.left, br.top, br.w, br.h);
 
-    ctx.globalAlpha = 1;
-    ctx.strokeStyle = col;
-    ctx.lineWidth = 3;
-    ctx.setLineDash([8, 5]);
-    ctx.strokeRect(gx - gw / 2, gy, gw, gh);
-    ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 3;
+      ctx.setLineDash([8, 5]);
+      ctx.strokeRect(br.left, br.top, br.w, br.h);
+      ctx.setLineDash([]);
+    } else {
+      ctx.globalAlpha = 0.55;
+      ctx.fillStyle = RTS.hexA(col, 0.35);
+      ctx.fillRect(gx - gw / 2, gy, gw, gh);
+
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 3;
+      ctx.setLineDash([8, 5]);
+      ctx.strokeRect(gx - gw / 2, gy, gw, gh);
+      ctx.setLineDash([]);
+    }
 
     if (g.type === 'outpost') {
       s.entities.resources.forEach(function (n) {

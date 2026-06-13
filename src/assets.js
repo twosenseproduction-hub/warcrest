@@ -168,6 +168,12 @@
       drawH: drawH,
       drawY: drawY,
       tight: { x: tx, y: ty, w: tw, h: th },
+      boundary: RTS.SizeRef && RTS.SizeRef.buildingBoundaryRect
+        ? RTS.SizeRef.buildingBoundaryRect(b.type, {
+          x: b.x, footY: footY, drawW: drawW, drawH: drawH, drawY: drawY,
+          tight: { x: tx, y: ty, w: tw, h: th },
+        })
+        : null,
     };
   }
 
@@ -464,9 +470,16 @@
     ctx.restore();
 
     if (!built) {
-      ctx.strokeStyle = 'rgba(93,64,55,0.7)'; ctx.lineWidth = 3; ctx.setLineDash([6, 5]);
-      ctx.strokeRect(x - drawW / 2 - 4, drawY - 4, drawW + 8, drawH + 8);
-      ctx.setLineDash([]);
+      var br = vb.boundary;
+      if (br) {
+        ctx.strokeStyle = 'rgba(93,64,55,0.7)'; ctx.lineWidth = 3; ctx.setLineDash([6, 5]);
+        ctx.strokeRect(br.left - 2, br.top - 2, br.w + 4, br.h + 4);
+        ctx.setLineDash([]);
+      } else {
+        ctx.strokeStyle = 'rgba(93,64,55,0.7)'; ctx.lineWidth = 3; ctx.setLineDash([6, 5]);
+        ctx.strokeRect(x - drawW / 2 - 4, drawY - 4, drawW + 8, drawH + 8);
+        ctx.setLineDash([]);
+      }
       RTS.Art.drawHealthBar(ctx, x, drawY - 14, drawW, b.progress, '#42a5f5', true, false);
     }
 
