@@ -38,10 +38,22 @@ Then verify: `fly certs check exofront.siftnow.io -a exofront-game`
 
 ## Deploy / update
 
+**Always use the guarded script** (refuses stale forks):
+
 ```bash
 cd warcrest
-fly deploy
+chmod +x scripts/deploy.sh   # once
+./scripts/deploy.sh
 ```
+
+Do **not** run bare `fly deploy` from `rts-game/` or any other copy.
+
+From a sibling `sift` checkout: `./scripts/deploy-warcrest.sh`
+
+### CI
+
+Pushes to `main` on this repo run `.github/workflows/fly-deploy.yml`.
+Add `FLY_API_TOKEN` under GitHub → Settings → Secrets → Actions.
 
 ## Verify
 
