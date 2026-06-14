@@ -855,8 +855,16 @@
       return true;
     }
 
+    // Use edge-based proximity: count a building as "nearby" when its closest
+    // footprint edge is within 360px of the ghost's closest edge, rather than
+    // a raw centre-to-centre distance that breaks for large buildings.
+    // Also include buildings still under construction (built === false).
     var near = s.entities.buildings.some(function (b) {
-      return b.team === RTS.TEAM.PLAYER && !b.dead && RTS.dist(x, y, b.x, b.y) < 360;
+      if (b.dead || b.team !== RTS.TEAM.PLAYER) return false;
+      var edgeDistX = Math.max(0, Math.abs(b.x - x) - (b.w / 2 + hw));
+      var edgeDistY = Math.max(0, Math.abs(b.y - y) - (b.h / 2 + hh));
+      var edgeDist = Math.sqrt(edgeDistX * edgeDistX + edgeDistY * edgeDistY);
+      return edgeDist < 360;
     });
     return near;
   };
