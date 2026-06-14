@@ -11,10 +11,14 @@
   var TILE = 64;
   RTS.TILE = TILE;
 
+  // Use a half-tile (32px) snap so 192px-wide buildings can sit edge-to-edge
+  // on the X axis. A 64px snap forces a 64px dead corridor between buildings
+  // because the nearest valid centre distance (200px) falls between 192 and 256.
+  var SNAP = TILE / 2; // 32px
   RTS.snapToGrid = function (x, y) {
     return {
-      x: Math.round(x / TILE) * TILE,
-      y: Math.round(y / TILE) * TILE,
+      x: Math.round(x / SNAP) * SNAP,
+      y: Math.round(y / SNAP) * SNAP,
     };
   };
 
@@ -855,8 +859,16 @@
       return true;
     }
 
+    // Use edge-based proximity: count a building as "nearby" when its closest
+    // footprint edge is within 360px of the ghost's closest edge, rather than
+    // a raw centre-to-centre distance that breaks for large buildings.
+    // Also include buildings still under construction (built === false).
     var near = s.entities.buildings.some(function (b) {
-      return b.team === RTS.TEAM.PLAYER && !b.dead && RTS.dist(x, y, b.x, b.y) < 360;
+      if (b.dead || b.team !== RTS.TEAM.PLAYER) return false;
+      var edgeDistX = Math.max(0, Math.abs(b.x - x) - (b.w / 2 + hw));
+      var edgeDistY = Math.max(0, Math.abs(b.y - y) - (b.h / 2 + hh));
+      var edgeDist = Math.sqrt(edgeDistX * edgeDistX + edgeDistY * edgeDistY);
+      return edgeDist < 360;
     });
     return near;
   };
