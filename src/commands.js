@@ -822,13 +822,19 @@
     var W = RTS.Config.world.w, H = RTS.Config.world.h;
     if (x - hw < 20 || x + hw > W - 20 || y - hh < 20 || y + hh > H - 20) return false;
 
+    // Minimum pixel gap allowed between two building footprint edges.
+    var MIN_EDGE_GAP = 8;
+
     var ok = true;
     s.entities.buildings.forEach(function (b) {
       if (b.dead) return;
-      // Same-type buildings may be placed adjacent to each other — skip overlap check.
-      if (b.type === type) return;
-      var ox = Math.abs(b.x - x), oy = Math.abs(b.y - y);
-      if (ox < (b.w / 2 + hw + 14) && oy < (b.h / 2 + hh + 14)) ok = false;
+      var ox = Math.abs(b.x - x);
+      var oy = Math.abs(b.y - y);
+      // True edge-gap check: negative value means the footprints overlap on that axis.
+      var edgeGapX = ox - (b.w / 2 + hw);
+      var edgeGapY = oy - (b.h / 2 + hh);
+      // Buildings collide only when BOTH axis gaps are below the minimum.
+      if (edgeGapX < MIN_EDGE_GAP && edgeGapY < MIN_EDGE_GAP) ok = false;
     });
     if (!ok) return false;
 
