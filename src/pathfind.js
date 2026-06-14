@@ -30,14 +30,20 @@
     return cx >= 0 && cy >= 0 && cx < cols && cy < rows;
   }
 
+  // Use the exact building footprint (w/2, h/2) with no padding so that
+  // any visible gap >= one nav cell (64px) between buildings is walkable.
+  // The old 0.42/0.32 multipliers + pad=16 inflated obstacles beyond the
+  // true footprint, merging adjacent buildings into one solid blocked region
+  // and sealing off passages that are visually open.
   function buildingObstacleRect(b, s, pad) {
-    pad = pad == null ? 16 : pad;
+    pad = pad == null ? 0 : pad;
     if (RTS.Assets && RTS.Assets.buildingCollisionRect) {
       var r = RTS.Assets.buildingCollisionRect(b, s);
       return { l: r.l - pad, r: r.r + pad, t: r.t - pad, b: r.b + pad };
     }
-    var hw = b.w * 0.42 + pad, hh = b.h * 0.32 + pad;
-    return { l: b.x - hw, r: b.x + hw, t: b.y - hh, b: b.y + hh * 0.55 };
+    var hw = b.w * 0.5 + pad;
+    var hh = b.h * 0.5 + pad;
+    return { l: b.x - hw, r: b.x + hw, t: b.y - hh, b: b.y + hh };
   }
 
   function markRectBlocked(blocked, cols, rows, rect, cell) {
@@ -125,7 +131,7 @@
       var b = buildings[i];
       if (b.dead || !b.built) continue;
       if (skipId && b.id === skipId) continue;
-      markRectBlocked(blocked, cols, rows, buildingObstacleRect(b, s, 16));
+      markRectBlocked(blocked, cols, rows, buildingObstacleRect(b, s, 0));
     }
 
     if (skipId) {
@@ -296,7 +302,7 @@
     if (opts.skipBuildingId) {
       var b = RTS.getById(s, opts.skipBuildingId);
       if (b && !b.dead) {
-        var r = buildingObstacleRect(b, s, 8);
+        var r = buildingObstacleRect(b, s, 0);
         if (x >= r.l && x <= r.r && y >= r.t && y <= r.b) return false;
       }
     }
