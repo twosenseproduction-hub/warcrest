@@ -826,8 +826,10 @@
     var W = RTS.Config.world.w, H = RTS.Config.world.h;
     if (x - hw < 20 || x + hw > W - 20 || y - hh < 20 || y + hh > H - 20) return false;
 
-    // Minimum pixel gap allowed between two building footprint edges.
-    var MIN_EDGE_GAP = 8;
+    // Allow buildings to sit flush edge-to-edge on both axes.
+    // Setting MIN_EDGE_GAP to 0 means the condition only fires when footprints
+    // physically overlap (edgeGap < 0), so adjacent placement is permitted.
+    var MIN_EDGE_GAP = 0;
 
     var ok = true;
     s.entities.buildings.forEach(function (b) {
