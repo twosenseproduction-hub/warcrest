@@ -48,6 +48,85 @@
     },
   };
 
+  // ---- Per-building ellipse hit map ----------------------------------------
+  // Each entry is an array of { ox, oy, rx, ry } ellipses in building-local
+  // space (origin = building centre).  Large footprints tile 2-3 ellipses so
+  // every part of the sprite can be tapped accurately.
+  //
+  // Building sizes from config:
+  //   core     256 × 192   (Citadel Keep / Warren Maw)
+  //   outpost  128 × 128   (Forward Bastion / Raider Camp)
+  //   conduit  192 × 192   (Sheep Pen / Pig Sty)
+  //   foundry  192 × 128   (Barracks / War Pit)
+  //   forge    192 × 192   (War Forge / Skull Forge)
+  //   turret    64 × 128   (Arrow Tower / Bone Spire)
+  var BUILDING_ELLIPSES = {
+    // ── core (256 × 192) ──────────────────────────────────────────────────
+    // Three ellipses: left wing · central body · right wing
+    core: [
+      { ox: -72, oy:  0, rx: 62, ry: 72 },   // left section
+      { ox:   0, oy:  0, rx: 72, ry: 80 },   // centre body
+      { ox:  72, oy:  0, rx: 62, ry: 72 },   // right section
+    ],
+    // ── outpost (128 × 128) ───────────────────────────────────────────────
+    // Two ellipses: upper tower · lower base
+    outpost: [
+      { ox:  0, oy: -22, rx: 44, ry: 44 },   // upper tower
+      { ox:  0, oy:  22, rx: 52, ry: 40 },   // lower base
+    ],
+    // ── conduit (192 × 192) ───────────────────────────────────────────────
+    // Three ellipses tiling the pen area: top-left · top-right · bottom centre
+    conduit: [
+      { ox: -38, oy: -32, rx: 56, ry: 56 },
+      { ox:  38, oy: -32, rx: 56, ry: 56 },
+      { ox:   0, oy:  36, rx: 68, ry: 52 },
+    ],
+    // ── foundry (192 × 128) ───────────────────────────────────────────────
+    // Two ellipses: left half · right half
+    foundry: [
+      { ox: -42, oy: 0, rx: 58, ry: 52 },
+      { ox:  42, oy: 0, rx: 58, ry: 52 },
+    ],
+    // ── forge (192 × 192) ─────────────────────────────────────────────────
+    // Three ellipses mirroring the anvil/chimney layout
+    forge: [
+      { ox: -44, oy: -28, rx: 56, ry: 58 },
+      { ox:  44, oy: -28, rx: 56, ry: 58 },
+      { ox:   0, oy:  38, rx: 64, ry: 50 },
+    ],
+    // ── turret (64 × 128) ─────────────────────────────────────────────────
+    // Two ellipses: top battlement · tall shaft
+    turret: [
+      { ox:  0, oy: -34, rx: 32, ry: 30 },   // battlement cap
+      { ox:  0, oy:  20, rx: 26, ry: 52 },   // shaft
+    ],
+  };
+
+  // Point-in-ellipse test (axis-aligned, local coords).
+  function inEllipse(px, py, cx, cy, rx, ry) {
+    var dx = (px - cx) / rx;
+    var dy = (py - cy) / ry;
+    return dx * dx + dy * dy <= 1;
+  }
+
+  // Returns true if world point (wx, wy) hits any ellipse of building b,
+  // with the given extra slop radius added to each semi-axis.
+  function buildingEllipseHit(b, wx, wy, slop) {
+    var lx = wx - b.x;   // building-local coords
+    var ly = wy - b.y;
+    var ellipses = BUILDING_ELLIPSES[b.type];
+    if (!ellipses) {
+      // Fallback: single centred ellipse sized to the footprint
+      var rx = b.w / 2 + slop, ry = b.h / 2 + slop;
+      return inEllipse(lx, ly, 0, 0, rx, ry);
+    }
+    for (var i = 0; i < ellipses.length; i++) {
+      var e = ellipses[i];
+      if (inEllipse(lx, ly, e.ox, e.oy, e.rx + slop, e.ry + slop)) return true;
+    }
+    return false;
+  }
+
   // ---- Hit testing ---------------------------------------------------------
   function hitTest(s, wx, wy) {
     var slop = (RTS.Config.touch ? RTS.Config.touch.slopPx : 28) / s.camera.zoom;
@@ -62,9 +141,8 @@
     s.entities.buildings.forEach(function (b) {
       if (b.dead) return;
       if (!RTS.buildingIsTappable(b)) return;
-      var pad = 10 + slop * 0.4;
-      if (wx >= b.x - b.w / 2 - pad && wx <= b.x + b.w / 2 + pad &&
-          wy >= b.y - b.h / 2 - pad && wy <= b.y + b.h / 2 + pad) {
+      var ellipseSlop = slop * 0.35;   // tighter than the old AABB pad
+      if (buildingEllipseHit(b, wx, wy, ellipseSlop)) {
         cands.push({ e: b, sort: (b.team === TEAM.PLAYER ? 20 : 120) + RTS.dist(wx, wy, b.x, b.y) });
       }
     });
@@ -83,9 +161,7 @@
     var best = null, bd = Infinity;
     s.entities.buildings.forEach(function (b) {
       if (b.dead || b.team !== TEAM.PLAYER || b.built) return;
-      var pad = 10 + slop * 0.4;
-      if (wx >= b.x - b.w / 2 - pad && wx <= b.x + b.w / 2 + pad &&
-          wy >= b.y - b.h / 2 - pad && wy <= b.y + b.h / 2 + pad) {
+      if (buildingEllipseHit(b, wx, wy, slop * 0.35)) {
         var d = RTS.dist(wx, wy, b.x, b.y);
         if (d < bd) { bd = d; best = b; }
       }
