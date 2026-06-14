@@ -11,10 +11,14 @@
   var TILE = 64;
   RTS.TILE = TILE;
 
+  // Use a half-tile (32px) snap so 192px-wide buildings can sit edge-to-edge
+  // on the X axis. A 64px snap forces a 64px dead corridor between buildings
+  // because the nearest valid centre distance (200px) falls between 192 and 256.
+  var SNAP = TILE / 2; // 32px
   RTS.snapToGrid = function (x, y) {
     return {
-      x: Math.round(x / TILE) * TILE,
-      y: Math.round(y / TILE) * TILE,
+      x: Math.round(x / SNAP) * SNAP,
+      y: Math.round(y / SNAP) * SNAP,
     };
   };
 
