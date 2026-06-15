@@ -7,7 +7,7 @@ import type MainScene from './game/scenes/MainScene';
 function isGameRoute(): boolean {
   const { hash, pathname } = window.location;
 
-  return pathname === '/legacy-game' || pathname === '/legacy-game/' || hash === '#/legacy-game';
+  return pathname === '/game' || pathname === '/game/' || hash === '#/game';
 }
 
 export default function App(): JSX.Element {
@@ -31,8 +31,8 @@ export default function App(): JSX.Element {
   return (
     <main className="app-shell">
       <h1>MOW</h1>
-      <p>Open <a href="/game">/game</a> to launch the current DOM canvas game.</p>
-      <p>Open <a href="/legacy-game">/legacy-game</a> to compare against the Phaser placeholder scaffold.</p>
+      <p>Open <a href="/game">/game</a> to launch the Phaser scaffold with Fog of War.</p>
+      <p>Open <a href="/legacy-game">/legacy-game</a> to compare against the preserved DOM canvas game.</p>
     </main>
   );
 }

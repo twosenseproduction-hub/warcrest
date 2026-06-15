@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
 
 const repoRoot = path.dirname(fileURLToPath(import.meta.url));
-const legacyRoute = '/game';
+const legacyRoute = '/legacy-game';
 const legacyDirectories = ['assets', 'data', 'src', 'styles'];
 
 function contentTypeFor(filePath: string): string {
@@ -96,7 +96,7 @@ function legacyGameRoute(): Plugin {
       });
     },
     closeBundle() {
-      const legacyOutDir = path.resolve(outDir, 'game');
+      const legacyOutDir = path.resolve(outDir, 'legacy-game');
 
       fs.rmSync(legacyOutDir, { recursive: true, force: true });
       fs.mkdirSync(legacyOutDir, { recursive: true });
