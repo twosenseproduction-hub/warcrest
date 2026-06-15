@@ -141,7 +141,7 @@
     s.entities.buildings.forEach(function (b) {
       if (b.dead) return;
       if (!RTS.buildingIsTappable(b)) return;
-      var ellipseSlop = slop * 0.35;   // tighter than the old AABB pad
+      var ellipseSlop = 4 + slop * 0.15;
       if (buildingEllipseHit(b, wx, wy, ellipseSlop)) {
         cands.push({ e: b, sort: (b.team === TEAM.PLAYER ? 20 : 120) + RTS.dist(wx, wy, b.x, b.y) });
       }
@@ -161,7 +161,8 @@
     var best = null, bd = Infinity;
     s.entities.buildings.forEach(function (b) {
       if (b.dead || b.team !== TEAM.PLAYER || b.built) return;
-      if (buildingEllipseHit(b, wx, wy, slop * 0.35)) {
+      var ellipseSlop = 4 + slop * 0.15;
+      if (buildingEllipseHit(b, wx, wy, ellipseSlop)) {
         var d = RTS.dist(wx, wy, b.x, b.y);
         if (d < bd) { bd = d; best = b; }
       }
