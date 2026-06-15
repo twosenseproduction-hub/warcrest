@@ -1,0 +1,238 @@
+{
+  "schemaVersion": 1,
+  "tool": "pixel-labs",
+  "batchId": "valdris-4-direction-core-animations",
+  "characterId": "valdris",
+  "character": {
+    "name": "Valdris the Ironwarden",
+    "faction": "Iron Crown",
+    "class": "Vanguard",
+    "source": "Use the existing Valdris character design as the locked reference for every job in this batch.",
+    "continuityRequirements": [
+      "Keep the same face, helmet, armor silhouette, proportions, weapon, shield, palette, and outline weight as the existing Valdris character.",
+      "Do not redesign the character between animations or directions.",
+      "Preserve Valdris as an older heavy-armored general: broad plate armor, royal-blue Iron Crown cloth, silver steel, gold trim, stern veteran presence.",
+      "Readability at mobile RTS scale is more important than extra texture detail."
+    ]
+  },
+  "style": {
+    "genre": "medieval fantasy pixel art",
+    "camera": "three-quarter top-down RTS sprite",
+    "proportions": "chibi heroic unit, large readable head and shoulders, compact body",
+    "outline": "thick dark pixel outline, consistent across all frames",
+    "lighting": "top-left warm highlight, simple cel-shaded ramps",
+    "palette": [
+      "royal blue cloth",
+      "cool silver plate",
+      "dark iron shadows",
+      "muted gold trim",
+      "small warm skin highlights"
+    ],
+    "background": "transparent",
+    "antiAliasing": false
+  },
+  "output": {
+    "format": "png",
+    "layout": "single-row horizontal strip",
+    "frameWidth": 192,
+    "frameHeight": 192,
+    "anchor": "feet centered at x=96, y=172",
+    "padding": "Keep sword, shield, cape, and VFX inside the 192x192 frame.",
+    "namingPattern": "Valdris_<Direction>_<Animation>.png",
+    "targetDirectory": "assets/heroes/valdris"
+  },
+  "directions": [
+    {
+      "id": "down",
+      "label": "Down",
+      "facing": "toward camera / south"
+    },
+    {
+      "id": "right",
+      "label": "Right",
+      "facing": "screen right / east"
+    },
+    {
+      "id": "up",
+      "label": "Up",
+      "facing": "away from camera / north"
+    },
+    {
+      "id": "left",
+      "label": "Left",
+      "facing": "screen left / west"
+    }
+  ],
+  "animations": {
+    "idle": {
+      "label": "Idle",
+      "frames": 8,
+      "fps": 6,
+      "loop": true,
+      "motionNotes": "Subtle breathing and armor weight shift. Shield and weapon remain calm. First and last frames should loop cleanly."
+    },
+    "walk": {
+      "label": "Walk",
+      "frames": 8,
+      "fps": 10,
+      "loop": true,
+      "motionNotes": "Heavy deliberate armored march. Shoulders and cape bounce slightly. Feet stay grounded with no sliding when looped."
+    },
+    "attack": {
+      "label": "Attack",
+      "frames": 6,
+      "fps": 12,
+      "loop": false,
+      "impactFrame": 3,
+      "motionNotes": "Single heavy melee strike with shield braced and sword/axe arcing toward the facing direction. Strong silhouette on impact frame, then recover to a readable stance."
+    }
+  },
+  "negativePrompt": [
+    "no new costume redesign",
+    "no modern clothing",
+    "no sci-fi armor",
+    "no firearms",
+    "no blurry painterly rendering",
+    "no background tile",
+    "no cropped weapon or shield",
+    "no inconsistent frame size",
+    "no extra characters",
+    "no text or watermark"
+  ],
+  "jobs": [
+    {
+      "id": "valdris_idle_down",
+      "direction": "down",
+      "animation": "idle",
+      "frames": 8,
+      "fps": 6,
+      "loop": true,
+      "outputFile": "assets/heroes/valdris/Valdris_Down_Idle.png",
+      "prompt": "Animate the existing Valdris character facing down/toward camera in an idle loop. Keep his Iron Crown blue cloth, heavy silver plate, gold trim, stern veteran look, shield, and melee weapon identical to the reference. Subtle breathing, tiny armor shift, calm command presence, transparent background, 192x192 frames in one horizontal PNG strip."
+    },
+    {
+      "id": "valdris_walk_down",
+      "direction": "down",
+      "animation": "walk",
+      "frames": 8,
+      "fps": 10,
+      "loop": true,
+      "outputFile": "assets/heroes/valdris/Valdris_Down_Walk.png",
+      "prompt": "Animate the existing Valdris character facing down/toward camera in a heavy armored walk loop. Preserve the exact character design. Deliberate vanguard march, shield steady, weapon low and readable, cape/cloth bounce, feet grounded, transparent background, 192x192 frames in one horizontal PNG strip."
+    },
+    {
+      "id": "valdris_attack_down",
+      "direction": "down",
+      "animation": "attack",
+      "frames": 6,
+      "fps": 12,
+      "loop": false,
+      "impactFrame": 3,
+      "outputFile": "assets/heroes/valdris/Valdris_Down_Attack.png",
+      "prompt": "Animate the existing Valdris character facing down/toward camera performing one heavy melee attack. Preserve the exact character design. Wind up, shield braced, powerful downward strike toward the camera, clear impact on frame 3, recover stance, transparent background, 192x192 frames in one horizontal PNG strip."
+    },
+    {
+      "id": "valdris_idle_right",
+      "direction": "right",
+      "animation": "idle",
+      "frames": 8,
+      "fps": 6,
+      "loop": true,
+      "outputFile": "assets/heroes/valdris/Valdris_Right_Idle.png",
+      "prompt": "Animate the existing Valdris character facing screen right in an idle loop. Keep his Iron Crown blue cloth, heavy silver plate, gold trim, stern veteran look, shield, and melee weapon identical to the reference. Subtle breathing, tiny armor shift, calm command presence, transparent background, 192x192 frames in one horizontal PNG strip."
+    },
+    {
+      "id": "valdris_walk_right",
+      "direction": "right",
+      "animation": "walk",
+      "frames": 8,
+      "fps": 10,
+      "loop": true,
+      "outputFile": "assets/heroes/valdris/Valdris_Right_Walk.png",
+      "prompt": "Animate the existing Valdris character facing screen right in a heavy armored walk loop. Preserve the exact character design. Deliberate vanguard march, shield steady, weapon low and readable, cape/cloth bounce, feet grounded, transparent background, 192x192 frames in one horizontal PNG strip."
+    },
+    {
+      "id": "valdris_attack_right",
+      "direction": "right",
+      "animation": "attack",
+      "frames": 6,
+      "fps": 12,
+      "loop": false,
+      "impactFrame": 3,
+      "outputFile": "assets/heroes/valdris/Valdris_Right_Attack.png",
+      "prompt": "Animate the existing Valdris character facing screen right performing one heavy melee attack. Preserve the exact character design. Wind up, shield braced, powerful strike toward screen right, clear impact on frame 3, recover stance, transparent background, 192x192 frames in one horizontal PNG strip."
+    },
+    {
+      "id": "valdris_idle_up",
+      "direction": "up",
+      "animation": "idle",
+      "frames": 8,
+      "fps": 6,
+      "loop": true,
+      "outputFile": "assets/heroes/valdris/Valdris_Up_Idle.png",
+      "prompt": "Animate the existing Valdris character facing up/away from camera in an idle loop. Keep his Iron Crown blue cloth, heavy silver plate, gold trim, cape, shield, and melee weapon identical to the reference from the rear-facing view. Subtle breathing, tiny armor shift, calm command presence, transparent background, 192x192 frames in one horizontal PNG strip."
+    },
+    {
+      "id": "valdris_walk_up",
+      "direction": "up",
+      "animation": "walk",
+      "frames": 8,
+      "fps": 10,
+      "loop": true,
+      "outputFile": "assets/heroes/valdris/Valdris_Up_Walk.png",
+      "prompt": "Animate the existing Valdris character facing up/away from camera in a heavy armored walk loop. Preserve the exact character design from the rear-facing view. Deliberate vanguard march, shield and weapon readable in silhouette, cape/cloth bounce, feet grounded, transparent background, 192x192 frames in one horizontal PNG strip."
+    },
+    {
+      "id": "valdris_attack_up",
+      "direction": "up",
+      "animation": "attack",
+      "frames": 6,
+      "fps": 12,
+      "loop": false,
+      "impactFrame": 3,
+      "outputFile": "assets/heroes/valdris/Valdris_Up_Attack.png",
+      "prompt": "Animate the existing Valdris character facing up/away from camera performing one heavy melee attack. Preserve the exact character design from the rear-facing view. Wind up, shield braced, powerful strike away from camera, clear impact on frame 3, recover stance, transparent background, 192x192 frames in one horizontal PNG strip."
+    },
+    {
+      "id": "valdris_idle_left",
+      "direction": "left",
+      "animation": "idle",
+      "frames": 8,
+      "fps": 6,
+      "loop": true,
+      "outputFile": "assets/heroes/valdris/Valdris_Left_Idle.png",
+      "prompt": "Animate the existing Valdris character facing screen left in an idle loop. Keep his Iron Crown blue cloth, heavy silver plate, gold trim, stern veteran look, shield, and melee weapon identical to the reference. Subtle breathing, tiny armor shift, calm command presence, transparent background, 192x192 frames in one horizontal PNG strip."
+    },
+    {
+      "id": "valdris_walk_left",
+      "direction": "left",
+      "animation": "walk",
+      "frames": 8,
+      "fps": 10,
+      "loop": true,
+      "outputFile": "assets/heroes/valdris/Valdris_Left_Walk.png",
+      "prompt": "Animate the existing Valdris character facing screen left in a heavy armored walk loop. Preserve the exact character design. Deliberate vanguard march, shield steady, weapon low and readable, cape/cloth bounce, feet grounded, transparent background, 192x192 frames in one horizontal PNG strip."
+    },
+    {
+      "id": "valdris_attack_left",
+      "direction": "left",
+      "animation": "attack",
+      "frames": 6,
+      "fps": 12,
+      "loop": false,
+      "impactFrame": 3,
+      "outputFile": "assets/heroes/valdris/Valdris_Left_Attack.png",
+      "prompt": "Animate the existing Valdris character facing screen left performing one heavy melee attack. Preserve the exact character design. Wind up, shield braced, powerful strike toward screen left, clear impact on frame 3, recover stance, transparent background, 192x192 frames in one horizontal PNG strip."
+    }
+  ],
+  "acceptanceCriteria": [
+    "Exactly 12 PNG strips are exported: 4 directions times Idle, Walk, and Attack.",
+    "Each strip has transparent background and a height of 192 pixels.",
+    "Idle and Walk strips are 1536x192 pixels: 8 frames at 192x192.",
+    "Attack strips are 1152x192 pixels: 6 frames at 192x192.",
+    "All frames keep the feet centered around x=96, y=172 for stable in-game anchoring.",
+    "The first and last Idle/Walk frames loop without a visible pop.",
+    "Attack impact is readable on frame 3 and does not leave the character cropped.",
+    "The existing Valdris design remains consistent across all 12 outputs."
+  ]
+}
