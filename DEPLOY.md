@@ -47,8 +47,26 @@ chmod +x scripts/deploy.sh   # once
 ```
 
 Do **not** run bare `fly deploy` from `rts-game/` or any other copy.
+The script also runs `scripts/verify-game-sources.sh` so placeholder
+`src/systems.js` / `src/assets.js` files cannot be deployed.
 
 From a sibling `sift` checkout: `./scripts/deploy-warcrest.sh`
+
+### Cursor Cloud agents
+
+This repo commits Cursor Cloud setup in `.cursor/environment.json`. The install
+step runs `scripts/setup-flyctl.sh`, which installs the latest `flyctl`, adds it
+to common shell profiles, and verifies `flyctl version`.
+
+Configure `FLY_ACCESS_TOKEN` as a Cursor Cloud secret before deploying. The setup
+and deploy scripts map it to Fly's expected `FLY_API_TOKEN` environment variable.
+
+If Fly's Depot/builder APIs return `503 Service Unavailable`, retry through the
+guarded script with Depot disabled:
+
+```bash
+./scripts/deploy.sh --depot=false
+```
 
 ### CI
 
