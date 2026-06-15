@@ -41,6 +41,11 @@
         effects: [],
       },
 
+      heroes: {
+        player: null,   // player hero unit id
+        enemy: null,    // enemy hero unit id
+      },
+
       selectedIds: [],
       selectionBox: null,            // {x1,y1,x2,y2} world coords while dragging
 

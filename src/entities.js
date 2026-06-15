@@ -37,6 +37,30 @@
     return u;
   };
 
+  RTS.makeHero = function (s, heroId, team, x, y) {
+    var spec = RTS.Heroes && RTS.Heroes[heroId];
+    if (!spec) { console.error('Unknown hero:', heroId); return null; }
+    var u = RTS.makeUnit(s, 'hero', team, x, y, spec.faction);
+    u.heroId = heroId;
+    u.isHero = true;
+    u.name = spec.name;
+    u.hp = spec.hp;
+    u.maxHp = spec.hp;
+    u.speed = spec.speed;
+    u.dmg = spec.dmg;
+    u.range = spec.range;
+    u.ranged = !!spec.ranged;
+    u.xp = 0;
+    u.level = 1;
+    u.respawnTimer = null;
+    u.respawnTotal = 30;
+    u.abilityCooldowns = {};
+    (spec.abilities || []).forEach(function (a) { u.abilityCooldowns[a.id] = 0; });
+    u.passiveState = {};
+    RTS.recalcSupply(s, team);
+    return u;
+  };
+
   RTS.makeBuilding = function (s, type, team, x, y, factionId, prebuilt) {
     var spec = RTS.Buildings[type];
     var b = {

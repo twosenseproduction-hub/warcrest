@@ -489,6 +489,28 @@
     }
   }
 
+  function firstHeroForFaction(factionId) {
+    if (!RTS.getHeroesForFaction) return null;
+    var heroes = RTS.getHeroesForFaction(factionId);
+    return heroes && heroes.length ? heroes[0] : null;
+  }
+
+  function spawnStartingHeroes(s, px, py, ex, ey) {
+    if (!RTS.makeHero) return;
+    var playerHeroSpec = s.playerHero && RTS.Heroes ? RTS.Heroes[s.playerHero] : null;
+    if (!playerHeroSpec) playerHeroSpec = firstHeroForFaction(s.playerFaction);
+    if (playerHeroSpec) {
+      var pH = RTS.makeHero(s, playerHeroSpec.id, RTS.TEAM.PLAYER, px, py + 96);
+      if (pH) s.heroes.player = pH.id;
+    }
+
+    var enemyHeroSpec = firstHeroForFaction(s.enemyFaction);
+    if (enemyHeroSpec) {
+      var eH = RTS.makeHero(s, enemyHeroSpec.id, RTS.TEAM.ENEMY, ex, ey + 96);
+      if (eH) s.heroes.enemy = eH.id;
+    }
+  }
+
   /* ---- 1. Sapphire Shores — from tools/mapgen (import-mapgen.py) ---------- */
   function buildSapphireShores(s) {
     var mg = RTS.SapphireMapgen;
@@ -502,6 +524,7 @@
 
     spawnBase(s, RTS.TEAM.PLAYER, px, py, pf, false, { rallyDx: 130, rallyDy: 90 });
     spawnBase(s, RTS.TEAM.ENEMY, ex, ey, ef, true, { rallyDx: -130, rallyDy: 90 });
+    spawnStartingHeroes(s, px, py, ex, ey);
 
     mg.gold.forEach(function (g) { mine(s, g.x, g.y, isHomeGoldOnMap(mg, g)); });
 
@@ -539,6 +562,7 @@
 
     spawnBase(s, RTS.TEAM.PLAYER, 280, midY, pf, false, { rallyDx: 120, rallyDy: 0 });
     spawnBase(s, RTS.TEAM.ENEMY, w - 280, midY, ef, true, { rallyDx: -120, rallyDy: 0 });
+    spawnStartingHeroes(s, 280, midY, w - 280, midY);
 
     var playerSpawn = { x: 280, y: midY };
     var enemySpawn = { x: w - 280, y: midY };
@@ -586,6 +610,7 @@
 
     spawnBase(s, RTS.TEAM.PLAYER, midX, py, pf, false, { rallyDx: 0, rallyDy: -120 });
     spawnBase(s, RTS.TEAM.ENEMY, midX, ey, ef, true, { rallyDx: 0, rallyDy: 120 });
+    spawnStartingHeroes(s, midX, py, midX, ey);
 
     var playerSpawn = { x: midX, y: py };
     var enemySpawn = { x: midX, y: ey };
@@ -634,6 +659,7 @@
 
     spawnBase(s, RTS.TEAM.PLAYER, px, py, pf, false, { rallyDx: 110, rallyDy: 110 });
     spawnBase(s, RTS.TEAM.ENEMY, ex, ey, ef, true, { rallyDx: -110, rallyDy: -110 });
+    spawnStartingHeroes(s, px, py, ex, ey);
 
     var bases = [{ x: px, y: py }, { x: ex, y: ey }];
     mine(s, px + 60, py - 140, isStartingMine(px + 60, py - 140, bases));

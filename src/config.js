@@ -254,6 +254,14 @@
       desc: 'Elite Ironwarden vanguard. Slow, durable melee anchor trained at the War Forge.',
     },
 
+    hero: {
+      role: 'hero', label: 'Hero', glyph: 'hex', faction: 'aurex',
+      hp: 100, speed: 80, dmg: 10, range: 48, rof: 1.1,
+      cost: 0, supply: 0, build: 0, ranged: false,
+      traits: [],
+      desc: 'Faction hero.',
+    },
+
     // ---- Raider Horde units ------------------------------------------------
 
     gnome: {
