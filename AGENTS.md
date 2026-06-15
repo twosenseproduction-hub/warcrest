@@ -9,3 +9,5 @@
 - Verify the Cloud environment with `flyctl version`.
 - Deploy with `./scripts/deploy.sh`. If Fly's Depot/builder APIs return
   `503 Service Unavailable`, retry with `./scripts/deploy.sh --depot=false`.
+- Before deploying, `scripts/deploy.sh` runs `scripts/verify-game-sources.sh` to
+  catch placeholder `src/systems.js` / `src/assets.js` regressions.

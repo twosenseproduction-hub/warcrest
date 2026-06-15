@@ -47,6 +47,8 @@ chmod +x scripts/deploy.sh   # once
 ```
 
 Do **not** run bare `fly deploy` from `rts-game/` or any other copy.
+The script also runs `scripts/verify-game-sources.sh` so placeholder
+`src/systems.js` / `src/assets.js` files cannot be deployed.
 
 From a sibling `sift` checkout: `./scripts/deploy-warcrest.sh`
 
