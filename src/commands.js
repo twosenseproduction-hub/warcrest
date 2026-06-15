@@ -64,7 +64,7 @@
     RTS.HUD.sync(s);
   };
 
-  var MACRO_ROLE_ORDER = ['pawn', 'lancer', 'archer', 'monk', 'warrior'];
+  var MACRO_ROLE_ORDER = ['pawn', 'lancer', 'archer', 'monk', 'warrior', 'valdris'];
 
   RTS.clearMacroGroups = function (s) {
     s.ui.macroGroups = null;
@@ -536,7 +536,22 @@
     }
 
     var spec = RTS.Units[role];
+    var bspec = RTS.Buildings[building.type];
     if (!building.built) { if (team === RTS.TEAM.PLAYER) RTS.toast(s, 'Building not finished'); return false; }
+    if (!bspec || !bspec.trains || bspec.trains.indexOf(role) < 0) {
+      if (team === RTS.TEAM.PLAYER) {
+        RTS.toast(s, 'Cannot train that unit here');
+        RTS.Audio.play('deny');
+      }
+      return false;
+    }
+    if (!spec || (RTS.canTrainRoleForFaction && !RTS.canTrainRoleForFaction(role, building.faction))) {
+      if (team === RTS.TEAM.PLAYER) {
+        RTS.toast(s, 'Cannot train that unit here');
+        RTS.Audio.play('deny');
+      }
+      return false;
+    }
     if (!RTS.canAfford(s, team, spec.cost)) {
       if (team === RTS.TEAM.PLAYER) {
         RTS.toast(s, 'Not enough ' + RTS.resourceLabel());
@@ -567,6 +582,7 @@
       case 'archer': return 9;
       case 'monk': return 12;
       case 'warrior': return 16;
+      case 'valdris': return 28;
       default: return 10;
     }
   }

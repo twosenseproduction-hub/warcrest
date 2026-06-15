@@ -7,6 +7,7 @@
 
   var TS = 'assets/tiny-swords/';
   var ENEMY_TS = 'assets/tiny-swords-enemy/';
+  var HEROES = 'assets/heroes/';
   var UI = 'UI Elements/UI Elements/';
   var FLAT = 'assets/ui/';
 
@@ -69,6 +70,11 @@
     archer: { unit: 'Archer', file: 'Archer_Idle.png', frames: 6, fw: 192, fh: 192 },
     monk: { unit: 'Monk', file: 'Idle.png', frames: 6, fw: 192, fh: 192 },
     warrior: { unit: 'Warrior', file: 'Warrior_Idle.png', frames: 8, fw: 192, fh: 192 },
+    valdris: { file: 'valdris/Valdris_Down_Idle.png', frames: 9, fw: 256, fh: 256, customBase: HEROES },
+  };
+
+  var UNIT_AVATAR_FILE = {
+    valdris: 'valdris/Valdris_Portrait.png',
   };
 
   var BUILDING_FILE = {
@@ -117,6 +123,7 @@
     if (factionId === 'cinder') return enemyStripUrl(role);
     var def = UNIT_STRIP[role];
     if (!def) return '';
+    if (def.customBase) return enc(def.customBase, def.file);
     var color = RTS.Assets ? RTS.Assets.factionColor(factionId) : 'Blue';
     return enc(TS, 'Units/' + color + ' Units/' + def.unit + '/' + def.file);
   }
@@ -149,6 +156,7 @@
 
   function unitAvatarUrl(factionId, role) {
     if (factionId === 'cinder') return enemyAvatarUrl(role);
+    if (UNIT_AVATAR_FILE[role]) return enc(HEROES, UNIT_AVATAR_FILE[role]);
     var col = UNIT_AVATAR_COL[role];
     if (col == null) return '';
     var row = FACTION_AVATAR_ROW[factionId];

@@ -6,7 +6,7 @@
   'use strict';
 
   var FACTIONS = ['aurex', 'cinder'];
-  var ROLES = ['pawn', 'lancer', 'archer', 'monk', 'warrior'];
+  var ROLES = ['pawn', 'lancer', 'archer', 'monk', 'warrior', 'valdris'];
 
   var ROLE_DEF = {
     pawn: {
@@ -58,6 +58,23 @@
         guard: { file: 'Warrior_Guard.png', count: 6, speed: 2.0 },
         attack: { file: 'Warrior_Attack1.png', count: 4, fps: 12, impactFrame: 2 },
         attack2: { file: 'Warrior_Attack2.png', count: 4, fps: 12, impactFrame: 2 },
+      },
+    },
+    valdris: {
+      frameH: 256, scale: 1.04, base: '', directional: true,
+      clips: {
+        idle_d: { file: 'assets/heroes/valdris/Valdris_Down_Idle.png', count: 9, speed: 6 },
+        idle_r: { file: 'assets/heroes/valdris/Valdris_Right_Idle.png', count: 9, speed: 6 },
+        idle_u: { file: 'assets/heroes/valdris/Valdris_Up_Idle.png', count: 9, speed: 6 },
+        idle_l: { file: 'assets/heroes/valdris/Valdris_Left_Idle.png', count: 9, speed: 6 },
+        walk_d: { file: 'assets/heroes/valdris/Valdris_Down_Walk.png', count: 9, speed: 8 },
+        walk_r: { file: 'assets/heroes/valdris/Valdris_Right_Walk.png', count: 9, speed: 8 },
+        walk_u: { file: 'assets/heroes/valdris/Valdris_Up_Walk.png', count: 9, speed: 8 },
+        walk_l: { file: 'assets/heroes/valdris/Valdris_Left_Walk.png', count: 9, speed: 8 },
+        attack_d: { file: 'assets/heroes/valdris/Valdris_Down_Attack.png', count: 7, fps: 12, impactFrame: 3 },
+        attack_r: { file: 'assets/heroes/valdris/Valdris_Right_Attack.png', count: 7, fps: 12, impactFrame: 3 },
+        attack_u: { file: 'assets/heroes/valdris/Valdris_Up_Attack.png', count: 7, fps: 12, impactFrame: 3 },
+        attack_l: { file: 'assets/heroes/valdris/Valdris_Left_Attack.png', count: 7, fps: 12, impactFrame: 3 },
       },
     },
   };
@@ -138,6 +155,7 @@
   function unitPath(factionId, role, file) {
     var def = roleDef(factionId, role);
     if (!def) return '';
+    if (def.base === '') return file;
     if (factionId === 'cinder') {
       return def.folder + '/' + file;
     }
@@ -148,7 +166,7 @@
   function loadRoleSheet(factionId, role) {
     var def = roleDef(factionId, role);
     if (!def) return Promise.resolve(null);
-    var base = assetBase(factionId);
+    var base = def.base != null ? def.base : assetBase(factionId);
     var clipKeys = Object.keys(def.clips);
     var promises = clipKeys.map(function (ck) {
       var clip = def.clips[ck];
@@ -176,6 +194,7 @@
         };
         entry.frameW = fw;
       });
+      entry.directional = !!def.directional;
       sheets[factionId + '_' + role] = entry;
       return entry;
     });
@@ -215,12 +234,26 @@
     return 'attack_u';
   }
 
+  function cardinalSuffix(facing) {
+    var ax = Math.cos(facing);
+    var ay = Math.sin(facing);
+    if (Math.abs(ax) >= Math.abs(ay)) return ax < 0 ? 'l' : 'r';
+    return ay < 0 ? 'u' : 'd';
+  }
+
+  function directionalKey(sheet, baseKey, facing) {
+    if (!sheet || !sheet.directional) return baseKey;
+    var key = baseKey + '_' + cardinalSuffix(facing);
+    return sheet.clips[key] ? key : baseKey;
+  }
+
   function isAttackClipKey(key) {
     return key === 'attack' || key === 'attack2' ||
       key.indexOf('attack_') === 0;
   }
 
   function resolveAttackKey(u, sheet) {
+    if (sheet.directional) return directionalKey(sheet, 'attack', u.facing);
     if (u.role === 'lancer') {
       if (sheet.clips.attack_r) return lancerAttackKey(u.facing);
       return 'attack';
@@ -232,8 +265,15 @@
     return 'attack';
   }
 
-  function getClip(sheet, key) {
-    return sheet.clips[key] || sheet.clips.attack || sheet.clips.idle;
+  function getClip(sheet, key, facing) {
+    if (facing != null) key = directionalKey(sheet, key, facing);
+    return sheet.clips[key] || sheet.clips.attack || sheet.clips.idle ||
+      sheet.clips.idle_d || sheet.clips.walk || sheet.clips.walk_d;
+  }
+
+  function defaultVisualClip(sheet) {
+    return sheet.clips.idle || sheet.clips.idle_d ||
+      sheet.clips.walk || sheet.clips.walk_d;
   }
 
   function drawSpriteFrame(ctx, clip, sheet, fi, u, drawW, drawH, drawY, flip) {
@@ -290,7 +330,7 @@
         u._attackVariant = (u._attackVariant === 1) ? 2 : 1;
       }
       var key = resolveAttackKey(u, sheet);
-      var clip = getClip(sheet, key);
+      var clip = getClip(sheet, key, u.facing);
       if (!clip) return;
       u.attackClip = key;
       u.attackAnimT = 0;
@@ -316,7 +356,7 @@
       if (!this.attackActive(u)) return -1;
       var sheet = sheets[this.sheetKey(u)];
       if (!sheet) return -1;
-      var clip = getClip(sheet, u.attackClip);
+      var clip = getClip(sheet, u.attackClip, u.facing);
       if (!clip) return -1;
       return Math.min(clip.count - 1, Math.floor(u.attackAnimT * clipFps(clip)));
     },
@@ -324,7 +364,7 @@
     atReleaseFrame: function (u) {
       var sheet = sheets[this.sheetKey(u)];
       if (!sheet || !this.attackActive(u)) return false;
-      var clip = getClip(sheet, u.attackClip);
+      var clip = getClip(sheet, u.attackClip, u.facing);
       if (!clip) return false;
       var rf = clip.releaseFrame != null ? clip.releaseFrame : clip.count - 1;
       return this.currentAttackFrame(u) >= rf;
@@ -333,7 +373,7 @@
     atImpactFrame: function (u) {
       var sheet = sheets[this.sheetKey(u)];
       if (!sheet || !this.attackActive(u)) return false;
-      var clip = getClip(sheet, u.attackClip);
+      var clip = getClip(sheet, u.attackClip, u.facing);
       if (!clip) return false;
       var frame = clip.impactFrame != null ? clip.impactFrame : Math.floor(clip.count * 0.5);
       return this.currentAttackFrame(u) >= frame;
@@ -386,7 +426,7 @@
       var r = unitDrawRadius(u);
       var footY = this.unitFootY(u, s);
       var drawH = unitDrawHeight(r, u, sheet);
-      var clip = sheet.clips.idle || sheet.clips.walk;
+      var clip = defaultVisualClip(sheet);
       var fw = clip ? (clip.frameW || sheet.frameW) : sheet.frameW;
       var fh = sheet.frameH;
       var drawW = (fw / fh) * drawH;
@@ -447,7 +487,7 @@
         var k = Math.max(0, u.corpse) / max;
         if (k >= 1) return;
         var a = 1 - k;
-        var corpseClip = sheet.clips.idle || sheet.clips.walk;
+        var corpseClip = defaultVisualClip(sheet);
         if (!corpseClip) return;
         var r = unitDrawRadius(u) * (1 - k * 0.15);
         var vb = this.unitVisualBounds(u, s);
@@ -491,11 +531,11 @@
       var walking = !mining && !onBuildSite && !this.attackActive(u) && u._moveHold > 0;
 
       var animName = this.pickAnim(u, walking);
-      var clip = getClip(sheet, animName);
+      var clip = getClip(sheet, animName, u.facing);
       if (!clip || !clip.img) return;
 
       var fi = rm ? 0 : this.frameIndex(u, clip, animName);
-      var flip = Math.cos(u.facing) < -0.12 ? -1 : 1;
+      var flip = sheet.directional ? 1 : (Math.cos(u.facing) < -0.12 ? -1 : 1);
       var vb = this.unitVisualBounds(u, s);
       if (!vb) return;
 
