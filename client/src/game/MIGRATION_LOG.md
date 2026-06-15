@@ -98,6 +98,17 @@ Migration decisions logged:
 6. Use simple Phaser rectangles/circles/text labels for the first migrated renderer. Legacy sprite data exists, but it is distributed across assets.js, sprites.js, art.js, and image folders, so a separate asset-manifest extraction pass is safer than a partial sprite import.
 7. Implement movement and selection in GameState/Phaser first; full combat, harvesting, production, AI, pathfinding, sprite timing, and construction remain documented migration targets from the audit and are not deleted from legacy.
 8. Do not remove /legacy-game in this stage because /game is not yet gameplay-identical.
+9. Visual audit for Phaser asset parity:
+   - Units render from Tiny Swords sprite sheets used by src/sprites.js:
+     - Aurex: assets/tiny-swords/Units/Blue Units/{Pawn,Lancer,Archer,Monk,Warrior}
+     - Cinder: assets/tiny-swords-enemy/Enemies/{Gnome,Goblin Raiders,Spear Goblin,Gnoll,Goblin Raiders/Hex Shaman,Troll}
+   - Unit frame sizes/counts, foot ratios, and approximate draw heights are copied from src/sprites.js and src/size-ref.js.
+   - Buildings render from the same PNGs selected by src/assets.js:
+     - Blue/Red Tiny Swords Castle, House1, Barracks, Archery, Tower
+     - Custom Shepherds_Hut, Raider Warren_Maw, Pig_Sty, War_Pit
+   - Resource nodes render with the same Gold Stone PNG family and a clustered deposit composition.
+   - Phaser is configured with pixelArt/roundPixels to mirror the legacy renderer's imageSmoothingEnabled = false behavior for sprites/buildings.
+   - Remaining exact parity risk: legacy terrain uses the Canvas/Tiny Swords terrain renderer and generated terrain masks. Phaser still uses the current isometric scaffold terrain unless a dedicated tile renderer ports src/terrain.js and src/assets.js tile atlas logic.
 -->
 
 # Warcrest Phaser Migration Log

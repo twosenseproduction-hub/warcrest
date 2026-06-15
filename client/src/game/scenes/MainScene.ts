@@ -3,6 +3,8 @@ import { MAP_CONFIG, type TilePosition } from '../data/mapConfig';
 import { GameEvents } from '../events/GameEvents';
 import { gameState, type Building, type Unit } from '../state/GameState';
 import { FogOfWar, type FogState } from '../systems/FogOfWar';
+import type { BuildingType } from '../data/buildings';
+import type { FactionId, UnitType } from '../data/units';
 
 const TILE_WIDTH = MAP_CONFIG.isoTileWidth;
 const TILE_HEIGHT = MAP_CONFIG.isoTileHeight;
@@ -10,23 +12,230 @@ const MIN_TAP_TARGET_RADIUS = 24;
 const TICK_INTERVAL_MS = 2_000;
 const TREE_TRUNK_TEXTURE = 'placeholder-tree-trunk';
 const TREE_CANOPY_TEXTURE = 'placeholder-tree-canopy';
-const BUILDING_TEXTURE = 'placeholder-building';
 const CANOPY_DEPTH = 9_999;
 const MAP_DEPTH = -1;
 const FOG_DEPTH = 0;
 const LONG_PRESS_MS = 450;
+const LEGACY_ASSET_BASE = '/legacy-game/assets';
+const UNIT_SPRITE_BASE = `${LEGACY_ASSET_BASE}/tiny-swords`;
+const ENEMY_SPRITE_BASE = `${LEGACY_ASSET_BASE}/tiny-swords-enemy`;
+const RAIDER_BUILDING_BASE = `${LEGACY_ASSET_BASE}/raider`;
+const KINGDOM_BUILDING_BASE = `${LEGACY_ASSET_BASE}/tiny-swords`;
+const KINGDOM_CUSTOM_BASE = `${LEGACY_ASSET_BASE}/kingdom`;
+
+type UnitAnimationKey = 'idle' | 'run';
 
 type UnitView = {
   container: Phaser.GameObjects.Container;
-  body: Phaser.GameObjects.Rectangle;
-  label: Phaser.GameObjects.Text;
+  shadow: Phaser.GameObjects.Ellipse;
+  sprite: Phaser.GameObjects.Sprite;
+  healthBar: Phaser.GameObjects.Graphics;
 };
 
 type BuildingView = {
   container: Phaser.GameObjects.Container;
-  body: Phaser.GameObjects.Rectangle;
+  shadow: Phaser.GameObjects.Ellipse;
+  sprite: Phaser.GameObjects.Image;
+  healthBar: Phaser.GameObjects.Graphics;
+};
+
+type ResourceView = {
+  container: Phaser.GameObjects.Container;
+  shadow: Phaser.GameObjects.Ellipse;
+  stones: Phaser.GameObjects.Image[];
   label: Phaser.GameObjects.Text;
 };
+
+type UnitSpriteDefinition = {
+  idlePath: string;
+  runPath: string;
+  frameSize: number;
+  frameCount: {
+    idle: number;
+    run: number;
+  };
+  drawHeight: number;
+  footRatio: number;
+};
+
+type BuildingSpriteDefinition = {
+  path: string;
+  width: number;
+  height: number;
+  footRatio: number;
+};
+
+const UNIT_SPRITES: Record<FactionId, Record<UnitType, UnitSpriteDefinition>> = {
+  aurex: {
+    pawn: {
+      idlePath: `${UNIT_SPRITE_BASE}/Units/Blue%20Units/Pawn/Pawn_Idle%20Pickaxe.png`,
+      runPath: `${UNIT_SPRITE_BASE}/Units/Blue%20Units/Pawn/Pawn_Run%20Pickaxe.png`,
+      frameSize: 192,
+      frameCount: { idle: 8, run: 6 },
+      drawHeight: 64,
+      footRatio: 0.698,
+    },
+    lancer: {
+      idlePath: `${UNIT_SPRITE_BASE}/Units/Blue%20Units/Lancer/Lancer_Idle.png`,
+      runPath: `${UNIT_SPRITE_BASE}/Units/Blue%20Units/Lancer/Lancer_Run.png`,
+      frameSize: 320,
+      frameCount: { idle: 12, run: 6 },
+      drawHeight: 72,
+      footRatio: 0.616,
+    },
+    archer: {
+      idlePath: `${UNIT_SPRITE_BASE}/Units/Blue%20Units/Archer/Archer_Idle.png`,
+      runPath: `${UNIT_SPRITE_BASE}/Units/Blue%20Units/Archer/Archer_Run.png`,
+      frameSize: 192,
+      frameCount: { idle: 6, run: 4 },
+      drawHeight: 64,
+      footRatio: 0.703,
+    },
+    monk: {
+      idlePath: `${UNIT_SPRITE_BASE}/Units/Blue%20Units/Monk/Idle.png`,
+      runPath: `${UNIT_SPRITE_BASE}/Units/Blue%20Units/Monk/Run.png`,
+      frameSize: 192,
+      frameCount: { idle: 6, run: 4 },
+      drawHeight: 64,
+      footRatio: 0.693,
+    },
+    warrior: {
+      idlePath: `${UNIT_SPRITE_BASE}/Units/Blue%20Units/Warrior/Warrior_Idle.png`,
+      runPath: `${UNIT_SPRITE_BASE}/Units/Blue%20Units/Warrior/Warrior_Run.png`,
+      frameSize: 192,
+      frameCount: { idle: 8, run: 6 },
+      drawHeight: 74,
+      footRatio: 0.708,
+    },
+  },
+  cinder: {
+    pawn: {
+      idlePath: `${ENEMY_SPRITE_BASE}/Enemies/Gnome/Gnome_Idle.png`,
+      runPath: `${ENEMY_SPRITE_BASE}/Enemies/Gnome/Gnome_Run.png`,
+      frameSize: 192,
+      frameCount: { idle: 8, run: 6 },
+      drawHeight: 64,
+      footRatio: 0.698,
+    },
+    lancer: {
+      idlePath: `${ENEMY_SPRITE_BASE}/Enemies/Goblin%20Raiders/Spear%20Goblin/Spear%20Goblin_Idle.png`,
+      runPath: `${ENEMY_SPRITE_BASE}/Enemies/Goblin%20Raiders/Spear%20Goblin/Spear%20Goblin_Run.png`,
+      frameSize: 256,
+      frameCount: { idle: 8, run: 6 },
+      drawHeight: 72,
+      footRatio: 0.616,
+    },
+    archer: {
+      idlePath: `${ENEMY_SPRITE_BASE}/Enemies/Gnoll/Gnoll_Idle.png`,
+      runPath: `${ENEMY_SPRITE_BASE}/Enemies/Gnoll/Gnoll_Walk.png`,
+      frameSize: 192,
+      frameCount: { idle: 6, run: 8 },
+      drawHeight: 64,
+      footRatio: 0.703,
+    },
+    monk: {
+      idlePath: `${ENEMY_SPRITE_BASE}/Enemies/Goblin%20Raiders/Hex%20Shaman/Hex%20Shaman_Idle.png`,
+      runPath: `${ENEMY_SPRITE_BASE}/Enemies/Goblin%20Raiders/Hex%20Shaman/Hex%20Shaman_Run.png`,
+      frameSize: 192,
+      frameCount: { idle: 8, run: 4 },
+      drawHeight: 64,
+      footRatio: 0.693,
+    },
+    warrior: {
+      idlePath: `${ENEMY_SPRITE_BASE}/Enemies/Troll/Troll_Idle.png`,
+      runPath: `${ENEMY_SPRITE_BASE}/Enemies/Troll/Troll_Walk.png`,
+      frameSize: 384,
+      frameCount: { idle: 12, run: 10 },
+      drawHeight: 74,
+      footRatio: 0.708,
+    },
+  },
+};
+
+const BUILDING_SPRITES: Record<FactionId, Record<BuildingType, BuildingSpriteDefinition>> = {
+  aurex: {
+    core: {
+      path: `${KINGDOM_BUILDING_BASE}/Buildings/Blue%20Buildings/Castle.png`,
+      width: 256,
+      height: 192,
+      footRatio: 0.96,
+    },
+    outpost: {
+      path: `${KINGDOM_BUILDING_BASE}/Buildings/Blue%20Buildings/House1.png`,
+      width: 128,
+      height: 128,
+      footRatio: 0.95,
+    },
+    conduit: {
+      path: `${KINGDOM_CUSTOM_BASE}/Shepherds_Hut.png`,
+      width: 176,
+      height: 144,
+      footRatio: 0.94,
+    },
+    foundry: {
+      path: `${KINGDOM_BUILDING_BASE}/Buildings/Blue%20Buildings/Barracks.png`,
+      width: 160,
+      height: 128,
+      footRatio: 0.95,
+    },
+    forge: {
+      path: `${KINGDOM_BUILDING_BASE}/Buildings/Blue%20Buildings/Archery.png`,
+      width: 176,
+      height: 144,
+      footRatio: 0.95,
+    },
+    turret: {
+      path: `${KINGDOM_BUILDING_BASE}/Buildings/Blue%20Buildings/Tower.png`,
+      width: 56,
+      height: 96,
+      footRatio: 0.9,
+    },
+  },
+  cinder: {
+    core: {
+      path: `${RAIDER_BUILDING_BASE}/Warren_Maw.png`,
+      width: 256,
+      height: 192,
+      footRatio: 0.96,
+    },
+    outpost: {
+      path: `${KINGDOM_BUILDING_BASE}/Buildings/Red%20Buildings/House1.png`,
+      width: 128,
+      height: 128,
+      footRatio: 0.95,
+    },
+    conduit: {
+      path: `${RAIDER_BUILDING_BASE}/Pig_Sty.png`,
+      width: 176,
+      height: 144,
+      footRatio: 0.94,
+    },
+    foundry: {
+      path: `${RAIDER_BUILDING_BASE}/War_Pit.png`,
+      width: 160,
+      height: 128,
+      footRatio: 0.95,
+    },
+    forge: {
+      path: `${KINGDOM_BUILDING_BASE}/Buildings/Red%20Buildings/Archery.png`,
+      width: 176,
+      height: 144,
+      footRatio: 0.95,
+    },
+    turret: {
+      path: `${KINGDOM_BUILDING_BASE}/Buildings/Red%20Buildings/Tower.png`,
+      width: 56,
+      height: 96,
+      footRatio: 0.9,
+    },
+  },
+};
+
+const GOLD_STONE_PATHS = [
+  `${UNIT_SPRITE_BASE}/Terrain/Resources/Gold/Gold%20Stones/Gold%20Stone%201.png`,
+  `${UNIT_SPRITE_BASE}/Terrain/Resources/Gold/Gold%20Stones/Gold%20Stone%202.png`,
+  `${UNIT_SPRITE_BASE}/Terrain/Resources/Gold/Gold%20Stones/Gold%20Stone%203.png`,
+];
 
 type TreeParts = {
   trunk: Phaser.GameObjects.Sprite;
@@ -37,7 +246,7 @@ export default class MainScene extends Phaser.Scene {
   private readonly fogSystem = new FogOfWar(MAP_CONFIG.mapWidth, MAP_CONFIG.mapHeight);
   private unitViews = new Map<string, UnitView>();
   private buildingViews = new Map<string, BuildingView>();
-  private resourceGraphics?: Phaser.GameObjects.Graphics;
+  private resourceViews = new Map<string, ResourceView>();
   private fogGraphics?: Phaser.GameObjects.Graphics;
   private selectionGraphics?: Phaser.GameObjects.Graphics;
   private trees: TreeParts[] = [];
@@ -51,13 +260,40 @@ export default class MainScene extends Phaser.Scene {
     super({ key: 'MainScene' });
   }
 
+  preload(): void {
+    for (const faction of Object.keys(UNIT_SPRITES) as FactionId[]) {
+      for (const unitType of Object.keys(UNIT_SPRITES[faction]) as UnitType[]) {
+        const definition = UNIT_SPRITES[faction][unitType];
+
+        this.load.spritesheet(this.unitTextureKey(faction, unitType, 'idle'), definition.idlePath, {
+          frameWidth: definition.frameSize,
+          frameHeight: definition.frameSize,
+        });
+        this.load.spritesheet(this.unitTextureKey(faction, unitType, 'run'), definition.runPath, {
+          frameWidth: definition.frameSize,
+          frameHeight: definition.frameSize,
+        });
+      }
+    }
+
+    for (const faction of Object.keys(BUILDING_SPRITES) as FactionId[]) {
+      for (const buildingType of Object.keys(BUILDING_SPRITES[faction]) as BuildingType[]) {
+        this.load.image(this.buildingTextureKey(faction, buildingType), BUILDING_SPRITES[faction][buildingType].path);
+      }
+    }
+
+    GOLD_STONE_PATHS.forEach((path, index) => {
+      this.load.image(this.goldTextureKey(index), path);
+    });
+  }
+
   create(): void {
     this.input.setPollAlways();
     this.input.setDefaultCursor('pointer');
 
     this.createPlaceholderTextures();
+    this.createUnitAnimations();
     this.drawIsometricGrid();
-    this.createResourceLayer();
     this.createFogLayer();
     this.createSelectionLayer();
     this.createLayeredTrees();
@@ -109,17 +345,49 @@ export default class MainScene extends Phaser.Scene {
       canopy.destroy();
     }
 
-    if (!this.textures.exists(BUILDING_TEXTURE)) {
-      const building = this.add.graphics();
-      building.fillStyle(0x2a3442, 1);
-      building.fillRoundedRect(8, 28, 80, 48, 6);
-      building.fillStyle(0x44546a, 1);
-      building.fillTriangle(4, 30, 48, 4, 92, 30);
-      building.lineStyle(2, 0xd1a53a, 0.9);
-      building.strokeRoundedRect(8, 28, 80, 48, 6);
-      building.generateTexture(BUILDING_TEXTURE, 96, 80);
-      building.destroy();
+  }
+
+  private createUnitAnimations(): void {
+    for (const faction of Object.keys(UNIT_SPRITES) as FactionId[]) {
+      for (const unitType of Object.keys(UNIT_SPRITES[faction]) as UnitType[]) {
+        const definition = UNIT_SPRITES[faction][unitType];
+
+        this.createAnimationIfMissing(
+          this.unitAnimationKey(faction, unitType, 'idle'),
+          this.unitTextureKey(faction, unitType, 'idle'),
+          definition.frameCount.idle,
+          6,
+          -1,
+        );
+        this.createAnimationIfMissing(
+          this.unitAnimationKey(faction, unitType, 'run'),
+          this.unitTextureKey(faction, unitType, 'run'),
+          definition.frameCount.run,
+          10,
+          -1,
+        );
+      }
     }
+  }
+
+  private createAnimationIfMissing(
+    key: string,
+    textureKey: string,
+    frameCount: number,
+    frameRate: number,
+    repeat: number,
+  ): void {
+    if (this.anims.exists(key)) return;
+
+    this.anims.create({
+      key,
+      frames: this.anims.generateFrameNumbers(textureKey, {
+        start: 0,
+        end: frameCount - 1,
+      }),
+      frameRate,
+      repeat,
+    });
   }
 
   private drawIsometricGrid(): void {
@@ -143,12 +411,6 @@ export default class MainScene extends Phaser.Scene {
         graphics.strokePath();
       }
     }
-  }
-
-  private createResourceLayer(): void {
-    this.resourceGraphics = this.add.graphics();
-    this.resourceGraphics.setDepth(1);
-    this.renderResources();
   }
 
   private createFogLayer(): void {
@@ -186,24 +448,54 @@ export default class MainScene extends Phaser.Scene {
   }
 
   private renderGameState(): void {
+    this.renderResources();
     this.renderBuildings();
     this.renderUnits();
     this.renderSelection();
   }
 
   private renderResources(): void {
-    if (!this.resourceGraphics) return;
-
-    this.resourceGraphics.clear();
-
     for (const resource of gameState.resourceNodes) {
       const position = this.tileToScreen(resource);
+      const view = this.ensureResourceView(resource.id);
 
-      this.resourceGraphics.fillStyle(0xb7d6ff, 0.95);
-      this.resourceGraphics.fillCircle(position.x, position.y, 11);
-      this.resourceGraphics.lineStyle(2, 0xffffff, 0.7);
-      this.resourceGraphics.strokeCircle(position.x, position.y, 12);
+      view.container.setPosition(position.x, position.y + 8);
+      view.container.setDepth(position.y + 1);
+      view.label.setText(String(Math.ceil(resource.amount)));
     }
+
+    for (const [id, view] of this.resourceViews) {
+      if (!gameState.resourceNodes.some((resource) => resource.id === id)) {
+        view.container.destroy(true);
+        this.resourceViews.delete(id);
+      }
+    }
+  }
+
+  private ensureResourceView(id: string): ResourceView {
+    const existing = this.resourceViews.get(id);
+
+    if (existing) return existing;
+
+    const shadow = this.add.ellipse(0, 6, 70, 32, 0x000000, 0.3);
+    const stones = [
+      this.add.image(0, -16, this.goldTextureKey(0)).setDisplaySize(58, 48),
+      this.add.image(-24, -6, this.goldTextureKey(1)).setDisplaySize(36, 31),
+      this.add.image(24, -6, this.goldTextureKey(2)).setDisplaySize(34, 30),
+    ];
+    const label = this.add.text(24, -48, '', {
+      color: '#ffe0a0',
+      fontFamily: 'Fredoka, system-ui',
+      fontSize: '9px',
+      fontStyle: '600',
+      stroke: 'rgba(18, 14, 10, 0.55)',
+      strokeThickness: 2,
+    }).setOrigin(0, 0.5);
+    const container = this.add.container(0, 0, [shadow, ...stones, label]);
+
+    this.resourceViews.set(id, { container, shadow, stones, label });
+
+    return { container, shadow, stones, label };
   }
 
   private renderBuildings(): void {
@@ -213,7 +505,7 @@ export default class MainScene extends Phaser.Scene {
 
       view.container.setPosition(position.x, position.y);
       view.container.setDepth(position.y);
-      view.label.setText(building.name);
+      this.drawHealthBar(view.healthBar, -42, -108, 84, building.hp / building.maxHp, 0x66bb6a);
     }
 
     for (const [id, view] of this.buildingViews) {
@@ -229,33 +521,36 @@ export default class MainScene extends Phaser.Scene {
 
     if (existing) return existing;
 
-    const color = building.playerId === 'player-1' ? 0x244f9e : 0x7a2f2f;
-    const body = this.add.rectangle(0, -18, 86, 48, color, 0.95)
-      .setStrokeStyle(2, 0xd1a53a, 0.9);
-    const roof = this.add.sprite(0, -36, BUILDING_TEXTURE).setScale(0.8);
-    const label = this.add.text(0, -62, building.name, {
-      color: '#FFD700',
-      fontFamily: '"Courier New", monospace',
-      fontSize: '10px',
-      stroke: '#000000',
-      strokeThickness: 3,
-    }).setOrigin(0.5);
-    const container = this.add.container(0, 0, [body, roof, label]);
+    const definition = BUILDING_SPRITES[building.faction][building.type];
+    const shadow = this.add.ellipse(0, 4, Math.max(definition.width, definition.height), 42, 0x000000, 0.36);
+    const sprite = this.add
+      .image(0, 0, this.buildingTextureKey(building.faction, building.type))
+      .setOrigin(0.5, definition.footRatio)
+      .setDisplaySize(definition.width, definition.height);
+    const healthBar = this.add.graphics();
+    const container = this.add.container(0, 0, [shadow, sprite, healthBar]);
 
     container.setSize(96, 80);
-    this.buildingViews.set(building.id, { container, body, label });
+    this.buildingViews.set(building.id, { container, shadow, sprite, healthBar });
 
-    return { container, body, label };
+    return { container, shadow, sprite, healthBar };
   }
 
   private renderUnits(): void {
     for (const unit of gameState.units.values()) {
       const view = this.ensureUnitView(unit);
       const position = this.tileToScreen(unit);
+      const moving = Boolean(unit.targetTile);
+      const animationKey = this.unitAnimationKey(unit.faction, unit.type, moving ? 'run' : 'idle');
 
       view.container.setPosition(position.x, position.y);
       view.container.setDepth(position.y);
-      view.label.setText(unit.type);
+      view.sprite.play(animationKey, true);
+      this.drawHealthBar(view.healthBar, -18, -64, 36, unit.hp / unit.maxHp, 0x66bb6a);
+
+      if (unit.targetTile) {
+        view.sprite.setFlipX(unit.targetTile.tileX < unit.tileX);
+      }
     }
 
     for (const [id, view] of this.unitViews) {
@@ -271,17 +566,15 @@ export default class MainScene extends Phaser.Scene {
 
     if (existing) return existing;
 
-    const color = unit.playerId === 'player-1' ? 0x4fc3f7 : 0xef5350;
-    const body = this.add.rectangle(0, -16, 36, 36, color, 0.95)
-      .setStrokeStyle(2, 0xffffff, 0.75);
-    const label = this.add.text(0, 14, unit.type, {
-      color: '#ffffff',
-      fontFamily: '"Courier New", monospace',
-      fontSize: '10px',
-      stroke: '#000000',
-      strokeThickness: 3,
-    }).setOrigin(0.5);
-    const container = this.add.container(0, 0, [body, label]);
+    const definition = UNIT_SPRITES[unit.faction][unit.type];
+    const textureKey = this.unitTextureKey(unit.faction, unit.type, 'idle');
+    const shadow = this.add.ellipse(0, 3, 34, 12, 0x000000, 0.32);
+    const sprite = this.add
+      .sprite(0, 0, textureKey, 0)
+      .setOrigin(0.5, definition.footRatio)
+      .setDisplaySize(definition.drawHeight, definition.drawHeight);
+    const healthBar = this.add.graphics();
+    const container = this.add.container(0, 0, [shadow, sprite, healthBar]);
 
     container.setSize(48, 48);
     container.setInteractive({
@@ -289,9 +582,9 @@ export default class MainScene extends Phaser.Scene {
       hitAreaCallback: Phaser.Geom.Circle.Contains,
       useHandCursor: false,
     });
-    this.unitViews.set(unit.id, { container, body, label });
+    this.unitViews.set(unit.id, { container, shadow, sprite, healthBar });
 
-    return { container, body, label };
+    return { container, shadow, sprite, healthBar };
   }
 
   private renderSelection(): void {
@@ -450,5 +743,40 @@ export default class MainScene extends Phaser.Scene {
 
     window.clearTimeout(this.longPressTimer);
     this.longPressTimer = null;
+  }
+
+  private drawHealthBar(
+    graphics: Phaser.GameObjects.Graphics,
+    x: number,
+    y: number,
+    width: number,
+    pct: number,
+    fillColor: number,
+  ): void {
+    const clampedPct = Phaser.Math.Clamp(pct, 0, 1);
+
+    graphics.clear();
+    graphics.fillStyle(0x1a1208, 0.82);
+    graphics.fillRoundedRect(x, y, width, 6, 2);
+    graphics.fillStyle(fillColor, 0.95);
+    graphics.fillRoundedRect(x + 1, y + 1, Math.max(0, (width - 2) * clampedPct), 4, 2);
+    graphics.lineStyle(1, 0xffe0a0, 0.48);
+    graphics.strokeRoundedRect(x, y, width, 6, 2);
+  }
+
+  private unitTextureKey(faction: FactionId, type: UnitType, animation: UnitAnimationKey): string {
+    return `unit-${faction}-${type}-${animation}`;
+  }
+
+  private unitAnimationKey(faction: FactionId, type: UnitType, animation: UnitAnimationKey): string {
+    return `anim-${faction}-${type}-${animation}`;
+  }
+
+  private buildingTextureKey(faction: FactionId, type: BuildingType): string {
+    return `building-${faction}-${type}`;
+  }
+
+  private goldTextureKey(index: number): string {
+    return `gold-stone-${index}`;
   }
 }

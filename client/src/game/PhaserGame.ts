@@ -23,6 +23,8 @@ export function createPhaserGame(containerId: string): Phaser.Game {
       height: window.innerHeight,
     },
     disableContextMenu: true,
+    pixelArt: true,
+    roundPixels: true,
   };
 
   return new Phaser.Game(config);
