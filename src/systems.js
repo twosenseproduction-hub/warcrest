@@ -53,11 +53,15 @@
       if (count >= needed) dmg *= 1 + (formation.dmgBonus || 0);
     }
 
-    if (RTS.hasTrait && RTS.hasTrait(u, 'archer_still')) {
-      var still = cfg('archerStill', { dmgBonus: 0.20, stillThreshold: 8 });
-      if ((u.currentSpeed || 0) < (still.stillThreshold || 8)) {
-        dmg *= 1 + (still.dmgBonus || 0);
+    if (RTS.hasTrait && RTS.hasTrait(u, 'archer_focus')) {
+      var focus = cfg('archerFocus', { dmgPerStack: 0.08, maxStacks: 5 });
+      if (u.sniperTarget === target) {
+        u.sniperStacks = Math.min(focus.maxStacks || 5, (u.sniperStacks || 0) + 1);
+      } else {
+        u.sniperTarget = target;
+        u.sniperStacks = 1;
       }
+      dmg *= 1 + (focus.dmgPerStack || 0) * (u.sniperStacks || 0);
     }
 
     return dmg;

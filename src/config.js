@@ -125,7 +125,7 @@
     bloodFrenzy: { radius: 180, atkSpeedBonus: 0.12, duration: 4 },
     trollblood: { regenPerSec: 12, graceSec: 2.0 },
     gnollPoison: { dmgPerSec: 3, duration: 4 },
-    archerStill: { dmgBonus: 0.20, stillThreshold: 8 },
+    archerFocus: { dmgPerStack: 0.08, maxStacks: 5 },
     monkAura: { radius: 130, dmgReduction: 0.10 },
     separation: 150,            // unit push-apart strength
     pawnSeparationMul: 0.28,    // workers — allow slight overlap at mines / base
@@ -172,7 +172,7 @@
       role: 'archer', label: 'Archer', glyph: 'tri',
       hp: 64, speed: 118, dmg: 10, range: 132, rof: 0.62,
       cost: 60, supply: 1, build: 0, ranged: true,
-      traits: ['archer_still'],
+      traits: ['archer_focus'],
       desc: 'Ranged backbone once Lancers hold the line.',
     },
     monk: {

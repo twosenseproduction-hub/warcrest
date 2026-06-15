@@ -24,7 +24,7 @@
     } else if (factionId === 'cinder') {
       addTrait(traits, 'blood_frenzy');
       removeTrait(traits, 'formation_bonus');
-      removeTrait(traits, 'archer_still');
+      removeTrait(traits, 'archer_focus');
       removeTrait(traits, 'monk_aura');
       removeTrait(traits, 'taunt');
       if (role === 'archer') addTrait(traits, 'gnoll_poison');
