@@ -282,29 +282,51 @@
     }
   ],
   "note": "Generated from existing PixelLab character Grollusk -Ancient gnoll shaman. PixelLab v3 stores a reference frame at source index 0, so sheets use source frames starting at index 1 to match requested Valdris clip counts.",
-  "attack_effect_reuse": {
-    "source": "assets/tiny-swords-enemy/Enemies/Goblin Raiders/Hex Shaman/Hex Shaman_Explosion Spell.png",
-    "description": "Composited scaled existing Tiny Swords Hex Shaman explosion spell frames forward/right of Grollusk staff for Attack1/Attack2, replacing the generated yellow spell burst while preserving the 4-frame Valdris attack spec.",
-    "effect_scaled_size": [
-      138,
-      138
+  "spell_assets": {
+    "projectile": {
+      "file": "spell_effects/Grollusk_Projectile.png",
+      "source": "assets/tiny-swords-enemy/Enemies/Goblin Raiders/Hex Shaman/Hex Shaman_Projectile.png",
+      "frames": 3,
+      "frame_size": [
+        128,
+        128
+      ],
+      "sheet_size": [
+        384,
+        128
+      ],
+      "usage": "Projectile traveling from Grollusk to target."
+    },
+    "hit_effects": [
+      {
+        "file": "spell_effects/Grollusk_ExplosionSpell.png",
+        "source": "assets/tiny-swords-enemy/Enemies/Goblin Raiders/Hex Shaman/Hex Shaman_Explosion Spell.png",
+        "frames": 10,
+        "frame_size": [
+          192,
+          192
+        ],
+        "sheet_size": [
+          1920,
+          192
+        ],
+        "usage": "Target hit spell burst / dissipating spirit effect."
+      },
+      {
+        "file": "spell_effects/Grollusk_Explosion.png",
+        "source": "assets/tiny-swords-enemy/Enemies/Goblin Raiders/Hex Shaman/Hex Shaman_Explosion.png",
+        "frames": 9,
+        "frame_size": [
+          128,
+          128
+        ],
+        "sheet_size": [
+          1152,
+          128
+        ],
+        "usage": "Target hit impact puff / magical explosion."
+      }
     ],
-    "effect_offset": [
-      54,
-      36
-    ],
-    "attack1_effect_source_indices": [
-      0,
-      1,
-      3,
-      7
-    ],
-    "attack2_effect_source_indices": [
-      0,
-      2,
-      4,
-      8
-    ],
-    "impactFrame": 2
+    "attack_animation_note": "Grollusk_Attack1.png and Grollusk_Attack2.png are caster motion only. Projectile and target-hit effects are exported separately from the existing Hex Shaman sheets."
   }
 }
