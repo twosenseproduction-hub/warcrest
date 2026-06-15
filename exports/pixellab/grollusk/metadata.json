@@ -1,0 +1,183 @@
+{
+  "character_id": "0e116595-068c-4739-ac98-e9dc1dc1da68",
+  "character_name": "Ancient gnoll shaman",
+  "source_prompt": "Ancient gnoll shaman, hunched and gaunt with matted grey fur and hollow glowing eyes. Wears tattered dark robes layered with bone fetishes, dried skulls, and spirit charms hanging from his belt and shoulders. Carries a tall gnarled staff topped with a skull wreathed in sickly green spirit fire. Long clawed hands. Cracked yellowed teeth visible in a calm, unsettling expression. Raider Horde colors \u2014 dark browns, bone white, and toxic green accents. Confident idle stance, weight resting on staff.",
+  "view": "low top-down",
+  "direction": "east",
+  "clips": [
+    {
+      "clip": "idle",
+      "file": "Grollusk_Idle.png",
+      "frames": 8,
+      "fps": 2.0,
+      "impactFrame": null,
+      "source_animation_type": "Grollusk_Idle",
+      "source_animation_group_id": "184a9073-7466-47a1-8c55-8990dc8416e7",
+      "source_stored_frame_count": 9,
+      "used_source_indices": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "sheet_size": [
+        1536,
+        192
+      ],
+      "frame_size": [
+        192,
+        192
+      ],
+      "native_sheet_size": [
+        2048,
+        256
+      ],
+      "native_frame_size": [
+        256,
+        256
+      ]
+    },
+    {
+      "clip": "walk",
+      "file": "Grollusk_Run.png",
+      "frames": 6,
+      "fps": 8,
+      "impactFrame": null,
+      "source_animation_type": "Grollusk_Run",
+      "source_animation_group_id": "757fe065-7b8d-495d-b544-098b3d0d9fbe",
+      "source_stored_frame_count": 7,
+      "used_source_indices": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "sheet_size": [
+        1152,
+        192
+      ],
+      "frame_size": [
+        192,
+        192
+      ],
+      "native_sheet_size": [
+        1536,
+        256
+      ],
+      "native_frame_size": [
+        256,
+        256
+      ]
+    },
+    {
+      "clip": "guard",
+      "file": "Grollusk_Guard.png",
+      "frames": 6,
+      "fps": 2.0,
+      "impactFrame": null,
+      "source_animation_type": "Grollusk_Guard",
+      "source_animation_group_id": "41da378a-486f-423d-868d-b88524d27010",
+      "source_stored_frame_count": 7,
+      "used_source_indices": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "sheet_size": [
+        1152,
+        192
+      ],
+      "frame_size": [
+        192,
+        192
+      ],
+      "native_sheet_size": [
+        1536,
+        256
+      ],
+      "native_frame_size": [
+        256,
+        256
+      ]
+    },
+    {
+      "clip": "attack",
+      "file": "Grollusk_Attack1.png",
+      "frames": 4,
+      "fps": 12,
+      "impactFrame": 2,
+      "source_animation_type": "Grollusk_Attack1",
+      "source_animation_group_id": "a928bea4-d90b-4ca7-b4a9-daf38402b63e",
+      "source_stored_frame_count": 5,
+      "used_source_indices": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "sheet_size": [
+        768,
+        192
+      ],
+      "frame_size": [
+        192,
+        192
+      ],
+      "native_sheet_size": [
+        1024,
+        256
+      ],
+      "native_frame_size": [
+        256,
+        256
+      ]
+    },
+    {
+      "clip": "attack2",
+      "file": "Grollusk_Attack2.png",
+      "frames": 4,
+      "fps": 12,
+      "impactFrame": 2,
+      "source_animation_type": "Grollusk_Attack2",
+      "source_animation_group_id": "905ed4f8-e741-4eb7-8866-70fdbad3c4a4",
+      "source_stored_frame_count": 5,
+      "used_source_indices": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "sheet_size": [
+        768,
+        192
+      ],
+      "frame_size": [
+        192,
+        192
+      ],
+      "native_sheet_size": [
+        1024,
+        256
+      ],
+      "native_frame_size": [
+        256,
+        256
+      ]
+    }
+  ],
+  "note": "PixelLab v3 stored a reference frame at source index 0, so sheets use source frames starting at index 1 to match requested Valdris clip counts.",
+  "root_sheet_frame_size": [
+    192,
+    192
+  ],
+  "native_256_dir": "native_256"
+}
