@@ -7,6 +7,90 @@
   var TEAM = RTS.TEAM;
   var Art = function () { return RTS.Art; };
 
+  /* ── Fog of War state ───────────────────────────────────────────────────── */
+  // fogEnabled: toggled by the DEV button (FOG: ON / FOG: OFF)
+  RTS.fogEnabled = true;
+
+  // explored: Set of "tx,ty" strings — tiles the player has ever seen
+  RTS._fogExplored = new Set();
+
+  /**
+   * Build the set of world-positions currently visible to the player.
+   * Returns a Set of "tx,ty" strings.
+   * Uses Euclidean (circular) distance — NOT Manhattan.
+   */
+  RTS._calcVisibleTiles = function (s) {
+    var visible = new Set();
+    var tileSize = RTS.Config.tileSize || RTS.Config.world && RTS.Config.world.tileSize || 64;
+    var worldW   = RTS.Config.world ? RTS.Config.world.w : 4096;
+    var worldH   = RTS.Config.world ? RTS.Config.world.h : 4096;
+    var cols     = Math.ceil(worldW / tileSize);
+    var rows     = Math.ceil(worldH / tileSize);
+
+    function revealAround(wx, wy, radius) {
+      var cx = Math.floor(wx / tileSize);
+      var cy = Math.floor(wy / tileSize);
+      var r  = Math.ceil(radius);
+      for (var dy = -r; dy <= r; dy++) {
+        for (var dx = -r; dx <= r; dx++) {
+          if (Math.sqrt(dx * dx + dy * dy) <= radius) {
+            var tx = cx + dx, ty = cy + dy;
+            if (tx >= 0 && tx < cols && ty >= 0 && ty < rows) {
+              var key = tx + ',' + ty;
+              visible.add(key);
+              RTS._fogExplored.add(key);
+            }
+          }
+        }
+      }
+    }
+
+    // Friendly units — vision radius 6 tiles
+    s.entities.units.forEach(function (u) {
+      if (u.dead || u.team !== TEAM.PLAYER) return;
+      revealAround(u.x, u.y, 6);
+    });
+
+    // Friendly buildings — vision radius 8 tiles
+    s.entities.buildings.forEach(function (b) {
+      if (b.team !== TEAM.PLAYER) return;
+      revealAround(b.x, b.y, 8);
+    });
+
+    return visible;
+  };
+
+  /**
+   * Draw the fog overlay AFTER terrain/buildings/trees, BEFORE units.
+   * - Visible tiles   : no overlay
+   * - Explored tiles  : rgba(0,0,0,0.38) — terrain shows through, dimmed
+   * - Unexplored tiles : rgba(0,0,0,0.68) — very dark but terrain faintly visible
+   * Soft edge: tiles at exactly radius+1 get a heavier veil to avoid hard cuts.
+   */
+  RTS._drawFogOverlay = function (s, ctx, visibleSet) {
+    var tileSize = RTS.Config.tileSize || RTS.Config.world && RTS.Config.world.tileSize || 64;
+    var worldW   = RTS.Config.world ? RTS.Config.world.w : 4096;
+    var worldH   = RTS.Config.world ? RTS.Config.world.h : 4096;
+    var cols     = Math.ceil(worldW / tileSize);
+    var rows     = Math.ceil(worldH / tileSize);
+
+    for (var ty = 0; ty < rows; ty++) {
+      for (var tx = 0; tx < cols; tx++) {
+        var key = tx + ',' + ty;
+        var alpha;
+        if (visibleSet.has(key)) {
+          continue; // fully clear — draw nothing
+        } else if (RTS._fogExplored.has(key)) {
+          alpha = 0.38; // explored but out of current vision
+        } else {
+          alpha = 0.68; // never seen
+        }
+        ctx.fillStyle = 'rgba(0,0,0,' + alpha + ')';
+        ctx.fillRect(tx * tileSize, ty * tileSize, tileSize, tileSize);
+      }
+    }
+  };
+
   RTS.Render = {
     dpr: 1,
     resize: function (s) {
@@ -36,12 +120,42 @@
       ctx.translate(-c.x * c.zoom + shake.x, -c.y * c.zoom + shake.y);
       ctx.scale(c.zoom, c.zoom);
 
+      // ── 1. Terrain always draws — fog never hides terrain ──────────────────
       Art().drawTerrain(s, ctx);
       s.entities.resources.forEach(function (n) { if (n.amount > 0) Art().drawResource(ctx, n); });
       drawSelectionBack(s, ctx);
+
+      // ── 2. Buildings always draw (enemy buildings show in explored fog) ─────
       s.entities.buildings.forEach(function (b) { Art().drawBuilding(ctx, b, RTS.Factions[b.faction], s); });
       if (Art().drawLivestock) Art().drawLivestock(ctx, s);
-      s.entities.units.forEach(function (u) { Art().drawUnit(ctx, u, RTS.Factions[u.faction], s); });
+
+      // ── 3. Fog overlay — sits above terrain/buildings, below units ──────────
+      if (RTS.fogEnabled) {
+        var visibleSet = RTS._calcVisibleTiles(s);
+        RTS._drawFogOverlay(s, ctx, visibleSet);
+
+        // ── 4a. Friendly units — always draw on top of fog ───────────────────
+        s.entities.units.forEach(function (u) {
+          if (u.dead) return;
+          if (u.team === TEAM.PLAYER) {
+            Art().drawUnit(ctx, u, RTS.Factions[u.faction], s);
+          }
+        });
+
+        // ── 4b. Enemy units — only draw if inside player vision ──────────────
+        var tileSize = RTS.Config.tileSize || RTS.Config.world && RTS.Config.world.tileSize || 64;
+        s.entities.units.forEach(function (u) {
+          if (u.dead || u.team === TEAM.PLAYER) return;
+          var key = Math.floor(u.x / tileSize) + ',' + Math.floor(u.y / tileSize);
+          if (visibleSet.has(key)) {
+            Art().drawUnit(ctx, u, RTS.Factions[u.faction], s);
+          }
+        });
+      } else {
+        // Fog OFF — draw all units normally
+        s.entities.units.forEach(function (u) { Art().drawUnit(ctx, u, RTS.Factions[u.faction], s); });
+      }
+
       drawProjectiles(s, ctx);
       drawEffects(s, ctx);
       drawSelectionFront(s, ctx);
@@ -224,6 +338,8 @@
     });
     s.entities.units.forEach(function (u) {
       if (u.dead) return;
+      // On minimap — only show enemy units if fog is off or they are visible
+      if (u.team !== TEAM.PLAYER && RTS.fogEnabled) return;
       ctx.fillStyle = u.team === TEAM.PLAYER ? '#80deea' : '#ffab91';
       ctx.fillRect(u.x * sx - 1.5, u.y * sy - 1.5, 3, 3);
     });
