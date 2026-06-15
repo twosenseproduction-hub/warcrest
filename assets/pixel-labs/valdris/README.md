@@ -1,13 +1,14 @@
 # Valdris Pixel Labs batch
 
-This folder contains the Pixel Labs batch request for Valdris the Ironwarden's
-core four-direction animation set.
+This folder contains the Pixel Labs batch request and submission metadata for
+Valdris the Ironwarden's core four-direction animation set.
 
 ## Batch file
 
 - `valdris_4_direction_batch.json`
+- `pixellab_submission.json`
 
-The batch requests 12 transparent PNG sprite strips:
+The completed batch generated 12 transparent PNG sprite strips:
 
 | Direction | Idle | Walk | Attack |
 | --- | --- | --- | --- |
@@ -16,29 +17,26 @@ The batch requests 12 transparent PNG sprite strips:
 | Up | `Valdris_Up_Idle.png` | `Valdris_Up_Walk.png` | `Valdris_Up_Attack.png` |
 | Left | `Valdris_Left_Idle.png` | `Valdris_Left_Walk.png` | `Valdris_Left_Attack.png` |
 
-## Export expectations
+## Generated export
 
-- Frame size: `192x192`
+- PixelLab character ID: `c2dea73b-4644-45c1-bedf-5195a1f75f56`
+- Frame size: `256x256`
 - Layout: one horizontal strip per animation/direction
-- Idle: 8 frames (`1536x192`)
-- Walk: 8 frames (`1536x192`)
-- Attack: 6 frames (`1152x192`), impact on frame 3
+- Idle: 9 frames (`2304x256`)
+- Walk: 9 frames (`2304x256`)
+- Attack: 7 frames (`1792x256`)
 - Background: transparent
-- Feet anchor: centered around `x=96`, `y=172`
+- Output directory: `assets/heroes/valdris/`
 
-The manifest intentionally tells Pixel Labs to reuse the already-created
-Valdris character as a locked reference. The prompts should not be used to
-redesign him.
+PixelLab v3 returned one extra closure/recovery frame beyond the requested
+8/8/6 counts, so the stitched strips preserve the complete generated output.
 
-## After export
+The manifest intentionally tells PixelLab to reuse the already-created Valdris
+character as a locked reference. The prompts should not be used to redesign him.
 
-Drop generated PNGs into:
+## Validation
 
-```text
-assets/heroes/valdris/
-```
-
-Then validate the batch and any present PNG files:
+Validate the manifest and generated PNG strip dimensions:
 
 ```bash
 python3 scripts/validate_pixel_labs_batch.py assets/pixel-labs/valdris/valdris_4_direction_batch.json --check-files
