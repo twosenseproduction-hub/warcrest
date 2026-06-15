@@ -76,6 +76,7 @@
       lastX: target.x, lastY: target.y,
       faction: opts.faction || from.faction,
       role: opts.role || from.role,
+      heroId: opts.heroId || null,
       fromTurret: opts.fromTurret || false,
     });
   };
