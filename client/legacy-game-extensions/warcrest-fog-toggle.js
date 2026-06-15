@@ -2,10 +2,12 @@
   'use strict';
 
   var TILE = 64;
-  var UNIT_VISION_RADIUS = 4;
+  var UNIT_VISION_RADIUS = 5;
+  var KEEP_VISION_RADIUS = 8;
   var BUILDING_VISION_RADIUS = 3;
   var fogEnabled = true;
   var fogGrid = null;
+  var fogEdgeGrid = null;
   var fogCols = 0;
   var fogRows = 0;
   var patched = false;
@@ -66,11 +68,14 @@
     fogCols = cols;
     fogRows = rows;
     fogGrid = [];
+    fogEdgeGrid = [];
 
     for (var y = 0; y < rows; y++) {
       fogGrid[y] = [];
+      fogEdgeGrid[y] = [];
       for (var x = 0; x < cols; x++) {
         fogGrid[y][x] = 'unexplored';
+        fogEdgeGrid[y][x] = false;
       }
     }
   }
@@ -81,6 +86,7 @@
     for (var y = 0; y < fogRows; y++) {
       for (var x = 0; x < fogCols; x++) {
         if (fogGrid[y][x] === 'visible') fogGrid[y][x] = 'explored';
+        fogEdgeGrid[y][x] = false;
       }
     }
 
@@ -96,25 +102,30 @@
     buildings.forEach(function (building) {
       if (!building || building.dead || building.team !== window.RTS.TEAM.PLAYER) return;
 
-      revealWorldCircle(building.x, building.y, BUILDING_VISION_RADIUS);
+      revealWorldCircle(building.x, building.y, building.type === 'core' ? KEEP_VISION_RADIUS : BUILDING_VISION_RADIUS);
     });
   }
 
   function revealWorldCircle(worldX, worldY, radius) {
     var tileX = Math.round(worldX / TILE);
     var tileY = Math.round(worldY / TILE);
-    var minX = Math.max(0, tileX - radius);
-    var maxX = Math.min(fogCols - 1, tileX + radius);
-    var minY = Math.max(0, tileY - radius);
-    var maxY = Math.min(fogRows - 1, tileY + radius);
+    var edgeRadius = radius + 1;
+    var minX = Math.max(0, tileX - edgeRadius);
+    var maxX = Math.min(fogCols - 1, tileX + edgeRadius);
+    var minY = Math.max(0, tileY - edgeRadius);
+    var maxY = Math.min(fogRows - 1, tileY + edgeRadius);
 
     for (var y = minY; y <= maxY; y++) {
       for (var x = minX; x <= maxX; x++) {
         var dx = x - tileX;
         var dy = y - tileY;
+        var distance = Math.sqrt(dx * dx + dy * dy);
 
-        if (Math.sqrt(dx * dx + dy * dy) <= radius) {
+        if (distance <= radius) {
           fogGrid[y][x] = 'visible';
+        } else if (distance <= edgeRadius) {
+          fogEdgeGrid[y][x] = true;
+          if (fogGrid[y][x] === 'unexplored') fogGrid[y][x] = 'explored';
         }
       }
     }
@@ -155,7 +166,7 @@
         var stateValue = fogGrid[y][x];
         if (stateValue === 'visible') continue;
 
-        var alpha = stateValue === 'unexplored' ? 1 : 0.6;
+        var alpha = stateValue === 'unexplored' ? 1 : (fogEdgeGrid[y][x] ? 0.7 : 0.5);
         var sx = Math.floor((x * TILE - camera.x) * camera.zoom);
         var sy = Math.floor((y * TILE - camera.y) * camera.zoom);
         var size = Math.ceil(TILE * camera.zoom);
