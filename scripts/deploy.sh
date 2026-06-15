@@ -33,6 +33,10 @@ if [[ ! -f fly.toml ]] || ! grep -q "exofront-game" fly.toml; then
   exit 1
 fi
 
+if [[ -z "${FLY_API_TOKEN:-}" && -n "${FLY_ACCESS_TOKEN:-}" ]]; then
+  export FLY_API_TOKEN="$FLY_ACCESS_TOKEN"
+fi
+
 echo "Deploying Warcrest → exofront-game"
 echo "  path: $(pwd)"
 echo "  git:  $(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')"
