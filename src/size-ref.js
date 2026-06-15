@@ -39,6 +39,7 @@
     lancer: REF.charFootR * 1.08,
     archer: REF.charFootR * 1.05,
     monk: REF.charFootR * 1.05,
+    grollusk: REF.charFootR * 1.08,
     warrior: REF.charFootR * 1.18,
   };
 
@@ -86,6 +87,7 @@
     lancer: LOL.champion_std,
     archer: LOL.champion_std,
     monk: LOL.champion_std,
+    grollusk: LOL.champion_std,
     warrior: LOL.champion_large,
   };
 
@@ -118,6 +120,7 @@
     lancer:  { footRatio: 0.616, selectWMul: 1.10, selectTopFrac: 0.30, selectFootPad: 3 },
     archer:  { footRatio: 0.703, selectWMul: 1.12, selectTopFrac: 0.34, selectFootPad: 3 },
     monk:    { footRatio: 0.693, selectWMul: 1.12, selectTopFrac: 0.36, selectFootPad: 3 },
+    grollusk:{ footRatio: 0.700, selectWMul: 1.16, selectTopFrac: 0.34, selectFootPad: 3 },
     warrior: { footRatio: 0.708, selectWMul: 1.16, selectTopFrac: 0.32, selectFootPad: 3 },
   };
 

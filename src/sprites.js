@@ -6,7 +6,7 @@
   'use strict';
 
   var FACTIONS = ['aurex', 'cinder'];
-  var ROLES = ['pawn', 'lancer', 'archer', 'monk', 'warrior'];
+  var ROLES = ['pawn', 'lancer', 'archer', 'monk', 'grollusk', 'warrior'];
 
   var ROLE_DEF = {
     pawn: {
@@ -99,6 +99,16 @@
         walk: { file: 'Hex Shaman_Run.png', count: 4, speed: 9 },
         attack: { file: 'Hex Shaman_Attack.png', count: 10, fps: 10, releaseFrame: 5 },
         heal_effect: { file: 'Hex Shaman_Explosion Spell.png', count: 10, fps: 10 },
+      },
+    },
+    grollusk: {
+      folder: 'Enemies/Goblin Raiders/Grollusk', frameH: 192, scale: 1,
+      clips: {
+        idle: { file: 'Grollusk_Idle.png', count: 8, speed: 2.0 },
+        walk: { file: 'Grollusk_Run.png', count: 6, speed: 8 },
+        guard: { file: 'Grollusk_Guard.png', count: 6, speed: 2.0 },
+        attack: { file: 'Grollusk_Attack1.png', count: 4, fps: 12, releaseFrame: 2, impactFrame: 2 },
+        attack2: { file: 'Grollusk_Attack2.png', count: 4, fps: 12, releaseFrame: 2, impactFrame: 2 },
       },
     },
     warrior: {
@@ -225,7 +235,7 @@
       if (sheet.clips.attack_r) return lancerAttackKey(u.facing);
       return 'attack';
     }
-    if (u.role === 'warrior') {
+    if (u.role === 'warrior' || u.role === 'grollusk') {
       if (sheet.clips.attack2 && u._attackVariant === 2) return 'attack2';
       return 'attack';
     }
@@ -286,7 +296,7 @@
     startAttack: function (u, target) {
       var sheet = sheets[this.sheetKey(u)];
       if (!sheet) return;
-      if (u.role === 'warrior') {
+      if (u.role === 'warrior' || u.role === 'grollusk') {
         u._attackVariant = (u._attackVariant === 1) ? 2 : 1;
       }
       var key = resolveAttackKey(u, sheet);
@@ -349,7 +359,7 @@
         if (u.harvest.carry > 0 && walking) return 'walk_carry';
       }
       if (this.attackActive(u)) return u.attackClip;
-      if (u.role === 'warrior' && u.inAttackRange && !walking) return 'guard';
+      if ((u.role === 'warrior' || u.role === 'grollusk') && u.inAttackRange && !walking) return 'guard';
       if (walking) return 'walk';
       return 'idle';
     },

@@ -71,7 +71,7 @@
     var p = 0;
     units.forEach(function (u) {
       if (u.role === 'pawn') return;
-      p += u.role === 'warrior' ? 3 : (u.role === 'monk' ? 1.5 : 1);
+      p += u.role === 'warrior' ? 3 : (u.role === 'grollusk' ? 2.2 : (u.role === 'monk' ? 1.5 : 1));
     });
     return p;
   }

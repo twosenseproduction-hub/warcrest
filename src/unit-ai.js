@@ -150,13 +150,14 @@
     if (candidate.kind === 'unit') {
       if (candidate.target === u.id || candidate.lastThreatId === u.id) score += 80;
       if (candidate.hp < candidate.maxHp * 0.35) score += 28;
-      if (candidate.role === 'archer' || candidate.role === 'monk') score += 18;
+      if (candidate.role === 'archer' || candidate.role === 'monk' || candidate.role === 'grollusk') score += 18;
     }
 
     if (candidate.kind === 'building') {
       if (!candidate.built) score += 42;
       var spec = RTS.Buildings[candidate.type];
-      if (spec && spec.trains && spec.trains.length) score += 30;
+      var trains = RTS.trainListFor ? RTS.trainListFor(candidate) : (spec && spec.trains);
+      if (trains && trains.length) score += 30;
       if (candidate.type === 'conduit') score += 14;
       if (candidate.type === 'core') score += 8;
     }

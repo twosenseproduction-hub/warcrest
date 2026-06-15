@@ -64,7 +64,7 @@
     RTS.HUD.sync(s);
   };
 
-  var MACRO_ROLE_ORDER = ['pawn', 'lancer', 'archer', 'monk', 'warrior'];
+  var MACRO_ROLE_ORDER = ['pawn', 'lancer', 'archer', 'monk', 'grollusk', 'warrior'];
 
   RTS.clearMacroGroups = function (s) {
     s.ui.macroGroups = null;
@@ -265,8 +265,8 @@
   };
 
   RTS.isProductionBuilding = function (b) {
-    var spec = RTS.Buildings[b.type];
-    return !!(spec && spec.trains && spec.trains.length);
+    var trains = RTS.trainListFor ? RTS.trainListFor(b) : ((RTS.Buildings[b.type] || {}).trains || []);
+    return !!(trains && trains.length);
   };
 
   RTS.isDepositBuilding = function (b) {
@@ -537,6 +537,11 @@
 
     var spec = RTS.Units[role];
     if (!building.built) { if (team === RTS.TEAM.PLAYER) RTS.toast(s, 'Building not finished'); return false; }
+    var trainList = RTS.trainListFor ? RTS.trainListFor(building) : ((RTS.Buildings[building.type] || {}).trains || []);
+    if (trainList.indexOf(role) < 0) {
+      if (team === RTS.TEAM.PLAYER) RTS.toast(s, 'Cannot train ' + RTS.nameFor(building.faction, role) + ' here');
+      return false;
+    }
     if (!RTS.canAfford(s, team, spec.cost)) {
       if (team === RTS.TEAM.PLAYER) {
         RTS.toast(s, 'Not enough ' + RTS.resourceLabel());
@@ -566,6 +571,7 @@
       case 'lancer': return 8;
       case 'archer': return 9;
       case 'monk': return 12;
+      case 'grollusk': return 18;
       case 'warrior': return 16;
       default: return 10;
     }

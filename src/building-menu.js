@@ -45,8 +45,9 @@
       });
     }
 
-    if (spec.trains && spec.trains.length) {
-      spec.trains.forEach(function (role) {
+    var trains = RTS.trainListFor ? RTS.trainListFor(b, fid) : (spec.trains || []);
+    if (trains && trains.length) {
+      trains.forEach(function (role) {
         if (role === '_livestock') {
           var lc = RTS.Config.livestock;
           var canQ   = RTS.canQueueLivestock ? RTS.canQueueLivestock(s, b) : true;

@@ -107,6 +107,7 @@
         lancer:  { acquireMul: 1.8, chaseRange: 205 },
         archer:  { acquireMul: 2.2, chaseRange: 240 },
         monk:    { acquireMul: 1.5, chaseRange: 165 },
+        grollusk:{ acquireMul: 2.0, chaseRange: 230 },
         warrior: { acquireMul: 1.7, chaseRange: 190 },
         default: { acquireMul: 1.5, chaseRange: 200 },
       },
@@ -172,6 +173,12 @@
       cost: 90, supply: 2, build: 0, healer: true,
       desc: 'Heals nearby allies. Keep behind the front.',
     },
+    grollusk: {
+      role: 'grollusk', label: 'Grollusk', glyph: 'star',
+      hp: 110, speed: 96, dmg: 18, range: 152, rof: 1.05,
+      cost: 160, supply: 3, build: 0, ranged: true,
+      desc: 'Ancient gnoll shaman. Casts spirit bolts from behind the Horde.',
+    },
     warrior: {
       role: 'warrior', label: 'Warrior', glyph: 'hex',
       hp: 230, speed: 62, dmg: 30, range: 46, rof: 0.85,
@@ -220,6 +227,17 @@
     },
   };
 
+  RTS.trainListFor = function (buildingOrType, factionId) {
+    var type = typeof buildingOrType === 'string' ? buildingOrType : buildingOrType && buildingOrType.type;
+    var spec = RTS.Buildings[type];
+    var list = spec && spec.trains ? spec.trains.slice() : [];
+    var fid = factionId || (buildingOrType && buildingOrType.faction);
+    if (type === 'core' && fid === 'cinder' && list.indexOf('grollusk') < 0) {
+      list.push('grollusk');
+    }
+    return list;
+  };
+
   // Player buildable menu order
   RTS.BuildMenu = ['conduit', 'foundry', 'forge', 'turret', 'outpost'];
 
@@ -258,7 +276,7 @@
         core: 'Warren Maw', conduit: 'Pig Sty', foundry: 'War Pit',
         forge: 'Skull Forge', turret: 'Bone Spire', outpost: 'Raider Camp',
         pawn: 'Gnome', lancer: 'Spear Goblin', archer: 'Gnoll',
-        monk: 'Hex Shaman', warrior: 'Troll',
+        monk: 'Hex Shaman', grollusk: 'Grollusk', warrior: 'Troll',
       },
     },
   };

@@ -93,6 +93,7 @@
     lancer: { folder: 'Enemies/Goblin Raiders/Spear Goblin', file: 'Spear Goblin_Idle.png', frames: 8, fw: 256, fh: 256 },
     archer: { folder: 'Enemies/Gnoll', file: 'Gnoll_Idle.png', frames: 6, fw: 192, fh: 192 },
     monk: { folder: 'Enemies/Goblin Raiders/Hex Shaman', file: 'Hex Shaman_Idle.png', frames: 8, fw: 192, fh: 192 },
+    grollusk: { folder: 'Enemies/Goblin Raiders/Grollusk', file: 'Grollusk_Idle.png', frames: 8, fw: 192, fh: 192 },
     warrior: { folder: 'Enemies/Troll', file: 'Troll_Idle.png', frames: 12, fw: 384, fh: 384, trayZoom: 0.62, posY: 'bottom' },
   };
 
