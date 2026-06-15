@@ -4,10 +4,10 @@ import GameCanvas from './components/GameCanvas';
 import GameHUD from './components/GameHUD';
 import type MainScene from './game/scenes/MainScene';
 
-function isGameRoute(): boolean {
+function isPhaserLabRoute(): boolean {
   const { hash, pathname } = window.location;
 
-  return pathname === '/game' || pathname === '/game/' || hash === '#/game';
+  return pathname === '/phaser-lab' || pathname === '/phaser-lab/' || hash === '#/phaser-lab';
 }
 
 export default function App(): JSX.Element {
@@ -16,7 +16,7 @@ export default function App(): JSX.Element {
     setGameReady(true);
   }, []);
 
-  if (isGameRoute()) {
+  if (isPhaserLabRoute()) {
     return (
       <>
         <GameCanvas onReady={handleReady} />
@@ -31,8 +31,9 @@ export default function App(): JSX.Element {
   return (
     <main className="app-shell">
       <h1>MOW</h1>
-      <p>Open <a href="/game">/game</a> to launch the Phaser scaffold with Fog of War.</p>
-      <p>Open <a href="/legacy-game">/legacy-game</a> to compare against the preserved DOM canvas game.</p>
+      <p>Open <a href="/game">/game</a> to launch the real Warcrest game with Fog of War.</p>
+      <p>Open <a href="/legacy-game">/legacy-game</a> for the untouched backup.</p>
+      <p>Open <a href="/phaser-lab">/phaser-lab</a> for the parked Phaser scaffold.</p>
     </main>
   );
 }

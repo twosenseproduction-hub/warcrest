@@ -5,8 +5,11 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
 
 const repoRoot = path.dirname(fileURLToPath(import.meta.url));
+const gameRoute = '/game';
 const legacyRoute = '/legacy-game';
 const legacyDirectories = ['assets', 'data', 'src', 'styles'];
+const gameFogScriptName = 'warcrest-fog-toggle.js';
+const gameFogScriptPath = path.resolve(repoRoot, 'client/legacy-game-extensions/warcrest-fog-toggle.js');
 
 function contentTypeFor(filePath: string): string {
   switch (path.extname(filePath).toLowerCase()) {
@@ -47,11 +50,11 @@ function isLegacyResourcePath(relativePath: string): boolean {
   );
 }
 
-function legacyGameRoute(): Plugin {
+function legacyGameRoutes(): Plugin {
   let outDir = path.resolve(repoRoot, 'dist');
 
   return {
-    name: 'legacy-game-route',
+    name: 'legacy-game-routes',
     configResolved(config) {
       outDir = path.isAbsolute(config.build.outDir)
         ? config.build.outDir
@@ -60,23 +63,31 @@ function legacyGameRoute(): Plugin {
     configureServer(server) {
       server.middlewares.use((request, response, next) => {
         const requestUrl = new URL(request.url ?? '/', 'http://localhost');
+        const route = routeForPathname(requestUrl.pathname);
 
-        if (requestUrl.pathname === legacyRoute) {
+        if (route && requestUrl.pathname === route) {
           response.statusCode = 308;
-          response.setHeader('Location', `${legacyRoute}/`);
+          response.setHeader('Location', `${route}/`);
           response.end();
           return;
         }
 
-        if (!requestUrl.pathname.startsWith(`${legacyRoute}/`)) {
+        if (!route || !requestUrl.pathname.startsWith(`${route}/`)) {
           next();
           return;
         }
 
         const routeRelativePath = decodeURIComponent(
-          requestUrl.pathname.slice(`${legacyRoute}/`.length),
+          requestUrl.pathname.slice(`${route}/`.length),
         );
         const relativePath = routeRelativePath === '' ? 'index.html' : routeRelativePath;
+
+        if (route === gameRoute && relativePath === gameFogScriptName) {
+          response.setHeader('Content-Type', contentTypeFor(gameFogScriptPath));
+          fs.createReadStream(gameFogScriptPath).pipe(response);
+          return;
+        }
+
         const filePath = path.resolve(repoRoot, relativePath);
         const relativeToRepo = path.relative(repoRoot, filePath);
 
@@ -92,28 +103,57 @@ function legacyGameRoute(): Plugin {
         }
 
         response.setHeader('Content-Type', contentTypeFor(filePath));
+        if (route === gameRoute && relativePath === 'index.html') {
+          response.end(injectGameFogScript(fs.readFileSync(filePath, 'utf8')));
+          return;
+        }
         fs.createReadStream(filePath).pipe(response);
       });
     },
     closeBundle() {
-      const legacyOutDir = path.resolve(outDir, 'legacy-game');
-
-      fs.rmSync(legacyOutDir, { recursive: true, force: true });
-      fs.mkdirSync(legacyOutDir, { recursive: true });
-      fs.copyFileSync(path.resolve(repoRoot, 'index.html'), path.resolve(legacyOutDir, 'index.html'));
-
-      for (const directory of legacyDirectories) {
-        fs.cpSync(path.resolve(repoRoot, directory), path.resolve(legacyOutDir, directory), {
-          recursive: true,
-        });
-      }
+      copyLegacyRoute(path.resolve(outDir, 'legacy-game'), false);
+      copyLegacyRoute(path.resolve(outDir, 'game'), true);
     },
   };
 }
 
+function routeForPathname(pathname: string): string | null {
+  if (pathname === gameRoute || pathname.startsWith(`${gameRoute}/`)) return gameRoute;
+  if (pathname === legacyRoute || pathname.startsWith(`${legacyRoute}/`)) return legacyRoute;
+  return null;
+}
+
+function copyLegacyRoute(routeOutDir: string, includeFogToggle: boolean): void {
+  fs.rmSync(routeOutDir, { recursive: true, force: true });
+  fs.mkdirSync(routeOutDir, { recursive: true });
+
+  const sourceIndex = fs.readFileSync(path.resolve(repoRoot, 'index.html'), 'utf8');
+  const indexHtml = includeFogToggle ? injectGameFogScript(sourceIndex) : sourceIndex;
+
+  fs.writeFileSync(path.resolve(routeOutDir, 'index.html'), indexHtml);
+
+  for (const directory of legacyDirectories) {
+    fs.cpSync(path.resolve(repoRoot, directory), path.resolve(routeOutDir, directory), {
+      recursive: true,
+    });
+  }
+
+  if (includeFogToggle) {
+    fs.copyFileSync(gameFogScriptPath, path.resolve(routeOutDir, gameFogScriptName));
+  }
+}
+
+function injectGameFogScript(html: string): string {
+  const scriptTag = `<script src="${gameFogScriptName}"></script>`;
+
+  if (html.includes(scriptTag)) return html;
+
+  return html.replace('</body>', `${scriptTag}\n</body>`);
+}
+
 export default defineConfig({
   root: 'client',
-  plugins: [legacyGameRoute(), react()],
+  plugins: [legacyGameRoutes(), react()],
   build: {
     outDir: '../dist',
     emptyOutDir: true,
