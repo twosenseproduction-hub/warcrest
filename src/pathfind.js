@@ -166,18 +166,33 @@
     return dx + dy + (SQRT2 - 2) * Math.min(dx, dy);
   }
 
+  // Replace the fixed compass-order scan with a BFS flood-fill so that the
+  // nearest truly-open cell is returned by actual grid distance, not by a
+  // fixed directional bias that can land on the wrong side of a building.
   function nearestWalkable(nav, cx, cy) {
     if (inCell(nav.cols, nav.rows, cx, cy) && !nav.blocked[cellIdx(nav.cols, cx, cy)]) {
       return { cx: cx, cy: cy };
     }
-    var maxR = 12, r, d, nx, ny, i;
-    for (r = 1; r <= maxR; r++) {
-      for (d = 0; d < 8; d++) {
-        nx = cx + Math.round(Math.cos(d * Math.PI / 4) * r);
-        ny = cy + Math.round(Math.sin(d * Math.PI / 4) * r);
-        if (!inCell(nav.cols, nav.rows, nx, ny)) continue;
-        i = cellIdx(nav.cols, nx, ny);
-        if (!nav.blocked[i]) return { cx: nx, cy: ny };
+    var cols = nav.cols, rows = nav.rows;
+    var visited = new Uint8Array(cols * rows);
+    var queue = [cx + ',' + cy];
+    visited[cellIdx(cols, Math.max(0, Math.min(cols - 1, cx)),
+                         Math.max(0, Math.min(rows - 1, cy)))] = 1;
+    var NBRS = [
+      [1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]
+    ];
+    var head = 0;
+    while (head < queue.length) {
+      var parts = queue[head++].split(',');
+      var qx = +parts[0], qy = +parts[1];
+      for (var d = 0; d < 8; d++) {
+        var nx = qx + NBRS[d][0], ny = qy + NBRS[d][1];
+        if (!inCell(cols, rows, nx, ny)) continue;
+        var ni = cellIdx(cols, nx, ny);
+        if (visited[ni]) continue;
+        visited[ni] = 1;
+        if (!nav.blocked[ni]) return { cx: nx, cy: ny };
+        queue.push(nx + ',' + ny);
       }
     }
     return null;
@@ -256,6 +271,38 @@
     return path;
   }
 
+  // Post-process the A* waypoint list by skipping intermediate nodes whenever
+  // a straight segment to a later node is clear (using segmentBlocked).
+  // This gives tighter any-angle routes around building corners without
+  // removing collision safety — every shortcut is validated by the same
+  // segmentBlocked check used elsewhere.
+  function smoothPath(s, path, x0, y0, x1, y1, opts) {
+    if (!path || path.length < 2) return path || [];
+
+    // Prepend start and append true destination as anchor points
+    var pts = [{ x: x0, y: y0 }].concat(path, [{ x: x1, y: y1 }]);
+    var out = [];
+    var i = 0, j, best;
+
+    while (i < pts.length - 1) {
+      best = i + 1;
+
+      // Walk forward: keep extending as long as the straight segment is clear
+      for (j = i + 2; j < pts.length; j++) {
+        if (segmentBlocked(s, pts[i].x, pts[i].y, pts[j].x, pts[j].y, opts)) break;
+        best = j;
+      }
+
+      // Only emit this waypoint if it is not the final destination
+      if (best < pts.length - 1) {
+        out.push({ x: pts[best].x, y: pts[best].y });
+      }
+      i = best;
+    }
+
+    return out;
+  }
+
   function findPath(s, x0, y0, x1, y1, opts) {
     opts = opts || {};
     var nav = getNav(s, opts);
@@ -275,7 +322,9 @@
 
     if (!segmentBlocked(s, x0, y0, x1, y1, opts)) return null;
 
-    return astar(nav, start.cx, start.cy, goal.cx, goal.cy, skipCell);
+    var path = astar(nav, start.cx, start.cy, goal.cx, goal.cy, skipCell);
+    if (!path) return null;
+    return smoothPath(s, path, x0, y0, x1, y1, opts);
   }
 
   function segmentBlocked(s, x0, y0, x1, y1, opts) {
