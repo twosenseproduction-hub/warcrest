@@ -1,0 +1,53 @@
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #080d16;
+}
+
+body {
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app-shell {
+  min-height: 100%;
+  display: grid;
+  place-content: center;
+  gap: 16px;
+  padding: 24px;
+  color: #ffd700;
+  background: radial-gradient(circle at top, #1a1a2e, #080d16);
+  font-family: "Courier New", Courier, monospace;
+  text-align: center;
+}
+
+.app-shell a {
+  color: #4fc3f7;
+}
+
+.game-ready-status {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+#phaser-container canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}

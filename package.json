@@ -1,0 +1,40 @@
+{
+  "name": "workspace",
+  "version": "1.0.0",
+  "description": "A standalone, single-player, **mobile-first real-time strategy game** that runs entirely in the browser. No backend, no accounts, no build step. Art uses the Tiny Swords pixel pack (Pixel Frog) with original Warcrest faction naming and lore.",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "cap:build": "vite build && npx cap sync"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/twosenseproduction-hub/warcrest.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/twosenseproduction-hub/warcrest/issues"
+  },
+  "homepage": "https://github.com/twosenseproduction-hub/warcrest#readme",
+  "dependencies": {
+    "@capacitor/core": "^8.4.0",
+    "@capacitor/ios": "^8.4.0",
+    "phaser": "^3.90.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.4.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.2",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16"
+  }
+}
