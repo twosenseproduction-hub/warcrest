@@ -1,0 +1,27 @@
+{
+  "job_id": "d98dcdac-4229-456c-ac09-dbbd0b097b46",
+  "status": "completed",
+  "seed": 319872,
+  "character_id": "5eeb1382-81be-43b8-8d03-099bb90d6866",
+  "directions_count": 8,
+  "source_frame_size": [
+    168,
+    168
+  ],
+  "sheet_frame_size": [
+    192,
+    192
+  ],
+  "sheet_size": [
+    1536,
+    192
+  ],
+  "frame_count": 8,
+  "usage": {
+    "type": "generations",
+    "generations": 40.0
+  },
+  "note": "Second pass requested simpler Tiny Swords-style sprite. PixelLab generate-8-rotations-v2 caps image_size at 168, then frames were nearest-neighbor upscaled to 192 cells.",
+  "tiny_scale_sheet": "goblin_scrapper_simple_tiny_8rotations_sheet_192.png",
+  "tiny_scale_note": "Cropped each generated frame and nearest-neighbor scaled the visible sprite to max 72px, centered in 192x192 cells to better match the provided Tiny Swords reference footprint."
+}
