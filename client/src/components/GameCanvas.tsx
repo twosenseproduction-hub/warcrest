@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type Phaser from 'phaser';
 import type { CSSProperties, JSX } from 'react';
+import { GameEvents } from '../game/events/GameEvents';
 import { createPhaserGame, destroyPhaserGame } from '../game/PhaserGame';
 import type MainScene from '../game/scenes/MainScene';
 
@@ -23,16 +24,16 @@ export default function GameCanvas({ onReady }: GameCanvasProps): JSX.Element {
   const gameRef = useRef<Phaser.Game | null>(null);
 
   useEffect(() => {
-    const game = createPhaserGame('phaser-container');
     const handleSceneReady = (scene: MainScene): void => {
       onReady?.(scene);
     };
 
-    game.events.once('scene-ready', handleSceneReady);
+    GameEvents.once('scene-ready', handleSceneReady);
+    const game = createPhaserGame('phaser-container');
     gameRef.current = game;
 
     return () => {
-      game.events.off('scene-ready', handleSceneReady);
+      GameEvents.off('scene-ready', handleSceneReady);
       destroyPhaserGame(game);
       gameRef.current = null;
     };

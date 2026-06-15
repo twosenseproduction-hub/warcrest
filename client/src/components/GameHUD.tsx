@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import type { CSSProperties, JSX } from 'react';
+import { GameEvents } from '../game/events/GameEvents';
 
 const gold = '#FFD700';
 const panelBackground = 'rgba(10, 14, 22, 0.82)';
@@ -80,7 +82,32 @@ const heroPortraitStyle: CSSProperties = {
   letterSpacing: '0.08em',
 };
 
+const fogToggleStyle: CSSProperties = {
+  position: 'fixed',
+  top: 16,
+  left: '50%',
+  transform: 'translateX(-50%)',
+  minWidth: 96,
+  minHeight: 32,
+  padding: '6px 14px',
+  pointerEvents: 'auto',
+  background: panelBackground,
+  border,
+  borderRadius: 999,
+  color: gold,
+  font: `700 12px ${fontFamily}`,
+  letterSpacing: '0.08em',
+  touchAction: 'manipulation',
+};
+
 export default function GameHUD(): JSX.Element {
+  const [fogEnabled, setFogEnabled] = useState(true);
+
+  const handleFogToggle = (): void => {
+    setFogEnabled((enabled) => !enabled);
+    GameEvents.emit('fog-toggle');
+  };
+
   return (
     <div style={wrapperStyle} aria-label="Game HUD">
       <div style={{ ...cornerPanelStyle, top: 16, left: 16 }}>
@@ -93,6 +120,10 @@ export default function GameHUD(): JSX.Element {
       <div style={{ ...cornerPanelStyle, top: 16, right: 16, padding: 6 }}>
         <div style={minimapStyle}>MINIMAP</div>
       </div>
+
+      <button type="button" style={fogToggleStyle} onClick={handleFogToggle} aria-pressed={fogEnabled}>
+        {fogEnabled ? 'FOG: ON' : 'FOG: OFF'}
+      </button>
 
       <div style={actionBarStyle} aria-label="Action bar">
         {Array.from({ length: 6 }, (_, index) => (

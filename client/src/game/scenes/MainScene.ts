@@ -1,15 +1,20 @@
 import Phaser from 'phaser';
+import { GameEvents } from '../events/GameEvents';
+import { FogOfWar, type FogState } from '../systems/FogOfWar';
 
 const GRID_SIZE = 20;
 const TILE_WIDTH = 64;
 const TILE_HEIGHT = 32;
 const UNIT_RADIUS = 16;
+const UNIT_VISION_RADIUS = 4;
 const MIN_TAP_TARGET_RADIUS = 24;
 const TICK_INTERVAL_MS = 2_000;
 const TREE_TRUNK_TEXTURE = 'placeholder-tree-trunk';
 const TREE_CANOPY_TEXTURE = 'placeholder-tree-canopy';
 const BUILDING_TEXTURE = 'placeholder-building';
 const CANOPY_DEPTH = 9_999;
+const MAP_DEPTH = -1;
+const FOG_DEPTH = 0;
 
 type TreeParts = {
   trunk: Phaser.GameObjects.Sprite;
@@ -17,9 +22,12 @@ type TreeParts = {
 };
 
 export default class MainScene extends Phaser.Scene {
+  private readonly fogSystem = new FogOfWar(GRID_SIZE, GRID_SIZE);
   private unit?: Phaser.GameObjects.Arc;
   private building?: Phaser.GameObjects.Sprite;
+  private fogGraphics?: Phaser.GameObjects.Graphics;
   private trees: TreeParts[] = [];
+  private fogEnabled = true;
   private draggingUnit = false;
   private lastTickLog = 0;
 
@@ -33,16 +41,23 @@ export default class MainScene extends Phaser.Scene {
 
     this.createPlaceholderTextures();
     this.drawIsometricGrid();
+    this.createFogLayer();
     this.createPlaceholderBuilding();
     this.createLayeredTrees();
     this.createPlaceholderUnit();
     this.registerPointerEvents();
+    this.registerGameEvents();
+    this.updateFogVision();
+    this.renderFog();
     this.children.depthSort();
 
+    GameEvents.emit('scene-ready', this);
     this.game.events.emit('scene-ready', this);
   }
 
   update(time: number, _delta: number): void {
+    this.updateFogVision();
+    this.renderFog();
     this.sys.displayList.depthSort();
 
     if (time - this.lastTickLog >= TICK_INTERVAL_MS) {
@@ -89,7 +104,7 @@ export default class MainScene extends Phaser.Scene {
 
   private drawIsometricGrid(): void {
     const graphics = this.add.graphics();
-    graphics.setDepth(-1);
+    graphics.setDepth(MAP_DEPTH);
     const originX = this.scale.width / 2;
     const originY = Math.max(96, this.scale.height * 0.16);
 
@@ -111,6 +126,11 @@ export default class MainScene extends Phaser.Scene {
         graphics.strokePath();
       }
     }
+  }
+
+  private createFogLayer(): void {
+    this.fogGraphics = this.add.graphics();
+    this.fogGraphics.setDepth(FOG_DEPTH);
   }
 
   private createPlaceholderBuilding(): void {
@@ -160,6 +180,13 @@ export default class MainScene extends Phaser.Scene {
     this.unit.setDepth(this.unit.y);
   }
 
+  private registerGameEvents(): void {
+    GameEvents.on('fog-toggle', this.handleFogToggle, this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      GameEvents.off('fog-toggle', this.handleFogToggle, this);
+    });
+  }
+
   private registerPointerEvents(): void {
     if (!this.unit) return;
 
@@ -184,6 +211,62 @@ export default class MainScene extends Phaser.Scene {
     });
   }
 
+  private handleFogToggle(): void {
+    this.fogEnabled = !this.fogEnabled;
+
+    if (!this.fogEnabled) {
+      this.fogGraphics?.clear();
+    }
+  }
+
+  private updateFogVision(): void {
+    if (!this.unit) return;
+
+    const unitTile = this.screenToTile(this.unit.x, this.unit.y);
+
+    this.fogSystem.updateVision([
+      {
+        tileX: unitTile.tileX,
+        tileY: unitTile.tileY,
+        visionRadius: UNIT_VISION_RADIUS,
+      },
+    ]);
+  }
+
+  private renderFog(): void {
+    if (!this.fogGraphics) return;
+
+    this.fogGraphics.clear();
+
+    if (!this.fogEnabled) return;
+
+    for (let tileY = 0; tileY < GRID_SIZE; tileY += 1) {
+      for (let tileX = 0; tileX < GRID_SIZE; tileX += 1) {
+        const fogState = this.fogSystem.getState(tileX, tileY);
+
+        if (fogState === 'visible') continue;
+
+        this.drawFogTile(tileX, tileY, fogState);
+      }
+    }
+  }
+
+  private drawFogTile(tileX: number, tileY: number, fogState: Exclude<FogState, 'visible'>): void {
+    if (!this.fogGraphics) return;
+
+    const position = this.tileToScreen(tileY, tileX);
+    const alpha = fogState === 'unexplored' ? 1 : 0.6;
+
+    this.fogGraphics.fillStyle(0x000000, alpha);
+    this.fogGraphics.beginPath();
+    this.fogGraphics.moveTo(position.x, position.y - TILE_HEIGHT / 2);
+    this.fogGraphics.lineTo(position.x + TILE_WIDTH / 2, position.y);
+    this.fogGraphics.lineTo(position.x, position.y + TILE_HEIGHT / 2);
+    this.fogGraphics.lineTo(position.x - TILE_WIDTH / 2, position.y);
+    this.fogGraphics.closePath();
+    this.fogGraphics.fillPath();
+  }
+
   private tileToScreen(row: number, col: number): Phaser.Math.Vector2 {
     const originX = this.scale.width / 2;
     const originY = Math.max(96, this.scale.height * 0.16);
@@ -191,5 +274,19 @@ export default class MainScene extends Phaser.Scene {
     const y = originY + (col + row) * (TILE_HEIGHT / 2);
 
     return new Phaser.Math.Vector2(x, y);
+  }
+
+  private screenToTile(x: number, y: number): { tileX: number; tileY: number } {
+    const originX = this.scale.width / 2;
+    const originY = Math.max(96, this.scale.height * 0.16);
+    const colMinusRow = (x - originX) / (TILE_WIDTH / 2);
+    const colPlusRow = (y - originY) / (TILE_HEIGHT / 2);
+    const col = Math.round((colMinusRow + colPlusRow) / 2);
+    const row = Math.round((colPlusRow - colMinusRow) / 2);
+
+    return {
+      tileX: Phaser.Math.Clamp(col, 0, GRID_SIZE - 1),
+      tileY: Phaser.Math.Clamp(row, 0, GRID_SIZE - 1),
+    };
   }
 }
