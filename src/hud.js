@@ -55,6 +55,7 @@
         el.addEventListener('pointerdown', markUi, true);
         el.addEventListener('touchstart', markUi, true);
       });
+      D['hero-portrait'] = ensureHeroPortrait();
       D['btn-pause'] && D['btn-pause'].addEventListener('click', function () { RTS.Game.togglePause(); });
 
       wireRail('btn-rail-army', function (s) { RTS.selectAllArmy(s); RTS.Audio.play('click'); });
@@ -122,6 +123,7 @@
       renderSelPanel(s);
       renderUnitGroupStrip(s);
       renderTray(s);
+      renderHeroPortrait(s);
     },
 
     renderLog: function (s) {
@@ -147,6 +149,7 @@
       var t = D['toast'];
       if (s.ui.toast) { t.textContent = s.ui.toast.text; t.classList.add('show'); }
       else t.classList.remove('show');
+      renderHeroPortrait(s);
 
       if (RTS.BuildingMenu && RTS.BuildingMenu.isOpen()) {
         if (!s.ui.bmenuRefresh) s.ui.bmenuRefresh = 0;
@@ -160,6 +163,56 @@
   };
 
   function markUi() { var s = getState(); if (s) s.ui.lastUiAt = performance.now(); }
+
+  function ensureHeroPortrait() {
+    var el = document.getElementById('hero-portrait');
+    if (el) return el;
+    var hud = document.getElementById('hud');
+    if (!hud) return null;
+    el = document.createElement('div');
+    el.id = 'hero-portrait';
+    el.className = 'hero-portrait hidden';
+    hud.appendChild(el);
+    return el;
+  }
+
+  function esc(text) {
+    return String(text == null ? '' : text).replace(/[&<>"']/g, function (ch) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch];
+    });
+  }
+
+  function renderHeroPortrait(s) {
+    var el = D['hero-portrait'] || ensureHeroPortrait();
+    if (!el || !s || s.scene !== 'playing' && s.scene !== 'paused') {
+      if (el) el.classList.add('hidden');
+      return;
+    }
+    var heroUnit = RTS.getById(s, s.heroes && s.heroes.player);
+    if (!heroUnit || !heroUnit.isHero) {
+      el.classList.add('hidden');
+      return;
+    }
+    var spec = RTS.Heroes && RTS.Heroes[heroUnit.heroId] || {};
+    var faction = RTS.Factions[heroUnit.faction] || RTS.Factions[s.playerFaction] || {};
+    var pct = heroUnit.maxHp ? Math.max(0, Math.min(1, heroUnit.hp / heroUnit.maxHp)) : 0;
+    var dead = !!heroUnit.dead || heroUnit.respawnTimer != null;
+    var initial = (heroUnit.name || spec.name || '?').charAt(0).toUpperCase();
+    var barClass = pct <= 0.25 ? ' is-crit' : pct <= 0.55 ? ' is-warn' : '';
+    var body = dead
+      ? '<div class="hero-respawn">Respawns in <b>' + Math.ceil(heroUnit.respawnTimer || 0) + 's</b></div>'
+      : '<div class="hero-hpbar' + barClass + '"><i style="width:' + (pct * 100) + '%"></i></div>';
+    el.className = 'hero-portrait' + (dead ? ' is-dead' : '');
+    el.style.setProperty('--hero-color', faction.primary || '#1565c0');
+    el.innerHTML =
+      '<div class="hero-face" aria-hidden="true">' + esc(initial) +
+        '<span class="hero-level">' + esc(heroUnit.level || 1) + '</span></div>' +
+      '<div class="hero-info">' +
+        '<div class="hero-name">' + esc(heroUnit.name || spec.name || 'Hero') + '</div>' +
+        '<div class="hero-class">' + esc(spec.class || 'Hero') + '</div>' +
+        body +
+      '</div>';
+  }
 
   function wireTap(el, fn) {
     if (!el) return;

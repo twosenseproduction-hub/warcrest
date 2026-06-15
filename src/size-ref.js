@@ -40,6 +40,8 @@
     archer: REF.charFootR * 1.05,
     monk: REF.charFootR * 1.05,
     warrior: REF.charFootR * 1.18,
+    valdris: REF.charFootR * 1.24,
+    hero: REF.charFootR * 1.24,
   };
 
   /* Draw size targets — width-led, height follows sprite aspect in assets.js */
@@ -87,6 +89,8 @@
     archer: LOL.champion_std,
     monk: LOL.champion_std,
     warrior: LOL.champion_large,
+    valdris: LOL.champion_large,
+    hero: LOL.champion_large,
   };
 
   var HEIGHT_MUL = 2.05;
@@ -119,6 +123,8 @@
     archer:  { footRatio: 0.703, selectWMul: 1.12, selectTopFrac: 0.34, selectFootPad: 3 },
     monk:    { footRatio: 0.693, selectWMul: 1.12, selectTopFrac: 0.36, selectFootPad: 3 },
     warrior: { footRatio: 0.708, selectWMul: 1.16, selectTopFrac: 0.32, selectFootPad: 3 },
+    valdris: { footRatio: 0.725, selectWMul: 1.18, selectTopFrac: 0.31, selectFootPad: 3 },
+    hero:    { footRatio: 0.725, selectWMul: 1.18, selectTopFrac: 0.31, selectFootPad: 3 },
   };
 
   function unitVisualSpec(role) {

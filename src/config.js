@@ -108,6 +108,7 @@
         archer:  { acquireMul: 2.2, chaseRange: 240 },
         monk:    { acquireMul: 1.5, chaseRange: 165 },
         warrior: { acquireMul: 1.7, chaseRange: 190 },
+        valdris: { acquireMul: 1.75, chaseRange: 190 },
         default: { acquireMul: 1.5, chaseRange: 200 },
       },
       pawn: {
@@ -243,6 +244,24 @@
       desc: 'Armored frontline. Draws nearby enemy attacks toward himself.',
     },
 
+    valdris: {
+      role: 'valdris', label: 'Valdris', glyph: 'hex', faction: 'aurex',
+      hp: 520, speed: 52, dmg: 42, range: 50, rof: 0.9,
+      cost: 300, supply: 5, build: 0,
+      trainableFactions: ['aurex'],
+      traits: ['formation_bonus', 'taunt'],
+      tauntRadius: 105,
+      desc: 'Elite Ironwarden vanguard. Slow, durable melee anchor trained at the War Forge.',
+    },
+
+    hero: {
+      role: 'hero', label: 'Hero', glyph: 'hex', faction: 'aurex',
+      hp: 100, speed: 80, dmg: 10, range: 48, rof: 1.1,
+      cost: 0, supply: 0, build: 0, ranged: false,
+      traits: [],
+      desc: 'Faction hero.',
+    },
+
     // ---- Raider Horde units ------------------------------------------------
 
     gnome: {
@@ -317,8 +336,8 @@
     forge: {
       type: 'forge', label: 'War Forge', w: 192, h: 192,
       hp: 980, cost: 175, build: 26,
-      trains: ['warrior'],
-      desc: 'Produces Warriors.',
+      trains: ['warrior', 'valdris'],
+      desc: 'Produces Warriors and Valdris Ironwardens.',
     },
     turret: {
       type: 'turret', label: 'Arrow Tower', w: 64, h: 128,
@@ -345,12 +364,12 @@
       accent:     '#FFD54F',
       shapeStyle: 'angular',
       passiveTrait: 'formation_bonus',
-      units: ['pawn', 'lancer', 'archer', 'monk', 'warrior'],
+      units: ['pawn', 'lancer', 'archer', 'monk', 'warrior', 'valdris'],
       names: {
         core: 'Citadel Keep', conduit: 'Sheep Pen', foundry: 'Barracks',
         forge: 'War Forge', turret: 'Arrow Tower', outpost: 'Forward Bastion',
         pawn: 'Pawn', lancer: 'Lancer', archer: 'Archer',
-        monk: 'Monk', warrior: 'Warrior',
+        monk: 'Monk', warrior: 'Warrior', valdris: 'Valdris',
       },
     },
 
@@ -382,6 +401,13 @@
     if (f && f.names[key]) return f.names[key];
     return (RTS.Units[key] && RTS.Units[key].label) ||
            (RTS.Buildings[key] && RTS.Buildings[key].label) || key;
+  };
+
+  RTS.canTrainRoleForFaction = function (role, factionId) {
+    var spec = RTS.Units[role];
+    if (!spec) return false;
+    if (!spec.trainableFactions) return true;
+    return spec.trainableFactions.indexOf(factionId) >= 0;
   };
 
 })(window.RTS = window.RTS || {});

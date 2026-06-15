@@ -1,0 +1,350 @@
+{
+  "pixelLabCharacterId": "c2dea73b-4644-45c1-bedf-5195a1f75f56",
+  "pixelLabCharacterName": "Heavily armored dwarf-proportioned knight in",
+  "sourceSize": {
+    "width": 256,
+    "height": 256
+  },
+  "animationCount": 12,
+  "animationGroups": [
+    {
+      "animationType": "Valdris Attack 4dir",
+      "animation": "attack",
+      "animationGroupId": "6e2402ab-0691-4d71-8477-95c60e83c550",
+      "directions": [
+        {
+          "direction": "south",
+          "exportDirection": "down",
+          "frameCount": 7,
+          "frameWidth": 256,
+          "frameHeight": 256,
+          "outputFile": "assets/heroes/valdris/Valdris_Down_Attack.png",
+          "frames": [
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/025e9a19-3dfe-499c-95fb-e7e38e430a3a/south/0.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/025e9a19-3dfe-499c-95fb-e7e38e430a3a/south/1.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/025e9a19-3dfe-499c-95fb-e7e38e430a3a/south/2.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/025e9a19-3dfe-499c-95fb-e7e38e430a3a/south/3.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/025e9a19-3dfe-499c-95fb-e7e38e430a3a/south/4.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/025e9a19-3dfe-499c-95fb-e7e38e430a3a/south/5.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/025e9a19-3dfe-499c-95fb-e7e38e430a3a/south/6.png"
+          ]
+        },
+        {
+          "direction": "west",
+          "exportDirection": "left",
+          "frameCount": 7,
+          "frameWidth": 256,
+          "frameHeight": 256,
+          "outputFile": "assets/heroes/valdris/Valdris_Left_Attack.png",
+          "frames": [
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/aed17f25-a1dc-4629-a051-714adb47986b/west/0.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/aed17f25-a1dc-4629-a051-714adb47986b/west/1.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/aed17f25-a1dc-4629-a051-714adb47986b/west/2.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/aed17f25-a1dc-4629-a051-714adb47986b/west/3.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/aed17f25-a1dc-4629-a051-714adb47986b/west/4.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/aed17f25-a1dc-4629-a051-714adb47986b/west/5.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/aed17f25-a1dc-4629-a051-714adb47986b/west/6.png"
+          ]
+        },
+        {
+          "direction": "east",
+          "exportDirection": "right",
+          "frameCount": 7,
+          "frameWidth": 256,
+          "frameHeight": 256,
+          "outputFile": "assets/heroes/valdris/Valdris_Right_Attack.png",
+          "frames": [
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/5f3104e4-db3b-4686-8d72-9b0ae1a56f5f/east/0.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/5f3104e4-db3b-4686-8d72-9b0ae1a56f5f/east/1.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/5f3104e4-db3b-4686-8d72-9b0ae1a56f5f/east/2.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/5f3104e4-db3b-4686-8d72-9b0ae1a56f5f/east/3.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/5f3104e4-db3b-4686-8d72-9b0ae1a56f5f/east/4.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/5f3104e4-db3b-4686-8d72-9b0ae1a56f5f/east/5.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/5f3104e4-db3b-4686-8d72-9b0ae1a56f5f/east/6.png"
+          ]
+        },
+        {
+          "direction": "north",
+          "exportDirection": "up",
+          "frameCount": 7,
+          "frameWidth": 256,
+          "frameHeight": 256,
+          "outputFile": "assets/heroes/valdris/Valdris_Up_Attack.png",
+          "frames": [
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/71c0b046-eda0-4e99-8349-2d9f22b9124c/north/0.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/71c0b046-eda0-4e99-8349-2d9f22b9124c/north/1.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/71c0b046-eda0-4e99-8349-2d9f22b9124c/north/2.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/71c0b046-eda0-4e99-8349-2d9f22b9124c/north/3.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/71c0b046-eda0-4e99-8349-2d9f22b9124c/north/4.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/71c0b046-eda0-4e99-8349-2d9f22b9124c/north/5.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/71c0b046-eda0-4e99-8349-2d9f22b9124c/north/6.png"
+          ]
+        }
+      ]
+    },
+    {
+      "animationType": "Valdris Idle 4dir",
+      "animation": "idle",
+      "animationGroupId": "4274f188-1485-468c-bb76-caf2f80393a4",
+      "directions": [
+        {
+          "direction": "south",
+          "exportDirection": "down",
+          "frameCount": 9,
+          "frameWidth": 256,
+          "frameHeight": 256,
+          "outputFile": "assets/heroes/valdris/Valdris_Down_Idle.png",
+          "frames": [
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/3afb8df4-43a2-4ebe-98b0-d631caaa9e74/south/0.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/3afb8df4-43a2-4ebe-98b0-d631caaa9e74/south/1.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/3afb8df4-43a2-4ebe-98b0-d631caaa9e74/south/2.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/3afb8df4-43a2-4ebe-98b0-d631caaa9e74/south/3.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/3afb8df4-43a2-4ebe-98b0-d631caaa9e74/south/4.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/3afb8df4-43a2-4ebe-98b0-d631caaa9e74/south/5.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/3afb8df4-43a2-4ebe-98b0-d631caaa9e74/south/6.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/3afb8df4-43a2-4ebe-98b0-d631caaa9e74/south/7.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/3afb8df4-43a2-4ebe-98b0-d631caaa9e74/south/8.png"
+          ]
+        },
+        {
+          "direction": "west",
+          "exportDirection": "left",
+          "frameCount": 9,
+          "frameWidth": 256,
+          "frameHeight": 256,
+          "outputFile": "assets/heroes/valdris/Valdris_Left_Idle.png",
+          "frames": [
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/5a25e811-20fd-474c-8eae-d084ad550f93/west/0.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/5a25e811-20fd-474c-8eae-d084ad550f93/west/1.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/5a25e811-20fd-474c-8eae-d084ad550f93/west/2.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/5a25e811-20fd-474c-8eae-d084ad550f93/west/3.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/5a25e811-20fd-474c-8eae-d084ad550f93/west/4.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/5a25e811-20fd-474c-8eae-d084ad550f93/west/5.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/5a25e811-20fd-474c-8eae-d084ad550f93/west/6.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/5a25e811-20fd-474c-8eae-d084ad550f93/west/7.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/5a25e811-20fd-474c-8eae-d084ad550f93/west/8.png"
+          ]
+        },
+        {
+          "direction": "east",
+          "exportDirection": "right",
+          "frameCount": 9,
+          "frameWidth": 256,
+          "frameHeight": 256,
+          "outputFile": "assets/heroes/valdris/Valdris_Right_Idle.png",
+          "frames": [
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/e0ebd346-8cc3-4879-903b-1dfbb751ac14/east/0.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/e0ebd346-8cc3-4879-903b-1dfbb751ac14/east/1.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/e0ebd346-8cc3-4879-903b-1dfbb751ac14/east/2.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/e0ebd346-8cc3-4879-903b-1dfbb751ac14/east/3.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/e0ebd346-8cc3-4879-903b-1dfbb751ac14/east/4.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/e0ebd346-8cc3-4879-903b-1dfbb751ac14/east/5.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/e0ebd346-8cc3-4879-903b-1dfbb751ac14/east/6.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/e0ebd346-8cc3-4879-903b-1dfbb751ac14/east/7.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/e0ebd346-8cc3-4879-903b-1dfbb751ac14/east/8.png"
+          ]
+        },
+        {
+          "direction": "north",
+          "exportDirection": "up",
+          "frameCount": 9,
+          "frameWidth": 256,
+          "frameHeight": 256,
+          "outputFile": "assets/heroes/valdris/Valdris_Up_Idle.png",
+          "frames": [
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/fe766b82-311f-4a66-9147-f12868ffb5d6/north/0.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/fe766b82-311f-4a66-9147-f12868ffb5d6/north/1.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/fe766b82-311f-4a66-9147-f12868ffb5d6/north/2.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/fe766b82-311f-4a66-9147-f12868ffb5d6/north/3.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/fe766b82-311f-4a66-9147-f12868ffb5d6/north/4.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/fe766b82-311f-4a66-9147-f12868ffb5d6/north/5.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/fe766b82-311f-4a66-9147-f12868ffb5d6/north/6.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/fe766b82-311f-4a66-9147-f12868ffb5d6/north/7.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/fe766b82-311f-4a66-9147-f12868ffb5d6/north/8.png"
+          ]
+        }
+      ]
+    },
+    {
+      "animationType": "Valdris Walk 4dir",
+      "animation": "walk",
+      "animationGroupId": "a61a46b3-66a4-484b-ba27-963f65787ce3",
+      "directions": [
+        {
+          "direction": "south",
+          "exportDirection": "down",
+          "frameCount": 9,
+          "frameWidth": 256,
+          "frameHeight": 256,
+          "outputFile": "assets/heroes/valdris/Valdris_Down_Walk.png",
+          "frames": [
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/cc47d549-d5d1-4a53-bc27-80bbd3adc15d/south/0.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/cc47d549-d5d1-4a53-bc27-80bbd3adc15d/south/1.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/cc47d549-d5d1-4a53-bc27-80bbd3adc15d/south/2.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/cc47d549-d5d1-4a53-bc27-80bbd3adc15d/south/3.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/cc47d549-d5d1-4a53-bc27-80bbd3adc15d/south/4.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/cc47d549-d5d1-4a53-bc27-80bbd3adc15d/south/5.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/cc47d549-d5d1-4a53-bc27-80bbd3adc15d/south/6.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/cc47d549-d5d1-4a53-bc27-80bbd3adc15d/south/7.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/cc47d549-d5d1-4a53-bc27-80bbd3adc15d/south/8.png"
+          ]
+        },
+        {
+          "direction": "west",
+          "exportDirection": "left",
+          "frameCount": 9,
+          "frameWidth": 256,
+          "frameHeight": 256,
+          "outputFile": "assets/heroes/valdris/Valdris_Left_Walk.png",
+          "frames": [
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/c5faa3ad-0cb4-47f9-a44d-44cb43dff72e/west/0.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/c5faa3ad-0cb4-47f9-a44d-44cb43dff72e/west/1.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/c5faa3ad-0cb4-47f9-a44d-44cb43dff72e/west/2.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/c5faa3ad-0cb4-47f9-a44d-44cb43dff72e/west/3.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/c5faa3ad-0cb4-47f9-a44d-44cb43dff72e/west/4.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/c5faa3ad-0cb4-47f9-a44d-44cb43dff72e/west/5.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/c5faa3ad-0cb4-47f9-a44d-44cb43dff72e/west/6.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/c5faa3ad-0cb4-47f9-a44d-44cb43dff72e/west/7.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/c5faa3ad-0cb4-47f9-a44d-44cb43dff72e/west/8.png"
+          ]
+        },
+        {
+          "direction": "east",
+          "exportDirection": "right",
+          "frameCount": 9,
+          "frameWidth": 256,
+          "frameHeight": 256,
+          "outputFile": "assets/heroes/valdris/Valdris_Right_Walk.png",
+          "frames": [
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/3f1a3a4e-c324-4186-908e-8dd7fa540f9b/east/0.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/3f1a3a4e-c324-4186-908e-8dd7fa540f9b/east/1.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/3f1a3a4e-c324-4186-908e-8dd7fa540f9b/east/2.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/3f1a3a4e-c324-4186-908e-8dd7fa540f9b/east/3.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/3f1a3a4e-c324-4186-908e-8dd7fa540f9b/east/4.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/3f1a3a4e-c324-4186-908e-8dd7fa540f9b/east/5.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/3f1a3a4e-c324-4186-908e-8dd7fa540f9b/east/6.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/3f1a3a4e-c324-4186-908e-8dd7fa540f9b/east/7.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/3f1a3a4e-c324-4186-908e-8dd7fa540f9b/east/8.png"
+          ]
+        },
+        {
+          "direction": "north",
+          "exportDirection": "up",
+          "frameCount": 9,
+          "frameWidth": 256,
+          "frameHeight": 256,
+          "outputFile": "assets/heroes/valdris/Valdris_Up_Walk.png",
+          "frames": [
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/e4f0ebfe-02f2-48e2-acb4-a1ee361720e5/north/0.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/e4f0ebfe-02f2-48e2-acb4-a1ee361720e5/north/1.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/e4f0ebfe-02f2-48e2-acb4-a1ee361720e5/north/2.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/e4f0ebfe-02f2-48e2-acb4-a1ee361720e5/north/3.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/e4f0ebfe-02f2-48e2-acb4-a1ee361720e5/north/4.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/e4f0ebfe-02f2-48e2-acb4-a1ee361720e5/north/5.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/e4f0ebfe-02f2-48e2-acb4-a1ee361720e5/north/6.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/e4f0ebfe-02f2-48e2-acb4-a1ee361720e5/north/7.png",
+            "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/c2dea73b-4644-45c1-bedf-5195a1f75f56/animations/e4f0ebfe-02f2-48e2-acb4-a1ee361720e5/north/8.png"
+          ]
+        }
+      ]
+    }
+  ],
+  "generatedStrips": [
+    {
+      "animation": "attack",
+      "direction": "down",
+      "frameCount": 7,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "outputFile": "assets/heroes/valdris/Valdris_Down_Attack.png"
+    },
+    {
+      "animation": "attack",
+      "direction": "left",
+      "frameCount": 7,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "outputFile": "assets/heroes/valdris/Valdris_Left_Attack.png"
+    },
+    {
+      "animation": "attack",
+      "direction": "right",
+      "frameCount": 7,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "outputFile": "assets/heroes/valdris/Valdris_Right_Attack.png"
+    },
+    {
+      "animation": "attack",
+      "direction": "up",
+      "frameCount": 7,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "outputFile": "assets/heroes/valdris/Valdris_Up_Attack.png"
+    },
+    {
+      "animation": "idle",
+      "direction": "down",
+      "frameCount": 9,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "outputFile": "assets/heroes/valdris/Valdris_Down_Idle.png"
+    },
+    {
+      "animation": "idle",
+      "direction": "left",
+      "frameCount": 9,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "outputFile": "assets/heroes/valdris/Valdris_Left_Idle.png"
+    },
+    {
+      "animation": "idle",
+      "direction": "right",
+      "frameCount": 9,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "outputFile": "assets/heroes/valdris/Valdris_Right_Idle.png"
+    },
+    {
+      "animation": "idle",
+      "direction": "up",
+      "frameCount": 9,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "outputFile": "assets/heroes/valdris/Valdris_Up_Idle.png"
+    },
+    {
+      "animation": "walk",
+      "direction": "down",
+      "frameCount": 9,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "outputFile": "assets/heroes/valdris/Valdris_Down_Walk.png"
+    },
+    {
+      "animation": "walk",
+      "direction": "left",
+      "frameCount": 9,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "outputFile": "assets/heroes/valdris/Valdris_Left_Walk.png"
+    },
+    {
+      "animation": "walk",
+      "direction": "right",
+      "frameCount": 9,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "outputFile": "assets/heroes/valdris/Valdris_Right_Walk.png"
+    },
+    {
+      "animation": "walk",
+      "direction": "up",
+      "frameCount": 9,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "outputFile": "assets/heroes/valdris/Valdris_Up_Walk.png"
+    }
+  ]
+}

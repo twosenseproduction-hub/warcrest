@@ -227,7 +227,8 @@
     lastT = now;
 
     if (state.scene === 'playing') {
-      RTS.update(state, dt);
+      if (RTS.update) RTS.update(state, dt);
+      if (RTS.updateHeroLifecycle) RTS.updateHeroLifecycle(state, dt);
       RTS.HUD.tick(state, dt);
     }
     if (state.scene === 'playing' || state.scene === 'paused' ||

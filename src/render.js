@@ -153,7 +153,10 @@
         });
       } else {
         // Fog OFF — draw all units normally
-        s.entities.units.forEach(function (u) { Art().drawUnit(ctx, u, RTS.Factions[u.faction], s); });
+        s.entities.units.forEach(function (u) {
+          if (u.isHero && u.dead) return;
+          Art().drawUnit(ctx, u, RTS.Factions[u.faction], s);
+        });
       }
 
       drawProjectiles(s, ctx);

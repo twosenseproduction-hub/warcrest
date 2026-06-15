@@ -98,6 +98,7 @@
           });
           return;
         }
+        if (RTS.canTrainRoleForFaction && !RTS.canTrainRoleForFaction(role, fid)) return;
         var us = RTS.Units[role];
         if (!us) return;
         var afford = s.res.player.halcite >= us.cost;
