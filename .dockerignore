@@ -1,4 +1,6 @@
 files/
+node_modules/
+dist/
 CONSOLIDATED_SOURCE.md
 CLAUDE_PROMPT.md
 CLAUDE_STANDALONE_PROMPT.md
