@@ -1,0 +1,23 @@
+{
+  "job_id": "7e63f459-6da9-4e32-9635-67a1a129ece1",
+  "status": "completed",
+  "seed": 56766455,
+  "source_frame_size": [
+    168,
+    168
+  ],
+  "sheet_frame_size": [
+    192,
+    192
+  ],
+  "sheet_size": [
+    1536,
+    192
+  ],
+  "frame_count": 8,
+  "usage": {
+    "type": "generations",
+    "generations": 40.0
+  },
+  "note": "PixelLab generate-8-rotations-v2 rejected 192x192 input; generated at max 168x168 and upscaled with nearest-neighbor to 192x192 cells."
+}
