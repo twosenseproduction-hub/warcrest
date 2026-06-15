@@ -5,15 +5,46 @@
 (function (RTS) {
   'use strict';
 
+  function addTrait(list, trait) {
+    if (list.indexOf(trait) < 0) list.push(trait);
+  }
+
+  function removeTrait(list, trait) {
+    var idx = list.indexOf(trait);
+    if (idx >= 0) list.splice(idx, 1);
+  }
+
+  function traitsFor(role, factionId, spec) {
+    var traits = (spec.traits || []).slice();
+    if (factionId === 'aurex') {
+      addTrait(traits, 'formation_bonus');
+      removeTrait(traits, 'blood_frenzy');
+      removeTrait(traits, 'gnoll_poison');
+      removeTrait(traits, 'trollblood');
+    } else if (factionId === 'cinder') {
+      addTrait(traits, 'blood_frenzy');
+      removeTrait(traits, 'formation_bonus');
+      removeTrait(traits, 'archer_still');
+      removeTrait(traits, 'monk_aura');
+      removeTrait(traits, 'taunt');
+      if (role === 'archer') addTrait(traits, 'gnoll_poison');
+      if (role === 'warrior') addTrait(traits, 'trollblood');
+    }
+    return traits;
+  }
+
   RTS.makeUnit = function (s, role, team, x, y, factionId) {
     var spec = RTS.Units[role];
+    var fid = factionId || (team === RTS.TEAM.PLAYER ? s.playerFaction : s.enemyFaction);
     var id = RTS.nextId();
     var u = {
       id: id, kind: 'unit', role: role, team: team,
-      faction: factionId || (team === RTS.TEAM.PLAYER ? s.playerFaction : s.enemyFaction),
+      faction: fid,
       x: x, y: y, vx: 0, vy: 0,
       hp: spec.hp, maxHp: spec.hp,
       speed: spec.speed, dmg: spec.dmg, range: spec.range, rof: spec.rof,
+      traits: traitsFor(role, fid, spec),
+      tauntRadius: fid === 'aurex' ? spec.tauntRadius : null,
       ranged: !!spec.ranged, splash: spec.splash || 0, heal: spec.heal || 0,
       radius: RTS.SizeRef.pxRadius(role),
       cooldown: 0, target: null, moveTo: null, attackMove: false,
@@ -74,8 +105,10 @@
       splash: opts.splash || 0,
       color: opts.color || '#ffffff', life: 2.2,
       lastX: target.x, lastY: target.y,
+      attackerId: opts.attackerId || from.id || null,
       faction: opts.faction || from.faction,
       role: opts.role || from.role,
+      traits: (opts.traits || from.traits || []).slice ? (opts.traits || from.traits || []).slice() : [],
       fromTurret: opts.fromTurret || false,
     });
   };

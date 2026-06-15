@@ -145,6 +145,7 @@
   function scoreTarget(s, u, candidate, origin) {
     var score = 0;
     var d = targetDist(s, u, candidate);
+    if (RTS.tauntEffectiveDistance) d = RTS.tauntEffectiveDistance(u, candidate, d);
     score -= d * 0.04;
 
     if (candidate.kind === 'unit') {

@@ -121,6 +121,12 @@
         productionBonus: 30,
       },
     },
+    formationBonus: { minUnits: 3, radius: 120, dmgBonus: 0.15 },
+    bloodFrenzy: { radius: 180, atkSpeedBonus: 0.12, duration: 4 },
+    trollblood: { regenPerSec: 12, graceSec: 2.0 },
+    gnollPoison: { dmgPerSec: 3, duration: 4 },
+    archerStill: { dmgBonus: 0.20, stillThreshold: 8 },
+    monkAura: { radius: 130, dmgReduction: 0.10 },
     separation: 150,            // unit push-apart strength
     pawnSeparationMul: 0.28,    // workers — allow slight overlap at mines / base
     unitCollisionGap: 4,        // minimum px gap between unit hitboxes
@@ -152,30 +158,35 @@
       role: 'pawn', label: 'Pawn', glyph: 'circle',
       hp: 55, speed: 100, dmg: 5, range: 22, rof: 1.0,
       cost: 40, supply: 1, build: 0, canHarvest: true, canBuild: true,
+      traits: [],
       desc: 'Harvests Ironstone and raises structures.',
     },
     lancer: {
       role: 'lancer', label: 'Lancer', glyph: 'diamond',
       hp: 52, speed: 178, dmg: 9, range: 78, rof: 0.55,
       cost: 45, supply: 1, build: 0,
+      traits: [],
       desc: 'Fast skirmisher — your opening army unit.',
     },
     archer: {
       role: 'archer', label: 'Archer', glyph: 'tri',
       hp: 64, speed: 118, dmg: 10, range: 132, rof: 0.62,
       cost: 60, supply: 1, build: 0, ranged: true,
+      traits: ['archer_still'],
       desc: 'Ranged backbone once Lancers hold the line.',
     },
     monk: {
       role: 'monk', label: 'Monk', glyph: 'cross',
       hp: 80, speed: 108, dmg: 0, range: 110, rof: 0.7, heal: 12,
       cost: 90, supply: 2, build: 0, healer: true,
+      traits: ['monk_aura'],
       desc: 'Heals nearby allies. Keep behind the front.',
     },
     warrior: {
       role: 'warrior', label: 'Warrior', glyph: 'hex',
       hp: 230, speed: 62, dmg: 30, range: 46, rof: 0.85,
-      cost: 120, supply: 3, build: 0,
+      cost: 120, supply: 3, build: 0, tauntRadius: 90,
+      traits: ['taunt'],
       desc: 'Armored frontline — train from Archery once Barracks is up.',
     },
   };

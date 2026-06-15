@@ -9,6 +9,114 @@
   var TEAM = RTS.TEAM;
   function dist(ax, ay, bx, by) { var dx = bx - ax, dy = by - ay; return Math.sqrt(dx * dx + dy * dy); }
 
+  function cfg(name, defaults) {
+    return RTS.Config[name] || defaults;
+  }
+
+  function now(s) {
+    return s.timers.gameTime || 0;
+  }
+
+  function attackCooldown(s, u) {
+    var cd = u.rof;
+    if (RTS.hasTrait && RTS.hasTrait(u, 'blood_frenzy')) {
+      var frenzy = cfg('bloodFrenzy', { atkSpeedBonus: 0.12 });
+      if (u.bloodFrenzyUntil && u.bloodFrenzyUntil > now(s)) {
+        cd = cd / (1 + (frenzy.atkSpeedBonus || 0));
+      }
+    }
+    return cd;
+  }
+
+  function trackUnitSpeed(u, dt) {
+    if (u._lastTraitX == null || u._lastTraitY == null || dt <= 0) {
+      u.currentSpeed = 0;
+    } else {
+      u.currentSpeed = dist(u._lastTraitX, u._lastTraitY, u.x, u.y) / dt;
+    }
+    u._lastTraitX = u.x;
+    u._lastTraitY = u.y;
+  }
+
+  function modifiedOutgoingDamage(s, u, target, amount) {
+    var dmg = amount;
+    if (RTS.hasTrait && RTS.hasTrait(u, 'formation_bonus')) {
+      var formation = cfg('formationBonus', { minUnits: 3, radius: 120, dmgBonus: 0.15 });
+      var needed = Math.max(0, (formation.minUnits || 3) - 1);
+      var count = 0;
+      s.entities.units.forEach(function (ally) {
+        if (ally === u || ally.dead || ally.team !== u.team || ally.faction !== u.faction) return;
+        if (!RTS.hasTrait(ally, 'formation_bonus')) return;
+        if (ally.target !== target.id) return;
+        if (dist(u.x, u.y, ally.x, ally.y) <= (formation.radius || 120)) count++;
+      });
+      if (count >= needed) dmg *= 1 + (formation.dmgBonus || 0);
+    }
+
+    if (RTS.hasTrait && RTS.hasTrait(u, 'archer_still')) {
+      var still = cfg('archerStill', { dmgBonus: 0.20, stillThreshold: 8 });
+      if ((u.currentSpeed || 0) < (still.stillThreshold || 8)) {
+        dmg *= 1 + (still.dmgBonus || 0);
+      }
+    }
+
+    return dmg;
+  }
+
+  function applyPoisonOnHit(s, attacker, target) {
+    if (!attacker || !target || !RTS.hasTrait || !RTS.hasTrait(attacker, 'gnoll_poison')) return;
+    var poison = cfg('gnollPoison', { dmgPerSec: 3, duration: 4 });
+    target.poisonUntil = now(s) + (poison.duration || 4);
+    target.poisonDmgPerSec = poison.dmgPerSec || 3;
+  }
+
+  function tickPoison(s, e, dt) {
+    if (!e.poisonUntil || e.poisonUntil <= now(s) || e.dead) return;
+    var amount = (e.poisonDmgPerSec || 0) * dt;
+    if (amount <= 0) return;
+    e.hp -= amount;
+    if (e.kind === 'unit') e.lastHitTime = now(s);
+    if (e.hp <= 0 && !e.dead) killEntity(s, e, null);
+  }
+
+  function tickTrollblood(s, u, dt) {
+    if (!RTS.hasTrait || !RTS.hasTrait(u, 'trollblood')) return;
+    var tb = cfg('trollblood', { regenPerSec: 12, graceSec: 2.0 });
+    var lastHit = u.lastHitTime || 0;
+    if (now(s) - lastHit < (tb.graceSec || 2.0)) return;
+    if (u.hp >= u.maxHp) return;
+    u.hp = Math.min(u.maxHp, u.hp + (tb.regenPerSec || 12) * dt);
+  }
+
+  function tickPassiveEffects(s, e, dt) {
+    tickPoison(s, e, dt);
+    if (e.kind === 'unit' && !e.dead) tickTrollblood(s, e, dt);
+  }
+
+  function monkAuraReduction(s, target) {
+    if (!target || target.kind !== 'unit' || target.team !== TEAM.PLAYER) return 0;
+    var aura = cfg('monkAura', { radius: 130, dmgReduction: 0.10 });
+    var reduction = 0;
+    s.entities.units.forEach(function (u) {
+      if (u.dead || u.team !== target.team || !RTS.hasTrait || !RTS.hasTrait(u, 'monk_aura')) return;
+      if (dist(u.x, u.y, target.x, target.y) <= (aura.radius || 130)) {
+        reduction += aura.dmgReduction || 0;
+      }
+    });
+    return Math.min(0.25, reduction);
+  }
+
+  function applyBloodFrenzy(s, deadUnit) {
+    if (!deadUnit || deadUnit.kind !== 'unit' || !RTS.hasTrait || !RTS.hasTrait(deadUnit, 'blood_frenzy')) return;
+    var frenzy = cfg('bloodFrenzy', { radius: 180, duration: 4 });
+    s.entities.units.forEach(function (u) {
+      if (u.dead || u.team !== deadUnit.team || !RTS.hasTrait(u, 'blood_frenzy')) return;
+      if (dist(deadUnit.x, deadUnit.y, u.x, u.y) <= (frenzy.radius || 180)) {
+        u.bloodFrenzyUntil = Math.max(u.bloodFrenzyUntil || 0, now(s) + (frenzy.duration || 4));
+      }
+    });
+  }
+
   function depositRect(dep, s) {
     if (RTS.Assets && RTS.Assets.buildingCollisionRect) {
       return RTS.Assets.buildingCollisionRect(dep, s);
@@ -203,6 +311,9 @@
 
   function updateUnit(s, u, dt) {
     if (u.dead) return;
+    tickPassiveEffects(s, u, dt);
+    if (u.dead) return;
+    trackUnitSpeed(u, dt);
     u.cooldown = Math.max(0, u.cooldown - dt);
     u.muzzleFlash = Math.max(0, u.muzzleFlash - dt);
     u.spawnFlash = Math.max(0, u.spawnFlash - dt);
@@ -227,7 +338,7 @@
             u.vx = 0; u.vy = 0;
             u.facing = Math.atan2(ratk.aimY - u.y, ratk.aimX - u.x);
             if (u.cooldown <= 0 && u.dmg > 0) {
-              u.cooldown = u.rof;
+              u.cooldown = attackCooldown(s, u);
               fire(s, u, rt);
             }
           } else {
@@ -261,7 +372,7 @@
         u.vx = 0; u.vy = 0;
         u.facing = Math.atan2(atk.aimY - u.y, atk.aimX - u.x);
         if (u.cooldown <= 0 && u.dmg > 0) {
-          u.cooldown = u.rof;
+          u.cooldown = attackCooldown(s, u);
           fire(s, u, target);
         }
       } else {
@@ -311,34 +422,40 @@
   }
 
   function fire(s, u, target) {
+    var dmg = modifiedOutgoingDamage(s, u, target, u.dmg);
     if (RTS.Sprites && RTS.Sprites.ready) {
       RTS.Sprites.startAttack(u, target);
       if (u.ranged) {
         u._pendingShot = {
           targetId: target.id,
-          dmg: u.dmg,
+          attackerId: u.id,
+          dmg: dmg,
           splash: u.splash,
           faction: u.faction,
           role: u.role,
+          traits: (u.traits || []).slice(),
           released: false,
         };
       } else {
-        u._pendingMelee = { targetId: target.id, dmg: u.dmg, released: false };
+        u._pendingMelee = { targetId: target.id, attackerId: u.id, dmg: dmg, released: false };
       }
       RTS.Audio.play(u.ranged ? 'shot' : 'melee');
       return;
     }
     u.muzzleFlash = RTS.Config.muzzleFlash;
     if (u.ranged) {
-      RTS.makeProjectile(s, u, target, u.dmg, {
+      RTS.makeProjectile(s, u, target, dmg, {
         splash: u.splash,
         color: RTS.Factions[u.faction].accent,
         faction: u.faction,
         role: u.role,
+        attackerId: u.id,
+        traits: (u.traits || []).slice(),
       });
       RTS.Audio.play(u.ranged ? 'shot' : 'melee');
     } else {
-      applyDamage(s, target, u.dmg, u);
+      applyDamage(s, target, dmg, u);
+      applyPoisonOnHit(s, u, target);
       RTS.Audio.play('melee');
     }
   }
@@ -348,11 +465,14 @@
       var ps = u._pendingShot;
       var t = RTS.getById(s, ps.targetId);
       if (t && !t.dead) {
+        var shooter = ps.attackerId ? RTS.getById(s, ps.attackerId) : u;
         RTS.makeProjectile(s, u, t, ps.dmg, {
           splash: ps.splash,
           color: RTS.Factions[ps.faction].accent,
           faction: ps.faction,
           role: ps.role,
+          attackerId: shooter ? shooter.id : ps.attackerId,
+          traits: shooter && shooter.traits ? shooter.traits.slice() : (ps.traits || []).slice(),
         });
       }
       u._pendingShot.released = true;
@@ -361,7 +481,11 @@
     if (u._pendingMelee && !u._pendingMelee.released && RTS.Sprites.atImpactFrame(u)) {
       var pm = u._pendingMelee;
       var mt = RTS.getById(s, pm.targetId);
-      if (mt && !mt.dead) applyDamage(s, mt, pm.dmg, u);
+      if (mt && !mt.dead) {
+        var attacker = pm.attackerId ? RTS.getById(s, pm.attackerId) : u;
+        applyDamage(s, mt, pm.dmg, attacker || u);
+        applyPoisonOnHit(s, attacker || u, mt);
+      }
       u._pendingMelee.released = true;
       if (u._pendingMelee.released) u._pendingMelee = null;
     }
@@ -391,7 +515,7 @@
       u.inAttackRange = true;
       u.facing = Math.atan2(best.y - u.y, best.x - u.x);
       if (u.cooldown <= 0) {
-        u.cooldown = u.rof;
+        u.cooldown = attackCooldown(s, u);
         if (RTS.Sprites && RTS.Sprites.ready) {
           RTS.Sprites.startAttack(u, best);
           u._pendingHeal = { targetId: best.id, amount: u.heal, released: false };
@@ -726,6 +850,8 @@
   // ---- Buildings -----------------------------------------------------------
   function updateBuilding(s, b, dt) {
     if (b.dead) return;
+    tickPassiveEffects(s, b, dt);
+    if (b.dead) return;
     b.spawnFlash = Math.max(0, b.spawnFlash - dt);
     b.cooldown = Math.max(0, b.cooldown - dt);
 
@@ -987,6 +1113,9 @@
   }
 
   function applyDamage(s, target, amount, attacker, impact) {
+    var reduction = monkAuraReduction(s, target);
+    if (reduction > 0) amount *= (1 - reduction);
+    if (target.kind === 'unit') target.lastHitTime = now(s);
     target.hp -= amount;
     var pt = impactPoint(target, attacker, impact);
     RTS.spawnHit(s, pt.x, pt.y);
@@ -1009,6 +1138,7 @@
   function killEntity(s, e, attacker) {
     e.dead = true; e.hp = 0;
     if (e.kind === 'unit') {
+      applyBloodFrenzy(s, e);
       e.corpse = RTS.Config.corpseFade;
       if (RTS.Particles && RTS.Particles.ready) {
         RTS.Particles.spawnDust(s, e.x, e.y + 2, 1.15, true);
@@ -1060,7 +1190,10 @@
           RTS.spawnExplosion(s, tx, ty, p.splash, '#ffb24d');
           s.screenShake = Math.max(s.screenShake, 3);
         } else if (t && !t.dead) {
-          applyDamage(s, t, p.dmg, { team: p.team }, { x: p.x, y: p.y });
+          var attacker = p.attackerId ? RTS.getById(s, p.attackerId) : null;
+          var source = attacker || { id: p.attackerId, team: p.team, role: p.role, faction: p.faction, traits: p.traits };
+          applyDamage(s, t, p.dmg, source, { x: p.x, y: p.y });
+          applyPoisonOnHit(s, source, t);
         }
         continue;
       }
@@ -1462,5 +1595,18 @@
     if (!enemyCastle) RTS.endMatch(s, 'won');
     else if (!playerCastle) RTS.endMatch(s, 'lost');
   }
+
+  RTS.tauntEffectiveDistance = function (attacker, candidate, actualDistance) {
+    if (!attacker || !candidate || candidate.dead || candidate.kind !== 'unit') return actualDistance;
+    if (attacker.team !== TEAM.ENEMY) return actualDistance;
+    if (!RTS.hasTrait(candidate, 'taunt')) return actualDistance;
+    var radius = candidate.tauntRadius ||
+      (RTS.Units[candidate.role] && RTS.Units[candidate.role].tauntRadius) || 90;
+    return dist(attacker.x, attacker.y, candidate.x, candidate.y) <= radius ? 0 : actualDistance;
+  };
+
+  RTS.hasTrait = function(unit, trait) {
+    return unit.traits && unit.traits.indexOf(trait) !== -1;
+  };
 
 })(window.RTS = window.RTS || {});
