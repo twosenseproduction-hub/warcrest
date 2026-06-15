@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { CSSProperties, JSX } from 'react';
 import { GameEvents } from '../game/events/GameEvents';
+import { gameState, type PlayerResources, type ResourcesUpdatedEvent } from '../game/state/GameState';
 
 const gold = '#FFD700';
 const panelBackground = 'rgba(10, 14, 22, 0.82)';
@@ -82,6 +83,13 @@ const heroPortraitStyle: CSSProperties = {
   letterSpacing: '0.08em',
 };
 
+const heroTextStyle: CSSProperties = {
+  display: 'grid',
+  gap: 2,
+  textAlign: 'center',
+  fontSize: 10,
+};
+
 const fogToggleStyle: CSSProperties = {
   position: 'fixed',
   top: 16,
@@ -102,6 +110,30 @@ const fogToggleStyle: CSSProperties = {
 
 export default function GameHUD(): JSX.Element {
   const [fogEnabled, setFogEnabled] = useState(true);
+  const [resources, setResources] = useState<PlayerResources>(() => (
+    gameState.getResourcesForPlayer('player-1')
+  ));
+  const [hero, setHero] = useState<ResourcesUpdatedEvent['hero']>(() => {
+    const heroUnit = gameState.getUnitsForPlayer('player-1').find((unit) => unit.isHero);
+
+    return heroUnit ? { name: heroUnit.name, level: heroUnit.level } : undefined;
+  });
+
+  useEffect(() => {
+    const handleResourcesUpdated = (event: ResourcesUpdatedEvent): void => {
+      if (event.playerId !== 'player-1') return;
+
+      setResources(event.resources);
+      setHero(event.hero);
+    };
+
+    GameEvents.on('resources-updated', handleResourcesUpdated);
+    gameState.emitResourcesUpdated('player-1');
+
+    return () => {
+      GameEvents.off('resources-updated', handleResourcesUpdated);
+    };
+  }, []);
 
   const handleFogToggle = (): void => {
     setFogEnabled((enabled) => !enabled);
@@ -112,8 +144,8 @@ export default function GameHUD(): JSX.Element {
     <div style={wrapperStyle} aria-label="Game HUD">
       <div style={{ ...cornerPanelStyle, top: 16, left: 16 }}>
         <div style={resourceRowStyle}>
-          <span>⚱️ Gold: 500</span>
-          <span>🪵 Wood: 200</span>
+          <span>⚱️ Gold: {Math.floor(resources.gold)}</span>
+          <span>🪵 Wood: {Math.floor(resources.wood)}</span>
         </div>
       </div>
 
@@ -134,7 +166,14 @@ export default function GameHUD(): JSX.Element {
       </div>
 
       <div style={{ position: 'fixed', left: 16, bottom: 24 }}>
-        <div style={heroPortraitStyle}>HERO</div>
+        <div style={heroPortraitStyle}>
+          {hero ? (
+            <span style={heroTextStyle}>
+              <span>{hero.name}</span>
+              <span>LVL {hero.level ?? 1}</span>
+            </span>
+          ) : 'HERO'}
+        </div>
       </div>
     </div>
   );

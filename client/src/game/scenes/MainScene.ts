@@ -1,12 +1,11 @@
 import Phaser from 'phaser';
+import { MAP_CONFIG, type TilePosition } from '../data/mapConfig';
 import { GameEvents } from '../events/GameEvents';
+import { gameState, type Building, type Unit } from '../state/GameState';
 import { FogOfWar, type FogState } from '../systems/FogOfWar';
 
-const GRID_SIZE = 20;
-const TILE_WIDTH = 64;
-const TILE_HEIGHT = 32;
-const UNIT_RADIUS = 16;
-const UNIT_VISION_RADIUS = 4;
+const TILE_WIDTH = MAP_CONFIG.isoTileWidth;
+const TILE_HEIGHT = MAP_CONFIG.isoTileHeight;
 const MIN_TAP_TARGET_RADIUS = 24;
 const TICK_INTERVAL_MS = 2_000;
 const TREE_TRUNK_TEXTURE = 'placeholder-tree-trunk';
@@ -15,6 +14,19 @@ const BUILDING_TEXTURE = 'placeholder-building';
 const CANOPY_DEPTH = 9_999;
 const MAP_DEPTH = -1;
 const FOG_DEPTH = 0;
+const LONG_PRESS_MS = 450;
+
+type UnitView = {
+  container: Phaser.GameObjects.Container;
+  body: Phaser.GameObjects.Rectangle;
+  label: Phaser.GameObjects.Text;
+};
+
+type BuildingView = {
+  container: Phaser.GameObjects.Container;
+  body: Phaser.GameObjects.Rectangle;
+  label: Phaser.GameObjects.Text;
+};
 
 type TreeParts = {
   trunk: Phaser.GameObjects.Sprite;
@@ -22,14 +34,18 @@ type TreeParts = {
 };
 
 export default class MainScene extends Phaser.Scene {
-  private readonly fogSystem = new FogOfWar(GRID_SIZE, GRID_SIZE);
-  private unit?: Phaser.GameObjects.Arc;
-  private building?: Phaser.GameObjects.Sprite;
+  private readonly fogSystem = new FogOfWar(MAP_CONFIG.mapWidth, MAP_CONFIG.mapHeight);
+  private unitViews = new Map<string, UnitView>();
+  private buildingViews = new Map<string, BuildingView>();
+  private resourceGraphics?: Phaser.GameObjects.Graphics;
   private fogGraphics?: Phaser.GameObjects.Graphics;
+  private selectionGraphics?: Phaser.GameObjects.Graphics;
   private trees: TreeParts[] = [];
   private fogEnabled = true;
-  private draggingUnit = false;
   private lastTickLog = 0;
+  private longPressTimer: number | null = null;
+  private longPressFired = false;
+  private pointerDownTile: TilePosition | null = null;
 
   constructor() {
     super({ key: 'MainScene' });
@@ -41,21 +57,25 @@ export default class MainScene extends Phaser.Scene {
 
     this.createPlaceholderTextures();
     this.drawIsometricGrid();
+    this.createResourceLayer();
     this.createFogLayer();
-    this.createPlaceholderBuilding();
+    this.createSelectionLayer();
     this.createLayeredTrees();
-    this.createPlaceholderUnit();
+    this.renderGameState();
     this.registerPointerEvents();
     this.registerGameEvents();
     this.updateFogVision();
     this.renderFog();
     this.children.depthSort();
 
+    gameState.emitResourcesUpdated('player-1');
     GameEvents.emit('scene-ready', this);
     this.game.events.emit('scene-ready', this);
   }
 
-  update(time: number, _delta: number): void {
+  update(time: number, delta: number): void {
+    gameState.tick(delta / 1_000);
+    this.renderGameState();
     this.updateFogVision();
     this.renderFog();
     this.sys.displayList.depthSort();
@@ -105,13 +125,10 @@ export default class MainScene extends Phaser.Scene {
   private drawIsometricGrid(): void {
     const graphics = this.add.graphics();
     graphics.setDepth(MAP_DEPTH);
-    const originX = this.scale.width / 2;
-    const originY = Math.max(96, this.scale.height * 0.16);
 
-    for (let row = 0; row < GRID_SIZE; row += 1) {
-      for (let col = 0; col < GRID_SIZE; col += 1) {
-        const x = originX + (col - row) * (TILE_WIDTH / 2);
-        const y = originY + (col + row) * (TILE_HEIGHT / 2);
+    for (let row = 0; row < MAP_CONFIG.mapHeight; row += 1) {
+      for (let col = 0; col < MAP_CONFIG.mapWidth; col += 1) {
+        const { x, y } = this.tileToScreen({ tileX: col, tileY: row });
         const fillColor = (row + col) % 2 === 0 ? 0x263a2e : 0x303a36;
 
         graphics.fillStyle(fillColor, 1);
@@ -128,18 +145,20 @@ export default class MainScene extends Phaser.Scene {
     }
   }
 
+  private createResourceLayer(): void {
+    this.resourceGraphics = this.add.graphics();
+    this.resourceGraphics.setDepth(1);
+    this.renderResources();
+  }
+
   private createFogLayer(): void {
     this.fogGraphics = this.add.graphics();
     this.fogGraphics.setDepth(FOG_DEPTH);
   }
 
-  private createPlaceholderBuilding(): void {
-    const position = this.tileToScreen(9, 11);
-
-    this.building = this.add
-      .sprite(position.x, position.y + 14, BUILDING_TEXTURE)
-      .setOrigin(0.5, 1);
-    this.building.setDepth(this.building.y);
+  private createSelectionLayer(): void {
+    this.selectionGraphics = this.add.graphics();
+    this.selectionGraphics.setDepth(CANOPY_DEPTH + 1);
   }
 
   private createLayeredTrees(): void {
@@ -151,7 +170,7 @@ export default class MainScene extends Phaser.Scene {
     ];
 
     this.trees = treeTiles.map(({ row, col }) => {
-      const position = this.tileToScreen(row, col);
+      const position = this.tileToScreen({ tileX: col, tileY: row });
       const trunk = this.add
         .sprite(position.x, position.y + 14, TREE_TRUNK_TEXTURE)
         .setOrigin(0.5, 1);
@@ -166,18 +185,128 @@ export default class MainScene extends Phaser.Scene {
     });
   }
 
-  private createPlaceholderUnit(): void {
-    const center = this.tileToScreen(Math.floor(GRID_SIZE / 2), Math.floor(GRID_SIZE / 2));
+  private renderGameState(): void {
+    this.renderBuildings();
+    this.renderUnits();
+    this.renderSelection();
+  }
 
-    this.unit = this.add
-      .circle(center.x, center.y, UNIT_RADIUS, 0x4fc3f7)
-      .setStrokeStyle(2, 0xb3e5fc)
-      .setInteractive({
-        hitArea: new Phaser.Geom.Circle(0, 0, MIN_TAP_TARGET_RADIUS),
-        hitAreaCallback: Phaser.Geom.Circle.Contains,
-        useHandCursor: false,
-      });
-    this.unit.setDepth(this.unit.y);
+  private renderResources(): void {
+    if (!this.resourceGraphics) return;
+
+    this.resourceGraphics.clear();
+
+    for (const resource of gameState.resourceNodes) {
+      const position = this.tileToScreen(resource);
+
+      this.resourceGraphics.fillStyle(0xb7d6ff, 0.95);
+      this.resourceGraphics.fillCircle(position.x, position.y, 11);
+      this.resourceGraphics.lineStyle(2, 0xffffff, 0.7);
+      this.resourceGraphics.strokeCircle(position.x, position.y, 12);
+    }
+  }
+
+  private renderBuildings(): void {
+    for (const building of gameState.buildings.values()) {
+      const view = this.ensureBuildingView(building);
+      const position = this.tileToScreen(building);
+
+      view.container.setPosition(position.x, position.y);
+      view.container.setDepth(position.y);
+      view.label.setText(building.name);
+    }
+
+    for (const [id, view] of this.buildingViews) {
+      if (!gameState.buildings.has(id)) {
+        view.container.destroy(true);
+        this.buildingViews.delete(id);
+      }
+    }
+  }
+
+  private ensureBuildingView(building: Building): BuildingView {
+    const existing = this.buildingViews.get(building.id);
+
+    if (existing) return existing;
+
+    const color = building.playerId === 'player-1' ? 0x244f9e : 0x7a2f2f;
+    const body = this.add.rectangle(0, -18, 86, 48, color, 0.95)
+      .setStrokeStyle(2, 0xd1a53a, 0.9);
+    const roof = this.add.sprite(0, -36, BUILDING_TEXTURE).setScale(0.8);
+    const label = this.add.text(0, -62, building.name, {
+      color: '#FFD700',
+      fontFamily: '"Courier New", monospace',
+      fontSize: '10px',
+      stroke: '#000000',
+      strokeThickness: 3,
+    }).setOrigin(0.5);
+    const container = this.add.container(0, 0, [body, roof, label]);
+
+    container.setSize(96, 80);
+    this.buildingViews.set(building.id, { container, body, label });
+
+    return { container, body, label };
+  }
+
+  private renderUnits(): void {
+    for (const unit of gameState.units.values()) {
+      const view = this.ensureUnitView(unit);
+      const position = this.tileToScreen(unit);
+
+      view.container.setPosition(position.x, position.y);
+      view.container.setDepth(position.y);
+      view.label.setText(unit.type);
+    }
+
+    for (const [id, view] of this.unitViews) {
+      if (!gameState.units.has(id)) {
+        view.container.destroy(true);
+        this.unitViews.delete(id);
+      }
+    }
+  }
+
+  private ensureUnitView(unit: Unit): UnitView {
+    const existing = this.unitViews.get(unit.id);
+
+    if (existing) return existing;
+
+    const color = unit.playerId === 'player-1' ? 0x4fc3f7 : 0xef5350;
+    const body = this.add.rectangle(0, -16, 36, 36, color, 0.95)
+      .setStrokeStyle(2, 0xffffff, 0.75);
+    const label = this.add.text(0, 14, unit.type, {
+      color: '#ffffff',
+      fontFamily: '"Courier New", monospace',
+      fontSize: '10px',
+      stroke: '#000000',
+      strokeThickness: 3,
+    }).setOrigin(0.5);
+    const container = this.add.container(0, 0, [body, label]);
+
+    container.setSize(48, 48);
+    container.setInteractive({
+      hitArea: new Phaser.Geom.Circle(0, -8, MIN_TAP_TARGET_RADIUS),
+      hitAreaCallback: Phaser.Geom.Circle.Contains,
+      useHandCursor: false,
+    });
+    this.unitViews.set(unit.id, { container, body, label });
+
+    return { container, body, label };
+  }
+
+  private renderSelection(): void {
+    if (!this.selectionGraphics) return;
+
+    this.selectionGraphics.clear();
+
+    const selectedUnit = gameState.getSelectedUnit();
+
+    if (!selectedUnit) return;
+
+    const position = this.tileToScreen(selectedUnit);
+
+    this.selectionGraphics.lineStyle(3, 0xffd700, 0.95);
+    this.selectionGraphics.strokeCircle(position.x, position.y - 8, 24);
   }
 
   private registerGameEvents(): void {
@@ -188,26 +317,38 @@ export default class MainScene extends Phaser.Scene {
   }
 
   private registerPointerEvents(): void {
-    if (!this.unit) return;
+    this.input.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
+      const tile = this.screenToTile(pointer.worldX, pointer.worldY);
 
-    this.unit.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
-      this.draggingUnit = true;
-      this.unit?.setPosition(pointer.worldX, pointer.worldY);
-      this.unit?.setDepth(pointer.worldY);
+      this.longPressFired = false;
+      this.pointerDownTile = tile;
+      this.clearLongPressTimer();
+      this.longPressTimer = window.setTimeout(() => {
+        this.longPressFired = true;
+        console.log(`context menu stub: tile ${tile.tileX},${tile.tileY}`);
+      }, LONG_PRESS_MS);
     });
 
-    this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer: Phaser.Input.Pointer) => {
-      if (!this.draggingUnit || !this.unit || !pointer.isDown) return;
-      this.unit.setPosition(pointer.worldX, pointer.worldY);
-      this.unit.setDepth(this.unit.y);
-    });
+    this.input.on(Phaser.Input.Events.POINTER_UP, (pointer: Phaser.Input.Pointer) => {
+      this.clearLongPressTimer();
 
-    this.input.on(Phaser.Input.Events.POINTER_UP, () => {
-      this.draggingUnit = false;
+      if (this.longPressFired) return;
+
+      const tile = this.screenToTile(pointer.worldX, pointer.worldY);
+      const tappedUnit = this.findUnitAtTile(tile);
+
+      if (tappedUnit && tappedUnit.playerId === 'player-1') {
+        gameState.selectUnit(tappedUnit.id);
+      } else {
+        gameState.moveSelectedUnitToTile(tile);
+      }
+
+      this.pointerDownTile = null;
     });
 
     this.input.on(Phaser.Input.Events.POINTER_UP_OUTSIDE, () => {
-      this.draggingUnit = false;
+      this.clearLongPressTimer();
+      this.pointerDownTile = null;
     });
   }
 
@@ -220,17 +361,13 @@ export default class MainScene extends Phaser.Scene {
   }
 
   private updateFogVision(): void {
-    if (!this.unit) return;
-
-    const unitTile = this.screenToTile(this.unit.x, this.unit.y);
-
-    this.fogSystem.updateVision([
-      {
-        tileX: unitTile.tileX,
-        tileY: unitTile.tileY,
-        visionRadius: UNIT_VISION_RADIUS,
-      },
-    ]);
+    this.fogSystem.updateVision(
+      gameState.getUnitsForPlayer('player-1').map((unit) => ({
+        tileX: Math.round(unit.tileX),
+        tileY: Math.round(unit.tileY),
+        visionRadius: unit.visionRadius,
+      })),
+    );
   }
 
   private renderFog(): void {
@@ -240,8 +377,8 @@ export default class MainScene extends Phaser.Scene {
 
     if (!this.fogEnabled) return;
 
-    for (let tileY = 0; tileY < GRID_SIZE; tileY += 1) {
-      for (let tileX = 0; tileX < GRID_SIZE; tileX += 1) {
+    for (let tileY = 0; tileY < MAP_CONFIG.mapHeight; tileY += 1) {
+      for (let tileX = 0; tileX < MAP_CONFIG.mapWidth; tileX += 1) {
         const fogState = this.fogSystem.getState(tileX, tileY);
 
         if (fogState === 'visible') continue;
@@ -254,7 +391,7 @@ export default class MainScene extends Phaser.Scene {
   private drawFogTile(tileX: number, tileY: number, fogState: Exclude<FogState, 'visible'>): void {
     if (!this.fogGraphics) return;
 
-    const position = this.tileToScreen(tileY, tileX);
+    const position = this.tileToScreen({ tileX, tileY });
     const alpha = fogState === 'unexplored' ? 1 : 0.6;
 
     this.fogGraphics.fillStyle(0x000000, alpha);
@@ -267,11 +404,11 @@ export default class MainScene extends Phaser.Scene {
     this.fogGraphics.fillPath();
   }
 
-  private tileToScreen(row: number, col: number): Phaser.Math.Vector2 {
+  private tileToScreen(tile: TilePosition): Phaser.Math.Vector2 {
     const originX = this.scale.width / 2;
     const originY = Math.max(96, this.scale.height * 0.16);
-    const x = originX + (col - row) * (TILE_WIDTH / 2);
-    const y = originY + (col + row) * (TILE_HEIGHT / 2);
+    const x = originX + (tile.tileX - tile.tileY) * (TILE_WIDTH / 2);
+    const y = originY + (tile.tileX + tile.tileY) * (TILE_HEIGHT / 2);
 
     return new Phaser.Math.Vector2(x, y);
   }
@@ -285,8 +422,33 @@ export default class MainScene extends Phaser.Scene {
     const row = Math.round((colPlusRow - colMinusRow) / 2);
 
     return {
-      tileX: Phaser.Math.Clamp(col, 0, GRID_SIZE - 1),
-      tileY: Phaser.Math.Clamp(row, 0, GRID_SIZE - 1),
+      tileX: Phaser.Math.Clamp(col, 0, MAP_CONFIG.mapWidth - 1),
+      tileY: Phaser.Math.Clamp(row, 0, MAP_CONFIG.mapHeight - 1),
     };
+  }
+
+  private findUnitAtTile(tile: TilePosition): Unit | null {
+    let bestUnit: Unit | null = null;
+    let bestDistance = Infinity;
+
+    for (const unit of gameState.units.values()) {
+      const dx = unit.tileX - tile.tileX;
+      const dy = unit.tileY - tile.tileY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance <= 0.75 && distance < bestDistance) {
+        bestUnit = unit;
+        bestDistance = distance;
+      }
+    }
+
+    return bestUnit;
+  }
+
+  private clearLongPressTimer(): void {
+    if (this.longPressTimer === null) return;
+
+    window.clearTimeout(this.longPressTimer);
+    this.longPressTimer = null;
   }
 }
