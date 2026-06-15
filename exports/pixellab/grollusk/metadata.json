@@ -281,5 +281,30 @@
       }
     }
   ],
-  "note": "Generated from existing PixelLab character Grollusk -Ancient gnoll shaman. PixelLab v3 stores a reference frame at source index 0, so sheets use source frames starting at index 1 to match requested Valdris clip counts."
+  "note": "Generated from existing PixelLab character Grollusk -Ancient gnoll shaman. PixelLab v3 stores a reference frame at source index 0, so sheets use source frames starting at index 1 to match requested Valdris clip counts.",
+  "attack_effect_reuse": {
+    "source": "assets/tiny-swords-enemy/Enemies/Goblin Raiders/Hex Shaman/Hex Shaman_Explosion Spell.png",
+    "description": "Composited scaled existing Tiny Swords Hex Shaman explosion spell frames forward/right of Grollusk staff for Attack1/Attack2, replacing the generated yellow spell burst while preserving the 4-frame Valdris attack spec.",
+    "effect_scaled_size": [
+      138,
+      138
+    ],
+    "effect_offset": [
+      54,
+      36
+    ],
+    "attack1_effect_source_indices": [
+      0,
+      1,
+      3,
+      7
+    ],
+    "attack2_effect_source_indices": [
+      0,
+      2,
+      4,
+      8
+    ],
+    "impactFrame": 2
+  }
 }
