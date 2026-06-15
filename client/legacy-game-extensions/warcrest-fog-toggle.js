@@ -2,13 +2,15 @@
   'use strict';
 
   var TILE = 64;
-  var DEFAULT_VISION_RADIUS = 6;
+  var UNIT_VISION_RADIUS = 4;
+  var BUILDING_VISION_RADIUS = 3;
   var fogEnabled = true;
   var fogGrid = null;
   var fogCols = 0;
   var fogRows = 0;
   var patched = false;
   var toggleButton = null;
+  var originalDrawUnit = null;
 
   function ensureButton() {
     if (toggleButton) return toggleButton;
@@ -83,35 +85,54 @@
     }
 
     var units = state && state.entities ? state.entities.units : [];
+    var buildings = state && state.entities ? state.entities.buildings : [];
 
     units.forEach(function (unit) {
       if (!unit || unit.dead || unit.team !== window.RTS.TEAM.PLAYER) return;
 
-      var tileX = Math.round(unit.x / TILE);
-      var tileY = Math.round(unit.y / TILE);
-      var radius = unit.role === 'archer' || unit.role === 'monk' ? DEFAULT_VISION_RADIUS + 1 : DEFAULT_VISION_RADIUS;
-      var minX = Math.max(0, tileX - radius);
-      var maxX = Math.min(fogCols - 1, tileX + radius);
-      var minY = Math.max(0, tileY - radius);
-      var maxY = Math.min(fogRows - 1, tileY + radius);
+      revealWorldCircle(unit.x, unit.y, UNIT_VISION_RADIUS);
+    });
 
-      for (var y = minY; y <= maxY; y++) {
-        for (var x = minX; x <= maxX; x++) {
-          var dx = x - tileX;
-          var dy = y - tileY;
+    buildings.forEach(function (building) {
+      if (!building || building.dead || building.team !== window.RTS.TEAM.PLAYER) return;
 
-          if (Math.sqrt(dx * dx + dy * dy) <= radius) {
-            fogGrid[y][x] = 'visible';
-          }
+      revealWorldCircle(building.x, building.y, BUILDING_VISION_RADIUS);
+    });
+  }
+
+  function revealWorldCircle(worldX, worldY, radius) {
+    var tileX = Math.round(worldX / TILE);
+    var tileY = Math.round(worldY / TILE);
+    var minX = Math.max(0, tileX - radius);
+    var maxX = Math.min(fogCols - 1, tileX + radius);
+    var minY = Math.max(0, tileY - radius);
+    var maxY = Math.min(fogRows - 1, tileY + radius);
+
+    for (var y = minY; y <= maxY; y++) {
+      for (var x = minX; x <= maxX; x++) {
+        var dx = x - tileX;
+        var dy = y - tileY;
+
+        if (Math.sqrt(dx * dx + dy * dy) <= radius) {
+          fogGrid[y][x] = 'visible';
         }
       }
-    });
+    }
+  }
+
+  function isTileVisible(tileX, tileY) {
+    if (!fogEnabled) return true;
+    if (!fogGrid) return true;
+    if (tileY < 0 || tileY >= fogRows || tileX < 0 || tileX >= fogCols) return false;
+    return fogGrid[tileY][tileX] === 'visible';
+  }
+
+  function isWorldVisible(worldX, worldY) {
+    return isTileVisible(Math.round(worldX / TILE), Math.round(worldY / TILE));
   }
 
   function drawFog(state) {
     if (!fogEnabled || !state || !window.RTS || !window.RTS.ctx || !window.RTS.canvas) return;
-
-    updateVision(state);
 
     var ctx = window.RTS.ctx;
     var canvas = window.RTS.canvas;
@@ -147,15 +168,68 @@
     ctx.restore();
   }
 
+  function redrawFriendlyEntities(state) {
+    if (!fogEnabled || !state || !window.RTS || !window.RTS.ctx || !window.RTS.canvas) return;
+    if (!window.RTS.Art || !originalDrawUnit) return;
+
+    var ctx = window.RTS.ctx;
+    var dpr = window.RTS.Render && window.RTS.Render.dpr ? window.RTS.Render.dpr : 1;
+    var camera = state.camera || { x: 0, y: 0, zoom: 1 };
+    var entities = state.entities || {};
+    var buildings = entities.buildings || [];
+    var units = entities.units || [];
+
+    ctx.save();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.translate(-camera.x * camera.zoom, -camera.y * camera.zoom);
+    ctx.scale(camera.zoom, camera.zoom);
+
+    buildings.forEach(function (building) {
+      if (!building || building.dead || building.team !== window.RTS.TEAM.PLAYER) return;
+      window.RTS.Art.drawBuilding(ctx, building, window.RTS.Factions[building.faction], state);
+    });
+
+    units.forEach(function (unit) {
+      if (!unit || unit.dead || unit.team !== window.RTS.TEAM.PLAYER) return;
+      originalDrawUnit.call(window.RTS.Art, ctx, unit, window.RTS.Factions[unit.faction], state);
+    });
+
+    ctx.restore();
+  }
+
+  function patchArtVisibility() {
+    if (!window.RTS || !window.RTS.Art || !window.RTS.Art.drawUnit || originalDrawUnit) return false;
+
+    originalDrawUnit = window.RTS.Art.drawUnit;
+    window.RTS.Art.drawUnit = function (ctx, unit, faction, state) {
+      if (
+        fogEnabled &&
+        fogGrid &&
+        unit &&
+        unit.team !== window.RTS.TEAM.PLAYER &&
+        !isWorldVisible(unit.x, unit.y)
+      ) {
+        return;
+      }
+
+      originalDrawUnit.call(window.RTS.Art, ctx, unit, faction, state);
+    };
+
+    return true;
+  }
+
   function patchRenderer() {
     if (patched || !window.RTS || !window.RTS.Render || !window.RTS.Render.frame) return false;
+    if (!patchArtVisibility()) return false;
 
     var originalFrame = window.RTS.Render.frame;
 
     window.RTS.Render.frame = function (state) {
+      if (fogEnabled) updateVision(state);
       originalFrame.call(window.RTS.Render, state);
       updateButtonVisibility(state);
       drawFog(state);
+      redrawFriendlyEntities(state);
     };
 
     patched = true;
