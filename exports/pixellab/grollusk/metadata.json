@@ -1,9 +1,14 @@
 {
-  "character_id": "0e116595-068c-4739-ac98-e9dc1dc1da68",
-  "character_name": "Ancient gnoll shaman",
+  "character_id": "71254670-9c38-40fa-b1a3-bd9ab20fbe04",
+  "character_name": "Grollusk -Ancient gnoll shaman ",
   "source_prompt": "Ancient gnoll shaman, hunched and gaunt with matted grey fur and hollow glowing eyes. Wears tattered dark robes layered with bone fetishes, dried skulls, and spirit charms hanging from his belt and shoulders. Carries a tall gnarled staff topped with a skull wreathed in sickly green spirit fire. Long clawed hands. Cracked yellowed teeth visible in a calm, unsettling expression. Raider Horde colors \u2014 dark browns, bone white, and toxic green accents. Confident idle stance, weight resting on staff.",
   "view": "low top-down",
   "direction": "east",
+  "root_sheet_frame_size": [
+    192,
+    192
+  ],
+  "native_256_dir": "native_256",
   "clips": [
     {
       "clip": "idle",
@@ -12,7 +17,7 @@
       "fps": 2.0,
       "impactFrame": null,
       "source_animation_type": "Grollusk_Idle",
-      "source_animation_group_id": "184a9073-7466-47a1-8c55-8990dc8416e7",
+      "source_animation_group_id": "da228f37-12b2-4c88-82b7-ba9e10638502",
       "source_stored_frame_count": 9,
       "used_source_indices": [
         1,
@@ -48,7 +53,7 @@
       "fps": 8,
       "impactFrame": null,
       "source_animation_type": "Grollusk_Run",
-      "source_animation_group_id": "757fe065-7b8d-495d-b544-098b3d0d9fbe",
+      "source_animation_group_id": "6c43e067-13a7-43b5-8413-a67bddb7bbff",
       "source_stored_frame_count": 7,
       "used_source_indices": [
         1,
@@ -82,7 +87,7 @@
       "fps": 2.0,
       "impactFrame": null,
       "source_animation_type": "Grollusk_Guard",
-      "source_animation_group_id": "41da378a-486f-423d-868d-b88524d27010",
+      "source_animation_group_id": "61f95926-7ca3-4334-b59e-32211327de88",
       "source_stored_frame_count": 7,
       "used_source_indices": [
         1,
@@ -116,7 +121,7 @@
       "fps": 12,
       "impactFrame": 2,
       "source_animation_type": "Grollusk_Attack1",
-      "source_animation_group_id": "a928bea4-d90b-4ca7-b4a9-daf38402b63e",
+      "source_animation_group_id": "95111ced-e2fb-448d-a0e2-421ba922662b",
       "source_stored_frame_count": 5,
       "used_source_indices": [
         1,
@@ -148,7 +153,7 @@
       "fps": 12,
       "impactFrame": 2,
       "source_animation_type": "Grollusk_Attack2",
-      "source_animation_group_id": "905ed4f8-e741-4eb7-8866-70fdbad3c4a4",
+      "source_animation_group_id": "c9992406-cec6-4d8d-93cc-a273e7660fd0",
       "source_stored_frame_count": 5,
       "used_source_indices": [
         1,
@@ -174,10 +179,107 @@
       ]
     }
   ],
-  "note": "PixelLab v3 stored a reference frame at source index 0, so sheets use source frames starting at index 1 to match requested Valdris clip counts.",
-  "root_sheet_frame_size": [
-    192,
-    192
+  "generation_summary": [
+    {
+      "clip": "idle",
+      "job_id": "72587126-fdad-480b-8991-2b7eb3a41e46",
+      "status": "completed",
+      "usage": {
+        "type": "generations",
+        "generations": 8.0
+      },
+      "last_response": {
+        "animation_id": "1a681077-acac-49af-bcd8-1e31cda63299",
+        "animation_group_id": "da228f37-12b2-4c88-82b7-ba9e10638502",
+        "frame_count": 9,
+        "status": "initializing",
+        "billing_usage": {
+          "usd": 0.0,
+          "type": "generations",
+          "generations": 8
+        }
+      }
+    },
+    {
+      "clip": "walk",
+      "job_id": "49ae1a7b-22f6-45e7-929b-ed8f9592a95a",
+      "status": "completed",
+      "usage": {
+        "type": "generations",
+        "generations": 6.0
+      },
+      "last_response": {
+        "animation_id": "e4476fc9-ce7d-4220-9639-692420328440",
+        "animation_group_id": "6c43e067-13a7-43b5-8413-a67bddb7bbff",
+        "frame_count": 7,
+        "status": "initializing",
+        "billing_usage": {
+          "usd": 0.0,
+          "type": "generations",
+          "generations": 6
+        }
+      }
+    },
+    {
+      "clip": "guard",
+      "job_id": "ddd0690d-2515-4efb-84e2-706258f9e18c",
+      "status": "completed",
+      "usage": {
+        "type": "generations",
+        "generations": 6.0
+      },
+      "last_response": {
+        "animation_id": "dcd9fb6e-4af0-4362-9dff-dfc1742cf0f4",
+        "animation_group_id": "61f95926-7ca3-4334-b59e-32211327de88",
+        "frame_count": 7,
+        "status": "initializing",
+        "billing_usage": {
+          "usd": 0.0,
+          "type": "generations",
+          "generations": 6
+        }
+      }
+    },
+    {
+      "clip": "attack",
+      "job_id": "604ed23b-99c5-4c5c-b6a2-846901b220fb",
+      "status": "completed",
+      "usage": {
+        "type": "generations",
+        "generations": 4.0
+      },
+      "last_response": {
+        "animation_id": "7be53c10-c9b1-439d-b6d6-cf82f7c8f86a",
+        "animation_group_id": "95111ced-e2fb-448d-a0e2-421ba922662b",
+        "frame_count": 5,
+        "status": "initializing",
+        "billing_usage": {
+          "usd": 0.0,
+          "type": "generations",
+          "generations": 4
+        }
+      }
+    },
+    {
+      "clip": "attack2",
+      "job_id": "39ccbba1-86c1-4209-ae48-c632f2a76f6d",
+      "status": "completed",
+      "usage": {
+        "type": "generations",
+        "generations": 4.0
+      },
+      "last_response": {
+        "animation_id": "b2e4905d-61fe-471a-9f8b-117b08ef3097",
+        "animation_group_id": "c9992406-cec6-4d8d-93cc-a273e7660fd0",
+        "frame_count": 5,
+        "status": "initializing",
+        "billing_usage": {
+          "usd": 0.0,
+          "type": "generations",
+          "generations": 4
+        }
+      }
+    }
   ],
-  "native_256_dir": "native_256"
+  "note": "Generated from existing PixelLab character Grollusk -Ancient gnoll shaman. PixelLab v3 stores a reference frame at source index 0, so sheets use source frames starting at index 1 to match requested Valdris clip counts."
 }
