@@ -81,6 +81,15 @@
     return RTS.canBeAttacked(target);
   }
 
+  function targetPerceivable(s, u, target) {
+    if (!targetValid(target)) return false;
+    if (u.team === TEAM.PLAYER && target.team === TEAM.ENEMY &&
+        RTS.fogEnabled && RTS.entityVisibleToPlayer) {
+      return RTS.entityVisibleToPlayer(s, target);
+    }
+    return true;
+  }
+
   function acquireRadius(u) {
     var rc = roleCfg(u);
     var combat = RTS.Config.combat || {};
@@ -183,12 +192,14 @@
     for (i = 0; i < s.entities.units.length; i++) {
       var eu = s.entities.units[i];
       if (!RTS.canBeAttacked(eu) || eu.team !== foeTeam) continue;
+      if (!targetPerceivable(s, u, eu)) continue;
       if (targetDist(s, u, eu) <= maxR) list.push(eu);
     }
     for (i = 0; i < s.entities.buildings.length; i++) {
       var b = s.entities.buildings[i];
       if (b.dead || b.team !== foeTeam) continue;
       if (!canAttackBuilding(b)) continue;
+      if (!targetPerceivable(s, u, b)) continue;
       if (targetDist(s, u, b) <= maxR + pad) list.push(b);
     }
     return list;
@@ -339,7 +350,7 @@
       syncLegacyCommand(u);
 
       var target = u.target ? RTS.getById(s, u.target) : null;
-      if (target && !targetValid(target)) {
+      if (target && !targetPerceivable(s, u, target)) {
         u.target = null;
         target = null;
       }

@@ -423,6 +423,8 @@
   RTS.orderAttack = function (s, units, targetId) {
     var target = RTS.getById(s, targetId);
     if (!target || !RTS.canBeAttacked(target)) return;
+    if (target.team === RTS.TEAM.ENEMY && RTS.fogEnabled &&
+        RTS.entityVisibleToPlayer && !RTS.entityVisibleToPlayer(s, target)) return;
     units.forEach(function (u) {
       applyUnitCommand(u, 'attackTarget', { targetId: targetId, guardOrigin: { x: u.x, y: u.y } });
       if (RTS.Pathfind) RTS.Pathfind.clearNav(u);
