@@ -32,6 +32,7 @@ export default function App(): JSX.Element {
     <main className="app-shell">
       <h1>MOW</h1>
       <p>React shell loaded. Open <a href="/game">/game</a> to launch the Phaser canvas.</p>
+      <p>Open <a href="/legacy-game">/legacy-game</a> to compare against the preserved DOM canvas game.</p>
     </main>
   );
 }
