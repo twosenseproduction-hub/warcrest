@@ -123,9 +123,10 @@
     },
 
     // ---- Faction passive traits -------------------------------------------
+
     // Iron Crown — Formation Bonus
-    // When 3+ Crown units are within formationRadius of the same target,
-    // all attacking units deal +formationDmgBonus% damage to that target.
+    // When 3+ Crown units are within radius of the same target,
+    // all attacking units deal +dmgBonus% damage to that target.
     formationBonus: {
       minUnits:   3,
       radius:     120,
@@ -140,11 +141,11 @@
       duration:       4,
     },
 
-    // Troll — Trollblood regen
-    // Regen only activates after trollRegenGraceSec since last hit received.
+    // Troll — Trollblood
+    // Regen only activates after graceSec since last hit received.
     trollblood: {
-      regenPerSec:   12,
-      graceSec:      2.0,
+      regenPerSec:  12,
+      graceSec:     2.0,
     },
 
     // Gnoll — poison on hit
@@ -153,16 +154,21 @@
       duration:   4,
     },
 
-    // Archer — stand-still bonus
-    archerStill: {
-      dmgBonus:      0.20,
-      stillThreshold: 8,   // px/sec below which archer counts as "standing still"
+    // Archer — Sniper's Focus
+    // Each consecutive hit on the SAME target adds one focus stack (+dmgPerStack).
+    // Stacks reset immediately when the Archer switches to a different target.
+    // Max stacks: maxStacks (total bonus capped at dmgPerStack * maxStacks).
+    // Track on unit: unit.sniperTarget (entity ref), unit.sniperStacks (int 0-5).
+    archerFocus: {
+      dmgPerStack:  0.08,   // +8% per stack
+      maxStacks:    5,      // cap at +40% total
     },
 
     // Monk — damage reduction aura
     monkAura: {
       radius:       130,
       dmgReduction: 0.10,
+      maxReduction: 0.25,   // cap if multiple Monks overlap
     },
 
     separation:           150,
@@ -180,7 +186,7 @@
     reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   };
 
-  RTS.Resource    = { label: 'Ironstone' };
+  RTS.Resource      = { label: 'Ironstone' };
   RTS.resourceLabel = function () { return RTS.Resource.label; };
 
   RTS.TEAM = { PLAYER: 'player', ENEMY: 'enemy', NEUTRAL: 'neutral' };
@@ -207,17 +213,17 @@
       hp: 60, speed: 178, dmg: 12, range: 48, rof: 0.55,
       cost: 50, supply: 1, build: 0,
       traits: ['formation_bonus', 'building_bane'],
-      // building_bane: +25% damage vs buildings
       buildingDmgBonus: 0.25,
-      desc: 'Fast melee skirmisher. Bonus damage vs buildings.',
+      desc: 'Fast melee skirmisher. +25% damage vs buildings.',
     },
 
     archer: {
       role: 'archer', label: 'Archer', glyph: 'tri', faction: 'aurex',
       hp: 70, speed: 110, dmg: 11, range: 145, rof: 0.62,
       cost: 65, supply: 1, build: 0, ranged: true,
-      traits: ['formation_bonus', 'archer_still'],
-      desc: 'Ranged backbone. +20% damage when standing still.',
+      traits: ['formation_bonus', 'archer_focus'],
+      desc: "Ranged backbone. Sniper's Focus: each consecutive hit on the same target " +
+            'stacks +8% damage (up to +40%). Switching targets resets the stack.',
     },
 
     monk: {
@@ -225,7 +231,7 @@
       hp: 85, speed: 105, dmg: 0, range: 115, rof: 0.7, heal: 12,
       cost: 95, supply: 2, build: 0, healer: true,
       traits: ['formation_bonus', 'monk_aura'],
-      desc: 'Heals nearby allies. Reduces incoming damage to allies within range by 10%.',
+      desc: 'Heals nearby allies. Reduces incoming damage to allies within 130px by 10%.',
     },
 
     warrior: {
@@ -233,9 +239,8 @@
       hp: 260, speed: 58, dmg: 32, range: 48, rof: 0.85,
       cost: 130, supply: 3, build: 0,
       traits: ['formation_bonus', 'taunt'],
-      // taunt: nearby enemies within tauntRadius prefer to target this unit
       tauntRadius: 90,
-      desc: 'Armored frontline. Draws enemy attacks toward himself.',
+      desc: 'Armored frontline. Draws nearby enemy attacks toward himself.',
     },
 
     // ---- Raider Horde units ------------------------------------------------
@@ -269,7 +274,6 @@
       hp: 70, speed: 100, dmg: 6, range: 125, rof: 0.7,
       cost: 80, supply: 2, build: 0, ranged: true,
       traits: ['blood_frenzy', 'hex_slow'],
-      // hex_slow: hits slow target by 15% for 2s
       hexSlowPct: 0.15,
       hexSlowDuration: 2.0,
       desc: 'Ranged attacker. Slows enemies on hit by 15% for 2s.',
