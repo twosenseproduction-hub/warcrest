@@ -229,6 +229,8 @@
     if (state.scene === 'playing') {
       RTS.update(state, dt);
       RTS.HUD.tick(state, dt);
+    } else if (state.scene === 'paused' || state.scene === 'won' || state.scene === 'lost') {
+      if (RTS.Cam && RTS.Cam.updatePan) RTS.Cam.updatePan(state, dt);
     }
     if (state.scene === 'playing' || state.scene === 'paused' ||
         state.scene === 'won' || state.scene === 'lost') {

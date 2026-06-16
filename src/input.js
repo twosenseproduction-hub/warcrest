@@ -35,7 +35,35 @@
       var cv = RTS.canvas;
       s.camera.x = wx - (cv.clientWidth / s.camera.zoom) / 2;
       s.camera.y = wy - (cv.clientHeight / s.camera.zoom) / 2;
+      s.camera.panTarget = null;
       RTS.Cam.clamp(s);
+    },
+    panTo: function (s, wx, wy, smooth) {
+      var cv = RTS.canvas;
+      var tx = wx - (cv.clientWidth / s.camera.zoom) / 2;
+      var ty = wy - (cv.clientHeight / s.camera.zoom) / 2;
+      if (smooth && !RTS.Config.reducedMotion) {
+        s.camera.panTarget = { x: tx, y: ty };
+      } else {
+        s.camera.x = tx;
+        s.camera.y = ty;
+        s.camera.panTarget = null;
+        RTS.Cam.clamp(s);
+      }
+    },
+    updatePan: function (s, dt) {
+      var pt = s.camera.panTarget;
+      if (!pt) return;
+      var c = s.camera;
+      var t = Math.min(1, dt * 9);
+      c.x += (pt.x - c.x) * t;
+      c.y += (pt.y - c.y) * t;
+      RTS.Cam.clamp(s);
+      if (Math.abs(pt.x - c.x) < 1.5 && Math.abs(pt.y - c.y) < 1.5) {
+        c.x = pt.x;
+        c.y = pt.y;
+        c.panTarget = null;
+      }
     },
     zoomAt: function (s, factor, cssX, cssY) {
       var c = s.camera;

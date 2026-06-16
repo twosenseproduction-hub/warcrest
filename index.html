@@ -45,12 +45,8 @@
       <div id="build-panel-grid" class="build-panel-grid"></div>
     </div>
 
-    <div id="thumb-cluster" class="hidden">
-      <button class="thumb-btn ts-round-btn red" id="btn-rail-army" aria-label="Select army"><img src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_05.png" alt="" /></button>
-      <button class="thumb-btn ts-round-btn red" id="btn-rail-pawns" aria-label="Select pawns"><span class="pawn-select-portrait" aria-hidden="true"></span></button>
-      <button class="thumb-btn ts-round-btn red" id="btn-rail-stop" aria-label="Stop"><img src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_09.png" alt="" /></button>
-      <button class="thumb-btn ts-round-btn red" id="btn-rail-atk" aria-label="Attack move"><img src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_08.png" alt="" /></button>
-    </div>
+    <button type="button" class="map-tool-btn ts-round-btn hidden" id="btn-rail-army" aria-label="Select army"><img src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_05.png" alt="" /></button>
+    <button type="button" class="map-tool-btn ts-round-btn hidden" id="btn-rail-pawns" aria-label="Select pawns"><span class="pawn-select-portrait" aria-hidden="true"></span></button>
 
     <div id="event-log"></div>
     <div id="gesture-hint" class="hidden"></div>
@@ -59,9 +55,22 @@
     <div id="toast"></div>
 
     <footer id="command-deck" class="collapsed">
-      <div id="selpanel"></div>
-      <div id="unit-group-strip" class="hidden" aria-label="Unit groups"></div>
-      <div id="action-tray"></div>
+      <div class="deck-row">
+        <div id="bottom-hub" class="bottom-hub">
+          <aside id="squad-block" class="hub-squad">
+            <div id="squad-chips" class="squad-grid" aria-label="Squad focus"></div>
+          </aside>
+          <div id="selpanel" class="hub-center"></div>
+          <div id="command-card" class="hub-cmd">
+            <div id="cmd-grid" class="cmd-grid" role="group" aria-label="Commands"></div>
+          </div>
+        </div>
+        <div id="combat-cluster" class="combat-cluster hidden" aria-label="Combat controls">
+          <button type="button" id="btn-combat-stop" class="combat-btn ts-round-btn red" aria-label="Stop"><img src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_09.png" alt="" /></button>
+          <button type="button" id="btn-combat-mode" class="combat-btn ts-round-btn red" aria-label="Mode"><img src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_06.png" alt="" /></button>
+          <button type="button" id="btn-combat-atk" class="combat-btn ts-round-btn red combat-primary" aria-label="Attack move"><img src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_08.png" alt="" /></button>
+        </div>
+      </div>
     </footer>
   </div>
 

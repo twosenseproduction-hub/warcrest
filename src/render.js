@@ -344,8 +344,12 @@
       ctx.fillRect(u.x * sx - 1.5, u.y * sy - 1.5, 3, 3);
     });
     var view = RTS.Cam.viewSizeWorld(s);
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
-    ctx.strokeRect(s.camera.x * sx, s.camera.y * sy, view.w * sx, view.h * sy);
+    var vx = s.camera.x * sx, vy = s.camera.y * sy, vw = view.w * sx, vh = view.h * sy;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.14)';
+    ctx.fillRect(vx, vy, vw, vh);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.92)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(vx, vy, vw, vh);
   };
 
   RTS.hexA = function (hex, a) {

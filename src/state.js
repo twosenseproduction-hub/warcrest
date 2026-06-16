@@ -25,7 +25,7 @@
       mapId: 'sapphire_shores',
 
       camera: { x: 0, y: 0, zoom: RTS.Config.camera.default, vx: 0, vy: 0,
-                dragging: false, dragStart: null },
+                dragging: false, dragStart: null, panTarget: null },
 
       // resources keyed by team
       res: {
