@@ -62,6 +62,7 @@
         loadImg('Warren_Maw.png', RAIDER_BASE);
         loadImg(PIG_STY, RAIDER_BASE);
         loadImg(WAR_PIT, RAIDER_BASE);
+        loadImg(BONE_SPIRE, RAIDER_BASE);
         loadImg(GNOLL_BONE, ENEMY_BASE);
       }
     });
@@ -104,6 +105,7 @@
     House1:   { l: 0.062, r: 0.062, t: 0.083, b: 0.099 },
     House2:   { l: 0.000, r: 0.000, t: 0.120, b: 0.073 },
     PigSty:       { l: 0.06, r: 0.06, t: 0.10, b: 0.05 },
+    Bone_Spire:   { l: 0.148, r: 0.120, t: 0.065, b: 0.038 },
     ShepherdsHut: { l: 0.06, r: 0.06, t: 0.10, b: 0.05 },
     House3:   { l: 0.023, r: 0.023, t: 0.193, b: 0.104 },
     Tower:    { l: 0.031, r: 0.031, t: 0.180, b: 0.102 },
@@ -171,6 +173,7 @@
   var PIG_STY = 'Pig_Sty.png';
   var SHEPHERDS_HUT = 'Shepherds_Hut.png';
   var WAR_PIT = 'War_Pit.png';
+  var BONE_SPIRE = 'Bone_Spire.png';
 
   function buildingDrawScale(b, type, imgW, imgH) {
     var drawType = (b.type === 'conduit' && bspecIsPasturePen(b)) ? 'forge' : type;
@@ -267,6 +270,7 @@
     if (b.type === 'core' && b.faction === 'cinder') return 'Warren_Maw';
     if (b.type === 'foundry' && b.faction === 'cinder') return 'War_Pit';
     if (b.type === 'conduit' && b.faction === 'cinder') return 'PigSty';
+    if (b.type === 'turret' && b.faction === 'cinder') return 'Bone_Spire';
     if (b.type === 'conduit' && b.faction === 'aurex') return 'ShepherdsHut';
     return BUILDING_TYPE_TO_INSET_KEY[b.type] || 'House1';
   }
@@ -280,6 +284,9 @@
     }
     if (b.type === 'foundry' && b.faction === 'cinder') {
       return { base: RAIDER_BASE, rel: WAR_PIT, frames: 1 };
+    }
+    if (b.type === 'turret' && b.faction === 'cinder') {
+      return { base: RAIDER_BASE, rel: BONE_SPIRE, frames: 1 };
     }
     if (b.type === 'conduit' && b.faction === 'aurex') {
       return { base: KINGDOM_CUSTOM_BASE, rel: SHEPHERDS_HUT, frames: 1 };
@@ -319,6 +326,7 @@
     paths.push({ base: RAIDER_BASE, rel: 'Warren_Maw.png' });
     paths.push({ base: RAIDER_BASE, rel: WAR_PIT });
     paths.push({ base: RAIDER_BASE, rel: PIG_STY });
+    paths.push({ base: RAIDER_BASE, rel: BONE_SPIRE });
     GOLD_STONES.forEach(function (p) {
       paths.push({ base: KINGDOM_BASE, rel: p });
       paths.push({ base: KINGDOM_BASE, rel: p.replace('.png', '_Highlight.png') });

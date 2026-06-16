@@ -131,6 +131,9 @@
     if (type === 'foundry' && factionId === 'cinder') {
       return enc('assets/raider/', 'War_Pit.png');
     }
+    if (type === 'turret' && factionId === 'cinder') {
+      return enc('assets/raider/', 'Bone_Spire.png');
+    }
     if (type === 'conduit' && factionId === 'aurex') {
       return enc('assets/kingdom/', 'Shepherds_Hut.png');
     }

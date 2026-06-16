@@ -50,7 +50,7 @@
     conduit: { w: 176, h: 144 },
     foundry: { w: 160, h: 128 },
     forge: { w: 176, h: 144 },
-    turret: { w: 56, h: 96 },
+    turret: { w: 72, h: 96 },
   };
 
   /*
