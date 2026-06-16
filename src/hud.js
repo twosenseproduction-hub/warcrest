@@ -273,149 +273,68 @@
     });
   }
 
-  function macroBarActive(s) {
-    if (!s.ui.macroGroups || !RTS.macroGroupRoles) return false;
-    return RTS.macroGroupRoles(s).length >= 2;
+  // ---- Layout updater -------------------------------------------------------
+  function updateLayout(s) {
+    var open = deckOpen(s);
+    var deck = D['command-deck'];
+    if (deck) deck.classList.toggle('expanded', open);
+
+    var hub = D['bottom-hub'];
+    if (hub) hub.classList.toggle('hidden', !open);
+
+    var cc = D['command-card'];
+    if (cc) cc.classList.toggle('hidden', !open);
+
+    var clu = D['combat-cluster'];
+    if (clu) {
+      var hasUnits = open && (s.ui.selUnits && s.ui.selUnits.length > 0);
+      clu.classList.toggle('hidden', !hasUnits);
+    }
+
+    var bpanel = D['build-panel'];
+    if (bpanel) bpanel.classList.toggle('hidden', !s.ui.buildPanelOpen);
+
+    if (D['map-tools']) D['map-tools'].classList.toggle('hidden', open);
+    if (D['minimap-chip']) D['minimap-chip'].classList.toggle('deck-open', open);
   }
 
   function deckOpen(s) {
-    if (s.inputMode === 'place-building') return true;
-    return RTS.selectedUnits(s).length > 0 || RTS.selectedBuildings(s).length > 0;
-  }
-
-  function combatClusterOpen(s) {
-    if (s.inputMode === 'place-building') return false;
-    var units = RTS.activeSelectedUnits(s);
-    return units.some(function (u) { return u.role !== 'pawn'; });
-  }
-
-  function updateLayout(s) {
-    var deck = D['command-deck'];
-    var hub = D['bottom-hub'];
-    var combat = D['combat-cluster'];
-    var open = deckOpen(s);
-    if (deck) {
-      deck.classList.toggle('expanded', open);
-      deck.classList.toggle('collapsed', !open);
-    }
-    if (hub) hub.classList.toggle('hidden', !open);
-    if (combat) combat.classList.toggle('hidden', !combatClusterOpen(s));
-  }
-
-  function gestureHintText(s) {
-    if (s.inputMode === 'place-building') return 'Tap ground to place · a worker will hammer it up';
-    if (s.attackMoveArmed) return 'Tap where to attack-move';
-    return '';
+    if (!s || s.scene !== 'playing') return false;
+    var prof = selectionProfile(s);
+    return prof.type !== 'none';
   }
 
   function updateGestureHint(s) {
-    var el = D['gesture-hint'];
-    if (!el) return;
-    var text = gestureHintText(s);
-    var show = !!text || (s.timers.gameTime < 12 && s.scene === 'playing' && !deckOpen(s));
-    if (show && !text) {
-      text = 'Double-tap ground = army · squad chips = macro · hammer = build';
+    var el = D['gesture-hint']; if (!el) return;
+    var prof = selectionProfile(s);
+    if (prof.type === 'building' && prof.building && prof.building.built) {
+      el.textContent = 'Hold ground \u2192 rally';
+    } else if (prof.type === 'unit') {
+      el.textContent = 'Tap ground to move';
+    } else {
+      el.textContent = '';
     }
-    el.textContent = text;
-    el.classList.toggle('hidden', !show);
-    el.classList.toggle('attack', !!s.attackMoveArmed);
-    el.classList.toggle('place', s.inputMode === 'place-building');
   }
 
-  function syncPawnSelectButtons(s) {
-    var fid = s.playerFaction || 'aurex';
-    var html = UI().avatarPortraitHtml(fid, 'pawn', 28);
-    ['btn-rail-pawns'].forEach(function (id) {
-      var el = D[id];
-      if (!el) return;
-      var slot = el.querySelector('.pawn-select-portrait');
-      if (slot) slot.innerHTML = html;
-    });
-  }
-
-  // ---- Selection profile for HUD model ------------------------------------
-  function selectionProfile(s) {
-    if (s.inputMode === 'place-building') {
-      return { type: 'place', passiveTags: [], subtype: 'Build site' };
-    }
-    var units = RTS.activeSelectedUnits(s);
-    var allUnits = RTS.selectedUnits(s);
-    var blds = RTS.selectedBuildings(s);
-
-    if (blds.length === 1 && !units.length) {
-      return {
-        type: 'building',
-        building: blds[0],
-        passiveTags: [],
-        subtype: RTS.nameFor(blds[0].faction, blds[0].type),
-      };
-    }
-    if (!units.length && !blds.length) {
-      return { type: 'none', passiveTags: [], subtype: '' };
-    }
-    if (units.length === 1 && !blds.length) {
-      var u = units[0];
-      var hero = u.heroId && RTS.getHero ? RTS.getHero(u.heroId) : null;
-      return {
-        type: u.role === 'pawn' ? 'worker' : 'fighter',
-        units: units,
-        passiveTags: u.uiPassiveTags || (hero && hero.passive ? [hero.passive.name] : []),
-        subtype: hero ? hero.class : RTS.nameFor(u.faction, u.role),
-        unit: u,
-      };
-    }
-    if (macroBarActive(s) && allUnits.length) {
-      return {
-        type: 'mixed',
-        units: units.length ? units : allUnits,
-        allUnits: allUnits,
-        passiveTags: [],
-        subtype: s.ui.macroRole ? RTS.nameFor(s.playerFaction, s.ui.macroRole) : 'Mixed army',
-      };
-    }
-    if (units.length > 1) {
-      var roles = {};
-      units.forEach(function (u) { roles[u.role] = (roles[u.role] || 0) + 1; });
-      var roleKeys = Object.keys(roles);
-      var profType = roleKeys.length > 1 ? 'mixed' : (roleKeys[0] === 'pawn' ? 'worker' : 'fighter');
-      return {
-        type: profType,
-        units: units,
-        allUnits: units,
-        passiveTags: [],
-        subtype: profType === 'mixed' ? 'Mixed army' : RTS.nameFor(s.playerFaction, roleKeys[0]),
-      };
-    }
-    return { type: 'mixed', units: units, allUnits: units, passiveTags: [], subtype: 'Selection' };
-  }
-
-  function squadChipCount(s, role) {
-    if (!s.ui.macroGroups) return 0;
-    if (role === 'all') {
-      var total = 0;
-      RTS.macroGroupRoles(s).forEach(function (r) { total += s.ui.macroGroups[r].length; });
-      return total;
-    }
-    return s.ui.macroGroups[role] ? s.ui.macroGroups[role].length : 0;
-  }
-
+  // ---- Squad block (2×2 chip grid) -----------------------------------------
   function renderSquadBlock(s) {
     var block = D['squad-block'];
     var grid = D['squad-chips'];
-    if (!grid) return;
-    grid.innerHTML = '';
-    var show = macroBarActive(s);
-    if (block) block.classList.toggle('hidden', !show);
-    if (!show) return;
+    if (!block || !grid) return;
+
+    var open = deckOpen(s);
+    block.classList.toggle('hidden', !open);
+    if (!open) return;
 
     var fid = s.playerFaction || 'aurex';
+    grid.innerHTML = '';
     SQUAD_CHIPS.forEach(function (chip) {
-      var count = squadChipCount(s, chip.role);
-      var hasRole = chip.role === 'all' ? count > 0 : count > 0;
-      var active = chip.role === 'all' ? !s.ui.macroRole : s.ui.macroRole === chip.role;
+      var count = chip.role === 'all'
+        ? RTS.activeSelectedUnits(s).length
+        : (s.units || []).filter(function (u) { return u.owner === 'player' && u.role === chip.role; }).length;
+
       var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'squad-chip' + (active ? ' active' : '') + (!hasRole ? ' disabled' : '');
+      btn.className = 'squad-chip' + (count === 0 ? ' disabled' : '');
       btn.dataset.squadRole = chip.role;
       btn.setAttribute('aria-label', chip.label + ' squad');
       var portrait = chip.role === 'all'
@@ -446,20 +365,20 @@
   function statusLineForUnit(u) {
     if (u.heroId && RTS.getHero) {
       var h = RTS.getHero(u.heroId);
-      if (h) return h.class + ' · ready';
+      if (h) return h.class + ' \u00b7 ready';
     }
     if (u.role === 'pawn' && u.buildTask) {
       var qn = u.buildQueue ? u.buildQueue.length : 0;
-      return 'building…' + (qn ? ' · +' + qn + ' queued' : '');
+      return 'building\u2026' + (qn ? ' \u00b7 +' + qn + ' queued' : '');
     }
     if (u.role === 'pawn' && u.harvest) {
-      if (u.harvest.phase === 'mining') return 'mining…';
+      if (u.harvest.phase === 'mining') return 'mining\u2026';
       if (u.harvest.phase === 'toBase' && u.harvest.carry > 0) {
         return 'returning +' + Math.floor(u.harvest.carry);
       }
       return 'to Ironstone';
     }
-    if (u.role === 'pawn') return 'Hold site → build';
+    if (u.role === 'pawn') return 'Hold site \u2192 build';
     return 'Ready';
   }
 
@@ -488,19 +407,25 @@
       var portraitKey = b.type === 'outpost' ? 'outpost' : b.type;
       var queueHtml = renderBuildingQueue(s, b);
       if (queueHtml) p.classList.add('has-queue');
-      p.innerHTML =
-        '<div class="hub-portrait unit-portrait-fill">' + UI().buildingPortraitHtml(b.faction, portraitKey) + '</div>' +
-        '<div class="hub-body">' +
-        '<div class="hub-title">' + RTS.nameFor(b.faction, b.type) + '</div>' +
-        '<div class="hub-subtype">' + prof.subtype + '</div>' +
-        bar(b.hp, b.maxHp) +
-        renderPassiveTags(prof.passiveTags) +
-        (!b.built
-          ? '<div class="hub-status">' + Math.floor(b.progress * 100) + '% built</div>'
-          : '<div class="hub-status">Hold ground → rally</div>') +
-        queueHtml +
-        '</div>';
       if (prof.passiveTags.length) p.classList.add('has-tags');
+      var statusText = !b.built
+        ? Math.floor(b.progress * 100) + '% built'
+        : 'Hold ground \u2192 rally';
+      // hub-zone-a: portrait + HP bar stacked
+      // hub-zone-b: queue (only rendered when has-queue, hidden via CSS otherwise)
+      // hub-zone-c: title / subtype / status / passives
+      p.innerHTML =
+        '<div class="hub-zone-a">' +
+          '<div class="hub-portrait unit-portrait-fill">' + UI().buildingPortraitHtml(b.faction, portraitKey) + '</div>' +
+          bar(b.hp, b.maxHp) +
+        '</div>' +
+        '<div class="hub-zone-b">' + queueHtml + '</div>' +
+        '<div class="hub-zone-c">' +
+          '<div class="hub-title">' + RTS.nameFor(b.faction, b.type) + '</div>' +
+          '<div class="hub-subtype">' + prof.subtype + '</div>' +
+          renderPassiveTags(prof.passiveTags) +
+          '<div class="hub-status">' + statusText + '</div>' +
+        '</div>';
       return;
     }
 
@@ -513,41 +438,44 @@
           : RTS.nameFor(prof.unit.faction, prof.unit.role))
         : units.length + ' ' + (prof.subtype || 'units');
       var status = units.length === 1 ? statusLineForUnit(units[0]) : 'Tap ground to command';
+      if (prof.passiveTags.length) p.classList.add('has-tags');
 
-      var portraitHtml;
+      var portraitInner;
       if (units.length === 1) {
-        // Single unit: hero portrait if available, otherwise role portrait
-        portraitHtml =
+        portraitInner =
           '<div class="hub-portrait unit-portrait-fill">' +
           (units[0].heroId && UI().heroPortraitHtml
             ? UI().heroPortraitHtml(units[0].heroId)
             : UI().avatarPortraitHtml(s.playerFaction, units[0].role)) +
           '</div>';
       } else {
-        // FIX: multi-unit — show up to 3 distinct role portraits side by side
+        // Multi-unit: show up to 3 distinct role portraits side by side
         var repUnits = uniqueRolesFromUnits(units, 3);
-        portraitHtml = '<div class="hub-portraits">';
+        portraitInner = '<div class="hub-portraits">';
         repUnits.forEach(function (u) {
-          portraitHtml +=
+          portraitInner +=
             '<div class="hub-portrait unit-portrait-fill">' +
             (u.heroId && UI().heroPortraitHtml
               ? UI().heroPortraitHtml(u.heroId)
               : UI().avatarPortraitHtml(s.playerFaction, u.role)) +
             '</div>';
         });
-        portraitHtml += '</div>';
+        portraitInner += '</div>';
       }
 
+      // Units never have a queue — hub-zone-b stays empty (CSS hides it)
       p.innerHTML =
-        portraitHtml +
-        '<div class="hub-body">' +
-        '<div class="hub-title">' + title + '</div>' +
-        '<div class="hub-subtype">' + prof.subtype + '</div>' +
-        bar(totHp, totMax) +
-        renderPassiveTags(prof.passiveTags) +
-        '<div class="hub-status">' + status + '</div>' +
+        '<div class="hub-zone-a">' +
+          portraitInner +
+          bar(totHp, totMax) +
+        '</div>' +
+        '<div class="hub-zone-b"></div>' +
+        '<div class="hub-zone-c">' +
+          '<div class="hub-title">' + title + '</div>' +
+          '<div class="hub-subtype">' + prof.subtype + '</div>' +
+          renderPassiveTags(prof.passiveTags) +
+          '<div class="hub-status">' + status + '</div>' +
         '</div>';
-      if (prof.passiveTags.length) p.classList.add('has-tags');
     }
   }
 
@@ -568,7 +496,7 @@
       '</div><b>' + Math.ceil(pct * 100) + '%</b></div>';
   }
 
-  // ---- Command card model --------------------------------------------------
+  // ---- Command card renderer ------------------------------------------------
   function emptySlot(slotId) {
     return { slotId: slotId, act: null, hidden: true, disabled: true, icon: '', cooldown: 0, autocast: false, targeting: false };
   }
@@ -579,354 +507,262 @@
       slotId: opts.slotId,
       act: act,
       icon: icon,
-      hidden: !!opts.hidden,
+      label: opts.label || '',
       disabled: !!opts.disabled,
+      hidden: false,
       cooldown: opts.cooldown || 0,
       autocast: !!opts.autocast,
       targeting: !!opts.targeting,
-      data: opts.data || {},
-      active: !!opts.active,
-      danger: !!opts.danger,
-      green: !!opts.green,
+      bid: opts.bid,
+      uid: opts.uid,
+      cost: opts.cost,
+      role: opts.role,
     };
   }
 
-  function buildCommandSlots(s, prof) {
-    var slots = CMD_SLOTS.map(emptySlot);
-    function put(idx, def) {
-      def.slotId = CMD_SLOTS[idx];
-      slots[idx] = def;
-    }
+  function renderCommandCard(s) {
+    var grid = D['cmd-grid']; if (!grid) return;
+    if (!deckOpen(s)) { grid.innerHTML = ''; return; }
 
-    if (prof.type === 'place') {
-      put(5, slot('cancel-place', UI().iconHtml('cancel', 20), { danger: true }));
-      return slots;
-    }
+    var prof = selectionProfile(s);
+    var model = buildCommandModel(s, prof);
+
+    var html = '';
+    CMD_SLOTS.forEach(function (sid) {
+      var sl = model[sid] || emptySlot(sid);
+      if (sl.hidden) {
+        html += '<button class="cmd-slot slot-hidden" data-slot="' + sid + '" disabled aria-hidden="true"></button>';
+        return;
+      }
+      var cls = 'cmd-slot' + (sl.disabled ? ' disabled' : '') + (sl.targeting ? ' targeting' : '') + (sl.autocast ? ' autocast' : '');
+      var cdStyle = sl.cooldown > 0 ? ' style="--cd:' + sl.cooldown + '"' : '';
+      var costHtml = sl.cost ? '<span class="slot-cost">' + sl.cost + '</span>' : '';
+      var iconHtml = sl.icon ? '<img class="slot-icon" src="' + sl.icon + '" alt="" />' : '';
+      html += '<button class="' + cls + '" data-slot="' + sid + '" data-act="' + (sl.act || '') + '"' +
+        (sl.bid ? ' data-bid="' + sl.bid + '"' : '') +
+        (sl.uid ? ' data-uid="' + sl.uid + '"' : '') +
+        (sl.role ? ' data-role="' + sl.role + '"' : '') +
+        cdStyle +
+        (sl.disabled ? ' disabled' : '') +
+        ' aria-label="' + (sl.label || sl.act || '') + '">' +
+        iconHtml + costHtml +
+        '</button>';
+    });
+    grid.innerHTML = html;
+  }
+
+  function buildCommandModel(s, prof) {
+    var model = {};
+    CMD_SLOTS.forEach(function (sid) { model[sid] = emptySlot(sid); });
+    if (!prof || prof.type === 'none') return model;
 
     if (prof.type === 'building' && prof.building) {
-      var b = prof.building;
-      var fid = s.playerFaction || 'aurex';
-      var trains = (RTS.Buildings[b.type] && RTS.Buildings[b.type].trains) || [];
+      return buildBuildingCommands(s, prof.building, model);
+    }
+    if (prof.type === 'unit') {
+      return buildUnitCommands(s, prof, model);
+    }
+    return model;
+  }
 
-      // Slots 0-2: train buttons (always shown so layout is stable)
-      trains.slice(0, 3).forEach(function (role, i) {
-        if (role === '_livestock') {
-          var lc = RTS.Config.livestock;
-          var afford = s.res.player.halcite >= lc.trainCost;
-          put(i, slot('train', UI().iconHtml(fid === 'cinder' ? 'pig' : 'sheep', 20), {
-            disabled: !b.built || !afford,
-            data: { bid: b.id, role: '_livestock' },
-          }));
-        } else {
-          var us = RTS.trainSpec ? RTS.trainSpec(role) : RTS.Units[role];
-          if (!us) return;
-          var cost = us.trainCost != null ? us.trainCost : us.cost;
-          var afford2 = s.res.player.halcite >= cost;
-          var heroBlocked = RTS.isHeroRole && RTS.isHeroRole(role) &&
-            RTS.hasLivingHero && RTS.hasLivingHero(s, RTS.TEAM.PLAYER, role);
-          var supplyOk = RTS.isHeroRole && RTS.isHeroRole(role) ? true :
-            s.res.player.supplyUsed + (us.supply || 0) <= s.res.player.supplyCap;
-          var portrait = (RTS.isHeroRole && RTS.isHeroRole(role))
-            ? UI().roleTrayIcon(fid, 'monk', 22)
-            : UI().roleTrayIcon(fid, role, 22);
-          put(i, slot('train', portrait, {
-            disabled: !b.built || !afford2 || !supplyOk || heroBlocked,
-            data: { bid: b.id, role: role },
-          }));
-        }
+  function buildBuildingCommands(s, b, model) {
+    var fid = s.playerFaction || 'aurex';
+    if (!b.built) return model;
+
+    // Training slots — primary row
+    var trainable = RTS.Config.getTrainableUnits ? RTS.Config.getTrainableUnits(fid, b.type) : [];
+    trainable.slice(0, 3).forEach(function (role, i) {
+      var sid = 'primary' + (i + 1);
+      var cost = RTS.Config.unitCost ? RTS.Config.unitCost(role) : 0;
+      var atCap = s.res.player.supplyUsed >= s.res.player.supplyCap;
+      model[sid] = slot('train', UI().iconUrl(role) || '', {
+        slotId: sid,
+        label: 'Train ' + role,
+        role: role,
+        bid: b.id,
+        cost: cost,
+        disabled: atCap || s.res.player.halcite < cost,
       });
-
-      if (!b.built) {
-        put(5, slot('cancel-build', UI().iconHtml('cancel', 20), { danger: true, data: { bid: b.id } }));
-      } else {
-        // Slot 3: active training progress — tap to cancel and refund.
-        // Renders a conic sweep timer so the player can see what's cooking.
-        // Falls back to the automine toggle when nothing is training.
-        if (b.train) {
-          var activeJob = b.train;
-          var qPct = activeJob.total ? Math.max(0, Math.min(1, 1 - activeJob.remaining / activeJob.total)) : 0;
-          var qPortrait = activeJob.role === '_livestock'
-            ? UI().iconHtml(fid === 'cinder' ? 'pig' : 'sheep', 20)
-            : ((RTS.isHeroRole && RTS.isHeroRole(activeJob.role))
-                ? UI().roleTrayIcon(fid, 'monk', 22)
-                : UI().roleTrayIcon(fid, activeJob.role, 22));
-          put(3, slot('cancel-train', qPortrait, {
-            disabled: false,
-            danger: false,
-            cooldown: qPct,
-            data: { bid: b.id, qidx: '0' },
-          }));
-        } else {
-          put(3, slot('toggle-automine', UI().iconHtml('hammer', 20), {
-            active: !!b.autoMine,
-            green: !!b.autoMine,
-            data: { bid: b.id },
-            hidden: !RTS.isDepositBuilding || !RTS.isDepositBuilding(b),
-          }));
-        }
-        put(4, slot('rally', UI().iconHtml('arrow', 20), { disabled: false }));
-        put(5, slot('more', UI().iconHtml('info', 20), { disabled: false, data: { bid: b.id } }));
-      }
-      return slots;
-    }
-
-    if (prof.type === 'worker') {
-      put(0, slot('move', UI().iconHtml('arrow', 20), { targeting: true }));
-      put(1, slot('stop', UI().iconHtml('cancel', 20)));
-      put(2, slot('harvest', UI().iconHtml('gold', 20)));
-      put(3, slot('build-cmd', UI().iconHtml('hammer', 20)));
-      put(4, slot('repair', UI().iconHtml('gear', 20), { disabled: true, hidden: true }));
-      put(5, slot('return', UI().iconHtml('shield', 20)));
-      return slots;
-    }
-
-    if (prof.type === 'fighter') {
-      put(0, slot('move', UI().iconHtml('arrow', 20), { targeting: true }));
-      put(1, slot('stop', UI().iconHtml('cancel', 20)));
-      put(2, slot('attackmove', UI().iconHtml('sword', 20), { active: !!s.attackMoveArmed }));
-      put(3, slot('hold', UI().iconHtml('shield', 20)));
-      put(4, slot('stance', UI().iconHtml('gear', 20), { disabled: true, hidden: true }));
-      put(5, slot('context', UI().iconHtml('info', 20), { disabled: true, hidden: true }));
-      return slots;
-    }
-
-    if (prof.type === 'mixed') {
-      put(0, slot('move', UI().iconHtml('arrow', 20), { targeting: true }));
-      put(1, slot('stop', UI().iconHtml('cancel', 20)));
-      put(2, slot('attackmove', UI().iconHtml('sword', 20), { active: !!s.attackMoveArmed }));
-      put(3, slot('hold', UI().iconHtml('shield', 20)));
-      put(4, slot('formation', UI().iconHtml('shield', 20), { disabled: true, hidden: true }));
-      put(5, slot('patrol', UI().iconHtml('bow', 20), { disabled: true, hidden: true }));
-      return slots;
-    }
-
-    return slots;
-  }
-
-  function renderCommandCard(s) {
-    var grid = D['cmd-grid'];
-    if (!grid) return;
-    grid.innerHTML = '';
-    if (!deckOpen(s)) return;
-
-    var prof = selectionProfile(s);
-    var slots = buildCommandSlots(s, prof);
-    s.ui.commandCard = { profile: prof.type, slots: slots };
-
-    slots.forEach(function (def) {
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'cmd-slot' +
-        (def.disabled ? ' disabled' : '') +
-        (def.hidden ? ' slot-hidden' : '') +
-        (def.green ? ' cmd-green' : (def.active ? ' on' : '')) +
-        (def.danger ? ' danger' : '') +
-        (def.targeting ? ' targeting' : '');
-      btn.dataset.slotId = def.slotId;
-      if (def.act) btn.dataset.act = def.act;
-      if (def.data) {
-        Object.keys(def.data).forEach(function (k) { btn.dataset[k] = def.data[k]; });
-      }
-      btn.innerHTML = '<span class="cmd-ico">' + (def.icon || '') + '</span>';
-      if (def.cooldown > 0) {
-        btn.innerHTML += '<span class="cmd-cooldown" style="--cd:' + def.cooldown + '"></span>';
-      }
-      if (def.autocast) {
-        btn.innerHTML += '<span class="cmd-autocast" aria-hidden="true"></span>';
-      }
-      grid.appendChild(btn);
     });
+
+    // Secondary row — building-specific actions
+    if (b.type === 'barracks' || b.type === 'keep') {
+      model['secondary1'] = slot('toggle-automine', UI().iconUrl('automine') || '', {
+        slotId: 'secondary1',
+        label: 'Auto-mine',
+        bid: b.id,
+        autocast: !!b.autoMine,
+      });
+    }
+    if (RTS.Config.canUpgrade && RTS.Config.canUpgrade(b)) {
+      var upCost = RTS.Config.upgradeCost ? RTS.Config.upgradeCost(b) : 0;
+      model['secondary2'] = slot('upgrade', UI().iconUrl('upgrade') || '', {
+        slotId: 'secondary2',
+        label: 'Upgrade',
+        bid: b.id,
+        cost: upCost,
+        disabled: s.res.player.halcite < upCost,
+      });
+    }
+    model['secondary3'] = slot('sell', UI().iconUrl('sell') || '', {
+      slotId: 'secondary3',
+      label: 'Sell',
+      bid: b.id,
+    });
+
+    return model;
   }
 
+  function buildUnitCommands(s, prof, model) {
+    var units = prof.units || [];
+    if (!units.length) return model;
+
+    // Move / Attack-move / Stop
+    model['primary1'] = slot('move', UI().iconUrl('move') || '', { slotId: 'primary1', label: 'Move' });
+    model['primary2'] = slot('attack-move', UI().iconUrl('attack') || '', {
+      slotId: 'primary2', label: 'Attack-move', targeting: !!s.attackMoveArmed,
+    });
+    model['primary3'] = slot('stop', UI().iconUrl('stop') || '', { slotId: 'primary3', label: 'Stop' });
+
+    // Hero ability in secondary1 if applicable
+    if (units.length === 1 && units[0].heroId && RTS.getHero) {
+      var h = RTS.getHero(units[0].heroId);
+      if (h && h.ability) {
+        var cd = h.abilityCooldown || 0;
+        model['secondary1'] = slot('hero-ability', UI().iconUrl(h.ability) || '', {
+          slotId: 'secondary1',
+          label: h.ability,
+          uid: units[0].id,
+          cooldown: cd > 0 ? (cd / (RTS.Config.heroAbilityCooldown || 10)) : 0,
+          disabled: cd > 0,
+        });
+      }
+    }
+
+    // Pawn build shortcut
+    var hasPawn = units.some(function (u) { return u.role === 'pawn'; });
+    if (hasPawn) {
+      model['secondary2'] = slot('open-build', UI().iconUrl('build') || '', {
+        slotId: 'secondary2', label: 'Build',
+      });
+    }
+
+    return model;
+  }
+
+  // ---- Selection profile ---------------------------------------------------
+  function selectionProfile(s) {
+    var sel = s.ui && s.ui.selUnits ? s.ui.selUnits : [];
+    var selB = s.ui && s.ui.selBuilding ? s.ui.selBuilding : null;
+
+    if (selB) {
+      var tags = RTS.Config.passiveTags ? RTS.Config.passiveTags(selB) : [];
+      return {
+        type: 'building',
+        building: selB,
+        units: [],
+        unit: null,
+        subtype: selB.type,
+        passiveTags: tags || [],
+      };
+    }
+
+    var live = sel.filter(function (u) { return u && !u.dead; });
+    if (!live.length) return { type: 'none', building: null, units: [], unit: null, subtype: '', passiveTags: [] };
+
+    var tags = live.length === 1 && RTS.Config.passiveTags ? RTS.Config.passiveTags(live[0]) : [];
+    var subtype = live.length === 1
+      ? (live[0].heroId ? 'Hero' : live[0].role)
+      : (allSameRole(live) ? live[0].role : 'mixed');
+
+    return {
+      type: 'unit',
+      building: null,
+      units: live,
+      unit: live.length === 1 ? live[0] : null,
+      subtype: subtype,
+      passiveTags: tags || [],
+    };
+  }
+
+  function allSameRole(units) {
+    if (!units.length) return true;
+    var r = units[0].role;
+    return units.every(function (u) { return u.role === r; });
+  }
+
+  // ---- Build panel ---------------------------------------------------------
+  function renderBuildPanel(s) {
+    var grid = D['build-panel-grid']; if (!grid) return;
+    if (!s.ui.buildPanelOpen) { grid.innerHTML = ''; return; }
+
+    var fid = s.playerFaction || 'aurex';
+    var buildables = RTS.Config.getBuildables ? RTS.Config.getBuildables(fid) : [];
+    grid.innerHTML = buildables.map(function (btype) {
+      var cost = RTS.Config.buildCost ? RTS.Config.buildCost(btype) : 0;
+      var canAfford = s.res.player.halcite >= cost;
+      var icon = RTS.UI && RTS.UI.buildingUrl ? RTS.UI.buildingUrl(fid, btype) : '';
+      return '<button class="cmd-slot' + (canAfford ? '' : ' disabled') + '" data-act="place" data-btype="' + btype + '">' +
+        (icon ? '<img class="slot-icon" src="' + icon + '" alt="' + btype + '" />' : '') +
+        '<span class="slot-cost">' + cost + '</span>' +
+        '</button>';
+    }).join('');
+  }
+
+  // ---- Pawn select sync ----------------------------------------------------
+  function syncPawnSelectButtons(s) {
+    var btns = document.querySelectorAll('[data-act="select-pawns"]');
+    var hasPawns = (s.units || []).some(function (u) { return u.owner === 'player' && u.role === 'pawn'; });
+    btns.forEach(function (b) { b.classList.toggle('disabled', !hasPawns); });
+  }
+
+  // ---- Combat mode icon sync -----------------------------------------------
   function syncCombatModeIcon(s) {
-    var btn = D['btn-combat-mode'];
-    if (!btn) return;
+    var btn = D['btn-combat-mode']; if (!btn) return;
+    var mode = s.combatMode || 'aggressive';
     var img = btn.querySelector('img');
-    if (!img) return;
-    var prof = selectionProfile(s);
-    var icon = 'shield';
-    if (prof.type === 'building') icon = 'arrow';
-    else if (prof.type === 'worker') icon = 'hammer';
-    else icon = 'gear';
-    var url = UI().iconUrl(icon);
-    if (img.getAttribute('src') !== url) img.setAttribute('src', url);
-    btn.classList.toggle('on', prof.type === 'building' && prof.building && prof.building.autoMine);
+    if (img && RTS.UI && RTS.UI.iconUrl) img.src = RTS.UI.iconUrl(mode);
+    btn.setAttribute('aria-label', 'Combat mode: ' + mode);
   }
 
   function handleCombatMode(s) {
-    var prof = selectionProfile(s);
-    if (prof.type === 'building' && prof.building) {
-      handleAction(s, { act: 'toggle-automine', bid: prof.building.id });
-      return;
-    }
-    if (prof.type === 'worker') {
-      s.ui.buildPanelOpen = !s.ui.buildPanelOpen;
-      if (s.ui.buildPanelOpen && RTS.BuildingMenu) RTS.BuildingMenu.close(s);
-      RTS.Audio.play('click');
-      RTS.HUD.sync(s);
-      return;
-    }
-    s.attackMoveArmed = false;
-    RTS.refreshMode(s);
-    RTS.toast(s, 'Tap ground to hold position');
+    var modes = ['aggressive', 'defensive', 'hold'];
+    var cur = modes.indexOf(s.combatMode || 'aggressive');
+    s.combatMode = modes[(cur + 1) % modes.length];
     RTS.Audio.play('click');
     RTS.HUD.sync(s);
   }
 
-  function renderBuildPanel(s) {
-    var panel = D['build-panel'];
-    var grid = D['build-panel-grid'];
-    if (!panel || !grid) return;
-    var open = !!s.ui.buildPanelOpen && s.scene === 'playing';
-    panel.classList.toggle('hidden', !open);
-    panel.setAttribute('aria-hidden', open ? 'false' : 'true');
-    if (!open) { grid.innerHTML = ''; return; }
-    grid.innerHTML = '';
-    (RTS.buildMenuFor ? RTS.buildMenuFor(s.playerFaction) : RTS.BuildMenu).forEach(function (t) {
-      var spec = RTS.Buildings[t];
-      var disabled = s.res.player.halcite < spec.cost;
-      var btn = actionBtn(
-        UI().buildTrayIcon(s.playerFaction, t, 28),
-        { act: 'build', type: t },
-        disabled,
-        '',
-        spec.cost
-      );
-      var lbl = document.createElement('span');
-      lbl.className = 'lbl';
-      lbl.textContent = RTS.nameFor(s.playerFaction, t);
-      btn.appendChild(lbl);
-      grid.appendChild(btn);
-    });
-  }
-
-  function actionBtn(icon, data, disabled, extra, cost) {
-    var b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'act' + (disabled ? ' disabled' : '') + (extra ? ' ' + extra : '');
-    for (var k in data) b.dataset[k] = data[k];
-    b.innerHTML = '<span class="ico">' + icon + '</span>' +
-      (cost ? '<span class="cost"><img class="ic-ts xs" src="' + UI().iconUrl('gold') +
-        '" alt="" />' + cost + '</span>' : '');
-    return b;
-  }
-
-  RTS.HUD.performAction = function (s, data) { handleAction(s, data); };
-
-  function nearestResourceNode(s, units) {
-    var best = null, bd = Infinity;
-    var ox = 0, oy = 0, n = 0;
-    units.forEach(function (u) { ox += u.x; oy += u.y; n++; });
-    if (!n) return null;
-    ox /= n; oy /= n;
-    s.entities.resources.forEach(function (node) {
-      if (node.amount <= 0) return;
-      var d = RTS.dist(ox, oy, node.x, node.y);
-      if (d < bd) { bd = d; best = node; }
-    });
-    return best;
-  }
-
+  // ---- Action dispatcher ---------------------------------------------------
   function handleAction(s, data) {
     if (!s || !data || !data.act) return;
-    markUi();
-    var units = RTS.activeSelectedUnits(s);
-    var workers = RTS.activeWorkers(s);
-    switch (data.act) {
-      case 'stop':
-        RTS.orderStop(s, units);
-        s.attackMoveArmed = false;
-        RTS.refreshMode(s);
-        RTS.Audio.play('click');
-        break;
-      case 'move':
-        s.attackMoveArmed = false;
-        RTS.refreshMode(s);
-        RTS.toast(s, 'Tap ground to move');
-        RTS.Audio.play('click');
-        break;
-      case 'attackmove':
-        s.attackMoveArmed = !s.attackMoveArmed;
-        RTS.refreshMode(s);
-        RTS.Audio.play('click');
-        break;
-      case 'hold':
-        RTS.orderStop(s, units);
-        s.attackMoveArmed = false;
-        RTS.refreshMode(s);
-        RTS.toast(s, 'Holding position');
-        RTS.Audio.play('click');
-        break;
-      case 'harvest':
-        if (!workers.length) { RTS.Audio.play('deny'); break; }
-        var node = nearestResourceNode(s, workers);
-        if (!node) { RTS.toast(s, 'No Ironstone in reach'); RTS.Audio.play('deny'); break; }
-        workers.forEach(function (w) { RTS.orderHarvest(s, w, node.id); });
-        RTS.Audio.play('click');
-        break;
-      case 'build-cmd':
-        s.ui.buildPanelOpen = true;
-        if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
-        RTS.Audio.play('click');
-        break;
-      case 'return':
-        workers.forEach(function (w) {
-          if (w.harvest && w.harvest.carry > 0) {
-            w.harvest.phase = 'toBase';
-            if (RTS.Harvest && RTS.Harvest.assignReturnDeposit) RTS.Harvest.assignReturnDeposit(s, w);
-          }
-        });
-        RTS.Audio.play('click');
-        break;
-      case 'rally':
-        RTS.toast(s, 'Long-press ground to set rally');
-        RTS.Audio.play('click');
-        break;
-      case 'more':
-        if (data.bid) {
-          var bMore = RTS.getById(s, data.bid);
-          if (bMore && RTS.BuildingMenu) RTS.BuildingMenu.open(s, bMore);
-        }
-        RTS.Audio.play('click');
-        break;
-      case 'toggle-automine':
-        var hq = RTS.getById(s, data.bid);
-        if (hq && hq.built) {
-          hq.autoMine = !hq.autoMine;
-          RTS.toast(s, hq.autoMine ? 'Auto-mine enabled' : 'Auto-mine disabled');
-          if (hq.autoMine) {
-            s.entities.units.forEach(function (u) {
-              if (u.dead || u.team !== RTS.TEAM.PLAYER || u.role !== 'pawn') return;
-              if (u.harvest || u.buildTask || u.moveTo || u.target) return;
-              if (RTS.dist(u.x, u.y, hq.x, hq.y) > 380) return;
-              var node = RTS.nodeForDeposit(s, hq);
-              if (!node) return;
-              RTS.orderHarvest(s, u, node.id, { depositOwnerId: hq.id });
-            });
-          }
-          RTS.Audio.play('click');
-        }
-        break;
-      case 'train':
-        var b = RTS.getById(s, data.bid); if (b) RTS.train(s, b, data.role); break;
-      case 'build':
-        RTS.beginPlacement(s, data.type);
-        break;
-      case 'cancel-place':
-        RTS.cancelPlacement(s);
-        RTS.Audio.play('click');
-        break;
-      case 'cancel-build':
-        if (RTS.cancelConstruction(s, data.bid)) RTS.Audio.play('click');
-        else RTS.Audio.play('deny');
-        break;
-      case 'cancel-train':
-        if (RTS.cancelTrainQueueItem(s, data.bid, parseInt(data.qidx, 10))) RTS.Audio.play('click');
-        else RTS.Audio.play('deny');
-        break;
-      default:
-        RTS.Audio.play('deny');
-        break;
+    var act = data.act;
+    RTS.Audio.play('click');
+
+    if (act === 'train' && data.role && data.bid) {
+      RTS.trainUnit && RTS.trainUnit(s, data.bid, data.role);
+    } else if (act === 'sell' && data.bid) {
+      RTS.sellBuilding && RTS.sellBuilding(s, data.bid);
+    } else if (act === 'upgrade' && data.bid) {
+      RTS.upgradeBuilding && RTS.upgradeBuilding(s, data.bid);
+    } else if (act === 'toggle-automine' && data.bid) {
+      RTS.toggleAutomine && RTS.toggleAutomine(s, data.bid);
+    } else if (act === 'move') {
+      s.pendingOrder = 'move';
+    } else if (act === 'attack-move') {
+      s.attackMoveArmed = !s.attackMoveArmed;
+      RTS.refreshMode && RTS.refreshMode(s);
+    } else if (act === 'stop') {
+      RTS.orderStop && RTS.orderStop(s, RTS.activeSelectedUnits(s));
+      s.attackMoveArmed = false;
+      RTS.refreshMode && RTS.refreshMode(s);
+    } else if (act === 'hero-ability' && data.uid) {
+      RTS.triggerHeroAbility && RTS.triggerHeroAbility(s, data.uid);
+    } else if (act === 'open-build') {
+      s.ui.buildPanelOpen = true;
+    } else if (act === 'place' && data.btype) {
+      RTS.beginPlacement && RTS.beginPlacement(s, data.btype);
+      s.ui.buildPanelOpen = false;
     }
     RTS.HUD.sync(s);
   }
