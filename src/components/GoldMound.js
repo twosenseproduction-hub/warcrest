@@ -1,198 +1,195 @@
 /**
  * GoldMound.js
  * Renders a 6-layer gold mound with staggered shimmer/highlight animation.
- * Each layer has a base stone PNG and a corresponding highlight sprite sheet
- * that cycles to simulate a living gold shimmer — like Warcraft's Gold Mine glow.
  *
- * Asset paths point directly to the repo's Gold Stones directory.
+ * Sprite specs (confirmed):
+ *   - Each base stone:      128 x 128 px
+ *   - Each highlight sheet: 768 x 128 px  (6 frames × 128px wide)
+ *   - Stone 1 = smallest object inside the 128x128 frame
+ *   - Stone 6 = largest  object inside the 128x128 frame
+ *   - Layers are offset slightly so smaller stones peek out
+ *     from behind larger ones, building up the mound naturally.
  */
 
 const GOLD_BASE_PATH = 'assets/tiny-swords/Terrain/Resources/Gold/Gold Stones/';
 
-// Layer definitions: render order bottom → top (1 = base, 6 = top)
+const FRAME_SIZE    = 128; // px — every base + highlight frame is 128×128
+const TOTAL_FRAMES  = 6;   // 768px sheet / 128px = 6 frames per highlight strip
+
+/**
+ * Per-layer positional offsets (dx, dy) relative to the mound's anchor point.
+ * Stone 1 (smallest) sits at the front-bottom.
+ * Stone 6 (largest)  is the centerpiece of the mound.
+ * Adjust these values in-game to fine-tune the pile composition.
+ *
+ * Offset convention:  positive dx = right,  positive dy = down (canvas coords)
+ */
 const GOLD_LAYERS = [
-  { base: 'Gold Stone 1.png', highlight: 'Gold Stone 1_Highlight.png' },
-  { base: 'Gold Stone 2.png', highlight: 'Gold Stone 2_Highlight.png' },
-  { base: 'Gold Stone 3.png', highlight: 'Gold Stone 3_Highlight.png' },
-  { base: 'Gold Stone 4.png', highlight: 'Gold Stone 4_Highlight.png' },
-  { base: 'Gold Stone 5.png', highlight: 'Gold Stone 5_Highlight.png' },
-  { base: 'Gold Stone 6.png', highlight: 'Gold Stone 6_Highlight.png' },
+  { base: 'Gold Stone 1.png', highlight: 'Gold Stone 1_Highlight.png', dx:  32, dy:  48 }, // small front-left
+  { base: 'Gold Stone 2.png', highlight: 'Gold Stone 2_Highlight.png', dx:  80, dy:  52 }, // small front-right
+  { base: 'Gold Stone 3.png', highlight: 'Gold Stone 3_Highlight.png', dx:   8, dy:  16 }, // mid left
+  { base: 'Gold Stone 4.png', highlight: 'Gold Stone 4_Highlight.png', dx:  72, dy:  20 }, // mid right
+  { base: 'Gold Stone 5.png', highlight: 'Gold Stone 5_Highlight.png', dx:  40, dy:   0 }, // large back
+  { base: 'Gold Stone 6.png', highlight: 'Gold Stone 6_Highlight.png', dx:   0, dy:   0 }, // largest — anchor/base
 ];
 
 // Shimmer animation config
 const SHIMMER_CONFIG = {
-  frameWidth: 64,          // px — adjust to match your highlight sprite sheet frame width
-  frameHeight: 64,         // px — adjust to match your highlight sprite sheet frame height
-  totalFrames: 8,          // number of frames in each highlight sheet
-  fps: 6,                  // animation speed (frames per second)
-  staggerMs: 180,          // ms offset between each layer starting its shimmer cycle
-  highlightOpacity: 0.85,  // max opacity of highlight overlay at peak shimmer
-  loopDelay: 2000,         // ms to wait between shimmer loop cycles (idle pause)
+  fps:             6,     // shimmer animation speed
+  staggerMs:       200,   // ms between each layer starting its shimmer (ripple effect)
+  highlightOpacity: 0.9,  // peak opacity of the highlight overlay
+  loopDelay:       2200,  // ms idle pause between shimmer cycles
 };
 
 /**
  * GoldMound Class
- * Manages the canvas rendering of the 6-layer stacked gold mound
- * with per-layer staggered highlight animation.
  *
  * Usage:
  *   const mound = new GoldMound(canvasElement, x, y);
  *   mound.load().then(() => mound.start());
+ *
+ * The anchor point (x, y) is the top-left corner of Stone 6 (the largest stone).
+ * All other layers offset from there per the GOLD_LAYERS config above.
  */
 export class GoldMound {
   constructor(canvas, x = 0, y = 0) {
     this.canvas = canvas;
-    this.ctx = canvas.getContext('2d');
-    this.x = x;
-    this.y = y;
+    this.ctx    = canvas.getContext('2d');
+    this.x      = x;
+    this.y      = y;
     this.layers = [];
     this.animationFrameId = null;
-    this.lastFrameTime = 0;
-    this.isRunning = false;
+    this.lastFrameTime    = 0;
+    this.isRunning        = false;
   }
 
-  /**
-   * Preloads all base and highlight images for all 6 layers.
-   * Returns a Promise that resolves when all assets are ready.
-   */
+  // ─── Asset Loading ──────────────────────────────────────────────────────────
+
   async load() {
     const loadImage = (src) =>
       new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error(`Failed to load: ${src}`));
-        img.src = src;
+        const img   = new Image();
+        img.onload  = () => resolve(img);
+        img.onerror = () => reject(new Error(`[GoldMound] Failed to load: ${src}`));
+        img.src     = src;
       });
 
     this.layers = await Promise.all(
-      GOLD_LAYERS.map(async (layer, index) => ({
-        baseImg: await loadImage(GOLD_BASE_PATH + layer.base),
-        highlightImg: await loadImage(GOLD_BASE_PATH + layer.highlight),
+      GOLD_LAYERS.map(async (def, index) => ({
+        baseImg:      await loadImage(GOLD_BASE_PATH + def.base),
+        highlightImg: await loadImage(GOLD_BASE_PATH + def.highlight),
+        dx:           def.dx,
+        dy:           def.dy,
+        // Animation state
         currentFrame: 0,
-        frameTimer: 0,
-        // Stagger each layer's shimmer start so they don't all flash simultaneously
-        staggerOffset: index * SHIMMER_CONFIG.staggerMs,
-        cycleTimer: index * SHIMMER_CONFIG.staggerMs, // pre-offset so stagger starts immediately
-        inDelay: false,
+        frameTimer:   0,
+        cycleTimer:   index * SHIMMER_CONFIG.staggerMs, // pre-stagger so ripple starts immediately
+        inDelay:      false,
       }))
     );
 
-    console.log(`[GoldMound] All ${this.layers.length} layers loaded.`);
+    console.log(`[GoldMound] ${this.layers.length} layers loaded.`);
   }
 
-  /**
-   * Starts the render/animation loop.
-   */
+  // ─── Loop Control ───────────────────────────────────────────────────────────
+
   start() {
     if (!this.layers.length) {
       console.warn('[GoldMound] Call load() before start().');
       return;
     }
-    this.isRunning = true;
+    this.isRunning     = true;
     this.lastFrameTime = performance.now();
     this._loop(this.lastFrameTime);
   }
 
-  /**
-   * Stops the animation loop.
-   */
   stop() {
     this.isRunning = false;
-    if (this.animationFrameId) {
-      cancelAnimationFrame(this.animationFrameId);
-    }
+    if (this.animationFrameId) cancelAnimationFrame(this.animationFrameId);
   }
 
-  /**
-   * Main render loop — called every animation frame.
-   */
+  // ─── Render Loop ────────────────────────────────────────────────────────────
+
   _loop(timestamp) {
     if (!this.isRunning) return;
-
-    const delta = timestamp - this.lastFrameTime;
+    const delta        = timestamp - this.lastFrameTime;
     this.lastFrameTime = timestamp;
-
     this._update(delta);
     this._draw();
-
     this.animationFrameId = requestAnimationFrame((ts) => this._loop(ts));
   }
 
-  /**
-   * Updates highlight animation frame state for each layer.
-   * Each layer advances its frame independently based on stagger offset.
-   */
+  // ─── Animation Update ───────────────────────────────────────────────────────
+
   _update(delta) {
-    const { fps, totalFrames, loopDelay } = SHIMMER_CONFIG;
-    const msPerFrame = 1000 / fps;
+    const msPerFrame = 1000 / SHIMMER_CONFIG.fps;
+    const { loopDelay } = SHIMMER_CONFIG;
 
     for (const layer of this.layers) {
       if (layer.inDelay) {
-        // Waiting in the idle pause between shimmer cycles
         layer.cycleTimer += delta;
         if (layer.cycleTimer >= loopDelay) {
-          layer.cycleTimer = 0;
+          layer.cycleTimer  = 0;
           layer.currentFrame = 0;
-          layer.inDelay = false;
+          layer.inDelay      = false;
         }
         continue;
       }
 
       layer.frameTimer += delta;
       if (layer.frameTimer >= msPerFrame) {
-        layer.frameTimer -= msPerFrame;
+        layer.frameTimer  -= msPerFrame;
         layer.currentFrame++;
 
-        if (layer.currentFrame >= totalFrames) {
-          // Finished one full shimmer cycle — enter idle delay before looping
-          layer.currentFrame = totalFrames - 1; // hold last frame during delay
-          layer.inDelay = true;
-          layer.cycleTimer = 0;
+        if (layer.currentFrame >= TOTAL_FRAMES) {
+          layer.currentFrame = TOTAL_FRAMES - 1; // hold last frame during idle
+          layer.inDelay      = true;
+          layer.cycleTimer   = 0;
         }
       }
     }
   }
 
-  /**
-   * Draws all 6 layers to the canvas in order (bottom to top).
-   * Each layer renders: base stone first, then the highlight overlay on top.
-   */
-  _draw() {
-    const { ctx, x, y } = this;
-    const { frameWidth, frameHeight, highlightOpacity } = SHIMMER_CONFIG;
+  // ─── Draw ───────────────────────────────────────────────────────────────────
 
-    // Clear only the mound area (or full canvas if needed)
-    ctx.clearRect(x, y, frameWidth, frameHeight);
+  _draw() {
+    const { ctx, x, y }              = this;
+    const { highlightOpacity }       = SHIMMER_CONFIG;
+
+    // Clear the full mound bounding box before redrawing
+    // Bounding box = 128 (frame) + max dx offset + padding
+    ctx.clearRect(x - 4, y - 4, FRAME_SIZE + 96, FRAME_SIZE + 64);
 
     for (const layer of this.layers) {
-      // 1. Draw the base stone layer
+      const lx = x + layer.dx;
+      const ly = y + layer.dy;
+
+      // 1. Base stone — always fully opaque
       ctx.globalAlpha = 1.0;
-      ctx.drawImage(layer.baseImg, x, y, frameWidth, frameHeight);
+      ctx.drawImage(layer.baseImg, lx, ly, FRAME_SIZE, FRAME_SIZE);
 
-      // 2. Draw the highlight overlay at the current animation frame
-      // Highlight sheets are horizontal strip sprite sheets (frame 0 = leftmost)
-      const srcX = layer.currentFrame * frameWidth;
-      const srcY = 0;
+      // 2. Highlight overlay — sampled from horizontal sprite sheet
+      //    srcX advances by FRAME_SIZE per frame across the 768px sheet
+      const srcX = layer.currentFrame * FRAME_SIZE;
 
-      // Fade opacity: peak shimmer at mid-cycle, fade in/out at edges
-      const progress = layer.currentFrame / (SHIMMER_CONFIG.totalFrames - 1);
-      const shimmerAlpha = highlightOpacity * Math.sin(progress * Math.PI); // smooth bell curve fade
+      // Bell-curve alpha: smoothly fade in → peak → fade out across the 6 frames
+      const progress      = layer.currentFrame / (TOTAL_FRAMES - 1);
+      const shimmerAlpha  = layer.inDelay ? 0 : highlightOpacity * Math.sin(progress * Math.PI);
 
-      ctx.globalAlpha = layer.inDelay ? 0 : shimmerAlpha;
+      ctx.globalAlpha = shimmerAlpha;
       ctx.drawImage(
         layer.highlightImg,
-        srcX, srcY, frameWidth, frameHeight, // source rect from sprite sheet
-        x, y, frameWidth, frameHeight         // destination on canvas
+        srcX, 0, FRAME_SIZE, FRAME_SIZE, // source slice from sprite sheet
+        lx,   ly, FRAME_SIZE, FRAME_SIZE  // destination on canvas at layer offset
       );
     }
 
-    // Reset alpha so other canvas elements are unaffected
+    // Always restore globalAlpha so nothing else on the canvas is affected
     ctx.globalAlpha = 1.0;
   }
 
-  /**
-   * Updates the mound's position on the canvas.
-   */
+  // ─── Helpers ────────────────────────────────────────────────────────────────
+
   setPosition(x, y) {
     this.x = x;
     this.y = y;
