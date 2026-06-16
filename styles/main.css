@@ -57,8 +57,9 @@
   --cmd-h: 72px;
   --cmd-btn: 44px;
   --thumb-btn: 52px;
+  /* FIXED: expanded height tall enough to contain squad + cmd + combat rows */
   --deck-h: 0px;
-  --deck-expanded-h: 92px;
+  --deck-expanded-h: 100px;
   --cmd-slot: 38px;
   --combat-btn: 44px;
   --combat-primary: 50px;
@@ -569,14 +570,26 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   }
 }
 
-/* ---- Bottom hub + combat cluster (condensed mobile RTS command surface) ---- */
+/* ============================================================================
+ * Bottom command deck — FIXED layout
+ *
+ * Key changes:
+ *  1. --deck-expanded-h raised to 100px so nothing clips.
+ *  2. .deck-row is a single row using align-items: center so every child
+ *     is vertically centered inside the grey rectangle.
+ *  3. .combat-cluster moved inside .deck-row (right side) — it no longer
+ *     floats outside the rect.  It is flex: 0 0 auto so it never compresses.
+ *  4. .bottom-hub uses align-items: center (not stretch) so squad + cmd
+ *     card always sit at the same vertical baseline regardless of whether
+ *     the squad block is visible or hidden.
+ *  5. overflow: visible on #command-deck.expanded so nothing is cut.
+ * ==========================================================================*/
 #command-deck {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 24;
-  /* FIX: use min-height + visibility instead of height:0 + overflow:hidden
-     so hub content is never clipped at the boundary edge */
   height: auto;
   min-height: 0;
   max-height: 0;
+  /* FIXED: clip must not cut buttons — use hidden until expanded */
   overflow: hidden;
   visibility: hidden;
   opacity: 0;
@@ -587,29 +600,37 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   transition: max-height 0.22s ease, opacity 0.18s ease, visibility 0s linear 0.18s, padding 0.22s ease;
 }
 #command-deck.expanded {
+  /* FIXED: allow enough height for the tallest row (combat cluster ~54px + 2×padding) */
   max-height: calc(var(--deck-expanded-h) + env(safe-area-inset-bottom) + 16px);
+  /* FIXED: switch to visible so buttons at the very edge are never clipped */
+  overflow: visible;
   visibility: visible;
   opacity: 1;
-  padding-top: 5px;
+  padding-top: 6px;
   pointer-events: auto;
   transition: max-height 0.22s ease, opacity 0.18s ease, visibility 0s linear 0s, padding 0.22s ease;
 }
+
+/* Single unified row: [squad] [info] [cmd-grid] [combat] */
 .deck-row {
   display: flex;
-  align-items: flex-end;
-  justify-content: center;
+  align-items: center;     /* FIXED: vertical center — no more drifting high/low */
+  justify-content: flex-start;
   gap: 6px;
   max-width: 100%;
+  /* FIXED: cap height so row never taller than the grey rectangle */
+  min-height: calc(var(--deck-expanded-h) - 12px);
+  max-height: calc(var(--deck-expanded-h) - 6px);
 }
+
 .bottom-hub {
   flex: 1 1 auto;
   min-width: 0;
-  /* FIX: drop the combat-cluster offset — flex layout handles spacing;
-     hard-coding it caused overflow on narrow screens when cluster is hidden */
   max-width: 100%;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: stretch;
+  /* FIXED: center so items don't float up when squad-block hidden */
+  align-items: center;
   gap: 6px;
 }
 .bottom-hub.hidden { display: none; }
@@ -730,7 +751,6 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 }
 .cmd-slot:active { transform: scale(0.94); background-image: var(--ts-btn-sq-blue-pressed); }
 .cmd-slot.on { filter: brightness(1.14); box-shadow: 0 0 10px rgba(255, 213, 79, 0.35); }
-/* Green active state — used for toggle-automine when enabled */
 .cmd-slot.cmd-green {
   background-image: var(--ts-btn-sq-green, var(--ts-btn-sq-blue));
   box-shadow: 0 0 12px rgba(102, 187, 106, 0.55), 0 2px 6px rgba(0, 0, 0, 0.35);
@@ -745,7 +765,6 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 .cmd-slot.disabled { opacity: 0.32; filter: grayscale(0.55); }
 .cmd-slot.slot-hidden { visibility: hidden; pointer-events: none; }
 
-/* Icon fills the slot frame — no clipping */
 .cmd-slot .cmd-ico {
   line-height: 0;
   display: flex; align-items: center; justify-content: center;
@@ -775,20 +794,30 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   pointer-events: none;
 }
 
-/* Combat cluster — thumb node beside hub */
+/* ============================================================================
+ * Combat cluster — FIXED: now sits inside .deck-row on the right side.
+ * It is flex: 0 0 auto so it never gets squeezed.
+ * Layout is a column-reverse stack so the primary (attack-move) is on bottom.
+ * ==========================================================================*/
 .combat-cluster {
   flex: 0 0 auto;
   display: flex;
   flex-direction: column-reverse;
   align-items: center;
-  gap: 5px;
-  padding-bottom: 1px;
+  justify-content: center;
+  gap: 4px;
+  /* FIXED: constrain height to fit inside the deck rectangle */
+  max-height: calc(var(--deck-expanded-h) - 10px);
+  padding: 0;
+  margin-left: 2px;
 }
 .combat-cluster.hidden { display: none !important; }
 .combat-btn {
   width: var(--combat-btn); height: var(--combat-btn);
   padding: 0; cursor: pointer;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.42);
+  /* FIXED: shrink slightly so 3 stacked buttons fit in --deck-expanded-h */
+  flex-shrink: 1;
 }
 .combat-btn.combat-primary {
   width: var(--combat-primary); height: var(--combat-primary);
@@ -800,8 +829,9 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 }
 
 @media (min-width: 520px) {
-  :root { --deck-expanded-h: 98px; --cmd-slot: 42px; --cmd-btn: 48px; --combat-btn: 46px; --combat-primary: 54px; }
+  :root { --deck-expanded-h: 108px; --cmd-slot: 42px; --cmd-btn: 48px; --combat-btn: 46px; --combat-primary: 54px; }
 }
+
 .sel-queue {
   display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px; align-items: center;
 }
@@ -955,7 +985,7 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 #radial-menu { display: none !important; pointer-events: none !important; }
 
 @media (orientation: landscape) and (max-height: 480px) {
-  :root { --deck-expanded-h: 76px; --cmd-slot: 34px; --cmd-btn: 40px; --combat-btn: 40px; --combat-primary: 46px; }
+  :root { --deck-expanded-h: 82px; --cmd-slot: 34px; --cmd-btn: 40px; --combat-btn: 38px; --combat-primary: 44px; }
   #minimap-chip { width: 56px; height: 56px; }
 }
 
