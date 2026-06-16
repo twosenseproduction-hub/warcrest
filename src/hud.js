@@ -120,6 +120,9 @@
         handleAction(getState(), btn.dataset);
       });
 
+      // ---- cmd-slot press-state: add/remove `pressing` class on touch down/up ----
+      wireCmdSlotPressState(D['cmd-grid']);
+
       wireDelegatedTap(D['squad-chips'], '[data-squad-role]', function (e, chip) {
         var s = getState();
         if (!s || chip.classList.contains('disabled')) return;
@@ -197,6 +200,29 @@
   };
 
   function markUi() { var s = getState(); if (s) s.ui.lastUiAt = performance.now(); }
+
+  // Adds `pressing` class to a .cmd-slot on pointerdown and removes it on
+  // pointerup / pointercancel / pointerleave so CSS can swap to the pressed asset.
+  function wireCmdSlotPressState(grid) {
+    if (!grid) return;
+    var pressed = null;
+
+    function clearPressed() {
+      if (pressed) { pressed.classList.remove('pressing'); pressed = null; }
+    }
+
+    grid.addEventListener('pointerdown', function (e) {
+      var btn = e.target.closest('.cmd-slot');
+      if (!btn || btn.classList.contains('disabled') || btn.classList.contains('slot-hidden')) return;
+      clearPressed();
+      pressed = btn;
+      btn.classList.add('pressing');
+    }, true);
+
+    grid.addEventListener('pointerup',     clearPressed, true);
+    grid.addEventListener('pointercancel', clearPressed, true);
+    grid.addEventListener('pointerleave',  clearPressed, true);
+  }
 
   function wireTap(el, fn) {
     if (!el) return;
