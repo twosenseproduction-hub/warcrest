@@ -607,6 +607,8 @@
       var b = prof.building;
       var fid = s.playerFaction || 'aurex';
       var trains = (RTS.Buildings[b.type] && RTS.Buildings[b.type].trains) || [];
+
+      // Slots 0-2: train buttons (always shown so layout is stable)
       trains.slice(0, 3).forEach(function (role, i) {
         if (role === '_livestock') {
           var lc = RTS.Config.livestock;
@@ -633,15 +635,35 @@
           }));
         }
       });
+
       if (!b.built) {
         put(5, slot('cancel-build', UI().iconHtml('cancel', 20), { danger: true, data: { bid: b.id } }));
       } else {
-        put(3, slot('toggle-automine', UI().iconHtml('hammer', 20), {
-          active: !!b.autoMine,
-          green: !!b.autoMine,
-          data: { bid: b.id },
-          hidden: !RTS.isDepositBuilding || !RTS.isDepositBuilding(b),
-        }));
+        // Slot 3: active training progress — tap to cancel and refund.
+        // Renders a conic sweep timer so the player can see what's cooking.
+        // Falls back to the automine toggle when nothing is training.
+        if (b.train) {
+          var activeJob = b.train;
+          var qPct = activeJob.total ? Math.max(0, Math.min(1, 1 - activeJob.remaining / activeJob.total)) : 0;
+          var qPortrait = activeJob.role === '_livestock'
+            ? UI().iconHtml(fid === 'cinder' ? 'pig' : 'sheep', 20)
+            : ((RTS.isHeroRole && RTS.isHeroRole(activeJob.role))
+                ? UI().roleTrayIcon(fid, 'monk', 22)
+                : UI().roleTrayIcon(fid, activeJob.role, 22));
+          put(3, slot('cancel-train', qPortrait, {
+            disabled: false,
+            danger: false,
+            cooldown: qPct,
+            data: { bid: b.id, qidx: '0' },
+          }));
+        } else {
+          put(3, slot('toggle-automine', UI().iconHtml('hammer', 20), {
+            active: !!b.autoMine,
+            green: !!b.autoMine,
+            data: { bid: b.id },
+            hidden: !RTS.isDepositBuilding || !RTS.isDepositBuilding(b),
+          }));
+        }
         put(4, slot('rally', UI().iconHtml('arrow', 20), { disabled: false }));
         put(5, slot('more', UI().iconHtml('info', 20), { disabled: false, data: { bid: b.id } }));
       }
