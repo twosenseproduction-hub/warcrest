@@ -553,9 +553,22 @@
       return true;
     }
 
-    var spec = RTS.Units[role];
+    var spec = RTS.trainSpec ? RTS.trainSpec(role) : RTS.Units[role];
     if (!building.built) { if (team === RTS.TEAM.PLAYER) RTS.toast(s, 'Building not finished'); return false; }
-    if (!RTS.canAfford(s, team, spec.cost)) {
+    if (!spec) { if (team === RTS.TEAM.PLAYER) RTS.toast(s, 'Cannot train that unit'); return false; }
+
+    if (RTS.isHeroRole && RTS.isHeroRole(role)) {
+      if (RTS.hasLivingHero && RTS.hasLivingHero(s, team, role)) {
+        if (team === RTS.TEAM.PLAYER) {
+          RTS.toast(s, RTS.nameFor(building.faction, role) + ' is already in the field');
+          RTS.Audio.play('deny');
+        }
+        return false;
+      }
+    }
+
+    var cost = spec.trainCost != null ? spec.trainCost : spec.cost;
+    if (!RTS.canAfford(s, team, cost)) {
       if (team === RTS.TEAM.PLAYER) {
         RTS.toast(s, 'Not enough ' + RTS.resourceLabel());
         RTS.log(s, 'Not enough ' + RTS.resourceLabel(), 'warn');
@@ -563,12 +576,16 @@
       }
       return false;
     }
-    if (!RTS.hasSupply(s, team, spec.supply)) {
-      if (team === RTS.TEAM.PLAYER) { RTS.toast(s, 'Supply cap reached — raise more livestock'); RTS.log(s, 'Supply blocked', 'warn'); RTS.Audio.play('deny'); }
-      return false;
+    if (!RTS.isHeroRole || !RTS.isHeroRole(role)) {
+      if (!RTS.hasSupply(s, team, spec.supply)) {
+        if (team === RTS.TEAM.PLAYER) { RTS.toast(s, 'Supply cap reached — raise more livestock'); RTS.log(s, 'Supply blocked', 'warn'); RTS.Audio.play('deny'); }
+        return false;
+      }
     }
-    s.res[team].halcite -= spec.cost;
-    var trainTime = baseTrain(role);
+    s.res[team].halcite -= cost;
+    var trainTime = (RTS.isHeroRole && RTS.isHeroRole(role) && spec.trainTime != null)
+      ? spec.trainTime
+      : baseTrain(role);
     building.queue.push({ role: role, remaining: trainTime, total: trainTime });
     if (!building.train) building.train = building.queue[0];
     if (team === RTS.TEAM.PLAYER) {
@@ -579,6 +596,10 @@
   };
 
   function baseTrain(role) {
+    if (RTS.isHeroRole && RTS.isHeroRole(role)) {
+      var hero = RTS.getHero(role);
+      if (hero && hero.trainTime != null) return hero.trainTime;
+    }
     switch (role) {
       case 'pawn': return 7;
       case 'lancer': return 8;
@@ -952,9 +973,9 @@
     if (job.role === '_livestock') {
       refund = RTS.Config.livestock.trainCost;
     } else {
-      var spec = RTS.Units[job.role];
+      var spec = RTS.trainSpec ? RTS.trainSpec(job.role) : RTS.Units[job.role];
       if (!spec) return false;
-      refund = spec.cost;
+      refund = spec.trainCost != null ? spec.trainCost : spec.cost;
     }
     s.res.player.halcite += refund;
     b.queue.splice(index, 1);

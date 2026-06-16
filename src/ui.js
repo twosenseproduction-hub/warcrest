@@ -76,6 +76,7 @@
     conduit: 'House2.png',
     foundry: 'Barracks.png',
     forge: 'Archery.png',
+    chiefs_hall: 'Archery.png',
     turret: 'Tower.png',
     outpost: 'House1.png',
   };
@@ -130,6 +131,12 @@
     }
     if (type === 'foundry' && factionId === 'cinder') {
       return enc('assets/raider/', 'War_Pit.png');
+    }
+    if (type === 'forge' && factionId === 'cinder') {
+      return enc('assets/raider/', 'Skull_Den.png');
+    }
+    if (type === 'chiefs_hall' && factionId === 'cinder') {
+      return enc('assets/raider/', 'Chiefs_Hall.png');
     }
     if (type === 'turret' && factionId === 'cinder') {
       return enc('assets/raider/', 'Bone_Spire.png');

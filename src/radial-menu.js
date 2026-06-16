@@ -98,26 +98,33 @@
           });
           return;
         }
-        var us = RTS.Units[role];
+        var us = RTS.trainSpec ? RTS.trainSpec(role) : RTS.Units[role];
         if (!us) return;
-        var afford = s.res.player.halcite >= us.cost;
-        var supplyOk = s.res.player.supplyUsed + us.supply <= s.res.player.supplyCap;
+        var cost = us.trainCost != null ? us.trainCost : us.cost;
+        var afford = s.res.player.halcite >= cost;
+        var heroBlocked = RTS.isHeroRole && RTS.isHeroRole(role) &&
+          RTS.hasLivingHero && RTS.hasLivingHero(s, RTS.TEAM.PLAYER, role);
+        var supplyOk = RTS.isHeroRole && RTS.isHeroRole(role) ? true :
+          s.res.player.supplyUsed + (us.supply || 0) <= s.res.player.supplyCap;
+        var portrait = (RTS.isHeroRole && RTS.isHeroRole(role))
+          ? (UI().roleTrayIcon ? UI().roleTrayIcon(fid, 'monk', 34) : unitAvatarSrc(fid, 'monk'))
+          : (UI().roleTrayIcon ? UI().roleTrayIcon(fid, role, 34) : unitAvatarSrc(fid, role));
         out.push({
           id: 'train-' + role + '-' + building.id,
           kind: 'train',
           bid: building.id,
           role: role,
           label: RTS.nameFor(fid, role).toUpperCase(),
-          avatar: UI().roleTrayIcon ? UI().roleTrayIcon(fid, role, 34) : unitAvatarSrc(fid, role),
-          cost: us.cost,
-          disabled: !afford || !supplyOk,
+          avatar: portrait,
+          cost: cost,
+          disabled: !afford || !supplyOk || heroBlocked,
         });
       });
     }
 
     if (RTS.activeWorkers(s).length && building.built &&
         (building.type === 'core' || building.type === 'outpost')) {
-      RTS.BuildMenu.forEach(function (type) {
+      (RTS.buildMenuFor ? RTS.buildMenuFor(fid) : RTS.BuildMenu).forEach(function (type) {
         var bspec = RTS.Buildings[type];
         if (!bspec) return;
         var afford = s.res.player.halcite >= bspec.cost;

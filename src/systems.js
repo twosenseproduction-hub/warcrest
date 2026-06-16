@@ -966,6 +966,22 @@
   };
 
   function spawnTrained(s, b, role) {
+    if (RTS.isHeroRole && RTS.isHeroRole(role) && RTS.makeHero) {
+      var ang = b.team === TEAM.PLAYER ? -0.4 : Math.PI - 0.4;
+      var ox = Math.cos(ang) * (b.w / 2 + 26);
+      var oy = Math.sin(ang) * (b.h / 2 + 26);
+      var hero = RTS.makeHero(s, role, b.team, b.x + ox, b.y + oy, b.faction);
+      if (!hero) return;
+      hero.spawnFlash = 0.45;
+      if (b.rally) hero.moveTo = { x: b.rally.x, y: b.rally.y };
+      if (b.team === TEAM.PLAYER) {
+        s.stats.unitsBuilt++;
+        RTS.log(s, RTS.nameFor(b.faction, role) + ' marches forth', 'good');
+        RTS.Audio.play('ready');
+      }
+      RTS.spawnUnitDust(s, hero);
+      return;
+    }
     var ang = b.team === TEAM.PLAYER ? -0.4 : Math.PI - 0.4;
     var ox = Math.cos(ang) * (b.w / 2 + 26);
     var oy = Math.sin(ang) * (b.h / 2 + 26);

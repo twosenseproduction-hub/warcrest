@@ -64,17 +64,25 @@
           });
           return;
         }
-        var us = RTS.Units[role];
-        var afford = s.res.player.halcite >= us.cost;
-        var supplyOk = s.res.player.supplyUsed + us.supply <= s.res.player.supplyCap;
+        var us = RTS.trainSpec ? RTS.trainSpec(role) : RTS.Units[role];
+        if (!us) return;
+        var cost = us.trainCost != null ? us.trainCost : us.cost;
+        var afford = s.res.player.halcite >= cost;
+        var heroBlocked = RTS.isHeroRole && RTS.isHeroRole(role) &&
+          RTS.hasLivingHero && RTS.hasLivingHero(s, RTS.TEAM.PLAYER, role);
+        var supplyOk = RTS.isHeroRole && RTS.isHeroRole(role) ? true :
+          s.res.player.supplyUsed + (us.supply || 0) <= s.res.player.supplyCap;
+        var portrait = (RTS.isHeroRole && RTS.isHeroRole(role))
+          ? (UI().roleTrayIcon ? UI().roleTrayIcon(fid, 'monk', 34) : '')
+          : (UI().unitAvatarUrl ? UI().unitAvatarUrl(fid, role) : '');
         out.push({
           kind: 'train',
           bid: b.id,
           role: role,
           icon: null,
-          portrait: UI().unitAvatarUrl ? UI().unitAvatarUrl(fid, role) : '',
-          cost: us.cost,
-          disabled: !b.built || !afford || !supplyOk,
+          portrait: portrait,
+          cost: cost,
+          disabled: !b.built || !afford || !supplyOk || heroBlocked,
           label: RTS.nameFor(fid, role),
         });
       });

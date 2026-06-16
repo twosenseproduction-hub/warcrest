@@ -237,6 +237,8 @@
       range: 138,
       ranged: true,
       supply: 0,
+      trainCost: 220,
+      trainTime: 22,
 
       passive: {
         id: 'death_ward',
@@ -350,6 +352,15 @@
 
   // Helpers
   RTS.getHero = function (id) { return RTS.Heroes[id] || null; };
+  RTS.isHeroRole = function (role) { return !!RTS.getHero(role); };
+  RTS.trainSpec = function (role) {
+    return RTS.getHero(role) || RTS.Units[role] || null;
+  };
+  RTS.hasLivingHero = function (s, team, heroId) {
+    return s.entities.units.some(function (u) {
+      return u.team === team && !u.dead && u.heroId === heroId;
+    });
+  };
   RTS.getHeroesForFaction = function (factionId) {
     return Object.values(RTS.Heroes).filter(function (h) {
       return h.faction === factionId && h.playable !== false;

@@ -320,6 +320,12 @@
       trains: ['warrior'],
       desc: 'Produces Warriors.',
     },
+    chiefs_hall: {
+      type: 'chiefs_hall', label: "Chief's Hall", w: 192, h: 192,
+      hp: 980, cost: 175, build: 26,
+      trains: ['grollusk'],
+      desc: 'Trains your Horde champion.',
+    },
     turret: {
       type: 'turret', label: 'Arrow Tower', w: 64, h: 128,
       hp: 520, cost: 100, build: 14,
@@ -329,6 +335,16 @@
   };
 
   RTS.BuildMenu = ['conduit', 'foundry', 'forge', 'turret', 'outpost'];
+
+  RTS.buildMenuFor = function (factionId) {
+    var menu = RTS.BuildMenu.slice();
+    if (factionId === 'cinder') {
+      var fi = menu.indexOf('forge');
+      if (fi >= 0) menu.splice(fi + 1, 0, 'chiefs_hall');
+      else menu.push('chiefs_hall');
+    }
+    return menu;
+  };
 
   // ---- Factions ------------------------------------------------------------
   RTS.Factions = {
@@ -348,7 +364,7 @@
       units: ['pawn', 'lancer', 'archer', 'monk', 'warrior'],
       names: {
         core: 'Citadel Keep', conduit: 'Sheep Pen', foundry: 'Barracks',
-        forge: 'War Forge', turret: 'Arrow Tower', outpost: 'Forward Bastion',
+        forge: 'War Forge', chiefs_hall: "Chief's Hall", turret: 'Arrow Tower', outpost: 'Forward Bastion',
         pawn: 'Pawn', lancer: 'Lancer', archer: 'Archer',
         monk: 'Monk', warrior: 'Warrior',
       },
@@ -370,7 +386,7 @@
       units: ['gnome', 'spear_goblin', 'gnoll', 'hex_shaman', 'troll'],
       names: {
         core: 'Warren Maw', conduit: 'Pig Sty', foundry: 'War Pit',
-        forge: 'Skull Forge', turret: 'Bone Spire', outpost: 'Raider Camp',
+        forge: 'Skull Den', chiefs_hall: "Chief's Hall", turret: 'Bone Spire', outpost: 'Raider Camp',
         pawn: 'Gnome', lancer: 'Spear Goblin', archer: 'Gnoll',
         monk: 'Hex Shaman', warrior: 'Troll',
       },

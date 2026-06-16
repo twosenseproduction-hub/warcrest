@@ -62,6 +62,8 @@
         loadImg('Warren_Maw.png', RAIDER_BASE);
         loadImg(PIG_STY, RAIDER_BASE);
         loadImg(WAR_PIT, RAIDER_BASE);
+        loadImg(SKULL_DEN, RAIDER_BASE);
+        loadImg(CHIEFS_HALL, RAIDER_BASE);
         loadImg(BONE_SPIRE, RAIDER_BASE);
         loadImg(GNOLL_BONE, ENEMY_BASE);
       }
@@ -85,6 +87,7 @@
     conduit: 'House2.png',
     foundry: 'Barracks.png',
     forge: 'Archery.png',
+    chiefs_hall: 'Archery.png',
     turret: 'Tower.png',
   };
 
@@ -94,6 +97,7 @@
     conduit: 0.94,
     foundry: 0.95,
     forge: 0.95,
+    chiefs_hall: 0.95,
     turret: 0.90,
   };
 
@@ -106,6 +110,8 @@
     House2:   { l: 0.000, r: 0.000, t: 0.120, b: 0.073 },
     PigSty:       { l: 0.06, r: 0.06, t: 0.10, b: 0.05 },
     Bone_Spire:   { l: 0.148, r: 0.120, t: 0.065, b: 0.038 },
+    Skull_Den:    { l: 0.031, r: 0.031, t: 0.057, b: 0.044 },
+    Chiefs_Hall:  { l: 0.014, r: 0.015, t: 0.028, b: 0.025 },
     ShepherdsHut: { l: 0.06, r: 0.06, t: 0.10, b: 0.05 },
     House3:   { l: 0.023, r: 0.023, t: 0.193, b: 0.104 },
     Tower:    { l: 0.031, r: 0.031, t: 0.180, b: 0.102 },
@@ -119,6 +125,7 @@
     conduit: 'House2',
     foundry: 'Barracks',
     forge:   'Archery',
+    chiefs_hall: 'Archery',
     turret:  'Tower',
   };
 
@@ -173,6 +180,8 @@
   var PIG_STY = 'Pig_Sty.png';
   var SHEPHERDS_HUT = 'Shepherds_Hut.png';
   var WAR_PIT = 'War_Pit.png';
+  var SKULL_DEN = 'Skull_Den.png';
+  var CHIEFS_HALL = 'Chiefs_Hall.png';
   var BONE_SPIRE = 'Bone_Spire.png';
 
   function buildingDrawScale(b, type, imgW, imgH) {
@@ -269,6 +278,8 @@
   function buildingInsetKey(b) {
     if (b.type === 'core' && b.faction === 'cinder') return 'Warren_Maw';
     if (b.type === 'foundry' && b.faction === 'cinder') return 'War_Pit';
+    if (b.type === 'forge' && b.faction === 'cinder') return 'Skull_Den';
+    if (b.type === 'chiefs_hall' && b.faction === 'cinder') return 'Chiefs_Hall';
     if (b.type === 'conduit' && b.faction === 'cinder') return 'PigSty';
     if (b.type === 'turret' && b.faction === 'cinder') return 'Bone_Spire';
     if (b.type === 'conduit' && b.faction === 'aurex') return 'ShepherdsHut';
@@ -284,6 +295,12 @@
     }
     if (b.type === 'foundry' && b.faction === 'cinder') {
       return { base: RAIDER_BASE, rel: WAR_PIT, frames: 1 };
+    }
+    if (b.type === 'forge' && b.faction === 'cinder') {
+      return { base: RAIDER_BASE, rel: SKULL_DEN, frames: 1 };
+    }
+    if (b.type === 'chiefs_hall' && b.faction === 'cinder') {
+      return { base: RAIDER_BASE, rel: CHIEFS_HALL, frames: 1 };
     }
     if (b.type === 'turret' && b.faction === 'cinder') {
       return { base: RAIDER_BASE, rel: BONE_SPIRE, frames: 1 };
@@ -325,6 +342,8 @@
     paths.push({ base: KINGDOM_CUSTOM_BASE, rel: SHEPHERDS_HUT });
     paths.push({ base: RAIDER_BASE, rel: 'Warren_Maw.png' });
     paths.push({ base: RAIDER_BASE, rel: WAR_PIT });
+    paths.push({ base: RAIDER_BASE, rel: SKULL_DEN });
+    paths.push({ base: RAIDER_BASE, rel: CHIEFS_HALL });
     paths.push({ base: RAIDER_BASE, rel: PIG_STY });
     paths.push({ base: RAIDER_BASE, rel: BONE_SPIRE });
     GOLD_STONES.forEach(function (p) {

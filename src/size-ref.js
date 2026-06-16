@@ -50,6 +50,7 @@
     conduit: { w: 176, h: 144 },
     foundry: { w: 160, h: 128 },
     forge: { w: 176, h: 144 },
+    chiefs_hall: { w: 176, h: 144 },
     turret: { w: 72, h: 96 },
   };
 
@@ -65,6 +66,7 @@
     conduit: { wMul: 1.00, hMul: 1.00, padL: 0, padR: 0, padT: 0, padB: 2, xOffset: 0, yOffset: 0 },
     foundry: { wMul: 1.00, hMul: 1.00, padL: 1, padR: 1, padT: 0, padB: 2, xOffset: 0, yOffset: 0 },
     forge:   { wMul: 1.00, hMul: 1.00, padL: 0, padR: 0, padT: 0, padB: 2, xOffset: 0, yOffset: 0 },
+    chiefs_hall: { wMul: 1.00, hMul: 1.00, padL: 0, padR: 0, padT: 0, padB: 2, xOffset: 0, yOffset: 0 },
     turret:  { wMul: 1.00, hMul: 1.00, padL: 1, padR: 1, padT: 0, padB: 2, xOffset: 0, yOffset: 0 },
     outpost: { wMul: 1.00, hMul: 1.00, padL: 0, padR: 0, padT: 0, padB: 2, xOffset: 0, yOffset: 0 },
   };

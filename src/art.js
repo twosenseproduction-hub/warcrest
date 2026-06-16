@@ -446,7 +446,8 @@
       case 'outpost': drawCastle(ctx, b, f, t, rm * 0.88); break;
       case 'conduit': drawPasture(ctx, b, f, t, rm); break;
       case 'foundry': drawBarracks(ctx, b, f); break;
-      case 'forge': drawForge(ctx, b, f, t, rm); break;
+      case 'forge':
+      case 'chiefs_hall': drawForge(ctx, b, f, t, rm); break;
       case 'turret': drawCannonTower(ctx, b, f, t, rm); break;
       default: drawBarracks(ctx, b, f);
     }

@@ -86,7 +86,7 @@
   //   outpost  128 × 128   (Forward Bastion / Raider Camp)
   //   conduit  192 × 192   (Sheep Pen / Pig Sty)
   //   foundry  192 × 128   (Barracks / War Pit)
-  //   forge    192 × 192   (War Forge / Skull Forge)
+  //   forge / chiefs_hall  192 × 192   (War Forge / Skull Den · Chief's Hall)
   //   turret    64 × 128   (Arrow Tower / Bone Spire)
   var BUILDING_ELLIPSES = {
     // ── core (256 × 192) ──────────────────────────────────────────────────
@@ -118,6 +118,11 @@
     // ── forge (192 × 192) ─────────────────────────────────────────────────
     // Three ellipses mirroring the anvil/chimney layout
     forge: [
+      { ox: -44, oy: -28, rx: 56, ry: 58 },
+      { ox:  44, oy: -28, rx: 56, ry: 58 },
+      { ox:   0, oy:  38, rx: 64, ry: 50 },
+    ],
+    chiefs_hall: [
       { ox: -44, oy: -28, rx: 56, ry: 58 },
       { ox:  44, oy: -28, rx: 56, ry: 58 },
       { ox:   0, oy:  38, rx: 64, ry: 50 },
