@@ -49,7 +49,7 @@ The Deepvein Find didn't just find ore. The Iron Crown's surveys disturbed somet
 ## Factions
 
 ### The Iron Crown (`aurex`)
-**Tagline:** Steel · Banners · Order
+**Tagline:** Iron · Compact · Advance
 
 The Iron Crown crossed the western Reach two generations ago, following an Auric Compact survey road abandoned for a century. What they found on the Floor was ironstone in quantities they had never seen — and Horde camps they considered squatters.
 
@@ -60,7 +60,7 @@ They are not cruel. They are inevitable.
 ---
 
 ### The Raider Horde (`cinder`)
-**Tagline:** Bone · Fire · Chaos
+**Tagline:** Root · Blood · Reclaim
 
 The Horde did not come to Verath. They *are* Verath. Gnomes have tunneled its eastern ridges for centuries. Gnolls have hunted the Sapphire Shores since before the Auric Compact existed. Trolls like Warren Maw remember when the Floor had no roads, no keeps, no surveyors.
 
