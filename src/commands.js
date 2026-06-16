@@ -25,15 +25,30 @@
   RTS.markBuildingFootprint = function (s, b, blocked) {
     var grid = s.map && s.map.pathGrid;
     if (!grid) return;
+    var rect;
+    if (RTS.Assets && RTS.Assets.buildingCollisionRect) {
+      rect = RTS.Assets.buildingCollisionRect(b, s);
+    } else {
+      var hw = b.w * 0.36;
+      var hh = b.h * 0.28;
+      rect = { l: b.x - hw, r: b.x + hw, t: b.y - hh, b: b.y + hh * 0.55 };
+    }
     var T = RTS.TILE;
-    var col = Math.round(b.x / T);
-    var row = Math.round(b.y / T);
-    var halfW = Math.round(b.w / T / 2);
-    var halfH = Math.round(b.h / T / 2);
-    for (var r = row - halfH; r < row + halfH; r++) {
-      for (var c = col - halfW; c < col + halfW; c++) {
-        if (grid[r] && grid[r][c] !== undefined) {
-          grid[r][c] = blocked ? 1 : 0;
+    var cols = grid[0].length;
+    var rows = grid.length;
+    var x0 = Math.max(0, Math.floor(rect.l / T));
+    var y0 = Math.max(0, Math.floor(rect.t / T));
+    var x1 = Math.min(cols - 1, Math.floor(rect.r / T));
+    var y1 = Math.min(rows - 1, Math.floor(rect.b / T));
+    var cx, cy, wx, wy;
+    for (cy = y0; cy <= y1; cy++) {
+      for (cx = x0; cx <= x1; cx++) {
+        wx = cx * T + T * 0.5;
+        wy = cy * T + T * 0.5;
+        if (wx >= rect.l && wx <= rect.r && wy >= rect.t && wy <= rect.b) {
+          if (grid[cy] && grid[cy][cx] !== undefined) {
+            grid[cy][cx] = blocked ? 1 : 0;
+          }
         }
       }
     }
@@ -371,7 +386,9 @@
     u.attackMove = false;
     u.harvest = null;
     u.buildTask = null;
-    u.buildQueue = [];
+    if (u.role === 'pawn' && mode !== 'assistBuild') {
+      u.buildQueue = [];
+    }
 
     switch (mode) {
       case 'move':
@@ -597,24 +614,11 @@
 
   RTS.redirectPawnToBuild = function (s, u, b) {
     if (!u || !b || u.dead || u.role !== 'pawn') return;
-
-    // If the pawn is already actively building a different structure, queue
-    // the new job rather than interrupting the current one.
-    if (u.buildTask && u.buildTask.buildingId && u.buildTask.buildingId !== b.id) {
-      if (!u.buildQueue) u.buildQueue = [];
-      // Avoid duplicate entries in the queue.
-      var alreadyQueued = false;
-      for (var qi = 0; qi < u.buildQueue.length; qi++) {
-        if (u.buildQueue[qi].buildingId === b.id) { alreadyQueued = true; break; }
-      }
-      if (!alreadyQueued) {
-        u.buildQueue.push({ buildingId: b.id });
-        b.builderId = u.id;
-      }
-      return;
+    if (s.ui.buildQueue) {
+      s.ui.buildQueue = s.ui.buildQueue.filter(function (id) { return id !== b.id; });
     }
-
-    // No active build — clear old builder links and assign immediately.
+    if (!u.buildQueue) u.buildQueue = [];
+    u.buildQueue = u.buildQueue.filter(function (id) { return id !== b.id; });
     s.entities.buildings.forEach(function (ob) {
       if (ob.builderId === u.id && ob.id !== b.id) ob.builderId = null;
     });
@@ -631,34 +635,169 @@
     if (RTS.Pathfind) RTS.Pathfind.clearNav(u);
   };
 
+  // ---- Worker build queue --------------------------------------------------
+  function ensureGlobalBuildQueue(s) {
+    if (!s.ui.buildQueue) s.ui.buildQueue = [];
+    return s.ui.buildQueue;
+  }
+
+  function isValidBuildSite(b) {
+    return b && !b.dead && !b.built && b.kind === 'building';
+  }
+
+  function pawnIsBuildIdle(u) {
+    return u && !u.dead && u.role === 'pawn' && !u.buildTask;
+  }
+
+  function pawnQueueContains(u, buildingId) {
+    if (!u) return false;
+    if (u.buildTask && u.buildTask.buildingId === buildingId) return true;
+    return u.buildQueue && u.buildQueue.indexOf(buildingId) >= 0;
+  }
+
+  function buildingIsQueued(s, buildingId) {
+    if (s.ui.buildQueue && s.ui.buildQueue.indexOf(buildingId) >= 0) return true;
+    for (var i = 0; i < s.entities.units.length; i++) {
+      if (pawnQueueContains(s.entities.units[i], buildingId)) return true;
+    }
+    return false;
+  }
+
+  function workerHoldingBuildQueue(s, buildingId) {
+    for (var i = 0; i < s.entities.units.length; i++) {
+      var u = s.entities.units[i];
+      if (u.buildQueue && u.buildQueue.indexOf(buildingId) >= 0) return u;
+    }
+    return null;
+  }
+
+  RTS.removeBuildingFromQueues = function (s, buildingId) {
+    s.entities.units.forEach(function (u) {
+      if (!u.buildQueue) return;
+      u.buildQueue = u.buildQueue.filter(function (id) { return id !== buildingId; });
+    });
+    if (s.ui.buildQueue) {
+      s.ui.buildQueue = s.ui.buildQueue.filter(function (id) { return id !== buildingId; });
+    }
+  };
+
+  RTS.findIdleBuilder = function (s, b, team) {
+    team = team || b.team;
+    var workers = s.entities.units.filter(function (u) {
+      return u.team === team && u.role === 'pawn' && !u.dead && pawnIsBuildIdle(u) &&
+        !(RTS.isConstructionWorker && RTS.isConstructionWorker(s, u, b.id));
+    });
+    if (!workers.length) return null;
+    workers.sort(function (a, c) {
+      return dist(a.x, a.y, b.x, b.y) - dist(c.x, c.y, b.x, b.y);
+    });
+    return workers[0];
+  };
+
+  RTS.findBuilderForQueue = function (s, b) {
+    var idle = RTS.findIdleBuilder(s, b);
+    if (idle) return idle;
+    var workers = s.entities.units.filter(function (u) {
+      return u.team === b.team && u.role === 'pawn' && !u.dead;
+    });
+    if (!workers.length) return null;
+    workers.sort(function (a, c) {
+      var aq = (a.buildQueue ? a.buildQueue.length : 0) + (a.buildTask ? 1 : 0);
+      var cq = (c.buildQueue ? c.buildQueue.length : 0) + (c.buildTask ? 1 : 0);
+      if (aq !== cq) return aq - cq;
+      return dist(a.x, a.y, b.x, b.y) - dist(c.x, c.y, b.x, b.y);
+    });
+    return workers[0];
+  };
+
+  RTS.enqueueBuild = function (s, building, workers) {
+    if (!isValidBuildSite(building)) return false;
+    workers = (workers || []).filter(function (u) {
+      return u && !u.dead && u.role === 'pawn' && u.team === building.team;
+    });
+    if (workers.length) {
+      workers.sort(function (a, c) {
+        return dist(a.x, a.y, building.x, building.y) - dist(c.x, c.y, building.x, building.y);
+      });
+      var w = workers[0];
+      if (pawnQueueContains(w, building.id)) return true;
+      if (w.buildTask) {
+        if (!w.buildQueue) w.buildQueue = [];
+        w.buildQueue.push(building.id);
+        if (building.team === RTS.TEAM.PLAYER) {
+          RTS.toast(s, 'Build queued · ' + w.buildQueue.length + ' waiting');
+          RTS.Audio.play('click');
+        }
+        return true;
+      }
+      RTS.redirectPawnToBuild(s, w, building);
+      return true;
+    }
+    RTS.assignBuilder(s, building);
+    return !!(building.builderId || buildingIsQueued(s, building.id));
+  };
+
+  RTS.advanceWorkerBuildQueue = function (s, u) {
+    if (!u || u.dead || u.role !== 'pawn') return;
+    u.buildTask = null;
+    u._builderOnSite = false;
+    if (!u.buildQueue) u.buildQueue = [];
+    while (u.buildQueue.length) {
+      var nextId = u.buildQueue.shift();
+      var next = RTS.getById(s, nextId);
+      if (!isValidBuildSite(next)) continue;
+      RTS.redirectPawnToBuild(s, u, next);
+      if (u.team === RTS.TEAM.PLAYER) RTS.HUD.sync(s);
+      return;
+    }
+    if (RTS.resumeCarryAfterBuild) RTS.resumeCarryAfterBuild(u, s);
+    RTS.dispatchGlobalBuildQueue(s, u);
+  };
+
+  RTS.dispatchGlobalBuildQueue = function (s, preferredWorker) {
+    var queue = ensureGlobalBuildQueue(s);
+    if (!queue.length) return false;
+    var bid = queue[0];
+    var b = RTS.getById(s, bid);
+    if (!isValidBuildSite(b)) {
+      queue.shift();
+      return RTS.dispatchGlobalBuildQueue(s, preferredWorker);
+    }
+    var w = null;
+    if (preferredWorker && pawnIsBuildIdle(preferredWorker) &&
+        preferredWorker.team === b.team && preferredWorker.role === 'pawn') {
+      w = preferredWorker;
+    } else {
+      w = RTS.findIdleBuilder(s, b);
+    }
+    if (!w) return false;
+    queue.shift();
+    RTS.redirectPawnToBuild(s, w, b);
+    if (b.team === RTS.TEAM.PLAYER) RTS.HUD.sync(s);
+    return true;
+  };
+
+  RTS.globalBuildQueueLength = function (s) {
+    return s.ui.buildQueue ? s.ui.buildQueue.length : 0;
+  };
+
   // ---- Building placement --------------------------------------------------
   RTS.orderBuild = function (s, building, workers) {
     if (!building || building.dead || building.built || building.team !== RTS.TEAM.PLAYER) {
       return false;
     }
-    workers = (workers || []).filter(function (u) {
-      return u && !u.dead && u.role === 'pawn' && u.team === RTS.TEAM.PLAYER;
-    });
-    var w = null;
-    if (workers.length) {
-      workers.sort(function (a, c) {
-        return dist(a.x, a.y, building.x, building.y) - dist(c.x, c.y, building.x, building.y);
-      });
-      w = workers[0];
-      RTS.redirectPawnToBuild(s, w, building);
-    } else {
-      w = RTS.assignBuilder(s, building);
-    }
-    if (!w) {
-      if (building.team === RTS.TEAM.PLAYER) {
-        RTS.toast(s, 'No Pawn available to build');
-        RTS.Audio.play('deny');
-      }
+    var wasActive = !!building.builderId;
+    var ok = RTS.enqueueBuild(s, building, workers);
+    if (!ok) {
+      RTS.toast(s, 'No Pawn available to build');
+      RTS.Audio.play('deny');
       return false;
     }
     if (building.team === RTS.TEAM.PLAYER) {
-      RTS.log(s, 'Pawn sent to build', 'good');
-      RTS.Audio.play('move');
+      if (building.builderId && !wasActive) {
+        RTS.log(s, 'Pawn sent to build', 'good');
+        RTS.Audio.play('move');
+      }
       RTS.HUD.sync(s);
     }
     return true;
@@ -666,20 +805,53 @@
 
   RTS.assignBuilder = function (s, b, preferredWorker) {
     if (!b || b.dead || b.built) return null;
-    var team = b.team;
-    var workers = s.entities.units.filter(function (u) {
-      return u.team === team && u.role === 'pawn' && !u.dead;
-    });
-    if (!workers.length) return null;
-    var w = preferredWorker;
-    if (!w || workers.indexOf(w) < 0) {
-      workers.sort(function (a, c) {
-        return dist(a.x, a.y, b.x, b.y) - dist(c.x, c.y, b.x, b.y);
-      });
-      w = workers[0];
+    if (b.builderId) {
+      var active = RTS.getById(s, b.builderId);
+      if (active && !active.dead) return active;
+      b.builderId = null;
     }
-    RTS.redirectPawnToBuild(s, w, b);
-    return w;
+    if (!preferredWorker) {
+      var reserved = workerHoldingBuildQueue(s, b.id);
+      if (reserved) return reserved;
+    }
+    var w = preferredWorker;
+    if (w && (w.dead || w.role !== 'pawn' || w.team !== b.team)) w = null;
+    if (w) {
+      if (pawnQueueContains(w, b.id)) return w;
+      if (w.buildTask) {
+        if (!w.buildQueue) w.buildQueue = [];
+        w.buildQueue.push(b.id);
+        return w;
+      }
+      RTS.redirectPawnToBuild(s, w, b);
+      return w;
+    }
+    w = RTS.findIdleBuilder(s, b);
+    if (w) {
+      RTS.redirectPawnToBuild(s, w, b);
+      return w;
+    }
+    w = RTS.findBuilderForQueue(s, b);
+    if (w) {
+      if (!w.buildQueue) w.buildQueue = [];
+      if (!pawnQueueContains(w, b.id)) {
+        w.buildQueue.push(b.id);
+        if (b.team === RTS.TEAM.PLAYER) {
+          RTS.toast(s, 'Build queued · ' + w.buildQueue.length + ' waiting');
+          RTS.Audio.play('click');
+        }
+      }
+      return w;
+    }
+    var queue = ensureGlobalBuildQueue(s);
+    if (queue.indexOf(b.id) < 0) {
+      queue.push(b.id);
+      if (b.team === RTS.TEAM.PLAYER) {
+        RTS.toast(s, 'Build queued · ' + queue.length + ' waiting');
+        RTS.Audio.play('click');
+      }
+    }
+    return null;
   };
 
   RTS.beginPlacement = function (s, type) {
@@ -714,20 +886,20 @@
   }
 
   function releaseBuildersFromBuilding(s, b) {
+    if (RTS.removeBuildingFromQueues) RTS.removeBuildingFromQueues(s, b.id);
     s.entities.units.forEach(function (u) {
       if (u.dead) return;
       if (u.buildTask && u.buildTask.buildingId === b.id) {
-        u.buildTask = null;
         u.moveTo = null;
         u._builderOnSite = false;
-        if (RTS.UnitAI) RTS.UnitAI.applyStop(u);
-        if (RTS.resumeCarryAfterBuild) RTS.resumeCarryAfterBuild(u, s);
+        if (RTS.advanceWorkerBuildQueue) RTS.advanceWorkerBuildQueue(s, u);
+        else {
+          u.buildTask = null;
+          if (RTS.resumeCarryAfterBuild) RTS.resumeCarryAfterBuild(u, s);
+        }
       }
-      // Also scrub this building from the pawn's build queue.
       if (u.buildQueue && u.buildQueue.length) {
-        u.buildQueue = u.buildQueue.filter(function (job) {
-          return job.buildingId !== b.id;
-        });
+        u.buildQueue = u.buildQueue.filter(function (id) { return id !== b.id; });
       }
       if (u.target === b.id) u.target = null;
     });
@@ -930,7 +1102,7 @@
         b.rally = { x: x + 90, y: y };
       }
     }
-    if (!RTS.assignBuilder(s, b)) {
+    if (!RTS.enqueueBuild(s, b, [])) {
       RTS.toast(s, 'No Pawn available to build');
     }
     RTS.log(s, RTS.nameFor(s.playerFaction, type) + ' under construction', 'good');

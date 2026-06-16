@@ -61,6 +61,7 @@
         toast: null,
         buildingMenuHover: null,
         buildPanelOpen: false,
+        buildQueue: [],              // global FIFO of building ids waiting for a free pawn
         macroGroups: null,         // { role: [unitId, …] } while macro bar is active
         macroRole: null,           // active subgroup role, or null = full mixed pool
         selectionFilter: 'all',    // mirrors macroRole: 'all' | role name

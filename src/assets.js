@@ -235,9 +235,20 @@
     };
   }
 
-  /* Footprint for unit collision — solid base, not full sprite height. */
+  /* Footprint for unit collision + path grid — solid base from tight sprite mass. */
   function buildingCollisionRect(b, s) {
     var vb = buildingVisualBounds(b, s);
+    if (vb && vb.tight) {
+      var t = vb.tight;
+      var top = t.y + t.h * 0.22;
+      var pad = 4;
+      return {
+        l: t.x - pad,
+        r: t.x + t.w + pad,
+        t: top,
+        b: vb.footY + 5,
+      };
+    }
     if (vb) {
       var hw = vb.drawW * 0.36;
       return {

@@ -378,6 +378,10 @@
   };
 
   RTS.nameFor = function (factionId, key) {
+    if (RTS.getHero && RTS.getHero(key)) {
+      var h = RTS.getHero(key);
+      return h.shortName || h.name;
+    }
     var f = RTS.Factions[factionId];
     if (f && f.names[key]) return f.names[key];
     return (RTS.Units[key] && RTS.Units[key].label) ||

@@ -1,6 +1,6 @@
 /* ============================================================================
  * EXOFRONT — audio.js
- * WebAudio synth SFX + looped background music track.
+ * WebAudio synth SFX + shuffled faction background-music playlists.
  * Respects the in-game audio toggle. Lazily created on first user gesture.
  * ==========================================================================*/
 (function (RTS) {
@@ -8,7 +8,10 @@
 
   var ctx = null, enabled = true, volume = 0.5, last = {};
   var music = null, musicStarted = false;
-  var MUSIC_SRC = 'assets/audio/moonlit-citadel.mp3';
+  var activeFaction = 'default';
+  var shuffleOrder = [];
+  var shuffleIdx = 0;
+
   var MUSIC_GAIN = 0.42;
   var MELEE_SRC = 'assets/audio/sword-hit-metal.wav';
   var MELEE_GAIN = 0.14;
@@ -21,6 +24,26 @@
   var COIN_GAIN = 0.18;
   var BOOM_SRC = 'assets/audio/building-explosion.wav';
   var BOOM_GAIN = 0.38;
+
+  /* Menu / title theme — Rimwalker elves (main game theme). */
+  var PLAYLISTS = {
+    default: ['assets/audio/moonlit-citadel.mp3'],
+    aurex: [
+      'assets/audio/iron-crown-shadows.mp3',
+      'assets/audio/hurdy-gurdy-siege.mp3',
+      'assets/audio/hurdy-gurdy-oath.mp3',
+    ],
+    cinder: [
+      'assets/audio/siege-chimes-silenced.mp3',
+      'assets/audio/taiko-throat-scream.mp3',
+      'assets/audio/taiko-oath-drum.mp3',
+    ],
+    rimwalker: [
+      'assets/audio/moonlit-citadel.mp3',
+      'assets/audio/celestial-forest.mp3',
+      'assets/audio/moonlit-citadel-2.mp3',
+    ],
+  };
 
   var meleeBuffer = null;
   var winBuffer = null;
@@ -42,13 +65,78 @@
     return enabled ? Math.max(0, Math.min(1, volume * MUSIC_GAIN)) : 0;
   }
 
+  function playlistKey(factionId) {
+    if (factionId && PLAYLISTS[factionId]) return factionId;
+    return 'default';
+  }
+
+  function playlistTracks(key) {
+    return PLAYLISTS[key] || PLAYLISTS.default;
+  }
+
+  function shufflePlaylist(tracks) {
+    var order = [];
+    var i;
+    for (i = 0; i < tracks.length; i++) order.push(i);
+    for (i = order.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = order[i];
+      order[i] = order[j];
+      order[j] = tmp;
+    }
+    return order;
+  }
+
+  function resetShuffle(key) {
+    shuffleOrder = shufflePlaylist(playlistTracks(key));
+    shuffleIdx = 0;
+  }
+
+  function currentTrackSrc() {
+    var tracks = playlistTracks(activeFaction);
+    if (!shuffleOrder.length) resetShuffle(activeFaction);
+    return tracks[shuffleOrder[shuffleIdx % shuffleOrder.length]];
+  }
+
+  function trackSrcPath(src) {
+    if (!src) return '';
+    try {
+      return new URL(src, window.location.href).pathname;
+    } catch (e) {
+      return src;
+    }
+  }
+
   function ensureMusic() {
     if (music) return music;
-    music = new Audio(MUSIC_SRC);
-    music.loop = true;
+    music = new Audio();
     music.preload = 'auto';
-    music.volume = musicLevel();
+    music.loop = false;
+    music.addEventListener('ended', onMusicEnded);
     return music;
+  }
+
+  function onMusicEnded() {
+    shuffleIdx++;
+    if (shuffleIdx >= shuffleOrder.length) resetShuffle(activeFaction);
+    playCurrentTrack(true);
+  }
+
+  function playCurrentTrack(forceReload) {
+    if (!enabled) return;
+    var track = ensureMusic();
+    var src = currentTrackSrc();
+    var nextPath = trackSrcPath(src);
+    var curPath = trackSrcPath(track.getAttribute('data-src') || track.src);
+    if (forceReload || nextPath !== curPath) {
+      track.src = src;
+      track.setAttribute('data-src', src);
+      track.load();
+    }
+    track.volume = musicLevel();
+    musicStarted = true;
+    var play = track.play();
+    if (play && play.catch) play.catch(function () {});
   }
 
   function syncMusicVolume() {
@@ -58,11 +146,7 @@
 
   function startMusic() {
     if (!enabled) return;
-    var track = ensureMusic();
-    musicStarted = true;
-    syncMusicVolume();
-    var play = track.play();
-    if (play && play.catch) play.catch(function () {});
+    playCurrentTrack(false);
   }
 
   function stopMusic() {
@@ -79,9 +163,22 @@
     if (play && play.catch) play.catch(function () {});
   }
 
+  function setFaction(factionId, forceRestart) {
+    var key = playlistKey(factionId);
+    if (!forceRestart && key === activeFaction) return;
+    activeFaction = key;
+    resetShuffle(key);
+    if (music) {
+      music.pause();
+      music.currentTime = 0;
+    }
+    if (musicStarted && enabled) playCurrentTrack(true);
+  }
+
   function bindMusicAutostart() {
     if (bindMusicAutostart._bound) return;
     bindMusicAutostart._bound = true;
+    resetShuffle(activeFaction);
     ensureMusic();
 
     function unlock() {
@@ -206,7 +303,6 @@
     osc.start(t); osc.stop(t + dur + 0.02);
   }
 
-  // Throttle very frequent sounds (shots) so battles don't machine-gun the ears.
   function throttled(key, ms, fn) {
     var now = performance.now();
     if (last[key] && now - last[key] < ms) return;
@@ -241,6 +337,7 @@
       syncMusicVolume();
     },
     isEnabled: function () { return enabled; },
+    setFaction: setFaction,
     resume: function () {
       var c = ensure();
       if (c && c.state === 'suspended') c.resume();

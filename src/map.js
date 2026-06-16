@@ -487,6 +487,13 @@
       var ox = isEnemy ? -70 - i * 26 : 70 + i * 26;
       RTS.makeUnit(s, 'pawn', team, cx + ox, cy + (isEnemy ? 64 : 64), faction);
     }
+    if (!isEnemy && faction === 'aurex' && RTS.makeHero) {
+      var heroRallyDx = opts.rallyDx != null ? opts.rallyDx : 130;
+      var valdris = RTS.makeHero(s, 'valdris', team, cx + heroRallyDx * 0.55, cy + 52, faction);
+      if (valdris && team === RTS.TEAM.PLAYER) {
+        RTS.log(s, 'Valdris the Ironwarden stands with your host', 'good');
+      }
+    }
   }
 
   /* ---- 1. Sapphire Shores — from tools/mapgen (import-mapgen.py) ---------- */

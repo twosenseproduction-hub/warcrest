@@ -47,6 +47,7 @@
       state.scene = name;
       if (name === 'menu' || name === 'factionselect' || name === 'mapselect' || name === 'howto' || name === 'settings') {
         document.body.classList.remove('player-aurex', 'player-cinder');
+        if (RTS.Audio && RTS.Audio.setFaction) RTS.Audio.setFaction('default');
         var meta = document.querySelector('meta[name="theme-color"]');
         if (meta) meta.setAttribute('content', '#1565c0');
       }
@@ -71,6 +72,7 @@
       state.playerFaction = factionId;
       state.enemyFaction = factionId === 'aurex' ? 'cinder' : 'aurex';
       applyFactionTheme(factionId);
+      if (RTS.Audio && RTS.Audio.setFaction) RTS.Audio.setFaction(factionId, true);
       if (RTS.Assets && RTS.Assets.preloadFactions) {
         RTS.Assets.preloadFactions([state.playerFaction, state.enemyFaction]);
       }

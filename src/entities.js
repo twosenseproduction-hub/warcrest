@@ -19,6 +19,7 @@
       cooldown: 0, target: null, moveTo: null, attackMove: false,
       harvest: null,            // {nodeId, phase, carry, slotIndex, cycleT, depositId, depositOwnerId}
       buildTask: null,          // {buildingId}
+      buildQueue: [],           // further building ids after buildTask completes
       hitFlash: 0, muzzleFlash: 0, spawnFlash: 0.3, dead: false, corpse: 0,
       facing: 0,
       _idlePhase: (id * 1.618) % 6.2832,
@@ -34,6 +35,41 @@
     u.guardOrigin = { x: x, y: y };
     u.commandMode = 'idle';
     RTS.recalcSupply(s, team);
+    return u;
+  };
+
+  RTS.makeHero = function (s, heroId, team, x, y, factionId) {
+    var hero = RTS.getHero ? RTS.getHero(heroId) : null;
+    if (!hero) return null;
+    var id = RTS.nextId();
+    var u = {
+      id: id, kind: 'unit', role: hero.role || 'hero', heroId: heroId, team: team,
+      faction: factionId || (team === RTS.TEAM.PLAYER ? s.playerFaction : s.enemyFaction),
+      x: x, y: y, vx: 0, vy: 0,
+      hp: hero.hp, maxHp: hero.hp,
+      speed: hero.speed, dmg: hero.dmg, range: hero.range, rof: 0.75,
+      ranged: !!hero.ranged, splash: 0, heal: 0,
+      radius: RTS.SizeRef.pxRadius('hero'),
+      cooldown: 0, target: null, moveTo: null, attackMove: false,
+      harvest: null, buildTask: null,
+      hitFlash: 0, muzzleFlash: 0, spawnFlash: 0.35, dead: false, corpse: 0,
+      facing: 0,
+      _idlePhase: (id * 1.618) % 6.2832,
+      uiPassiveTags: hero.passive && hero.passive.name ? [hero.passive.name] : [],
+      _heroArmorStacks: 0,
+      _heroArmorDecay: 0,
+      isHero: true,
+    };
+    s.entities.units.push(u);
+    if (RTS.UnitAI) RTS.UnitAI.initUnitAIState(u);
+    var rc = (RTS.Config.combat && RTS.Config.combat.roles && RTS.Config.combat.roles.warrior) ||
+      (RTS.Config.combat && RTS.Config.combat.roles && RTS.Config.combat.roles.default);
+    if (rc) {
+      u.acquireRange = u.range * (rc.acquireMul || 1.7);
+      u.chaseRange = rc.chaseRange || 205;
+    }
+    u.guardOrigin = { x: x, y: y };
+    u.commandMode = 'idle';
     return u;
   };
 

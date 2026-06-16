@@ -22,7 +22,9 @@
       id: 'valdris',
       faction: 'aurex',
       name: 'Valdris the Ironwarden',
+      shortName: 'Valdris',
       class: 'Vanguard',
+      role: 'hero',
       quote: 'The Crown does not ask if the war is just. It asks if the wall will hold.',
       lore: 'The general who built half the Citadel Keeps in Verath personally. ' +
             'Sixty years old, still fights in full plate. Sent to the Sapphire Shores ' +

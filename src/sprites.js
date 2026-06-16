@@ -112,6 +112,22 @@
     },
   };
 
+  /* Custom heroes — Pixel Labs / bespoke art under assets/heroes/ */
+  var HERO_BASE = 'assets/heroes/aurex/';
+  var HERO_DEF = {
+    valdris: {
+      folder: 'valdris',
+      frameH: 256,
+      scale: 1.05,
+      clips: {
+        idle: { file: 'Valdris_Idle.png', count: 8, speed: 4 },
+        walk: { file: 'Valdris_Run.png', count: 8, speed: 10 },
+        guard: { file: 'Valdris_Idle.png', count: 8, speed: 2.5 },
+        attack: { file: 'Valdris_Attack.png', count: 4, fps: 12, impactFrame: 2 },
+      },
+    },
+  };
+
   var sheets = {};
 
   function phaseOf(id) {
@@ -181,6 +197,43 @@
     });
   }
 
+  function loadHeroSheet(heroId) {
+    var def = HERO_DEF[heroId];
+    if (!def) return Promise.resolve(null);
+    var base = HERO_BASE + def.folder + '/';
+    var clipKeys = Object.keys(def.clips);
+    var promises = clipKeys.map(function (ck) {
+      var clip = def.clips[ck];
+      return RTS.Assets.loadImg(clip.file, base).then(function (img) {
+        return { key: ck, img: img, meta: clip };
+      });
+    });
+    return Promise.all(promises).then(function (parts) {
+      var entry = {
+        frameH: def.frameH,
+        frameW: def.frameH,
+        scale: def.scale,
+        clips: {},
+        heroId: heroId,
+      };
+      parts.forEach(function (p) {
+        var fw = Math.round(p.img.width / p.meta.count);
+        entry.clips[p.key] = {
+          img: p.img,
+          count: p.meta.count,
+          speed: p.meta.speed,
+          fps: p.meta.fps,
+          releaseFrame: p.meta.releaseFrame,
+          impactFrame: p.meta.impactFrame,
+          frameW: fw,
+        };
+        entry.frameW = fw;
+      });
+      sheets['hero_' + heroId] = entry;
+      return entry;
+    });
+  }
+
   function sizeRef() { return RTS.SizeRef; }
 
   function unitDrawRadius(u) {
@@ -225,10 +278,10 @@
       if (sheet.clips.attack_r) return lancerAttackKey(u.facing);
       return 'attack';
     }
-    if (u.role === 'warrior') {
-      if (sheet.clips.attack2 && u._attackVariant === 2) return 'attack2';
-      return 'attack';
-    }
+      if (u.role === 'warrior' || u.role === 'hero') {
+        if (sheet.clips.attack2 && u._attackVariant === 2) return 'attack2';
+        return 'attack';
+      }
     return 'attack';
   }
 
@@ -266,6 +319,7 @@
       FACTIONS.forEach(function (fid) {
         ROLES.forEach(function (role) { jobs.push(loadRoleSheet(fid, role)); });
       });
+      Object.keys(HERO_DEF).forEach(function (hid) { jobs.push(loadHeroSheet(hid)); });
       Promise.all(jobs).then(function () {
         self.ready = Object.keys(sheets).length > 0;
         if (cb) cb();
@@ -276,7 +330,10 @@
       });
     },
 
-    sheetKey: function (u) { return u.faction + '_' + u.role; },
+    sheetKey: function (u) {
+      if (u.heroId) return 'hero_' + u.heroId;
+      return u.faction + '_' + u.role;
+    },
 
     attackActive: function (u) {
       return u.attackClip && u.attackAnimT != null &&
@@ -286,7 +343,7 @@
     startAttack: function (u, target) {
       var sheet = sheets[this.sheetKey(u)];
       if (!sheet) return;
-      if (u.role === 'warrior') {
+      if (u.role === 'warrior' || u.role === 'hero') {
         u._attackVariant = (u._attackVariant === 1) ? 2 : 1;
       }
       var key = resolveAttackKey(u, sheet);
@@ -350,6 +407,7 @@
       }
       if (this.attackActive(u)) return u.attackClip;
       if (u.role === 'warrior' && u.inAttackRange && !walking) return 'guard';
+      if (u.role === 'hero' && u.inAttackRange && !walking) return 'guard';
       if (walking) return 'walk';
       return 'idle';
     },

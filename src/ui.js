@@ -229,6 +229,12 @@
     return buildingPortraitHtml(factionId, type, px || 30);
   }
 
+  function heroPortraitHtml(heroId, px) {
+    px = px || 36;
+    return '<img class="ts-hero-portrait" src="assets/heroes/aurex/' + heroId +
+      '/Valdris_Portrait.png" width="' + px + '" height="' + px + '" alt="" />';
+  }
+
   RTS.UI = {
     flat: FLAT_PATHS,
     flatUrl: flatUrl,
@@ -242,6 +248,7 @@
     unitStripUrl: unitStripUrl,
     unitAvatarUrl: unitAvatarUrl,
     buildingUrl: buildingUrl,
+    heroPortraitHtml: heroPortraitHtml,
   };
 
 })(window.RTS = window.RTS || {});

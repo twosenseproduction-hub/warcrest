@@ -894,7 +894,7 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 
 .qchip .ts-strip-portrait { width: 18px !important; height: 18px !important; }
 .qchip .ts-avatar-portrait { width: 18px !important; height: 18px !important; }
-.hub-portrait .ts-avatar-portrait { width: 26px !important; height: 26px !important; }
+.hub-portrait .ts-hero-portrait { width: 26px !important; height: 26px !important; object-fit: contain; image-rendering: pixelated; }
 .hub-portrait .ts-building-portrait { width: 26px !important; height: 26px !important; object-fit: contain; }
 
 /* Events + toast — unobtrusive overlays */

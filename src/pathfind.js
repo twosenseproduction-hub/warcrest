@@ -65,16 +65,28 @@
     }
   }
 
-  function unblockBuildingFootprint(b, blocked, cols, rows, tile) {
-    tile = tile || CELL;
-    var col = Math.round(b.x / tile);
-    var row = Math.round(b.y / tile);
-    var halfW = Math.round(b.w / tile / 2);
-    var halfH = Math.round(b.h / tile / 2);
-    var r, c;
-    for (r = row - halfH; r < row + halfH; r++) {
-      for (c = col - halfW; c < col + halfW; c++) {
-        if (inCell(cols, rows, c, r)) blocked[cellIdx(cols, c, r)] = 0;
+  function unblockBuildingFootprint(b, blocked, cols, rows, s) {
+    var rect;
+    if (RTS.Assets && RTS.Assets.buildingCollisionRect) {
+      rect = RTS.Assets.buildingCollisionRect(b, s);
+    } else {
+      var hw = b.w * 0.36;
+      var hh = b.h * 0.28;
+      rect = { l: b.x - hw, r: b.x + hw, t: b.y - hh, b: b.y + hh * 0.55 };
+    }
+    var x0 = Math.max(0, Math.floor(rect.l / CELL));
+    var y0 = Math.max(0, Math.floor(rect.t / CELL));
+    var x1 = Math.min(cols - 1, Math.floor(rect.r / CELL));
+    var y1 = Math.min(rows - 1, Math.floor(rect.b / CELL));
+    var cx, cy, wx, wy, i;
+    for (cy = y0; cy <= y1; cy++) {
+      for (cx = x0; cx <= x1; cx++) {
+        wx = cx * CELL + CELL * 0.5;
+        wy = cy * CELL + CELL * 0.5;
+        if (wx >= rect.l && wx <= rect.r && wy >= rect.t && wy <= rect.b) {
+          i = cellIdx(cols, cx, cy);
+          blocked[i] = 0;
+        }
       }
     }
   }
@@ -136,7 +148,7 @@
 
     if (skipId) {
       var skipB = RTS.getById(s, skipId);
-      if (skipB && !skipB.dead) unblockBuildingFootprint(skipB, blocked, cols, rows);
+      if (skipB && !skipB.dead) unblockBuildingFootprint(skipB, blocked, cols, rows, s);
     }
 
     return {

@@ -163,6 +163,17 @@
   }
 
   RTS.update = function (s, dt) {
+    s.entities.units.forEach(function (u) {
+      if (u.dead || u.heroId !== 'valdris') return;
+      if ((u._heroArmorStacks || 0) <= 0) return;
+      u._heroArmorDecay = (u._heroArmorDecay || 0) - dt;
+      if (u._heroArmorDecay <= 0) {
+        u._heroArmorStacks = Math.max(0, (u._heroArmorStacks || 0) - 1);
+        u._heroArmorDecay = (RTS.getHero && RTS.getHero('valdris') &&
+          RTS.getHero('valdris').passive)
+          ? RTS.getHero('valdris').passive.armorDecaySec : 2;
+      }
+    });
     s.timers.gameTime += dt;
     s.screenShake = Math.max(0, s.screenShake - dt * 12);
     s.screenFlash = Math.max(0, s.screenFlash - dt * 1.6);
@@ -659,6 +670,7 @@
   // True while a pawn must stay on an incomplete build site (buildTask or builderId link).
   function isConstructionWorker(s, u, exceptBuildingId) {
     if (!u || u.dead || u.role !== 'pawn') return false;
+    if (u.buildQueue && u.buildQueue.length) return true;
     if (u.buildTask) {
       var tb = RTS.getById(s, u.buildTask.buildingId);
       if (!tb || tb.dead || tb.built) return false;
@@ -696,12 +708,16 @@
 
   function doBuildTask(s, u, dt) {
     var b = RTS.getById(s, u.buildTask.buildingId);
-    if (!b || b.dead) { u.buildTask = null; u.moveTo = null; return; }
+    if (!b || b.dead) {
+      u.buildTask = null;
+      u.moveTo = null;
+      if (RTS.advanceWorkerBuildQueue) RTS.advanceWorkerBuildQueue(s, u);
+      return;
+    }
     if (b.built) {
       u.buildTask = null;
       u.moveTo = null;
       b.builderId = null;
-      if (RTS.resumeCarryAfterBuild) RTS.resumeCarryAfterBuild(u, s);
       return;
     }
     if (b.builderId && b.builderId !== u.id) { u.buildTask = null; return; }
@@ -757,11 +773,15 @@
         }
         s.entities.units.forEach(function (u) {
           if (u.buildTask && u.buildTask.buildingId === b.id) {
-            u.buildTask = null;
             u.moveTo = null;
-            if (RTS.resumeCarryAfterBuild) RTS.resumeCarryAfterBuild(u, s);
+            if (RTS.advanceWorkerBuildQueue) RTS.advanceWorkerBuildQueue(s, u);
+            else {
+              u.buildTask = null;
+              if (RTS.resumeCarryAfterBuild) RTS.resumeCarryAfterBuild(u, s);
+            }
           }
         });
+        if (RTS.dispatchGlobalBuildQueue) RTS.dispatchGlobalBuildQueue(s);
       }
       return;
     }
@@ -989,9 +1009,26 @@
   }
 
   function applyDamage(s, target, amount, attacker, impact) {
+    if (target.kind === 'unit' && target.heroId === 'valdris' && RTS.getHero) {
+      var heroDef = RTS.getHero('valdris');
+      if (heroDef && heroDef.passive) {
+        var p = heroDef.passive;
+        var armor = Math.min(p.armorMax || 0,
+          (target._heroArmorStacks || 0) * (p.armorPerHit || 0));
+        amount *= Math.max(0.15, 1 - (p.damageReduction || 0) - armor);
+      }
+    }
     target.hp -= amount;
     var pt = impactPoint(target, attacker, impact);
     RTS.spawnHit(s, pt.x, pt.y);
+
+    if (attacker && attacker.heroId === 'valdris' && amount > 0 && RTS.getHero) {
+      var vh = RTS.getHero('valdris');
+      if (vh && vh.passive) {
+        attacker._heroArmorStacks = Math.min(6, (attacker._heroArmorStacks || 0) + 1);
+        attacker._heroArmorDecay = vh.passive.armorDecaySec || 2;
+      }
+    }
 
     if (target.kind === 'unit' && attacker && RTS.UnitAI) {
       RTS.UnitAI.onDamaged(s, target, attacker);

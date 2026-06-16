@@ -355,11 +355,12 @@
     }
     if (units.length === 1 && !blds.length) {
       var u = units[0];
+      var hero = u.heroId && RTS.getHero ? RTS.getHero(u.heroId) : null;
       return {
         type: u.role === 'pawn' ? 'worker' : 'fighter',
         units: units,
-        passiveTags: u.uiPassiveTags || [],
-        subtype: RTS.nameFor(u.faction, u.role),
+        passiveTags: u.uiPassiveTags || (hero && hero.passive ? [hero.passive.name] : []),
+        subtype: hero ? hero.class : RTS.nameFor(u.faction, u.role),
         unit: u,
       };
     }
@@ -443,7 +444,14 @@
   }
 
   function statusLineForUnit(u) {
-    if (u.role === 'pawn' && u.buildTask) return 'building…';
+    if (u.heroId && RTS.getHero) {
+      var h = RTS.getHero(u.heroId);
+      if (h) return h.class + ' · ready';
+    }
+    if (u.role === 'pawn' && u.buildTask) {
+      var qn = u.buildQueue ? u.buildQueue.length : 0;
+      return 'building…' + (qn ? ' · +' + qn + ' queued' : '');
+    }
     if (u.role === 'pawn' && u.harvest) {
       if (u.harvest.phase === 'mining') return 'mining…';
       if (u.harvest.phase === 'toBase' && u.harvest.carry > 0) {
@@ -489,12 +497,16 @@
       var totHp = 0, totMax = 0;
       units.forEach(function (u) { totHp += u.hp; totMax += u.maxHp; });
       var title = units.length === 1 && prof.unit
-        ? RTS.nameFor(prof.unit.faction, prof.unit.role)
+        ? (prof.unit.heroId && RTS.getHero
+          ? RTS.nameFor(prof.unit.faction, prof.unit.heroId)
+          : RTS.nameFor(prof.unit.faction, prof.unit.role))
         : units.length + ' ' + (prof.subtype || 'units');
       var status = units.length === 1 ? statusLineForUnit(units[0]) : 'Tap ground to command';
-      var portraitRole = units.length === 1 ? units[0].role : (s.ui.macroRole || 'lancer');
+      var portraitHtml = units.length === 1 && units[0].heroId && UI().heroPortraitHtml
+        ? UI().heroPortraitHtml(units[0].heroId, 30)
+        : UI().avatarPortraitHtml(s.playerFaction, units.length === 1 ? units[0].role : (s.ui.macroRole || 'lancer'), 30);
       p.innerHTML =
-        '<div class="hub-portrait">' + UI().avatarPortraitHtml(s.playerFaction, portraitRole, 30) + '</div>' +
+        '<div class="hub-portrait">' + portraitHtml + '</div>' +
         '<div class="hub-body">' +
         '<div class="hub-title">' + title + '</div>' +
         '<div class="hub-subtype">' + prof.subtype + '</div>' +
