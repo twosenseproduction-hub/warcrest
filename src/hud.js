@@ -463,6 +463,17 @@
     return 'Ready';
   }
 
+  // ---- FIX: collect up to 3 unique roles from a multi-unit selection -------
+  function uniqueRolesFromUnits(units, limit) {
+    var seen = {};
+    var out = [];
+    for (var i = 0; i < units.length && out.length < (limit || 3); i++) {
+      var r = units[i].heroId ? ('hero:' + units[i].heroId) : units[i].role;
+      if (!seen[r]) { seen[r] = true; out.push(units[i]); }
+    }
+    return out;
+  }
+
   function renderCenterPanel(s) {
     var p = D['selpanel']; if (!p) return;
     p.innerHTML = '';
@@ -502,11 +513,33 @@
           : RTS.nameFor(prof.unit.faction, prof.unit.role))
         : units.length + ' ' + (prof.subtype || 'units');
       var status = units.length === 1 ? statusLineForUnit(units[0]) : 'Tap ground to command';
-      var portraitHtml = units.length === 1 && units[0].heroId && UI().heroPortraitHtml
-        ? UI().heroPortraitHtml(units[0].heroId)
-        : UI().avatarPortraitHtml(s.playerFaction, units.length === 1 ? units[0].role : (s.ui.macroRole || 'lancer'));
+
+      var portraitHtml;
+      if (units.length === 1) {
+        // Single unit: hero portrait if available, otherwise role portrait
+        portraitHtml =
+          '<div class="hub-portrait unit-portrait-fill">' +
+          (units[0].heroId && UI().heroPortraitHtml
+            ? UI().heroPortraitHtml(units[0].heroId)
+            : UI().avatarPortraitHtml(s.playerFaction, units[0].role)) +
+          '</div>';
+      } else {
+        // FIX: multi-unit — show up to 3 distinct role portraits side by side
+        var repUnits = uniqueRolesFromUnits(units, 3);
+        portraitHtml = '<div class="hub-portraits">';
+        repUnits.forEach(function (u) {
+          portraitHtml +=
+            '<div class="hub-portrait unit-portrait-fill">' +
+            (u.heroId && UI().heroPortraitHtml
+              ? UI().heroPortraitHtml(u.heroId)
+              : UI().avatarPortraitHtml(s.playerFaction, u.role)) +
+            '</div>';
+        });
+        portraitHtml += '</div>';
+      }
+
       p.innerHTML =
-        '<div class="hub-portrait unit-portrait-fill">' + portraitHtml + '</div>' +
+        portraitHtml +
         '<div class="hub-body">' +
         '<div class="hub-title">' + title + '</div>' +
         '<div class="hub-subtype">' + prof.subtype + '</div>' +
