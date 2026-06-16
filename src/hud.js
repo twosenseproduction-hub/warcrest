@@ -422,7 +422,7 @@
         ? UI().iconHtml('sword', 16)
         : UI().avatarPortraitHtml(fid, chip.role, 18);
       btn.innerHTML =
-        '<span class="sq-portrait">' + portrait + '</span>' +
+        '<span class="sq-portrait unit-portrait-fill">' + portrait + '</span>' +
         '<span class="sq-tag">' + chip.label + '</span>' +
         (chip.role !== 'all' && count ? '<span class="sq-count">' + count + '</span>' : '');
       grid.appendChild(btn);
@@ -436,7 +436,7 @@
       var pct = job.total ? Math.max(0, Math.min(1, 1 - job.remaining / job.total)) : 0;
       var active = i === 0;
       return '<span class="qchip' + (active ? ' active' : '') + '">' +
-        UI().avatarPortraitHtml(fid, job.role, 18) +
+        '<span class="qico unit-portrait-fill">' + UI().avatarPortraitHtml(fid, job.role) + '</span>' +
         (active ? '<span class="qtime">' + Math.ceil(job.remaining) + 's</span>' : '') +
         '<span class="qprog"><i style="width:' + (pct * 100) + '%"></i></span></span>';
     }).join('');
@@ -478,7 +478,7 @@
       var queueHtml = renderBuildingQueue(s, b);
       if (queueHtml) p.classList.add('has-queue');
       p.innerHTML =
-        '<div class="hub-portrait">' + UI().buildingPortraitHtml(b.faction, portraitKey, 30) + '</div>' +
+        '<div class="hub-portrait unit-portrait-fill">' + UI().buildingPortraitHtml(b.faction, portraitKey) + '</div>' +
         '<div class="hub-body">' +
         '<div class="hub-title">' + RTS.nameFor(b.faction, b.type) + '</div>' +
         '<div class="hub-subtype">' + prof.subtype + '</div>' +
@@ -503,10 +503,10 @@
         : units.length + ' ' + (prof.subtype || 'units');
       var status = units.length === 1 ? statusLineForUnit(units[0]) : 'Tap ground to command';
       var portraitHtml = units.length === 1 && units[0].heroId && UI().heroPortraitHtml
-        ? UI().heroPortraitHtml(units[0].heroId, 30)
-        : UI().avatarPortraitHtml(s.playerFaction, units.length === 1 ? units[0].role : (s.ui.macroRole || 'lancer'), 30);
+        ? UI().heroPortraitHtml(units[0].heroId)
+        : UI().avatarPortraitHtml(s.playerFaction, units.length === 1 ? units[0].role : (s.ui.macroRole || 'lancer'));
       p.innerHTML =
-        '<div class="hub-portrait">' + portraitHtml + '</div>' +
+        '<div class="hub-portrait unit-portrait-fill">' + portraitHtml + '</div>' +
         '<div class="hub-body">' +
         '<div class="hub-title">' + title + '</div>' +
         '<div class="hub-subtype">' + prof.subtype + '</div>' +

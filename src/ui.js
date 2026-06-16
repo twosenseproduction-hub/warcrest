@@ -230,9 +230,8 @@
   }
 
   function heroPortraitHtml(heroId, px) {
-    px = px || 36;
     return '<img class="ts-hero-portrait" src="assets/heroes/aurex/' + heroId +
-      '/Valdris_Portrait.png" width="' + px + '" height="' + px + '" alt="" />';
+      '/Valdris_Portrait.png" alt="" />';
   }
 
   RTS.UI = {

@@ -59,8 +59,9 @@
   --thumb-btn: 52px;
   /* FIXED: expanded height tall enough to contain squad + cmd + combat rows */
   --deck-h: 0px;
-  --deck-expanded-h: 100px;
-  --cmd-slot: 38px;
+  --deck-expanded-h: 108px;
+  --unit-btn: 48px;
+  --cmd-slot: var(--unit-btn);
   --combat-btn: 44px;
   --combat-primary: 50px;
 }
@@ -120,46 +121,23 @@ html, body {
   background-image: var(--ts-paper);
 }
 .logo { margin-bottom: 28px; position: relative; overflow: visible; }
-.logo-sword {
-  position: relative;
-  max-width: 400px;
-  width: 100%;
-  margin: 0 auto 12px;
-  overflow: visible;
-}
-.logo-sword-frame {
-  overflow: visible;
-  padding-bottom: 6px;
+.logo-helmet {
+  display: block;
+  width: 96px; height: 96px;
+  margin: 0 auto 10px;
+  image-rendering: pixelated;
   filter: drop-shadow(0 4px 0 rgba(0, 0, 0, 0.35));
 }
-.logo-sword-art {
-  display: block;
-  width: 100%;
-  height: auto;
-  vertical-align: top;
-  image-rendering: pixelated;
-}
-.logo-sword .logo-text {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0;
-  padding: 0 8% 0 17%;
-  font-size: clamp(22px, 6.2vw, 32px);
+.logo-text {
+  margin: 0 0 6px;
+  font-size: clamp(28px, 8vw, 38px);
   font-weight: 700;
   letter-spacing: 1px;
   line-height: 1;
   color: var(--outline);
-  text-shadow: none;
-  white-space: nowrap;
-  pointer-events: none;
+  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.35);
 }
-.logo-sword .logo-text span { color: #c62828; }
+.logo-text span { color: #c62828; }
 .logo-sub { color: rgba(93, 64, 55, 0.82); font-size: 13px; font-weight: 600; margin: 0; }
 .menu-buttons { display: flex; flex-direction: column; gap: 12px; }
 .menu-foot { margin-top: 22px; color: rgba(93, 64, 55, 0.78); font-size: 12px; line-height: 1.5; }
@@ -223,9 +201,36 @@ html, body {
   background-size: calc(var(--frames) * 100%) auto;
   image-rendering: pixelated;
 }
-.ts-building-portrait, .ts-icon, .ts-avatar-portrait {
+.ts-building-portrait, .ts-icon, .ts-avatar-portrait, .ts-hero-portrait {
   display: block; object-fit: contain; image-rendering: pixelated;
   max-width: 100%; max-height: 100%;
+}
+
+/* Unit portraits fill square Tiny Swords button frames edge-to-edge */
+.unit-portrait-fill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 1px;
+  line-height: 0;
+  overflow: hidden;
+}
+.unit-portrait-fill .ts-avatar-portrait,
+.unit-portrait-fill .ts-hero-portrait,
+.unit-portrait-fill .ts-building-portrait,
+.unit-portrait-fill .ts-icon {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain;
+  object-position: center bottom;
+}
+.unit-portrait-fill .ts-strip-portrait {
+  width: 100% !important;
+  height: 100% !important;
+  background-size: calc(var(--frames, 1) * 100%) auto;
+  background-position: var(--pos-x, 0) 100%;
 }
 .text-btn {
   background: none; border: none; color: rgba(93, 64, 55, 0.88); font-family: inherit;
@@ -526,27 +531,31 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   gap: 6px;
 }
 .build-panel-grid .act {
-  width: 100%; min-height: 58px;
-  border: none; border-radius: 10px;
-  background: rgba(62, 39, 35, 0.08);
+  width: 100%; min-height: calc(var(--unit-btn) + 18px);
+  border: none; border-radius: 0;
+  background: var(--ts-btn-sq-blue) center/contain no-repeat;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.28);
   cursor: pointer;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 2px; padding: 4px 2px;
+  gap: 1px; padding: 2px 2px 3px;
+  image-rendering: pixelated;
 }
+.build-panel-grid .act:active { background-image: var(--ts-btn-sq-blue-pressed); transform: scale(0.96); }
 .build-panel-grid .act.disabled { opacity: 0.45; cursor: default; }
-/* Build panel icons fill the button frame */
 .build-panel-grid .act .ico {
   line-height: 0;
-  width: 100%;
+  width: var(--unit-btn);
+  height: var(--unit-btn);
   display: flex; align-items: center; justify-content: center;
 }
 .build-panel-grid .act .ico .ts-avatar-portrait,
 .build-panel-grid .act .ico .ts-building-portrait,
 .build-panel-grid .act .ico .ts-strip-portrait,
 .build-panel-grid .act .ico .ts-icon {
-  width: 36px !important;
-  height: 36px !important;
+  width: 100% !important;
+  height: 100% !important;
   object-fit: contain;
+  object-position: center bottom;
 }
 .build-panel-grid .act .lbl {
   font: bold 9px Fredoka, system-ui;
@@ -643,47 +652,54 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 .hub-squad.hidden { display: none; }
 .squad-grid {
   display: grid;
-  grid-template-columns: repeat(2, 36px);
-  grid-template-rows: repeat(2, 36px);
-  gap: 3px;
+  grid-template-columns: repeat(2, var(--unit-btn));
+  grid-template-rows: repeat(2, var(--unit-btn));
+  gap: 4px;
 }
 .squad-chip {
   position: relative;
+  width: var(--unit-btn);
+  height: var(--unit-btn);
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0;
-  padding: 2px 1px 1px;
-  border-radius: 7px;
-  border: 1.5px solid rgba(255, 255, 255, 0.14);
-  background: rgba(0, 0, 0, 0.42);
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: var(--ts-btn-sq-blue) center/contain no-repeat;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
   cursor: pointer;
   color: inherit;
-  min-width: 0;
+  image-rendering: pixelated;
+  overflow: hidden;
 }
+.squad-chip:active { transform: scale(0.94); background-image: var(--ts-btn-sq-blue-pressed); }
 .squad-chip.active {
-  border-color: rgba(255, 213, 79, 0.75);
-  box-shadow: 0 0 10px rgba(255, 213, 79, 0.2);
-  background: rgba(40, 32, 12, 0.58);
+  box-shadow: 0 0 10px rgba(255, 213, 79, 0.45), 0 2px 6px rgba(0, 0, 0, 0.35);
+  filter: brightness(1.08);
 }
-.squad-chip.disabled { opacity: 0.28; pointer-events: none; }
+.squad-chip.disabled { opacity: 0.32; filter: grayscale(0.55); pointer-events: none; }
 .squad-chip .sq-portrait {
-  width: 18px; height: 18px;
-  display: flex; align-items: center; justify-content: center;
-  line-height: 0;
+  width: 100%;
+  height: 100%;
 }
 .squad-chip .sq-tag {
-  font: bold 7px Fredoka, system-ui;
-  color: rgba(255, 255, 255, 0.72);
+  position: absolute;
+  left: 0; right: 0; bottom: 2px;
+  text-align: center;
+  font: bold 6px Fredoka, system-ui;
+  color: rgba(255, 255, 255, 0.88);
   line-height: 1;
   letter-spacing: 0.02em;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.65);
+  pointer-events: none;
 }
 .squad-chip .sq-count {
-  position: absolute; top: 1px; right: 2px;
-  font: bold 7px Fredoka, system-ui;
+  position: absolute; top: 2px; right: 3px;
+  font: bold 8px Fredoka, system-ui;
   color: #ffd54f;
   line-height: 1;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.65);
 }
 
 /* Center info panel */
@@ -701,11 +717,14 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 }
 .hub-center.has-queue { min-width: 88px; }
 .hub-portrait {
-  width: 30px; height: 30px; border-radius: 5px;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1.5px solid rgba(255, 255, 255, 0.18);
+  width: var(--unit-btn); height: var(--unit-btn);
+  border-radius: 0;
+  background: var(--ts-btn-sq-blue) center/contain no-repeat;
+  border: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
   display: flex; align-items: center; justify-content: center;
   overflow: hidden; flex-shrink: 0;
+  image-rendering: pixelated;
 }
 .hub-body { min-width: 0; flex: 1; }
 .hub-title {
@@ -769,7 +788,7 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   line-height: 0;
   display: flex; align-items: center; justify-content: center;
   width: 100%; height: 100%;
-  padding: 4px;
+  padding: 1px;
 }
 .cmd-slot .cmd-ico .ts-icon,
 .cmd-slot .cmd-ico .ts-avatar-portrait,
@@ -829,19 +848,36 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 }
 
 @media (min-width: 520px) {
-  :root { --deck-expanded-h: 108px; --cmd-slot: 42px; --cmd-btn: 48px; --combat-btn: 46px; --combat-primary: 54px; }
+  :root { --deck-expanded-h: 112px; --unit-btn: 52px; --cmd-slot: var(--unit-btn); --cmd-btn: 48px; --combat-btn: 46px; --combat-primary: 54px; }
 }
 
 .sel-queue {
   display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px; align-items: center;
 }
 .qchip {
-  position: relative; width: 22px; height: 22px; border-radius: 5px;
-  background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.12);
-  display: flex; align-items: center; justify-content: center; overflow: hidden;
+  position: relative;
+  width: var(--unit-btn); height: var(--unit-btn);
+  border-radius: 0;
+  background: var(--ts-btn-sq-blue) center/contain no-repeat;
+  border: none;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.32);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  image-rendering: pixelated;
 }
-.qchip.active { border-color: rgba(255, 213, 79, 0.55); width: auto; min-width: 22px; padding-right: 4px; }
-.qchip .qico { font-size: 11px; line-height: 1; z-index: 1; }
+.qchip.active {
+  box-shadow: 0 0 10px rgba(255, 213, 79, 0.4), 0 2px 5px rgba(0, 0, 0, 0.32);
+  filter: brightness(1.08);
+  width: auto;
+  min-width: var(--unit-btn);
+  padding-right: 4px;
+}
+.qchip .qico {
+  width: 100%;
+  height: 100%;
+  flex: 0 0 var(--unit-btn);
+}
+.qchip.active .qico { flex: 0 0 var(--unit-btn); }
 .qchip .qprog {
   position: absolute; left: 0; bottom: 0; right: 0; height: 3px; background: rgba(0, 0, 0, 0.5);
 }
@@ -922,10 +958,19 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 .act.danger { background-image: var(--ts-btn-sq-red); }
 .act.danger:active { background-image: var(--ts-btn-sq-red-pressed); }
 
-.qchip .ts-strip-portrait { width: 18px !important; height: 18px !important; }
-.qchip .ts-avatar-portrait { width: 18px !important; height: 18px !important; }
-.hub-portrait .ts-hero-portrait { width: 26px !important; height: 26px !important; object-fit: contain; image-rendering: pixelated; }
-.hub-portrait .ts-building-portrait { width: 26px !important; height: 26px !important; object-fit: contain; }
+.qchip .ts-strip-portrait,
+.qchip .ts-avatar-portrait,
+.qchip .ts-hero-portrait,
+.qchip .ts-building-portrait {
+  width: 100% !important; height: 100% !important;
+}
+.hub-portrait .ts-hero-portrait,
+.hub-portrait .ts-building-portrait,
+.hub-portrait .ts-avatar-portrait,
+.hub-portrait .ts-strip-portrait {
+  width: 100% !important; height: 100% !important; object-fit: contain;
+  object-position: center bottom;
+}
 
 /* Events + toast — unobtrusive overlays */
 #event-log {
@@ -985,7 +1030,7 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 #radial-menu { display: none !important; pointer-events: none !important; }
 
 @media (orientation: landscape) and (max-height: 480px) {
-  :root { --deck-expanded-h: 82px; --cmd-slot: 34px; --cmd-btn: 40px; --combat-btn: 38px; --combat-primary: 44px; }
+  :root { --deck-expanded-h: 100px; --unit-btn: 44px; --cmd-slot: var(--unit-btn); --cmd-btn: 40px; --combat-btn: 40px; --combat-primary: 46px; }
   #minimap-chip { width: 56px; height: 56px; }
 }
 
