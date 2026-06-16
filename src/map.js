@@ -404,6 +404,40 @@
     return grid;
   }
 
+  /* Mark tree trunk footprints as impassable on the path grid.
+   * Uses 55% of the visual radius as the blocking circle — tight enough
+   * that units can squeeze along forest edges but can't path through a trunk.
+   * forestWall trees are skipped; their cells are already blocked by terrain. */
+  function markTreesOnPathGrid(meta) {
+    if (!meta.pathGrid || !meta.decor || !meta.decor.length) return;
+    var TILE = RTS.TILE || 64;
+    var cols = meta.pathGridCols;
+    var rows = meta.pathGridRows;
+    var grid = meta.pathGrid;
+    var BLOCK_RATIO = 0.55;
+
+    meta.decor.forEach(function (d) {
+      if (d.kind !== 'tree') return;
+      if (d.forestWall) return; // terrain mask already covers these
+      var blockR = d.r * BLOCK_RATIO;
+      // Clamp search to the bounding box of the blocking circle
+      var cMinC = Math.max(0, Math.floor((d.x - blockR) / TILE));
+      var cMaxC = Math.min(cols - 1, Math.floor((d.x + blockR) / TILE));
+      var cMinR = Math.max(0, Math.floor((d.y - blockR) / TILE));
+      var cMaxR = Math.min(rows - 1, Math.floor((d.y + blockR) / TILE));
+      var r, c, cx, cy;
+      for (r = cMinR; r <= cMaxR; r++) {
+        for (c = cMinC; c <= cMaxC; c++) {
+          cx = c * TILE + TILE * 0.5;
+          cy = r * TILE + TILE * 0.5;
+          if (dist(cx, cy, d.x, d.y) < blockR) {
+            grid[r][c] = 1;
+          }
+        }
+      }
+    });
+  }
+
   function syncMapBuildingFootprints(s) {
     if (!s.map || !s.map.pathGrid) return;
     s.entities.buildings.forEach(function (b) {
@@ -447,8 +481,10 @@
           forestWallTrees(meta.terrainGrid, meta.forestWallSeed || 8801));
       }
       initPathGrid(meta);
+      markTreesOnPathGrid(meta);
     } else {
       initPathGrid(meta);
+      markTreesOnPathGrid(meta);
     }
     s.map = meta;
     syncMapBuildingFootprints(s);
