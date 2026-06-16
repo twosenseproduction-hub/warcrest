@@ -633,10 +633,13 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   max-height: calc(var(--deck-expanded-h) - 6px);
 }
 
+/* FIX: overflow:hidden stops the cmd-grid from pushing content off-screen
+   when a building queue renders and expands hub-center. */
 .bottom-hub {
   flex: 1 1 auto;
   min-width: 0;
   max-width: 100%;
+  overflow: hidden;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   /* FIXED: center so items don't float up when squad-block hidden */
@@ -727,6 +730,20 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   overflow: hidden; flex-shrink: 0;
   image-rendering: pixelated;
 }
+
+/* FIX: multi-portrait strip for army selection — up to 3 role icons side by side */
+.hub-portraits {
+  display: flex;
+  flex-direction: row;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.hub-portraits .hub-portrait {
+  /* Slightly smaller when showing multiple so they all fit */
+  width: calc(var(--unit-btn) * 0.72);
+  height: calc(var(--unit-btn) * 0.72);
+}
+
 .hub-body { min-width: 0; flex: 1; }
 .hub-title {
   font-weight: 700; font-size: 11px; color: #ffd54f;
@@ -750,7 +767,9 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 }
 
 /* Command card — fixed 3×2, icon-first mobile slots */
-.hub-cmd { flex: 0 0 auto; align-self: center; }
+/* FIX: min-width:0 + overflow:hidden so cmd-grid shrinks inside the flex/grid
+   instead of expanding the hub and pushing everything off-screen. */
+.hub-cmd { flex: 0 0 auto; align-self: center; min-width: 0; overflow: hidden; }
 .cmd-grid {
   display: grid;
   grid-template-columns: repeat(3, var(--cmd-slot));
