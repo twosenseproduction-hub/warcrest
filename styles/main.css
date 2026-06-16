@@ -99,7 +99,6 @@ html, body {
     radial-gradient(circle at 80% 20%, rgba(255,255,255,0.25) 0%, transparent 40%);
 }
 
-/* Parchment scroll panels — RegularPaper 9-slice (store Banner parchment look) */
 .menu-inner,
 .panel-inner,
 .faction-inner,
@@ -142,7 +141,6 @@ html, body {
 .menu-buttons { display: flex; flex-direction: column; gap: 12px; }
 .menu-foot { margin-top: 22px; color: rgba(93, 64, 55, 0.78); font-size: 12px; line-height: 1.5; }
 
-/* Pre-baked Tiny Swords buttons & banners (assets/ui/*.png) */
 .big-btn {
   width: 100%; height: 72px; min-height: 72px; padding: 14px 24px;
   font-family: inherit; font-size: 18px; font-weight: 700;
@@ -206,7 +204,6 @@ html, body {
   max-width: 100%; max-height: 100%;
 }
 
-/* Unit portraits fill square Tiny Swords button frames edge-to-edge */
 .unit-portrait-fill {
   display: flex;
   align-items: center;
@@ -247,7 +244,6 @@ html, body {
 .screen-title { font-size: 22px; font-weight: 700; margin: 0; color: var(--outline); }
 .screen-sub { color: rgba(93, 64, 55, 0.85); margin: 0 0 18px; font-size: 14px; }
 
-/* Faction cards */
 .faction-inner {
   position: relative; text-align: center; max-width: 720px; width: 100%;
   min-height: 520px;
@@ -284,7 +280,6 @@ html, body {
 }
 .fc-go { font-weight: 700; color: var(--gold); font-size: 14px; }
 
-/* Map cards */
 .map-cards { display: flex; flex-direction: column; gap: 12px; }
 @media (min-width: 720px) { .map-cards { flex-direction: row; align-items: stretch; } }
 .map-card {
@@ -357,7 +352,6 @@ html, body {
 .set-row input[type="checkbox"] { width: 24px; height: 24px; accent-color: var(--gold); }
 .set-row input[type="range"] { width: 140px; accent-color: var(--gold); }
 
-/* Overlays */
 .overlay {
   position: absolute; inset: 0; z-index: 40;
   display: flex; align-items: center; justify-content: center;
@@ -393,12 +387,11 @@ html, body {
 .end-stat b { font-size: 20px; }
 
 /* ============================================================================
- * In-game HUD — Wild Rift pattern: tiny chrome + context deck + thumb cluster
+ * In-game HUD
  * ==========================================================================*/
 #hud { position: absolute; inset: 0; z-index: 20; pointer-events: none; }
 #hud > * { pointer-events: auto; }
 
-/* ---- Top: floating resource pills (always on, ~32px) ---- */
 #topbar {
   position: absolute; top: max(4px, env(safe-area-inset-top)); left: 8px; right: 8px;
   z-index: 22; display: flex; align-items: center; gap: 6px;
@@ -435,7 +428,6 @@ html, body {
 }
 @keyframes wavePulse { 50% { opacity: 0.65; } }
 
-/* Player faction HUD accents (set on body in game.js) */
 body.player-cinder .res-pill.supply { border-color: rgba(129, 199, 132, 0.45); }
 body.player-cinder .wave-badge { border-color: rgba(129, 199, 132, 0.22); }
 body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
@@ -452,7 +444,6 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   width: 32px; height: 32px; padding: 0; cursor: pointer;
 }
 
-/* ---- Minimap + build hammer (corner tools) ---- */
 #map-tools {
   position: absolute;
   left: max(8px, env(safe-area-inset-left));
@@ -581,15 +572,11 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 
 /* ============================================================================
  * Bottom command deck
- * Layout: [squad] [hub-center] [hub-cmd] [combat-cluster]
  *
- * hub-center is now a FIXED 3-zone column:
- *   Zone A — portrait(s) + HP bar  (flex-shrink:0, locked width)
- *   Zone B — unit queue chips       (flex-shrink:0, hidden when empty)
- *   Zone C — status / passives      (overflow:hidden, fills remaining space)
- *
- * The cmd-grid lives in hub-cmd (separate from hub-center entirely).
- * This means queue chips NEVER push the cmd-grid sideways.
+ * hub-center is a 3-zone flex row:
+ *   Zone A (hub-zone-a) — portrait(s) + HP bar  flex-shrink:0
+ *   Zone B (hub-zone-b) — unit queue chips       hidden when empty
+ *   Zone C (hub-zone-c) — name / status          flex:1 clips overflow
  * ==========================================================================*/
 #command-deck {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 24;
@@ -615,7 +602,6 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   transition: max-height 0.22s ease, opacity 0.18s ease, visibility 0s linear 0s, padding 0.22s ease;
 }
 
-/* Single unified row: [squad] [bottom-hub] [combat] */
 .deck-row {
   display: flex;
   align-items: center;
@@ -626,9 +612,6 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   max-height: calc(var(--deck-expanded-h) - 6px);
 }
 
-/* bottom-hub: squad | center-info | cmd-grid
-   NOTE: grid cols are auto/1fr/auto so center info takes all leftover space
-   and the cmd-grid stays a fixed width on the right. */
 .bottom-hub {
   flex: 1 1 auto;
   min-width: 0;
@@ -641,7 +624,6 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 }
 .bottom-hub.hidden { display: none; }
 
-/* Squad block — 2×2 chips */
 .hub-squad {
   flex: 0 0 auto;
   align-self: center;
@@ -700,17 +682,9 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 }
 
 /* ============================================================================
- * hub-center — THE THREE-ZONE CENTER PANEL
- *
- * Zone A: portrait(s) + HP bar  — left, fixed width, never wraps
- * Zone B: unit queue chips       — middle, hidden when empty, never overflows
- * Zone C: name/status/passives   — right of queue, clips to available space
- *
- * Implemented as a flex row. Zone A is flex-shrink:0. Zone B is flex-shrink:0
- * but only visible when .has-queue. Zone C is flex:1 min-width:0 overflow:hidden.
+ * hub-center — 3-zone center panel
  * ==========================================================================*/
 .hub-center {
-  /* Fill the 1fr column in bottom-hub, clipping overflow so nothing bleeds */
   min-width: 0;
   align-self: stretch;
   display: flex;
@@ -723,7 +697,72 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   overflow: hidden;
 }
 
-/* Zone A — portrait(s). flex-shrink:0 so it never collapses. */
+/* Zone A — portrait(s) + HP bar stacked */
+.hub-zone-a {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+.hub-zone-a .hub-portrait,
+.hub-zone-a .hub-portraits {
+  flex: none;
+}
+/* sel-bar in zone-a spans portrait width */
+.hub-zone-a .sel-bar {
+  width: var(--unit-btn);
+  margin-top: 0;
+}
+.hub-zone-a .hub-portraits + .sel-bar {
+  width: 100%;
+}
+
+/* Zone B — queue chips, hidden when empty */
+.hub-zone-b {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+  max-width: calc(var(--unit-btn) * 3 + 8px);
+}
+.hub-center:not(.has-queue) .hub-zone-b {
+  display: none;
+}
+/* Queue chips inside zone-b */
+.hub-zone-b .sel-queue {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 3px;
+  align-items: center;
+  overflow: hidden;
+}
+.hub-zone-b .sel-queue .qchip:nth-child(n+4) { display: none; }
+
+/* Zone C — title / subtype / status / passives */
+.hub-zone-c {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+  gap: 1px;
+}
+
+/* hub-body kept as fallback alias for hub-zone-c */
+.hub-body {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+}
+
+/* Portrait elements */
 .hub-portrait {
   width: var(--unit-btn); height: var(--unit-btn);
   flex: 0 0 var(--unit-btn);
@@ -735,8 +774,6 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   overflow: hidden;
   image-rendering: pixelated;
 }
-
-/* Multi-portrait strip (army selection — up to 3 role icons) */
 .hub-portraits {
   display: flex;
   flex-direction: row;
@@ -748,102 +785,6 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   width: calc(var(--unit-btn) * 0.72);
   height: calc(var(--unit-btn) * 0.72);
   flex: 0 0 calc(var(--unit-btn) * 0.72);
-}
-
-/* Zone A inner: portrait + HP bar stacked as a column.  */
-.hub-zone-a {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 3px;
-}
-/* When a hub-zone-a exists the portrait sits inside it — remove the old
-   inline flex-shrink:0 portrait rule and rely on hub-zone-a instead. */
-.hub-zone-a .hub-portrait,
-.hub-zone-a .hub-portraits {
-  flex: none;
-}
-.hub-zone-a .sel-bar {
-  /* bar stretches to the portrait's width */
-  width: var(--unit-btn);
-  margin-top: 0;
-}
-/* When multiple portraits, bar spans their total width */
-.hub-zone-a .hub-portraits + .sel-bar {
-  width: 100%;
-}
-
-/* Zone B — queue chips. Hidden when no queue. Shrinks to content. */
-.hub-zone-b {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  overflow: hidden;
-  max-width: calc(var(--unit-btn) * 3 + 8px); /* cap so it can't eat zone C */
-  /* invisible until .has-queue is set by JS on .hub-center */
-}
-.hub-center:not(.has-queue) .hub-zone-b {
-  display: none;
-}
-
-/* Zone C — title / subtype / status / passives. Clips, never wraps. */
-.hub-zone-c {
-  flex: 1 1 0;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  overflow: hidden;
-  gap: 1px;
-}
-
-/* Backwards-compatible: hub-body is now an alias for hub-zone-c.
-   Existing JS still writes .hub-body, sel-bar inside .hub-body, etc.
-   We keep it working by targeting .hub-body wherever hub-zone-c is needed. */
-.hub-body {
-  flex: 1 1 0;
-  min-width: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 1px;
-}
-
-/* The sel-bar lives inside hub-body when placed by JS.
-   In the new layout it naturally clips inside hub-body.
-   We pull the HP bar UP so it appears right under the portrait title. */
-.hub-body .sel-bar { margin-top: 2px; }
-
-/* Queue: when hub-center has .has-queue the queue div (.sel-queue)
-   needs to be visually separated from hub-body.  In the JS-generated HTML
-   the order is: portrait → hub-body (title/subtype/bar/status) → queue.
-   We push the queue OUT of hub-body flow by making it a flex sibling. */
-.hub-center .sel-queue {
-  /* Zone B: fixed width, never grows */
-  flex: 0 0 auto;
-  max-width: calc(var(--unit-btn) * 3 + 8px);
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 3px;
-  align-items: center;
-  overflow: hidden;
-  align-self: center;
-}
-/* Hide overflowing chips gracefully */
-.hub-center .sel-queue .qchip:nth-child(n+4) { display: none; }
-
-/* Keep sel-queue OUTSIDE hub-body so it doesn't push hub-body text off-screen.
-   JS places sel-queue as last child of hub-body.  We compensate with:
-   - hub-body overflow:hidden clips it when .hub-center lacks .has-queue
-   - When .has-queue, we style sel-queue as a block flush after the bar */
-.hub-body .sel-queue {
-  /* When inside hub-body, let it live there but cap its width */
-  max-width: 100%;
-  flex-wrap: wrap;
-  overflow: hidden;
 }
 
 .hub-title {
@@ -870,8 +811,7 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 }
 
 /* ============================================================================
- * hub-cmd — command card (3×2 grid). Sits to the RIGHT of hub-center in
- * bottom-hub's auto grid column.  flex: 0 0 auto so it never compresses.
+ * hub-cmd — command card (3x2 grid)
  * ==========================================================================*/
 .hub-cmd { flex: 0 0 auto; align-self: center; min-width: 0; overflow: hidden; }
 .cmd-grid {
@@ -938,7 +878,7 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 }
 
 /* ============================================================================
- * Combat cluster — right side of .deck-row, flex:0 0 auto.
+ * Combat cluster
  * ==========================================================================*/
 .combat-cluster {
   flex: 0 0 auto;
@@ -972,8 +912,7 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 }
 
 /* ============================================================================
- * sel-queue — unit training queue chips inside the hub
- * Lives in Zone B (hub-center flex child, after hub-body)
+ * sel-queue — queue chips (lives in hub-zone-b)
  * ==========================================================================*/
 .sel-queue {
   display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px; align-items: center;
@@ -1057,7 +996,6 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 .sel-bar .hp-bar.is-crit { --hp-color: #d94040; }
 .sel-bar b { font-size: 8px; color: rgba(255, 255, 255, 0.6); font-variant-numeric: tabular-nums; }
 
-
 .act {
   flex: 0 0 var(--cmd-btn); width: var(--cmd-btn); height: var(--cmd-btn);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -1100,7 +1038,37 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   object-position: center bottom;
 }
 
-/* Events + toast — unobtrusive overlays */
+/* slot-icon for cmd-grid buttons rendered by renderCommandCard */
+.cmd-slot .slot-icon {
+  width: 78%; height: 78%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  display: block;
+}
+.cmd-slot .slot-cost {
+  position: absolute; bottom: 2px; right: 3px;
+  font: bold 8px Fredoka, system-ui;
+  color: #ffd54f;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.6);
+  line-height: 1;
+}
+.cmd-slot.pressing {
+  transform: scale(0.94);
+  background-image: var(--ts-btn-sq-blue-pressed);
+}
+.cmd-slot.targeting {
+  box-shadow: 0 0 12px rgba(255, 112, 67, 0.55), 0 2px 6px rgba(0, 0, 0, 0.35);
+  filter: brightness(1.12);
+}
+.cmd-slot.autocast::after {
+  content: '';
+  position: absolute; bottom: 2px; right: 2px;
+  width: 5px; height: 5px; border-radius: 50%;
+  background: #66bb6a;
+  box-shadow: 0 0 4px rgba(102,187,106,0.8);
+}
+
+/* Events + toast */
 #event-log {
   position: absolute; top: calc(36px + env(safe-area-inset-top)); left: 8px;
   display: flex; flex-direction: column; gap: 2px;
@@ -1154,7 +1122,6 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 }
 #long-press-ring.hidden { display: none; }
 
-/* Radial menu — removed. */
 #radial-menu { display: none !important; pointer-events: none !important; }
 
 @media (orientation: landscape) and (max-height: 480px) {
