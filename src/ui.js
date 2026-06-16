@@ -158,6 +158,7 @@
     return enc(TS, AVATARS + file);
   }
 
+  /* Strip portrait — no inline width/height; CSS controls size via .ts-strip-portrait rules */
   function enemyStripPortraitHtml(role, px) {
     var def = ENEMY_UNIT_STRIP[role];
     if (!def) return '';
@@ -165,31 +166,28 @@
     if (RTS.SizeRef) px = Math.round(px * RTS.SizeRef.trayScale(role));
     var zoom = def.trayZoom || 1;
     var url = enemyStripUrl(role);
-    var aspect = (def.fw || 192) / (def.fh || 192);
-    var w = Math.round(px * aspect);
     var posX = def.posX ? '--pos-x:' + def.posX + ';' : '';
     var posY = def.posY ? '--pos-y:' + def.posY + ';' : '';
     var zoomStyle = zoom !== 1
       ? 'transform:scale(' + zoom + ');transform-origin:bottom center;'
       : '';
+    /* Width/height are set via CSS; inline style only provides sprite-sheet vars */
     return '<span class="ts-strip-portrait" style="--frames:' + def.frames + ';' + posX + posY + zoomStyle +
-      'width:' + w + 'px;height:' + px + 'px;background-image:url(\'' + url + '\')"></span>';
+      'background-image:url(\'' + url + '\')"></span>';
   }
 
+  /* Avatar/building portraits — no inline width/height attrs; CSS controls size */
   function factionPortraitHtml(factionId, role, px) {
-    px = px || 36;
     if (factionId === 'cinder') {
       var av = enemyAvatarUrl(role);
       if (av) {
-        return '<img class="ts-avatar-portrait" src="' + av +
-          '" width="' + px + '" height="' + px + '" alt="" />';
+        return '<img class="ts-avatar-portrait" src="' + av + '" alt="" />';
       }
       return enemyStripPortraitHtml(role, px);
     }
     var url = unitAvatarUrl(factionId, role);
     if (!url) return '';
-    return '<img class="ts-avatar-portrait" src="' + url +
-      '" width="' + px + '" height="' + px + '" alt="" />';
+    return '<img class="ts-avatar-portrait" src="' + url + '" alt="" />';
   }
 
   function avatarPortraitHtml(factionId, role, px) {
@@ -204,27 +202,23 @@
     if (RTS.SizeRef) px = Math.round(px * RTS.SizeRef.trayScale(role));
     var zoom = def.trayZoom || (role === 'lancer' && RTS.SizeRef ? RTS.SizeRef.LANCER_TRAY_ZOOM : 1);
     var url = unitStripUrl(factionId, role);
-    var aspect = (def.fw || 192) / (def.fh || 192);
-    var w = Math.round(px * aspect);
     var posX = def.posX ? '--pos-x:' + def.posX + ';' : '';
     var posY = def.posY ? '--pos-y:' + def.posY + ';' : '';
     var zoomStyle = zoom !== 1
       ? 'transform:scale(' + zoom + ');transform-origin:bottom center;'
       : '';
+    /* Width/height are set via CSS; inline style only provides sprite-sheet vars */
     return '<span class="ts-strip-portrait" style="--frames:' + def.frames + ';' + posX + posY + zoomStyle +
-      'width:' + w + 'px;height:' + px + 'px;background-image:url(\'' + url + '\')"></span>';
+      'background-image:url(\'' + url + '\')"></span>';
   }
 
   function buildingPortraitHtml(factionId, type, px) {
-    px = px || 36;
-    return '<img class="ts-building-portrait" src="' + buildingUrl(factionId, type) +
-      '" width="' + px + '" height="' + px + '" alt="" />';
+    return '<img class="ts-building-portrait" src="' + buildingUrl(factionId, type) + '" alt="" />';
   }
 
+  /* iconHtml — no inline width/height; CSS controls size */
   function iconHtml(name, px) {
-    px = px || 24;
-    return '<img class="ts-icon" src="' + iconUrl(name) + '" width="' + px +
-      '" height="' + px + '" alt="" />';
+    return '<img class="ts-icon" src="' + iconUrl(name) + '" alt="" />';
   }
 
   function roleTrayIcon(factionId, role, px) {
