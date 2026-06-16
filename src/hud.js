@@ -320,7 +320,7 @@
       return {
         type: 'building',
         building: blds[0],
-        passiveTags: blds[0].autoMine ? ['Support'] : [],
+        passiveTags: [],
         subtype: RTS.nameFor(blds[0].faction, blds[0].type),
       };
     }
@@ -516,6 +516,7 @@
       data: opts.data || {},
       active: !!opts.active,
       danger: !!opts.danger,
+      green: !!opts.green,
     };
   }
 
@@ -558,6 +559,7 @@
       } else {
         put(3, slot('toggle-automine', UI().iconHtml('hammer', 20), {
           active: !!b.autoMine,
+          green: !!b.autoMine,
           data: { bid: b.id },
           hidden: !RTS.isDepositBuilding || !RTS.isDepositBuilding(b),
         }));
@@ -616,7 +618,7 @@
       btn.className = 'cmd-slot' +
         (def.disabled ? ' disabled' : '') +
         (def.hidden ? ' slot-hidden' : '') +
-        (def.active ? ' on' : '') +
+        (def.green ? ' cmd-green' : (def.active ? ' on' : '')) +
         (def.danger ? ' danger' : '') +
         (def.targeting ? ' targeting' : '');
       btn.dataset.slotId = def.slotId;
