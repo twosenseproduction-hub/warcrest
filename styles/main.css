@@ -744,7 +744,13 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   height: calc(var(--unit-btn) * 0.72);
 }
 
-.hub-body { min-width: 0; flex: 1; }
+/* FIX: hub-body must clip its children so queue chips never escape
+   and push the flex row rightward off-screen. */
+.hub-body {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
 .hub-title {
   font-weight: 700; font-size: 11px; color: #ffd54f;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
