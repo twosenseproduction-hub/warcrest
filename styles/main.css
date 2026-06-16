@@ -57,7 +57,6 @@
   --cmd-h: 72px;
   --cmd-btn: 44px;
   --thumb-btn: 52px;
-  /* FIXED: expanded height tall enough to contain squad + cmd + combat rows */
   --deck-h: 0px;
   --deck-expanded-h: 108px;
   --unit-btn: 48px;
@@ -581,25 +580,22 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 }
 
 /* ============================================================================
- * Bottom command deck — FIXED layout
+ * Bottom command deck
+ * Layout: [squad] [hub-center] [hub-cmd] [combat-cluster]
  *
- * Key changes:
- *  1. --deck-expanded-h raised to 100px so nothing clips.
- *  2. .deck-row is a single row using align-items: center so every child
- *     is vertically centered inside the grey rectangle.
- *  3. .combat-cluster moved inside .deck-row (right side) — it no longer
- *     floats outside the rect.  It is flex: 0 0 auto so it never compresses.
- *  4. .bottom-hub uses align-items: center (not stretch) so squad + cmd
- *     card always sit at the same vertical baseline regardless of whether
- *     the squad block is visible or hidden.
- *  5. overflow: visible on #command-deck.expanded so nothing is cut.
+ * hub-center is now a FIXED 3-zone column:
+ *   Zone A — portrait(s) + HP bar  (flex-shrink:0, locked width)
+ *   Zone B — unit queue chips       (flex-shrink:0, hidden when empty)
+ *   Zone C — status / passives      (overflow:hidden, fills remaining space)
+ *
+ * The cmd-grid lives in hub-cmd (separate from hub-center entirely).
+ * This means queue chips NEVER push the cmd-grid sideways.
  * ==========================================================================*/
 #command-deck {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 24;
   height: auto;
   min-height: 0;
   max-height: 0;
-  /* FIXED: clip must not cut buttons — use hidden until expanded */
   overflow: hidden;
   visibility: hidden;
   opacity: 0;
@@ -610,9 +606,7 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   transition: max-height 0.22s ease, opacity 0.18s ease, visibility 0s linear 0.18s, padding 0.22s ease;
 }
 #command-deck.expanded {
-  /* FIXED: allow enough height for the tallest row (combat cluster ~54px + 2×padding) */
   max-height: calc(var(--deck-expanded-h) + env(safe-area-inset-bottom) + 16px);
-  /* FIXED: switch to visible so buttons at the very edge are never clipped */
   overflow: visible;
   visibility: visible;
   opacity: 1;
@@ -621,20 +615,20 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   transition: max-height 0.22s ease, opacity 0.18s ease, visibility 0s linear 0s, padding 0.22s ease;
 }
 
-/* Single unified row: [squad] [info] [cmd-grid] [combat] */
+/* Single unified row: [squad] [bottom-hub] [combat] */
 .deck-row {
   display: flex;
-  align-items: center;     /* FIXED: vertical center — no more drifting high/low */
+  align-items: center;
   justify-content: flex-start;
   gap: 6px;
   max-width: 100%;
-  /* FIXED: cap height so row never taller than the grey rectangle */
   min-height: calc(var(--deck-expanded-h) - 12px);
   max-height: calc(var(--deck-expanded-h) - 6px);
 }
 
-/* FIX: overflow:hidden stops the cmd-grid from pushing content off-screen
-   when a building queue renders and expands hub-center. */
+/* bottom-hub: squad | center-info | cmd-grid
+   NOTE: grid cols are auto/1fr/auto so center info takes all leftover space
+   and the cmd-grid stays a fixed width on the right. */
 .bottom-hub {
   flex: 1 1 auto;
   min-width: 0;
@@ -642,7 +636,6 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   overflow: hidden;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  /* FIXED: center so items don't float up when squad-block hidden */
   align-items: center;
   gap: 6px;
 }
@@ -706,51 +699,153 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.65);
 }
 
-/* Center info panel */
+/* ============================================================================
+ * hub-center — THE THREE-ZONE CENTER PANEL
+ *
+ * Zone A: portrait(s) + HP bar  — left, fixed width, never wraps
+ * Zone B: unit queue chips       — middle, hidden when empty, never overflows
+ * Zone C: name/status/passives   — right of queue, clips to available space
+ *
+ * Implemented as a flex row. Zone A is flex-shrink:0. Zone B is flex-shrink:0
+ * but only visible when .has-queue. Zone C is flex:1 min-width:0 overflow:hidden.
+ * ==========================================================================*/
 .hub-center {
-  flex: 1 1 auto;
+  /* Fill the 1fr column in bottom-hub, clipping overflow so nothing bleeds */
   min-width: 0;
-  align-self: center;
+  align-self: stretch;
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 5px;
-  padding: 2px 4px;
+  gap: 4px;
+  padding: 0 4px;
   border-left: 1px solid rgba(255, 255, 255, 0.07);
   border-right: 1px solid rgba(255, 255, 255, 0.07);
+  overflow: hidden;
 }
-.hub-center.has-queue { min-width: 88px; }
+
+/* Zone A — portrait(s). flex-shrink:0 so it never collapses. */
 .hub-portrait {
   width: var(--unit-btn); height: var(--unit-btn);
+  flex: 0 0 var(--unit-btn);
   border-radius: 0;
   background: var(--ts-btn-sq-blue) center/contain no-repeat;
   border: none;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
   display: flex; align-items: center; justify-content: center;
-  overflow: hidden; flex-shrink: 0;
+  overflow: hidden;
   image-rendering: pixelated;
 }
 
-/* FIX: multi-portrait strip for army selection — up to 3 role icons side by side */
+/* Multi-portrait strip (army selection — up to 3 role icons) */
 .hub-portraits {
   display: flex;
   flex-direction: row;
   gap: 2px;
+  flex: 0 0 auto;
   flex-shrink: 0;
 }
 .hub-portraits .hub-portrait {
-  /* Slightly smaller when showing multiple so they all fit */
   width: calc(var(--unit-btn) * 0.72);
   height: calc(var(--unit-btn) * 0.72);
+  flex: 0 0 calc(var(--unit-btn) * 0.72);
 }
 
-/* FIX: hub-body must clip its children so queue chips never escape
-   and push the flex row rightward off-screen. */
-.hub-body {
+/* Zone A inner: portrait + HP bar stacked as a column.  */
+.hub-zone-a {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+/* When a hub-zone-a exists the portrait sits inside it — remove the old
+   inline flex-shrink:0 portrait rule and rely on hub-zone-a instead. */
+.hub-zone-a .hub-portrait,
+.hub-zone-a .hub-portraits {
+  flex: none;
+}
+.hub-zone-a .sel-bar {
+  /* bar stretches to the portrait's width */
+  width: var(--unit-btn);
+  margin-top: 0;
+}
+/* When multiple portraits, bar spans their total width */
+.hub-zone-a .hub-portraits + .sel-bar {
+  width: 100%;
+}
+
+/* Zone B — queue chips. Hidden when no queue. Shrinks to content. */
+.hub-zone-b {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+  max-width: calc(var(--unit-btn) * 3 + 8px); /* cap so it can't eat zone C */
+  /* invisible until .has-queue is set by JS on .hub-center */
+}
+.hub-center:not(.has-queue) .hub-zone-b {
+  display: none;
+}
+
+/* Zone C — title / subtype / status / passives. Clips, never wraps. */
+.hub-zone-c {
+  flex: 1 1 0;
   min-width: 0;
-  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+  gap: 1px;
+}
+
+/* Backwards-compatible: hub-body is now an alias for hub-zone-c.
+   Existing JS still writes .hub-body, sel-bar inside .hub-body, etc.
+   We keep it working by targeting .hub-body wherever hub-zone-c is needed. */
+.hub-body {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+}
+
+/* The sel-bar lives inside hub-body when placed by JS.
+   In the new layout it naturally clips inside hub-body.
+   We pull the HP bar UP so it appears right under the portrait title. */
+.hub-body .sel-bar { margin-top: 2px; }
+
+/* Queue: when hub-center has .has-queue the queue div (.sel-queue)
+   needs to be visually separated from hub-body.  In the JS-generated HTML
+   the order is: portrait → hub-body (title/subtype/bar/status) → queue.
+   We push the queue OUT of hub-body flow by making it a flex sibling. */
+.hub-center .sel-queue {
+  /* Zone B: fixed width, never grows */
+  flex: 0 0 auto;
+  max-width: calc(var(--unit-btn) * 3 + 8px);
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 3px;
+  align-items: center;
+  overflow: hidden;
+  align-self: center;
+}
+/* Hide overflowing chips gracefully */
+.hub-center .sel-queue .qchip:nth-child(n+4) { display: none; }
+
+/* Keep sel-queue OUTSIDE hub-body so it doesn't push hub-body text off-screen.
+   JS places sel-queue as last child of hub-body.  We compensate with:
+   - hub-body overflow:hidden clips it when .hub-center lacks .has-queue
+   - When .has-queue, we style sel-queue as a block flush after the bar */
+.hub-body .sel-queue {
+  /* When inside hub-body, let it live there but cap its width */
+  max-width: 100%;
+  flex-wrap: wrap;
   overflow: hidden;
 }
+
 .hub-title {
   font-weight: 700; font-size: 11px; color: #ffd54f;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -760,7 +855,9 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   text-transform: uppercase; letter-spacing: 0.04em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.hub-status, .hub-passives + .hub-status { color: rgba(255, 255, 255, 0.52); font-size: 8px; }
+.hub-status, .hub-passives + .hub-status { color: rgba(255, 255, 255, 0.52); font-size: 8px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .hub-passives {
   display: flex; flex-wrap: wrap; gap: 2px; margin-top: 2px;
 }
@@ -772,9 +869,10 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   color: #ffe082;
 }
 
-/* Command card — fixed 3×2, icon-first mobile slots */
-/* FIX: min-width:0 + overflow:hidden so cmd-grid shrinks inside the flex/grid
-   instead of expanding the hub and pushing everything off-screen. */
+/* ============================================================================
+ * hub-cmd — command card (3×2 grid). Sits to the RIGHT of hub-center in
+ * bottom-hub's auto grid column.  flex: 0 0 auto so it never compresses.
+ * ==========================================================================*/
 .hub-cmd { flex: 0 0 auto; align-self: center; min-width: 0; overflow: hidden; }
 .cmd-grid {
   display: grid;
@@ -840,9 +938,7 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 }
 
 /* ============================================================================
- * Combat cluster — FIXED: now sits inside .deck-row on the right side.
- * It is flex: 0 0 auto so it never gets squeezed.
- * Layout is a column-reverse stack so the primary (attack-move) is on bottom.
+ * Combat cluster — right side of .deck-row, flex:0 0 auto.
  * ==========================================================================*/
 .combat-cluster {
   flex: 0 0 auto;
@@ -851,7 +947,6 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   align-items: center;
   justify-content: center;
   gap: 4px;
-  /* FIXED: constrain height to fit inside the deck rectangle */
   max-height: calc(var(--deck-expanded-h) - 10px);
   padding: 0;
   margin-left: 2px;
@@ -861,7 +956,6 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   width: var(--combat-btn); height: var(--combat-btn);
   padding: 0; cursor: pointer;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.42);
-  /* FIXED: shrink slightly so 3 stacked buttons fit in --deck-expanded-h */
   flex-shrink: 1;
 }
 .combat-btn.combat-primary {
@@ -877,6 +971,10 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   :root { --deck-expanded-h: 112px; --unit-btn: 52px; --cmd-slot: var(--unit-btn); --cmd-btn: 48px; --combat-btn: 46px; --combat-primary: 54px; }
 }
 
+/* ============================================================================
+ * sel-queue — unit training queue chips inside the hub
+ * Lives in Zone B (hub-center flex child, after hub-body)
+ * ==========================================================================*/
 .sel-queue {
   display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px; align-items: center;
 }
@@ -913,6 +1011,10 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   font-variant-numeric: tabular-nums; z-index: 1;
 }
 .sel-chips { display: none; }
+
+/* ============================================================================
+ * sel-bar — HP bar in Zone A (under the portrait)
+ * ==========================================================================*/
 .sel-bar { display: flex; align-items: center; gap: 4px; margin-top: 2px; }
 .sel-bar span { display: none; }
 .sel-bar .hp-bar {
@@ -1052,7 +1154,7 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 }
 #long-press-ring.hidden { display: none; }
 
-/* Radial menu — removed. #radial-menu and .rcard are no longer used. */
+/* Radial menu — removed. */
 #radial-menu { display: none !important; pointer-events: none !important; }
 
 @media (orientation: landscape) and (max-height: 480px) {
