@@ -531,7 +531,20 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   gap: 2px; padding: 4px 2px;
 }
 .build-panel-grid .act.disabled { opacity: 0.45; cursor: default; }
-.build-panel-grid .act .ico { line-height: 0; }
+/* Build panel icons fill the button frame */
+.build-panel-grid .act .ico {
+  line-height: 0;
+  width: 100%;
+  display: flex; align-items: center; justify-content: center;
+}
+.build-panel-grid .act .ico .ts-avatar-portrait,
+.build-panel-grid .act .ico .ts-building-portrait,
+.build-panel-grid .act .ico .ts-strip-portrait,
+.build-panel-grid .act .ico .ts-icon {
+  width: 36px !important;
+  height: 36px !important;
+  object-fit: contain;
+}
 .build-panel-grid .act .lbl {
   font: bold 9px Fredoka, system-ui;
   color: #3e2723;
@@ -682,7 +695,7 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   color: #ffe082;
 }
 
-/* Command card — fixed 3×2 */
+/* Command card — fixed 3×2, icon-first mobile slots */
 .hub-cmd { flex: 0 0 auto; align-self: center; }
 .cmd-grid {
   display: grid;
@@ -700,6 +713,7 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   cursor: pointer;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
   image-rendering: pixelated;
+  overflow: hidden;
 }
 .cmd-slot:active { transform: scale(0.94); background-image: var(--ts-btn-sq-blue-pressed); }
 .cmd-slot.on { filter: brightness(1.14); box-shadow: 0 0 10px rgba(255, 213, 79, 0.35); }
@@ -707,10 +721,24 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 .cmd-slot.danger:active { background-image: var(--ts-btn-sq-red-pressed); }
 .cmd-slot.disabled { opacity: 0.32; filter: grayscale(0.55); }
 .cmd-slot.slot-hidden { visibility: hidden; pointer-events: none; }
-.cmd-slot .cmd-ico { line-height: 0; display: flex; align-items: center; justify-content: center; }
-.cmd-slot .cmd-ico .ts-icon { width: 22px !important; height: 22px !important; }
+
+/* Icon fills the slot frame — no clipping */
+.cmd-slot .cmd-ico {
+  line-height: 0;
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 100%;
+  padding: 4px;
+}
+.cmd-slot .cmd-ico .ts-icon,
 .cmd-slot .cmd-ico .ts-avatar-portrait,
-.cmd-slot .cmd-ico .ts-building-portrait { width: 24px !important; height: 24px !important; }
+.cmd-slot .cmd-ico .ts-building-portrait,
+.cmd-slot .cmd-ico .ts-strip-portrait {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain;
+  display: block;
+}
+
 .cmd-cooldown {
   position: absolute; inset: 0; border-radius: 2px;
   background: conic-gradient(rgba(0,0,0,0.55) calc(var(--cd) * 360deg), transparent 0);
@@ -900,86 +928,8 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 }
 #long-press-ring.hidden { display: none; }
 
-#radial-menu {
-  position: absolute; z-index: 30; pointer-events: none;
-  margin: 0; transform: translate(-50%, -50%);
-}
-#radial-menu:not(.hidden) { pointer-events: auto; }
-#radial-menu.hidden { display: none; }
-#radial-menu .radial-hub { position: relative; width: 0; height: 0; }
-
-/* Radial arc — stone ring buttons hugging the selected building */
-.rcard {
-  position: absolute; left: 0; top: 0;
-  width: 58px; height: 58px;
-  transform: translate(calc(-50% + var(--rx)), calc(-50% + var(--ry)));
-  padding: 0;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  display: flex; align-items: center; justify-content: center;
-  pointer-events: auto;
-  cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
-  font: inherit;
-  color: inherit;
-  transition: transform 0.1s ease, filter 0.1s ease;
-  image-rendering: pixelated;
-  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
-}
-.rcard-ring {
-  position: absolute; inset: 0;
-  background: var(--ts-btn-round-blue) center/contain no-repeat;
-  pointer-events: none;
-}
-.rcard-body {
-  position: relative; z-index: 1;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  width: 100%; height: 100%;
-  padding-bottom: 2px;
-}
-.rcard-avatar {
-  width: 34px; height: 34px;
-  object-fit: contain;
-  border: none; background: none; box-shadow: none; border-radius: 0;
-  display: block; flex-shrink: 0;
-  filter: none;
-}
-.rcard-body .ts-strip-portrait,
-.rcard-body .ts-avatar-portrait {
-  width: 34px !important; height: 34px !important;
-}
-.rcard-cost {
-  position: absolute;
-  left: 50%; bottom: -13px;
-  transform: translateX(-50%);
-  font: 700 10px/1 Fredoka, system-ui, sans-serif;
-  color: #ffc107;
-  text-shadow: 0 1px 0 #1a1208, 0 0 4px rgba(0, 0, 0, 0.85);
-  display: flex; align-items: center; gap: 2px;
-  white-space: nowrap;
-}
-.rcard-coin {
-  width: 10px; height: 10px;
-  object-fit: contain;
-  border: none; background: none; box-shadow: none; border-radius: 0;
-}
-.rcard:hover:not(.disabled),
-.rcard.active:not(.disabled) {
-  transform: translate(calc(-50% + var(--rx)), calc(-50% + var(--ry))) scale(1.08);
-  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.5)) brightness(1.06);
-}
-.rcard:hover:not(.disabled) .rcard-ring,
-.rcard.active:not(.disabled) .rcard-ring {
-  background-image: var(--ts-btn-round-blue-pressed);
-}
-.rcard.disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  pointer-events: none;
-}
+/* Radial menu — removed. #radial-menu and .rcard are no longer used. */
+#radial-menu { display: none !important; pointer-events: none !important; }
 
 @media (orientation: landscape) and (max-height: 480px) {
   :root { --deck-expanded-h: 76px; --cmd-slot: 34px; --cmd-btn: 40px; --combat-btn: 40px; --combat-primary: 46px; }
