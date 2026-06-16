@@ -24,6 +24,8 @@
   --ts-btn-sq-blue-pressed: url("../assets/ui/btn-sq-blue-pressed.png");
   --ts-btn-sq-red: url("../assets/ui/btn-sq-red.png");
   --ts-btn-sq-red-pressed: url("../assets/ui/btn-sq-red-pressed.png");
+  --ts-btn-sq-green: url("../assets/ui/btn-sq-green.png");
+  --ts-btn-sq-green-pressed: url("../assets/ui/btn-sq-green-pressed.png");
   --ts-parchment: url("../assets/ui/regular-paper-9.png");
   --ts-paper: url("../assets/ui/paper-panel-420.png");
   --ts-paper-screen: url("../assets/ui/paper-panel-512.png");
@@ -570,18 +572,27 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 /* ---- Bottom hub + combat cluster (condensed mobile RTS command surface) ---- */
 #command-deck {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 24;
-  height: 0; overflow: hidden; opacity: 0;
+  /* FIX: use min-height + visibility instead of height:0 + overflow:hidden
+     so hub content is never clipped at the boundary edge */
+  height: auto;
+  min-height: 0;
+  max-height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  opacity: 0;
   padding: 0 max(8px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(8px, env(safe-area-inset-left));
   background: linear-gradient(0deg, rgba(8, 12, 20, 0.97) 0%, rgba(8, 12, 20, 0.9) 88%, transparent 100%);
   border-top: none;
   pointer-events: none;
-  transition: height 0.22s ease, opacity 0.18s ease, padding 0.22s ease;
+  transition: max-height 0.22s ease, opacity 0.18s ease, visibility 0s linear 0.18s, padding 0.22s ease;
 }
 #command-deck.expanded {
-  height: calc(var(--deck-expanded-h) + env(safe-area-inset-bottom));
+  max-height: calc(var(--deck-expanded-h) + env(safe-area-inset-bottom) + 16px);
+  visibility: visible;
   opacity: 1;
   padding-top: 5px;
   pointer-events: auto;
+  transition: max-height 0.22s ease, opacity 0.18s ease, visibility 0s linear 0s, padding 0.22s ease;
 }
 .deck-row {
   display: flex;
@@ -593,11 +604,13 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 .bottom-hub {
   flex: 1 1 auto;
   min-width: 0;
+  /* FIX: drop the combat-cluster offset — flex layout handles spacing;
+     hard-coding it caused overflow on narrow screens when cluster is hidden */
+  max-width: 100%;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: stretch;
   gap: 6px;
-  max-width: calc(100% - var(--combat-primary) - 8px);
 }
 .bottom-hub.hidden { display: none; }
 
@@ -717,6 +730,16 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 }
 .cmd-slot:active { transform: scale(0.94); background-image: var(--ts-btn-sq-blue-pressed); }
 .cmd-slot.on { filter: brightness(1.14); box-shadow: 0 0 10px rgba(255, 213, 79, 0.35); }
+/* Green active state — used for toggle-automine when enabled */
+.cmd-slot.cmd-green {
+  background-image: var(--ts-btn-sq-green, var(--ts-btn-sq-blue));
+  box-shadow: 0 0 12px rgba(102, 187, 106, 0.55), 0 2px 6px rgba(0, 0, 0, 0.35);
+  filter: none;
+}
+.cmd-slot.cmd-green:active {
+  background-image: var(--ts-btn-sq-green-pressed, var(--ts-btn-sq-blue-pressed));
+  transform: scale(0.94);
+}
 .cmd-slot.danger { background-image: var(--ts-btn-sq-red); }
 .cmd-slot.danger:active { background-image: var(--ts-btn-sq-red-pressed); }
 .cmd-slot.disabled { opacity: 0.32; filter: grayscale(0.55); }
