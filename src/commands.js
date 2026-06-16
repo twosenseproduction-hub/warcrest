@@ -371,6 +371,7 @@
     u.attackMove = false;
     u.harvest = null;
     u.buildTask = null;
+    u.buildQueue = [];
 
     switch (mode) {
       case 'move':
@@ -596,6 +597,24 @@
 
   RTS.redirectPawnToBuild = function (s, u, b) {
     if (!u || !b || u.dead || u.role !== 'pawn') return;
+
+    // If the pawn is already actively building a different structure, queue
+    // the new job rather than interrupting the current one.
+    if (u.buildTask && u.buildTask.buildingId && u.buildTask.buildingId !== b.id) {
+      if (!u.buildQueue) u.buildQueue = [];
+      // Avoid duplicate entries in the queue.
+      var alreadyQueued = false;
+      for (var qi = 0; qi < u.buildQueue.length; qi++) {
+        if (u.buildQueue[qi].buildingId === b.id) { alreadyQueued = true; break; }
+      }
+      if (!alreadyQueued) {
+        u.buildQueue.push({ buildingId: b.id });
+        b.builderId = u.id;
+      }
+      return;
+    }
+
+    // No active build — clear old builder links and assign immediately.
     s.entities.buildings.forEach(function (ob) {
       if (ob.builderId === u.id && ob.id !== b.id) ob.builderId = null;
     });
@@ -703,6 +722,12 @@
         u._builderOnSite = false;
         if (RTS.UnitAI) RTS.UnitAI.applyStop(u);
         if (RTS.resumeCarryAfterBuild) RTS.resumeCarryAfterBuild(u, s);
+      }
+      // Also scrub this building from the pawn's build queue.
+      if (u.buildQueue && u.buildQueue.length) {
+        u.buildQueue = u.buildQueue.filter(function (job) {
+          return job.buildingId !== b.id;
+        });
       }
       if (u.target === b.id) u.target = null;
     });
