@@ -45,7 +45,7 @@
     mineAmounts: {
       starting:    12500,
       expansion:   5000,
-      startRadius: 300,
+      startRadius: 420,  // raised from 300 — matches the new wider starting mine placement
     },
 
     harvest: {
