@@ -137,7 +137,14 @@
   RTS.recalcSupply = function (s, team) {
     var used = 0;
     s.entities.units.forEach(function (u) {
-      if (u.team === team && !u.dead) used += (RTS.Units[u.role].supply || 1);
+      if (u.team !== team || u.dead) return;
+      if (u.heroId && RTS.getHero) {
+        var hero = RTS.getHero(u.heroId);
+        used += hero && hero.supply != null ? hero.supply : 0;
+        return;
+      }
+      var spec = RTS.Units[u.role];
+      used += spec && spec.supply != null ? spec.supply : 1;
     });
     var cap = RTS.Config.startSupplyCap;
     var lc = RTS.Config.livestock;
