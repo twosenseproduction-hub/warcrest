@@ -160,27 +160,47 @@
     return false;
   }
 
+  function hiddenByFog(s, e) {
+    if (!RTS.fogEnabled || !e) return false;
+    if (e.team === TEAM.ENEMY && RTS.entityVisibleToPlayer) {
+      return !RTS.entityVisibleToPlayer(s, e);
+    }
+    if (e.kind === 'resource' && RTS.fogTileStateAt) {
+      return RTS.fogTileStateAt(s, e.x, e.y) === 'unexplored';
+    }
+    return false;
+  }
+
+  function hitDepthSort(s, e, bias, d) {
+    var z = RTS.renderDepthForEntity ? RTS.renderDepthForEntity(e, s) : (e.y || 0);
+    return -z + bias + d * 0.01;
+  }
+
   // ---- Hit testing ---------------------------------------------------------
   function hitTest(s, wx, wy) {
     var slop = (RTS.Config.touch ? RTS.Config.touch.slopPx : 28) / s.camera.zoom;
     var cands = [];
     s.entities.units.forEach(function (u) {
       if (u.dead) return;
+      if (hiddenByFog(s, u)) return;
       var d = RTS.dist(wx, wy, u.x, u.y);
       if (d <= u.radius + slop) {
-        cands.push({ e: u, sort: (u.team === TEAM.PLAYER ? 0 : 100) + d });
+        cands.push({ e: u, sort: hitDepthSort(s, u, u.team === TEAM.PLAYER ? 0 : 40, d) });
       }
     });
     s.entities.buildings.forEach(function (b) {
       if (b.dead) return;
+      if (hiddenByFog(s, b)) return;
       if (!RTS.buildingIsTappable(b)) return;
       var ellipseSlop = slop * 0.35;   // tighter than the old AABB pad
       if (buildingEllipseHit(b, wx, wy, ellipseSlop)) {
-        cands.push({ e: b, sort: (b.team === TEAM.PLAYER ? 20 : 120) + RTS.dist(wx, wy, b.x, b.y) });
+        var d = RTS.dist(wx, wy, b.x, b.y);
+        cands.push({ e: b, sort: hitDepthSort(s, b, b.team === TEAM.PLAYER ? 4 : 44, d) });
       }
     });
     s.entities.resources.forEach(function (n) {
       if (n.amount <= 0) return;
+      if (hiddenByFog(s, n)) return;
       if (RTS.dist(wx, wy, n.x, n.y) <= n.r + slop * 0.8) {
         cands.push({ e: n, sort: 200 + RTS.dist(wx, wy, n.x, n.y) });
       }

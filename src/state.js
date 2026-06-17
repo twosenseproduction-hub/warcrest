@@ -41,6 +41,12 @@
         effects: [],
       },
 
+      fog: {
+        explored: new Set(),
+        visible: new Set(),
+        stamp: -1,
+      },
+
       selectedIds: [],
       selectionBox: null,            // {x1,y1,x2,y2} world coords while dragging
 

@@ -77,6 +77,10 @@
         RTS.Assets.preloadFactions([state.playerFaction, state.enemyFaction]);
       }
       RTS.buildMap(state, state.mapId);
+      if (RTS.resetFog) {
+        RTS.resetFog(state);
+        RTS.currentVisibleTiles(state);
+      }
       this.scene('playing');           // make canvas visible before sizing
       RTS.Render.resize(state);
       var core = RTS.playerCore(state);
