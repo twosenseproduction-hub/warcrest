@@ -1135,4 +1135,30 @@
     return true;
   };
 
+  // ---- HUD action wrappers -------------------------------------------------
+
+  RTS.trainUnit = function (s, buildingId, role) {
+    var b = (s.entities.buildings || []).find(function (b) { return b.id === buildingId; });
+    if (!b) return false;
+    return RTS.train(s, b, role);
+  };
+
+  RTS.toggleAutomine = function (s, buildingId) {
+    var b = (s.entities.buildings || []).find(function (b) { return b.id === buildingId; });
+    if (!b) return;
+    b.autoMine = !b.autoMine;
+    if (RTS.HUD) RTS.HUD.sync(s);
+  };
+
+  RTS.sellBuilding = function (s, buildingId) {
+    var b = (s.entities.buildings || []).find(function (b) { return b.id === buildingId; });
+    if (!b || b.type === 'core') return;
+    var spec = RTS.Buildings[b.type];
+    if (spec && spec.cost > 0) s.res.player.halcite += Math.floor(spec.cost * 0.5);
+    b.dead = true;
+    RTS.clearSelection(s);
+    if (RTS.Audio) RTS.Audio.play('click');
+    if (RTS.HUD) RTS.HUD.sync(s);
+  };
+
 })(window.RTS = window.RTS || {});
