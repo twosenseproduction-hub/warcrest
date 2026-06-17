@@ -99,9 +99,6 @@
     </header>
 
     <div id="map-tools">
-      <div id="minimap-chip">
-        <canvas id="minimap"></canvas>
-      </div>
       <button type="button" id="btn-build-hammer" class="map-tool-btn ts-round-btn" aria-label="Build structures" aria-expanded="false">
         <img src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_01.png" alt="" />
       </button>
@@ -123,9 +120,15 @@
     <footer id="command-deck" class="collapsed">
       <div class="deck-row">
         <div id="bottom-hub" class="bottom-hub">
-<div id="selpanel" class="hub-center"></div>
-          <div id="command-card" class="hub-cmd">
-            <div id="cmd-grid" class="cmd-grid" role="group" aria-label="Commands"></div>
+          <div id="hub-minimap" class="hub-minimap">
+            <canvas id="minimap"></canvas>
+          </div>
+          <div id="selpanel" class="hub-center"></div>
+          <div id="hub-right" class="hub-right">
+            <div id="command-card" class="hub-cmd">
+              <div id="cmd-grid" class="cmd-grid" role="group" aria-label="Commands"></div>
+            </div>
+            <div id="hub-hero" class="hub-hero hidden"></div>
           </div>
         </div>
         <div id="combat-cluster" class="combat-cluster hidden" aria-label="Combat controls">

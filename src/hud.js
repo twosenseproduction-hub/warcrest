@@ -59,12 +59,13 @@
        'event-log', 'toast', 'gesture-hint', 'wave-timer',
        'btn-rail-army', 'btn-rail-pawns', 'btn-rail-base',
        'btn-combat-stop', 'btn-combat-mode', 'btn-combat-atk',
-       'btn-build-hammer', 'build-panel', 'build-panel-grid', 'map-tools', 'minimap-chip', 'minimap'].forEach(function (id) {
+       'btn-build-hammer', 'build-panel', 'build-panel-grid', 'map-tools',
+       'hub-minimap', 'hub-right', 'hub-hero', 'minimap'].forEach(function (id) {
         D[id] = $(id);
       });
 
       ['cmd-grid', 'selpanel', 'squad-chips', 'squad-block', 'combat-cluster', 'topbar', 'command-deck',
-       'bottom-hub', 'map-tools', 'build-panel', 'btn-build-hammer', 'minimap-chip'].forEach(function (id) {
+       'bottom-hub', 'map-tools', 'build-panel', 'btn-build-hammer', 'hub-minimap'].forEach(function (id) {
         var el = document.getElementById(id);
         if (!el) return;
         el.addEventListener('pointerdown', markUi, true);
@@ -120,10 +121,29 @@
         handleAction(getState(), btn.dataset);
       });
 
+      wireDelegatedTap(D['selpanel'], '[data-act]', function (e, btn) {
+        if (btn.classList.contains('disabled') || btn.classList.contains('slot-hidden')) {
+          RTS.Audio.play('deny'); return;
+        }
+        handleAction(getState(), btn.dataset);
+      });
+
       // ---- cmd-slot press-state: add/remove `pressing` class on touch down/up ----
       wireCmdSlotPressState(D['cmd-grid']);
 
       wireDelegatedTap(D['squad-chips'], '[data-squad-role]', function (e, chip) {
+        var s = getState();
+        if (!s || chip.classList.contains('disabled')) return;
+        markUi();
+        var role = chip.dataset.squadRole;
+        if (role === 'all') {
+          if (RTS.selectMacroAll(s)) RTS.Audio.play('click');
+        } else if (RTS.selectMacroGroup(s, role)) {
+          RTS.Audio.play('click');
+        }
+      });
+
+      wireDelegatedTap(D['selpanel'], '[data-squad-role]', function (e, chip) {
         var s = getState();
         if (!s || chip.classList.contains('disabled')) return;
         markUi();
@@ -254,7 +274,7 @@
   }
 
   function wireMinimapTap() {
-    var chip = D['minimap-chip'];
+    var chip = D['hub-minimap'];
     var cv = D['minimap'];
     if (!chip || !cv) return;
     wireTap(chip, function (e) {
@@ -295,7 +315,6 @@
     if (bpanel) bpanel.classList.toggle('hidden', !s.ui.buildPanelOpen);
 
     if (D['map-tools']) D['map-tools'].classList.toggle('hidden', open);
-    if (D['minimap-chip']) D['minimap-chip'].classList.toggle('deck-open', open);
   }
 
   function deckOpen(s) {
@@ -394,10 +413,29 @@
     return out;
   }
 
+  function renderSquadChipsHtml(s) {
+    var fid = s.playerFaction || 'aurex';
+    return SQUAD_CHIPS.map(function (chip) {
+      var count = chip.role === 'all'
+        ? RTS.activeSelectedUnits(s).length
+        : (s.units || []).filter(function (u) { return u.owner === 'player' && u.role === chip.role; }).length;
+      var portrait = chip.role === 'all'
+        ? UI().iconHtml('sword', 16)
+        : UI().avatarPortraitHtml(fid, chip.role, 18);
+      return '<button class="squad-chip' + (count === 0 ? ' disabled' : '') + '"' +
+        ' data-squad-role="' + chip.role + '"' +
+        ' aria-label="' + chip.label + ' squad">' +
+        '<span class="sq-portrait unit-portrait-fill">' + portrait + '</span>' +
+        '<span class="sq-tag">' + chip.label + '</span>' +
+        (chip.role !== 'all' && count ? '<span class="sq-count">' + count + '</span>' : '') +
+        '</button>';
+    }).join('');
+  }
+
   function renderCenterPanel(s) {
     var p = D['selpanel']; if (!p) return;
     p.innerHTML = '';
-    p.classList.remove('has-queue', 'has-tags');
+    p.classList.remove('has-queue', 'has-tags', 'has-squad');
     if (!deckOpen(s)) return;
 
     var prof = selectionProfile(s);
@@ -405,28 +443,57 @@
     var b = prof.building;
 
     if (prof.type === 'building' && b) {
+      var fid = s.playerFaction || 'aurex';
       var portraitKey = b.type === 'outpost' ? 'outpost' : b.type;
-      var queueHtml = renderBuildingQueue(s, b);
-      if (queueHtml) p.classList.add('has-queue');
-      if (prof.passiveTags.length) p.classList.add('has-tags');
-      var statusText = !b.built
-        ? Math.floor(b.progress * 100) + '% built'
-        : 'Hold ground \u2192 rally';
-      // hub-zone-a: portrait + HP bar stacked
-      // hub-zone-b: queue (only rendered when has-queue, hidden via CSS otherwise)
-      // hub-zone-c: title / subtype / status / passives
-      p.innerHTML =
-        '<div class="hub-zone-a">' +
-          '<div class="hub-portrait unit-portrait-fill">' + UI().buildingPortraitHtml(b.faction, portraitKey) + '</div>' +
-          bar(b.hp, b.maxHp) +
-        '</div>' +
-        '<div class="hub-zone-b">' + queueHtml + '</div>' +
-        '<div class="hub-zone-c">' +
-          '<div class="hub-title">' + RTS.nameFor(b.faction, b.type) + '</div>' +
-          '<div class="hub-subtype">' + prof.subtype + '</div>' +
-          renderPassiveTags(prof.passiveTags) +
-          '<div class="hub-status">' + statusText + '</div>' +
-        '</div>';
+
+      if (!b.built) {
+        p.innerHTML =
+          '<div class="hub-zone-a">' +
+            '<div class="hub-portrait unit-portrait-fill">' + UI().buildingPortraitHtml(b.faction, portraitKey) + '</div>' +
+            bar(b.progress, 1) +
+          '</div>' +
+          '<div class="hub-zone-b"></div>' +
+          '<div class="hub-zone-c">' +
+            '<div class="hub-title">' + RTS.nameFor(b.faction, b.type) + '</div>' +
+            '<div class="hub-subtype">Building\u2026</div>' +
+            '<div class="hub-status">' + Math.floor(b.progress * 100) + '% built</div>' +
+          '</div>';
+        return;
+      }
+
+      var trainable = RTS.Config.getTrainableUnits ? RTS.Config.getTrainableUnits(fid, b.type) : [];
+      if (trainable.length) {
+        var trainHtml = trainable.slice(0, 5).map(function (role) {
+          var cost = RTS.Config.unitCost ? RTS.Config.unitCost(role, fid) : 0;
+          var atCap = s.res.player.supplyUsed >= s.res.player.supplyCap;
+          var disabled = atCap || s.res.player.halcite < cost;
+          var icon = (UI().unitAvatarUrl ? UI().unitAvatarUrl(fid, role) : null) || UI().iconUrl(role) || '';
+          var queueCount = b.queue ? b.queue.filter(function (j) { return j.role === role; }).length : 0;
+          return '<button class="cmd-slot' + (disabled ? ' disabled' : '') + '"' +
+            ' data-act="train" data-role="' + role + '" data-bid="' + b.id + '">' +
+            (icon ? '<img class="slot-icon" src="' + icon + '" alt="" />' : '') +
+            '<span class="slot-cost">' + cost + '</span>' +
+            (queueCount ? '<span class="hub-train-badge">' + queueCount + '</span>' : '') +
+            '</button>';
+        }).join('');
+        var queueHtml = renderBuildingQueue(s, b);
+        if (queueHtml) p.classList.add('has-queue');
+        p.innerHTML = '<div class="hub-train-panel"><div class="hub-train-row">' + trainHtml + '</div>' + queueHtml + '</div>';
+      } else {
+        if (prof.passiveTags.length) p.classList.add('has-tags');
+        p.innerHTML =
+          '<div class="hub-zone-a">' +
+            '<div class="hub-portrait unit-portrait-fill">' + UI().buildingPortraitHtml(b.faction, portraitKey) + '</div>' +
+            bar(b.hp, b.maxHp) +
+          '</div>' +
+          '<div class="hub-zone-b"></div>' +
+          '<div class="hub-zone-c">' +
+            '<div class="hub-title">' + RTS.nameFor(b.faction, b.type) + '</div>' +
+            '<div class="hub-subtype">' + prof.subtype + '</div>' +
+            renderPassiveTags(prof.passiveTags) +
+            '<div class="hub-status">Hold ground \u2192 rally</div>' +
+          '</div>';
+      }
       return;
     }
 
@@ -439,35 +506,29 @@
           : RTS.nameFor(prof.unit.faction, prof.unit.role))
         : units.length + ' ' + (prof.subtype || 'units');
       var status = units.length === 1 ? statusLineForUnit(units[0]) : 'Tap ground to command';
-      if (prof.passiveTags.length) p.classList.add('has-tags');
 
-      var portraitInner;
-      if (units.length === 1) {
-        portraitInner =
+      if (units.length > 1) {
+        p.classList.add('has-squad');
+        p.innerHTML =
+          '<div class="hub-squad-row">' + renderSquadChipsHtml(s) + '</div>' +
+          '<div class="hub-info-row">' +
+            '<div class="hub-zone-c">' +
+              '<div class="hub-title">' + title + '</div>' +
+              '<div class="hub-status">' + status + '</div>' +
+            '</div>' +
+          '</div>' +
+          bar(totHp, totMax);
+        return;
+      }
+
+      if (prof.passiveTags.length) p.classList.add('has-tags');
+      p.innerHTML =
+        '<div class="hub-zone-a">' +
           '<div class="hub-portrait unit-portrait-fill">' +
           (units[0].heroId && UI().heroPortraitHtml
             ? UI().heroPortraitHtml(units[0].heroId)
             : UI().avatarPortraitHtml(s.playerFaction, units[0].role)) +
-          '</div>';
-      } else {
-        // Multi-unit: show up to 3 distinct role portraits side by side
-        var repUnits = uniqueRolesFromUnits(units, 3);
-        portraitInner = '<div class="hub-portraits">';
-        repUnits.forEach(function (u) {
-          portraitInner +=
-            '<div class="hub-portrait unit-portrait-fill">' +
-            (u.heroId && UI().heroPortraitHtml
-              ? UI().heroPortraitHtml(u.heroId)
-              : UI().avatarPortraitHtml(s.playerFaction, u.role)) +
-            '</div>';
-        });
-        portraitInner += '</div>';
-      }
-
-      // Units never have a queue — hub-zone-b stays empty (CSS hides it)
-      p.innerHTML =
-        '<div class="hub-zone-a">' +
-          portraitInner +
+          '</div>' +
           bar(totHp, totMax) +
         '</div>' +
         '<div class="hub-zone-b"></div>' +
@@ -567,50 +628,24 @@
   }
 
   function buildBuildingCommands(s, b, model) {
-    var fid = s.playerFaction || 'aurex';
     if (!b.built) return model;
 
-    // Training slots — primary row
-    var trainable = RTS.Config.getTrainableUnits ? RTS.Config.getTrainableUnits(fid, b.type) : [];
-    trainable.slice(0, 3).forEach(function (role, i) {
-      var sid = 'primary' + (i + 1);
-      var cost = RTS.Config.unitCost ? RTS.Config.unitCost(role, fid) : 0;
-      var atCap = s.res.player.supplyUsed >= s.res.player.supplyCap;
-      var trainIcon = (UI().unitAvatarUrl ? UI().unitAvatarUrl(fid, role) : null) || UI().iconUrl(role) || '';
-      model[sid] = slot('train', trainIcon, {
-        slotId: sid,
-        label: 'Train ' + role,
-        role: role,
-        bid: b.id,
-        cost: cost,
-        disabled: atCap || s.res.player.halcite < cost,
-      });
+    // Training is shown in the centre panel; command card has management actions only
+    model['primary1'] = slot('sell', UI().iconUrl('sell') || '', {
+      slotId: 'primary1', label: 'Sell', bid: b.id,
     });
-
-    // Secondary row — building-specific actions
-    if (b.type === 'barracks' || b.type === 'keep') {
-      model['secondary1'] = slot('toggle-automine', UI().iconUrl('automine') || '', {
-        slotId: 'secondary1',
-        label: 'Auto-mine',
-        bid: b.id,
-        autocast: !!b.autoMine,
-      });
-    }
     if (RTS.Config.canUpgrade && RTS.Config.canUpgrade(b)) {
       var upCost = RTS.Config.upgradeCost ? RTS.Config.upgradeCost(b) : 0;
-      model['secondary2'] = slot('upgrade', UI().iconUrl('upgrade') || '', {
-        slotId: 'secondary2',
-        label: 'Upgrade',
-        bid: b.id,
-        cost: upCost,
+      model['primary2'] = slot('upgrade', UI().iconUrl('upgrade') || '', {
+        slotId: 'primary2', label: 'Upgrade', bid: b.id, cost: upCost,
         disabled: s.res.player.halcite < upCost,
       });
     }
-    model['secondary3'] = slot('sell', UI().iconUrl('sell') || '', {
-      slotId: 'secondary3',
-      label: 'Sell',
-      bid: b.id,
-    });
+    if (b.type === 'barracks' || b.type === 'keep') {
+      model['primary3'] = slot('toggle-automine', UI().iconUrl('automine') || '', {
+        slotId: 'primary3', label: 'Auto-mine', bid: b.id, autocast: !!b.autoMine,
+      });
+    }
 
     return model;
   }
