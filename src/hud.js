@@ -573,7 +573,7 @@
     var trainable = RTS.Config.getTrainableUnits ? RTS.Config.getTrainableUnits(fid, b.type) : [];
     trainable.slice(0, 3).forEach(function (role, i) {
       var sid = 'primary' + (i + 1);
-      var cost = RTS.Config.unitCost ? RTS.Config.unitCost(role) : 0;
+      var cost = RTS.Config.unitCost ? RTS.Config.unitCost(role, fid) : 0;
       var atCap = s.res.player.supplyUsed >= s.res.player.supplyCap;
       model[sid] = slot('train', UI().iconUrl(role) || '', {
         slotId: sid,
@@ -766,6 +766,8 @@
     }
     RTS.HUD.sync(s);
   }
+
+  RTS.HUD.performAction = handleAction;
 
   function fmtTime(t) {
     var m = Math.floor(t / 60), sec = Math.floor(t % 60);
