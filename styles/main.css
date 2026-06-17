@@ -58,10 +58,9 @@
   --cmd-btn: 44px;
   --thumb-btn: 52px;
   --deck-h: 0px;
-  --hub-portrait-size: 80px;
-  --deck-expanded-h: 140px;
+  --deck-expanded-h: 108px;
   --unit-btn: 48px;
-  --cmd-slot: 40px;
+  --cmd-slot: var(--unit-btn);
   --combat-btn: 44px;
   --combat-primary: 50px;
 }
@@ -587,8 +586,8 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   visibility: hidden;
   opacity: 0;
   padding: 0 max(8px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(8px, env(safe-area-inset-left));
-  background: linear-gradient(180deg, rgba(14, 10, 6, 0.98) 0%, rgba(22, 16, 8, 0.97) 100%);
-  border-top: 2px solid rgba(180, 130, 60, 0.45);
+  background: linear-gradient(0deg, rgba(8, 12, 20, 0.97) 0%, rgba(8, 12, 20, 0.9) 88%, transparent 100%);
+  border-top: none;
   pointer-events: none;
   transition: max-height 0.22s ease, opacity 0.18s ease, visibility 0s linear 0.18s, padding 0.22s ease;
 }
@@ -618,12 +617,68 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   max-width: 100%;
   overflow: hidden;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 6px;
 }
 .bottom-hub.hidden { display: none; }
 
+.hub-squad {
+  flex: 0 0 auto;
+  align-self: center;
+}
+.hub-squad.hidden { display: none; }
+.squad-grid {
+  display: grid;
+  grid-template-columns: repeat(2, var(--unit-btn));
+  grid-template-rows: repeat(2, var(--unit-btn));
+  gap: 4px;
+}
+.squad-chip {
+  position: relative;
+  width: var(--unit-btn);
+  height: var(--unit-btn);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: var(--ts-btn-sq-blue) center/contain no-repeat;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  color: inherit;
+  image-rendering: pixelated;
+  overflow: hidden;
+}
+.squad-chip:active { transform: scale(0.94); background-image: var(--ts-btn-sq-blue-pressed); }
+.squad-chip.active {
+  box-shadow: 0 0 10px rgba(255, 213, 79, 0.45), 0 2px 6px rgba(0, 0, 0, 0.35);
+  filter: brightness(1.08);
+}
+.squad-chip.disabled { opacity: 0.32; filter: grayscale(0.55); pointer-events: none; }
+.squad-chip .sq-portrait {
+  width: 100%;
+  height: 100%;
+}
+.squad-chip .sq-tag {
+  position: absolute;
+  left: 0; right: 0; bottom: 2px;
+  text-align: center;
+  font: bold 6px Fredoka, system-ui;
+  color: rgba(255, 255, 255, 0.88);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.65);
+  pointer-events: none;
+}
+.squad-chip .sq-count {
+  position: absolute; top: 2px; right: 3px;
+  font: bold 8px Fredoka, system-ui;
+  color: #ffd54f;
+  line-height: 1;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.65);
+}
 
 /* ============================================================================
  * hub-center — 3-zone center panel
@@ -634,10 +689,11 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   padding: 0 4px;
+  border-left: 1px solid rgba(255, 255, 255, 0.07);
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
   overflow: hidden;
-  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
 /* Zone A — portrait(s) + HP bar stacked */
@@ -654,7 +710,7 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 }
 /* sel-bar in zone-a spans portrait width */
 .hub-zone-a .sel-bar {
-  width: var(--hub-portrait-size);
+  width: var(--unit-btn);
   margin-top: 0;
 }
 .hub-zone-a .hub-portraits + .sel-bar {
@@ -707,12 +763,12 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 
 /* Portrait elements */
 .hub-portrait {
-  width: var(--hub-portrait-size); height: var(--hub-portrait-size);
-  flex: 0 0 var(--hub-portrait-size);
+  width: var(--unit-btn); height: var(--unit-btn);
+  flex: 0 0 var(--unit-btn);
   border-radius: 0;
   background: var(--ts-btn-sq-blue) center/contain no-repeat;
-  border: 2px solid rgba(180, 130, 60, 0.6);
-  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.7), 0 2px 8px rgba(0, 0, 0, 0.5);
+  border: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
   display: flex; align-items: center; justify-content: center;
   overflow: hidden;
   image-rendering: pixelated;
@@ -725,19 +781,14 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   flex-shrink: 0;
 }
 .hub-portraits .hub-portrait {
-  width: calc(var(--hub-portrait-size) * 0.72);
-  height: calc(var(--hub-portrait-size) * 0.72);
-  flex: 0 0 calc(var(--hub-portrait-size) * 0.72);
+  width: calc(var(--unit-btn) * 0.72);
+  height: calc(var(--unit-btn) * 0.72);
+  flex: 0 0 calc(var(--unit-btn) * 0.72);
 }
 
 .hub-title {
-  font-weight: 700; font-size: 13px; color: #ffd54f;
+  font-weight: 700; font-size: 11px; color: #ffd54f;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.hub-hp-text {
-  font: bold 9px Fredoka, system-ui;
-  color: rgba(255, 255, 255, 0.7);
-  white-space: nowrap;
 }
 .hub-subtype {
   font-size: 8px; font-weight: 600; color: rgba(255, 255, 255, 0.48);
@@ -765,7 +816,7 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 .cmd-grid {
   display: grid;
   grid-template-columns: repeat(3, var(--cmd-slot));
-  grid-template-rows: repeat(3, var(--cmd-slot));
+  grid-template-rows: repeat(2, var(--cmd-slot));
   gap: 3px;
 }
 .cmd-slot {
@@ -856,7 +907,7 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 }
 
 @media (min-width: 520px) {
-  :root { --hub-portrait-size: 88px; --deck-expanded-h: 150px; --unit-btn: 52px; --cmd-slot: 44px; --cmd-btn: 48px; --combat-btn: 46px; --combat-primary: 54px; }
+  :root { --deck-expanded-h: 112px; --unit-btn: 52px; --cmd-slot: var(--unit-btn); --cmd-btn: 48px; --combat-btn: 46px; --combat-primary: 54px; }
 }
 
 /* ============================================================================
@@ -1073,7 +1124,7 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 #radial-menu { display: none !important; pointer-events: none !important; }
 
 @media (orientation: landscape) and (max-height: 480px) {
-  :root { --hub-portrait-size: 68px; --deck-expanded-h: 116px; --unit-btn: 44px; --cmd-slot: 35px; --cmd-btn: 40px; --combat-btn: 40px; --combat-primary: 46px; }
+  :root { --deck-expanded-h: 100px; --unit-btn: 44px; --cmd-slot: var(--unit-btn); --cmd-btn: 40px; --combat-btn: 40px; --combat-primary: 46px; }
   #minimap-chip { width: 56px; height: 56px; }
 }
 

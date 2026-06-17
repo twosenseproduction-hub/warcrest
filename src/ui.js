@@ -61,6 +61,14 @@
     music: UI + 'Icons/Icon_12.png',
     sheep: UI + 'Icons/Icon_04.png',
     pig: UI + 'Icons/Icon_04.png',
+    move: UI + 'Icons/Icon_08.png',
+    attack: UI + 'Icons/Icon_05.png',
+    'attack-move': UI + 'Icons/Icon_05.png',
+    stop: UI + 'Icons/Icon_09.png',
+    sell: UI + 'Icons/Icon_03.png',
+    automine: UI + 'Icons/Icon_01.png',
+    build: UI + 'Icons/Icon_01.png',
+    upgrade: UI + 'Icons/Icon_10.png',
   };
 
   var UNIT_STRIP = {

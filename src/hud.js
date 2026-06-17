@@ -10,7 +10,6 @@
   var CMD_SLOTS = [
     'primary1', 'primary2', 'primary3',
     'secondary1', 'secondary2', 'secondary3',
-    'tertiary1', 'tertiary2', 'tertiary3',
   ];
 
   var SQUAD_CHIPS = [
@@ -420,7 +419,6 @@
         '<div class="hub-zone-a">' +
           '<div class="hub-portrait unit-portrait-fill">' + UI().buildingPortraitHtml(b.faction, portraitKey) + '</div>' +
           bar(b.hp, b.maxHp) +
-          '<div class="hub-hp-text">' + Math.ceil(b.hp) + ' / ' + b.maxHp + '</div>' +
         '</div>' +
         '<div class="hub-zone-b">' + queueHtml + '</div>' +
         '<div class="hub-zone-c">' +
@@ -471,7 +469,6 @@
         '<div class="hub-zone-a">' +
           portraitInner +
           bar(totHp, totMax) +
-          '<div class="hub-hp-text">' + Math.ceil(totHp) + ' / ' + Math.ceil(totMax) + '</div>' +
         '</div>' +
         '<div class="hub-zone-b"></div>' +
         '<div class="hub-zone-c">' +
@@ -579,7 +576,8 @@
       var sid = 'primary' + (i + 1);
       var cost = RTS.Config.unitCost ? RTS.Config.unitCost(role, fid) : 0;
       var atCap = s.res.player.supplyUsed >= s.res.player.supplyCap;
-      model[sid] = slot('train', UI().iconUrl(role) || '', {
+      var trainIcon = (UI().unitAvatarUrl ? UI().unitAvatarUrl(fid, role) : null) || UI().iconUrl(role) || '';
+      model[sid] = slot('train', trainIcon, {
         slotId: sid,
         label: 'Train ' + role,
         role: role,
