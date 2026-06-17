@@ -287,7 +287,7 @@
 
     var clu = D['combat-cluster'];
     if (clu) {
-      var hasUnits = open && (s.ui.selUnits && s.ui.selUnits.length > 0);
+      var hasUnits = open && RTS.activeSelectedUnits && RTS.activeSelectedUnits(s).length > 0;
       clu.classList.toggle('hidden', !hasUnits);
     }
 
@@ -300,6 +300,7 @@
 
   function deckOpen(s) {
     if (!s || s.scene !== 'playing') return false;
+    if (s.inputMode === 'place-building') return true;
     var prof = selectionProfile(s);
     return prof.type !== 'none';
   }
@@ -652,10 +653,11 @@
 
   // ---- Selection profile ---------------------------------------------------
   function selectionProfile(s) {
-    var sel = s.ui && s.ui.selUnits ? s.ui.selUnits : [];
-    var selB = s.ui && s.ui.selBuilding ? s.ui.selBuilding : null;
+    var blds = RTS.selectedBuildings ? RTS.selectedBuildings(s) : [];
+    var units = RTS.activeSelectedUnits ? RTS.activeSelectedUnits(s) : [];
 
-    if (selB) {
+    if (blds.length === 1 && !units.length) {
+      var selB = blds[0];
       var tags = RTS.Config.passiveTags ? RTS.Config.passiveTags(selB) : [];
       return {
         type: 'building',
@@ -667,7 +669,7 @@
       };
     }
 
-    var live = sel.filter(function (u) { return u && !u.dead; });
+    var live = units.filter(function (u) { return u && !u.dead; });
     if (!live.length) return { type: 'none', building: null, units: [], unit: null, subtype: '', passiveTags: [] };
 
     var tags = live.length === 1 && RTS.Config.passiveTags ? RTS.Config.passiveTags(live[0]) : [];
