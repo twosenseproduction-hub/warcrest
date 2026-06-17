@@ -122,10 +122,9 @@ html, body {
 .logo { margin-bottom: 28px; position: relative; overflow: visible; }
 .logo-helmet {
   display: block;
-  width: 112px; height: 90px;
-  object-fit: cover;
-  object-position: center top;
+  width: 112px; height: 112px;
   margin: 0 auto 10px;
+  image-rendering: pixelated;
   filter: drop-shadow(0 4px 0 rgba(0, 0, 0, 0.35));
 }
 .logo-text {
