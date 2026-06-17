@@ -14,6 +14,68 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="styles/main.css" />
+<style>
+  /* ── Main menu WC3 enhancements ── */
+  .menu-btn-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .menu-btn-row .big-btn {
+    font-size: 15px;
+    height: 60px;
+    min-height: 60px;
+    background-size: 100% 60px;
+  }
+  .big-btn.locked {
+    opacity: 0.52;
+    cursor: not-allowed;
+    filter: grayscale(0.35) brightness(0.78);
+    position: relative;
+  }
+  .big-btn.locked:active { transform: none; }
+  .menu-badge {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(26,18,8,0.45);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(255,240,180,0.9);
+    vertical-align: middle;
+  }
+  .menu-divider {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 2px 0 10px;
+    opacity: 0.38;
+  }
+  .menu-divider::before,
+  .menu-divider::after {
+    content: "";
+    flex: 1;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(26,18,8,0.5), transparent);
+  }
+  .menu-divider-icon { font-size: 13px; }
+  .logo-version {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: rgba(26,18,8,0.1);
+    border: 1px solid rgba(26,18,8,0.14);
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(93,64,55,0.72);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+</style>
 </head>
 <body>
 <div id="app">
@@ -61,10 +123,7 @@
     <footer id="command-deck" class="collapsed">
       <div class="deck-row">
         <div id="bottom-hub" class="bottom-hub">
-          <aside id="squad-block" class="hub-squad">
-            <div id="squad-chips" class="squad-grid" aria-label="Squad focus"></div>
-          </aside>
-          <div id="selpanel" class="hub-center"></div>
+<div id="selpanel" class="hub-center"></div>
           <div id="command-card" class="hub-cmd">
             <div id="cmd-grid" class="cmd-grid" role="group" aria-label="Commands"></div>
           </div>
@@ -82,17 +141,43 @@
   <section id="screen-menu" class="screen">
     <div class="bg-grid"></div>
     <div class="menu-inner">
+
+      <!-- Logo -->
       <div class="logo">
         <img class="logo-helmet" src="assets/tiny-swords/UI%20Elements/UI%20Elements/Human%20Avatars/Avatars_06.png" alt="" width="112" height="112" />
         <h1 class="logo-text">War<span>crest</span></h1>
-        <p class="logo-sub">Battle for the Sapphire Reach</p>
+        <p class="logo-sub">Battle for the Ashfen Reach</p>
+        <div class="logo-version">Alpha &middot; Ashfen build</div>
       </div>
+
+      <div class="menu-divider"><span class="menu-divider-icon">&#9876;</span></div>
+
+      <!-- WC3-style button hierarchy -->
       <div class="menu-buttons">
+
+        <!-- PRIMARY: Skirmish -->
         <button id="btn-play" class="big-btn primary">&#9654; Skirmish</button>
-        <button id="btn-howto" class="big-btn">How to Play</button>
-        <button id="btn-settings" class="big-btn">Settings</button>
+
+        <!-- SECONDARY ROW: Heroes + Codex -->
+        <div class="menu-btn-row">
+          <button id="btn-heroes" class="big-btn primary">&#128737; Heroes</button>
+          <button id="btn-codex" class="big-btn primary">&#128220; Codex</button>
+        </div>
+
+        <!-- CAMPAIGN — reserved, locked until story is developed -->
+        <button id="btn-campaign" class="big-btn locked" aria-disabled="true">
+          &#127984; Campaign <span class="menu-badge">Coming Soon</span>
+        </button>
+
+        <!-- UTILITY ROW: How to Play + Settings -->
+        <div class="menu-btn-row">
+          <button id="btn-howto" class="big-btn">&#10067; How to Play</button>
+          <button id="btn-settings" class="big-btn">&#9881; Settings</button>
+        </div>
+
       </div>
-      <p class="menu-foot">A standalone single-player real-time strategy game. No accounts, no servers.</p>
+
+      <p class="menu-foot">Standalone single-player RTS &middot; No accounts, no servers</p>
     </div>
   </section>
 
@@ -111,7 +196,6 @@
           <div class="fc-go">Deploy here &rarr;</div>
         </button>
       </div>
-      <!-- Archived maps (ember_divide, highland_crossing, crown_isthmus) live in map.js only -->
       <button id="btn-map-back" class="text-btn">&larr; Back</button>
     </div>
   </section>
