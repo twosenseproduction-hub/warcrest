@@ -181,6 +181,7 @@
   }
 
   function drawTerrain(s, ctx) {
+    if (RTS._phaserTerrainActive) return;
     if (RTS.Assets && RTS.Assets.ready && RTS.Assets.drawTerrain(s, ctx)) return;
     var W = RTS.Config.world.w, H = RTS.Config.world.h;
     var th = mapTheme(s);

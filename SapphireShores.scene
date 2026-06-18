@@ -1,0 +1,25 @@
+{
+    "id": "29437a7b-3fcb-4802-8fe6-e1a3379902b5",
+    "sceneType": "SCENE",
+    "settings": {
+        "preloadPackFiles": [],
+        "createMethodName": "editorCreate",
+        "sceneKey": "SapphireShores"
+    },
+    "displayList": [],
+    "plainObjects": [
+        {
+            "id": "468135cc-add3-417d-a35f-d4855ba47fd0",
+            "type": "Tilemap",
+            "label": "sapphireShores",
+            "key": "sapphire-shores",
+            "tilesets": []
+        }
+    ],
+    "meta": {
+        "app": "Phaser Editor - Scene Editor",
+        "url": "https://phaser.io/editor",
+        "contentType": "phasereditor2d.core.scene.SceneContentType",
+        "version": 5
+    }
+}

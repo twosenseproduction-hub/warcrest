@@ -14,6 +14,68 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="styles/main.css" />
+<style>
+  /* ── Main menu WC3 enhancements ── */
+  .menu-btn-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .menu-btn-row .big-btn {
+    font-size: 15px;
+    height: 60px;
+    min-height: 60px;
+    background-size: 100% 60px;
+  }
+  .big-btn.locked {
+    opacity: 0.52;
+    cursor: not-allowed;
+    filter: grayscale(0.35) brightness(0.78);
+    position: relative;
+  }
+  .big-btn.locked:active { transform: none; }
+  .menu-badge {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(26,18,8,0.45);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(255,240,180,0.9);
+    vertical-align: middle;
+  }
+  .menu-divider {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 2px 0 10px;
+    opacity: 0.38;
+  }
+  .menu-divider::before,
+  .menu-divider::after {
+    content: "";
+    flex: 1;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(26,18,8,0.5), transparent);
+  }
+  .menu-divider-icon { font-size: 13px; }
+  .logo-version {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: rgba(26,18,8,0.1);
+    border: 1px solid rgba(26,18,8,0.14);
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(93,64,55,0.72);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+</style>
 </head>
 <body>
 <div id="app">
@@ -24,22 +86,13 @@
   <!-- ===================== HUD — mobile MOBA pattern: minimal chrome + context deck ===================== -->
   <div id="hud" class="hidden">
     <header id="topbar">
-      <div class="tb-res">
-        <span class="res-pill halcite"><img class="ic-ts" src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_03.png" alt="" /><span id="res-halcite" class="val">0</span></span>
-        <span class="res-pill supply"><img class="ic-ts" src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_06.png" alt="" /><span id="res-supply" class="val">0/0</span></span>
-      </div>
-      <span id="wave-timer" class="wave-badge">70</span>
       <div class="tb-right">
-        <span id="timer" class="timer">0:00</span>
         <button class="tb-icon ts-round-btn" id="btn-rail-base" aria-label="Home"><img src="assets/tiny-swords/Buildings/Blue%20Buildings/Castle.png" alt="" class="ic-building" /></button>
         <button class="tb-icon ts-round-btn" id="btn-pause" aria-label="Pause"><img src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_10.png" alt="" /></button>
       </div>
     </header>
 
     <div id="map-tools">
-      <div id="minimap-chip">
-        <canvas id="minimap"></canvas>
-      </div>
       <button type="button" id="btn-build-hammer" class="map-tool-btn ts-round-btn" aria-label="Build structures" aria-expanded="false">
         <img src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_01.png" alt="" />
       </button>
@@ -58,21 +111,49 @@
     <div id="radial-menu" class="hidden"><div class="radial-hub"></div></div>
     <div id="toast"></div>
 
-    <footer id="command-deck" class="collapsed">
-      <div class="deck-row">
-        <div id="bottom-hub" class="bottom-hub">
-          <aside id="squad-block" class="hub-squad">
-            <div id="squad-chips" class="squad-grid" aria-label="Squad focus"></div>
-          </aside>
+    <footer id="command-deck">
+      <!-- 4-stat resource row -->
+      <div class="hub-stats-row">
+        <div class="hs-cell halcite">
+          <img class="ic-ts" src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_03.png" alt="" />
+          <span id="res-halcite" class="val">0</span>
+        </div>
+        <div class="hs-cell supply">
+          <img class="ic-ts" src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_06.png" alt="" />
+          <span id="res-supply" class="val">0/0</span>
+        </div>
+        <div class="hs-cell wave">
+          <img class="ic-ts" src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_08.png" alt="" />
+          <span id="wave-timer" class="val">--</span>
+        </div>
+        <div class="hs-cell time">
+          <img class="ic-ts" src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_10.png" alt="" />
+          <span id="timer" class="val timer">0:00</span>
+        </div>
+      </div>
+      <!-- 3-column strip -->
+      <div id="bottom-hub" class="bottom-hub">
+        <div id="hub-minimap" class="hub-minimap">
+          <canvas id="minimap"></canvas>
+        </div>
+        <!-- center: selection info stacked above command grid -->
+        <div class="hub-center-col">
           <div id="selpanel" class="hub-center"></div>
           <div id="command-card" class="hub-cmd">
             <div id="cmd-grid" class="cmd-grid" role="group" aria-label="Commands"></div>
           </div>
         </div>
-        <div id="combat-cluster" class="combat-cluster hidden" aria-label="Combat controls">
-          <button type="button" id="btn-combat-stop" class="combat-btn ts-round-btn red" aria-label="Stop"><img src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_09.png" alt="" /></button>
-          <button type="button" id="btn-combat-mode" class="combat-btn ts-round-btn red" aria-label="Mode"><img src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_06.png" alt="" /></button>
-          <button type="button" id="btn-combat-atk" class="combat-btn ts-round-btn red combat-primary" aria-label="Attack move"><img src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_08.png" alt="" /></button>
+        <!-- right: hero portrait + 3×2 action grid (A1-A3 / I1-I3) -->
+        <div id="hub-right" class="hub-right">
+          <div id="hub-hero" class="hub-hero"></div>
+          <div id="hub-action-grid" class="hub-action-grid" aria-label="Combat controls">
+            <button type="button" id="btn-combat-stop" class="act-slot ts-round-btn red" aria-label="Stop"><img src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_09.png" alt="" /></button>
+            <button type="button" id="btn-combat-mode" class="act-slot ts-round-btn red" aria-label="Mode"><img src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_07.png" alt="" /></button>
+            <button type="button" id="btn-combat-atk" class="act-slot ts-round-btn red" aria-label="Attack move"><img src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_08.png" alt="" /></button>
+            <button type="button" id="btn-hero-i1" class="act-slot act-slot-ability ts-round-btn" aria-label="Ability 1" disabled></button>
+            <button type="button" id="btn-hero-i2" class="act-slot act-slot-empty ts-round-btn" aria-label="" disabled></button>
+            <button type="button" id="btn-hero-i3" class="act-slot act-slot-empty ts-round-btn" aria-label="" disabled></button>
+          </div>
         </div>
       </div>
     </footer>
@@ -82,17 +163,43 @@
   <section id="screen-menu" class="screen">
     <div class="bg-grid"></div>
     <div class="menu-inner">
+
+      <!-- Logo -->
       <div class="logo">
-        <img class="logo-helmet" src="assets/ui/warcrest-helmet.png" alt="" width="112" height="116" />
+        <img class="logo-helmet" src="assets/tiny-swords/UI%20Elements/UI%20Elements/Human%20Avatars/Avatars_06.png" alt="" width="112" height="112" />
         <h1 class="logo-text">War<span>crest</span></h1>
         <p class="logo-sub">Battle for the Ashfen Reach</p>
+        <div class="logo-version">Alpha &middot; Ashfen build</div>
       </div>
+
+      <div class="menu-divider"><span class="menu-divider-icon">&#9876;</span></div>
+
+      <!-- WC3-style button hierarchy -->
       <div class="menu-buttons">
+
+        <!-- PRIMARY: Skirmish -->
         <button id="btn-play" class="big-btn primary">&#9654; Skirmish</button>
-        <button id="btn-howto" class="big-btn">How to Play</button>
-        <button id="btn-settings" class="big-btn">Settings</button>
+
+        <!-- SECONDARY ROW: Heroes + Codex -->
+        <div class="menu-btn-row">
+          <button id="btn-heroes" class="big-btn primary">&#128737; Heroes</button>
+          <button id="btn-codex" class="big-btn primary">&#128220; Codex</button>
+        </div>
+
+        <!-- CAMPAIGN — reserved, locked until story is developed -->
+        <button id="btn-campaign" class="big-btn locked" aria-disabled="true">
+          &#127984; Campaign <span class="menu-badge">Coming Soon</span>
+        </button>
+
+        <!-- UTILITY ROW: How to Play + Settings -->
+        <div class="menu-btn-row">
+          <button id="btn-howto" class="big-btn">&#10067; How to Play</button>
+          <button id="btn-settings" class="big-btn">&#9881; Settings</button>
+        </div>
+
       </div>
-      <p class="menu-foot">A standalone single-player real-time strategy game. No accounts, no servers.</p>
+
+      <p class="menu-foot">Standalone single-player RTS &middot; No accounts, no servers</p>
     </div>
   </section>
 
@@ -111,7 +218,6 @@
           <div class="fc-go">Deploy here &rarr;</div>
         </button>
       </div>
-      <!-- Archived maps (ember_divide, highland_crossing, crown_isthmus) live in map.js only -->
       <button id="btn-map-back" class="text-btn">&larr; Back</button>
     </div>
   </section>
@@ -126,7 +232,7 @@
         <button class="faction-card aurex" data-faction="aurex">
           <img class="fc-avatar" src="assets/tiny-swords/UI%20Elements/UI%20Elements/Human%20Avatars/Avatars_01.png" alt="" />
           <h3>Iron Crown</h3>
-          <div class="fc-tag">Steel &middot; Banners &middot; Order</div>
+          <div class="fc-tag">Iron &middot; Compact &middot; Advance</div>
           <p>Disciplined knights under royal blue banners — Pawns, Archers, Lancers,
              and Warriors from stone keeps. Fast to tech, brutal in formation.</p>
           <div class="fc-traits"><span>Ranged focus</span><span>Disciplined</span></div>
@@ -135,7 +241,7 @@
         <button class="faction-card cinder" data-faction="cinder">
           <img class="fc-avatar" src="assets/tiny-swords-enemy/Enemy%20Avatars/Enemy%20Avatars_16.png" alt="" />
           <h3>Raider Horde</h3>
-          <div class="fc-tag">Bone &middot; Fire &middot; Chaos</div>
+          <div class="fc-tag">Root &middot; Blood &middot; Reclaim</div>
           <p>Chaotic raiders from the wilds — Gnomes, Spear Goblins, Gnolls, Hex Shamans,
              and Trolls behind skull totems. Slow to muster, relentless once the horde advances.</p>
           <div class="fc-traits"><span>Heavy bruisers</span><span>Attrition</span></div>
@@ -232,6 +338,12 @@
 </div>
 
 <!-- ===================== SCRIPTS (load order matters) ===================== -->
+
+<!-- ===================== SCRIPTS ===================== -->
+<!-- Phaser first so window.Phaser is available -->
+<script src="./phaser.js"></script>
+
+<!-- RTS game logic — same load order as original (game.js last) -->
 <script src="src/config.js"></script>
 <script src="src/heroes.js"></script>
 <script src="src/size-ref.js"></script>
@@ -259,5 +371,8 @@
 <script src="src/ui.js"></script>
 <script src="src/hud.js"></script>
 <script src="src/game.js"></script>
+
+<!-- Phaser bootstrap — after window.RTS is populated -->
+<script type="module" src="./src/main.js"></script>
 </body>
 </html>

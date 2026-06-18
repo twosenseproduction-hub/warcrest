@@ -18,8 +18,10 @@
     get state() { return state; },
 
     boot: function () {
-      RTS.canvas = $('game');
-      RTS.ctx = RTS.canvas.getContext('2d');
+      // RTS.canvas and RTS.ctx are set by GameScene before boot() is called
+      // so we only grab the minimap here.
+      if (!RTS.canvas) RTS.canvas = $('game');
+      if (!RTS.ctx)    RTS.ctx = RTS.canvas.getContext('2d');
       RTS.minimap = $('minimap');
 
       state = RTS.createState();
@@ -40,7 +42,9 @@
         });
       }
 
-      requestAnimationFrame(loop);
+      // Expose the step function for Phaser's scene update() to call each frame.
+      // GameScene drives the loop — we do NOT start a requestAnimationFrame here.
+      RTS.Game._step = loop;
     },
 
     scene: function (name) {
@@ -233,18 +237,15 @@
       RTS.HUD.tick(state, dt);
     } else if (state.scene === 'paused' || state.scene === 'won' || state.scene === 'lost') {
       if (RTS.Cam && RTS.Cam.updatePan) RTS.Cam.updatePan(state, dt);
+      RTS.HUD.tick(state, 0);
     }
-    if (state.scene === 'playing' || state.scene === 'paused' ||
-        state.scene === 'won' || state.scene === 'lost') {
-      RTS.Render.frame(state);
-      RTS.renderMinimap(state);
-      if (state.scene !== 'playing') RTS.HUD.tick(state, 0);
-    }
-    requestAnimationFrame(loop);
+    // Rendering is handled by GameScene's postrender event — not here.
+    // requestAnimationFrame is driven by Phaser — not here.
   }
 
   function fmt(t) { var m = Math.floor(t / 60), s = Math.floor(t % 60); return m + ':' + (s < 10 ? '0' : '') + s; }
 
-  document.addEventListener('DOMContentLoaded', function () { RTS.Game.boot(); });
+  // Boot is now called by GameScene.create() after Phaser has set up the canvas.
+  // document.addEventListener('DOMContentLoaded', ...) removed.
 
 })(window.RTS = window.RTS || {});

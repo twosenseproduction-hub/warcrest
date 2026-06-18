@@ -45,7 +45,7 @@
     mineAmounts: {
       starting:    12500,
       expansion:   5000,
-      startRadius: 300,
+      startRadius: 420,  // raised from 300 — matches the new wider starting mine placement
     },
 
     harvest: {
@@ -402,6 +402,51 @@
     if (f && f.names[key]) return f.names[key];
     return (RTS.Units[key] && RTS.Units[key].label) ||
            (RTS.Buildings[key] && RTS.Buildings[key].label) || key;
+  };
+
+  // ---- HUD helper functions ------------------------------------------------
+
+  RTS.Config.getTrainableUnits = function (fid, buildingType) {
+    var spec = RTS.Buildings[buildingType];
+    return spec ? (spec.trains || []) : [];
+  };
+
+  RTS.Config.getBuildables = function (fid) {
+    return RTS.buildMenuFor ? RTS.buildMenuFor(fid) : RTS.BuildMenu.slice();
+  };
+
+  RTS.Config.unitCost = function (role, fid) {
+    if (role === '_livestock') return RTS.Config.livestock ? RTS.Config.livestock.trainCost : 0;
+    if (fid) {
+      var keys = Object.keys(RTS.Units);
+      for (var i = 0; i < keys.length; i++) {
+        var u = RTS.Units[keys[i]];
+        if (u.role === role && u.faction === fid) return u.trainCost != null ? u.trainCost : u.cost;
+      }
+    }
+    var spec = RTS.Units[role];
+    return spec ? (spec.trainCost != null ? spec.trainCost : spec.cost) : 0;
+  };
+
+  RTS.Config.buildCost = function (btype) {
+    var spec = RTS.Buildings[btype];
+    return spec ? spec.cost : 0;
+  };
+
+  RTS.Config.canUpgrade = function (b) {
+    return false;
+  };
+
+  RTS.Config.passiveTags = function (entity) {
+    if (!entity || !entity.role) return [];
+    var keys = Object.keys(RTS.Units);
+    for (var i = 0; i < keys.length; i++) {
+      var u = RTS.Units[keys[i]];
+      if (u.role === entity.role && u.faction === entity.faction) {
+        return (u.traits || []).map(function (t) { return t.replace(/_/g, ' '); });
+      }
+    }
+    return [];
   };
 
 })(window.RTS = window.RTS || {});

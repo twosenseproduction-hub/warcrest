@@ -57,7 +57,6 @@
   --cmd-h: 72px;
   --cmd-btn: 44px;
   --thumb-btn: 52px;
-  /* FIXED: expanded height tall enough to contain squad + cmd + combat rows */
   --deck-h: 0px;
   --deck-expanded-h: 108px;
   --unit-btn: 48px;
@@ -100,7 +99,6 @@ html, body {
     radial-gradient(circle at 80% 20%, rgba(255,255,255,0.25) 0%, transparent 40%);
 }
 
-/* Parchment scroll panels — RegularPaper 9-slice (store Banner parchment look) */
 .menu-inner,
 .panel-inner,
 .faction-inner,
@@ -123,8 +121,7 @@ html, body {
 .logo { margin-bottom: 28px; position: relative; overflow: visible; }
 .logo-helmet {
   display: block;
-  width: 112px; height: auto;
-  max-height: 112px;
+  width: 112px; height: 112px;
   margin: 0 auto 10px;
   image-rendering: pixelated;
   filter: drop-shadow(0 4px 0 rgba(0, 0, 0, 0.35));
@@ -143,7 +140,6 @@ html, body {
 .menu-buttons { display: flex; flex-direction: column; gap: 12px; }
 .menu-foot { margin-top: 22px; color: rgba(93, 64, 55, 0.78); font-size: 12px; line-height: 1.5; }
 
-/* Pre-baked Tiny Swords buttons & banners (assets/ui/*.png) */
 .big-btn {
   width: 100%; height: 72px; min-height: 72px; padding: 14px 24px;
   font-family: inherit; font-size: 18px; font-weight: 700;
@@ -207,7 +203,6 @@ html, body {
   max-width: 100%; max-height: 100%;
 }
 
-/* Unit portraits fill square Tiny Swords button frames edge-to-edge */
 .unit-portrait-fill {
   display: flex;
   align-items: center;
@@ -248,7 +243,6 @@ html, body {
 .screen-title { font-size: 22px; font-weight: 700; margin: 0; color: var(--outline); }
 .screen-sub { color: rgba(93, 64, 55, 0.85); margin: 0 0 18px; font-size: 14px; }
 
-/* Faction cards */
 .faction-inner {
   position: relative; text-align: center; max-width: 720px; width: 100%;
   min-height: 520px;
@@ -285,7 +279,6 @@ html, body {
 }
 .fc-go { font-weight: 700; color: var(--gold); font-size: 14px; }
 
-/* Map cards */
 .map-cards { display: flex; flex-direction: column; gap: 12px; }
 @media (min-width: 720px) { .map-cards { flex-direction: row; align-items: stretch; } }
 .map-card {
@@ -358,7 +351,6 @@ html, body {
 .set-row input[type="checkbox"] { width: 24px; height: 24px; accent-color: var(--gold); }
 .set-row input[type="range"] { width: 140px; accent-color: var(--gold); }
 
-/* Overlays */
 .overlay {
   position: absolute; inset: 0; z-index: 40;
   display: flex; align-items: center; justify-content: center;
@@ -394,14 +386,13 @@ html, body {
 .end-stat b { font-size: 20px; }
 
 /* ============================================================================
- * In-game HUD — Wild Rift pattern: tiny chrome + context deck + thumb cluster
+ * In-game HUD
  * ==========================================================================*/
 #hud { position: absolute; inset: 0; z-index: 20; pointer-events: none; }
 #hud > * { pointer-events: auto; }
 
-/* ---- Top: floating resource pills (always on, ~32px) ---- */
 #topbar {
-  position: absolute; top: max(4px, env(safe-area-inset-top)); left: 8px; right: 8px;
+  position: absolute; top: max(4px, env(safe-area-inset-top)); right: 8px;
   z-index: 22; display: flex; align-items: center; gap: 6px;
   height: 28px; padding: 0;
   background: none; border: none; pointer-events: none;
@@ -436,7 +427,6 @@ html, body {
 }
 @keyframes wavePulse { 50% { opacity: 0.65; } }
 
-/* Player faction HUD accents (set on body in game.js) */
 body.player-cinder .res-pill.supply { border-color: rgba(129, 199, 132, 0.45); }
 body.player-cinder .wave-badge { border-color: rgba(129, 199, 132, 0.22); }
 body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
@@ -453,7 +443,6 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   width: 32px; height: 32px; padding: 0; cursor: pointer;
 }
 
-/* ---- Minimap + build hammer (corner tools) ---- */
 #map-tools {
   position: absolute;
   left: max(8px, env(safe-area-inset-left));
@@ -581,71 +570,144 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 }
 
 /* ============================================================================
- * Bottom command deck — FIXED layout
+ * Bottom command deck
  *
- * Key changes:
- *  1. --deck-expanded-h raised to 100px so nothing clips.
- *  2. .deck-row is a single row using align-items: center so every child
- *     is vertically centered inside the grey rectangle.
- *  3. .combat-cluster moved inside .deck-row (right side) — it no longer
- *     floats outside the rect.  It is flex: 0 0 auto so it never compresses.
- *  4. .bottom-hub uses align-items: center (not stretch) so squad + cmd
- *     card always sit at the same vertical baseline regardless of whether
- *     the squad block is visible or hidden.
- *  5. overflow: visible on #command-deck.expanded so nothing is cut.
+ * hub-center is a 3-zone flex row:
+ *   Zone A (hub-zone-a) — portrait(s) + HP bar  flex-shrink:0
+ *   Zone B (hub-zone-b) — unit queue chips       hidden when empty
+ *   Zone C (hub-zone-c) — name / status          flex:1 clips overflow
  * ==========================================================================*/
+/* ── Always-visible hub footer ── */
 #command-deck {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 24;
-  height: auto;
-  min-height: 0;
-  max-height: 0;
-  /* FIXED: clip must not cut buttons — use hidden until expanded */
-  overflow: hidden;
-  visibility: hidden;
-  opacity: 0;
   padding: 0 max(8px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(8px, env(safe-area-inset-left));
+  padding-top: 5px;
   background: linear-gradient(0deg, rgba(8, 12, 20, 0.97) 0%, rgba(8, 12, 20, 0.9) 88%, transparent 100%);
-  border-top: none;
-  pointer-events: none;
-  transition: max-height 0.22s ease, opacity 0.18s ease, visibility 0s linear 0.18s, padding 0.22s ease;
-}
-#command-deck.expanded {
-  /* FIXED: allow enough height for the tallest row (combat cluster ~54px + 2×padding) */
-  max-height: calc(var(--deck-expanded-h) + env(safe-area-inset-bottom) + 16px);
-  /* FIXED: switch to visible so buttons at the very edge are never clipped */
-  overflow: visible;
-  visibility: visible;
-  opacity: 1;
-  padding-top: 6px;
   pointer-events: auto;
-  transition: max-height 0.22s ease, opacity 0.18s ease, visibility 0s linear 0s, padding 0.22s ease;
 }
 
-/* Single unified row: [squad] [info] [cmd-grid] [combat] */
-.deck-row {
-  display: flex;
-  align-items: center;     /* FIXED: vertical center — no more drifting high/low */
-  justify-content: flex-start;
-  gap: 6px;
-  max-width: 100%;
-  /* FIXED: cap height so row never taller than the grey rectangle */
-  min-height: calc(var(--deck-expanded-h) - 12px);
-  max-height: calc(var(--deck-expanded-h) - 6px);
+/* 4-stat resource row */
+.hub-stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  margin-bottom: 4px;
 }
+.hs-cell {
+  display: flex; align-items: center; justify-content: center; gap: 3px;
+  padding: 2px 5px; border-radius: 5px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+.hs-cell .val { font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.hs-cell.halcite .val { color: #ffd54f; }
+.hs-cell.supply .val  { color: #80deea; }
+.hs-cell.wave .val    { color: rgba(255, 255, 255, 0.65); }
+.hs-cell.wave.warn .val { color: #ffb74d; }
+.hs-cell.time .val    { color: rgba(255, 255, 255, 0.48); }
+.hs-cell .ic-ts       { width: 12px; height: 12px; }
 
 .bottom-hub {
-  flex: 1 1 auto;
-  min-width: 0;
-  max-width: 100%;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  /* FIXED: center so items don't float up when squad-block hidden */
-  align-items: center;
-  gap: 6px;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 4px;
+  min-height: calc(var(--deck-expanded-h) + 4px);
 }
-.bottom-hub.hidden { display: none; }
 
-/* Squad block — 2×2 chips */
+/* center column: selpanel stacked above cmd-grid */
+.hub-center-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  align-self: stretch;
+  border-left: 1px solid rgba(255, 255, 255, 0.07);
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+  padding: 0 4px;
+}
+.hub-center-col .hub-center {
+  flex: 1 1 auto;
+  border-left: none;
+  border-right: none;
+  padding: 0;
+  min-height: 0;
+}
+.hub-center-col .hub-cmd {
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+#hub-minimap {
+  width: 72px;
+  align-self: stretch;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  background: #0a0e14;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+#hub-minimap canvas { width: 100%; height: 100%; display: block; }
+
+.hub-right {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  align-self: stretch;
+  justify-content: space-between;
+  gap: 4px;
+  padding-left: 2px;
+}
+
+/* Hero portrait — always shown, filled by JS */
+.hub-hero {
+  width: 52px; height: 52px;
+  flex: 0 0 52px;
+  border-radius: 8px;
+  background: var(--ts-btn-sq-blue) center/contain no-repeat;
+  border: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  image-rendering: pixelated;
+}
+
+/* 3×2 action grid: A1/A2/A3 (combat) then I1/I2/I3 (abilities) */
+.hub-action-grid {
+  display: grid;
+  grid-template-columns: repeat(3, var(--act-slot, 32px));
+  grid-template-rows: repeat(2, var(--act-slot, 32px));
+  gap: 3px;
+  flex: 0 0 auto;
+}
+.act-slot {
+  width: var(--act-slot, 32px);
+  height: var(--act-slot, 32px);
+  padding: 0; cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+.act-slot:active { transform: scale(0.92); }
+.act-slot.active, .act-slot.on {
+  box-shadow: 0 0 12px rgba(255, 112, 67, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
+  filter: brightness(1.12) saturate(1.18);
+}
+.act-slot-empty {
+  opacity: 0.22;
+  pointer-events: none;
+  cursor: default;
+}
+.hub-action-grid.no-selection .act-slot:not(.act-slot-empty) {
+  opacity: 0.3;
+  pointer-events: none;
+}
+.act-slot-ability { opacity: 0.35; }
+.act-slot-ability:not([disabled]) { opacity: 1; }
+
 .hub-squad {
   flex: 0 0 auto;
   align-self: center;
@@ -703,31 +765,194 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.65);
 }
 
-/* Center info panel */
+/* ============================================================================
+ * hub-center — 3-zone center panel
+ * ==========================================================================*/
 .hub-center {
-  flex: 1 1 auto;
   min-width: 0;
-  align-self: center;
+  align-self: stretch;
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 5px;
-  padding: 2px 4px;
+  gap: 4px;
+  padding: 0 4px;
   border-left: 1px solid rgba(255, 255, 255, 0.07);
   border-right: 1px solid rgba(255, 255, 255, 0.07);
+  overflow: hidden;
 }
-.hub-center.has-queue { min-width: 88px; }
+
+/* Training buttons row — shown in centre panel when a built production building is selected */
+.hub-train-panel {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: flex-start;
+  overflow: hidden;
+  min-height: 0;
+}
+.hub-train-row {
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  align-items: center;
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: none;
+  padding: 2px 0;
+}
+.hub-train-row::-webkit-scrollbar { display: none; }
+.hub-train-badge {
+  position: absolute;
+  top: 2px; right: 2px;
+  min-width: 14px; height: 14px;
+  border-radius: 7px;
+  background: #ffd54f; color: #1a1208;
+  font: bold 9px Fredoka, system-ui;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 2px; line-height: 1;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Squad chip row — inline in centre panel for multi-unit selection */
+.hub-center.has-squad {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 3px;
+}
+.hub-squad-row {
+  display: flex;
+  flex-direction: row;
+  gap: 3px;
+  align-items: center;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.hub-squad-row .squad-chip {
+  width: 30px; height: 30px;
+  flex: 0 0 30px;
+}
+.hub-squad-row .squad-chip .sq-portrait {
+  width: 22px; height: 22px;
+}
+.hub-squad-row .squad-chip .sq-tag {
+  font-size: 5px; bottom: 1px;
+}
+.hub-squad-row .squad-chip .sq-count {
+  font-size: 7px; top: 1px; right: 2px;
+}
+/* Info row shown below squad chips */
+.hub-info-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
+}
+.hub-info-row .hub-zone-c {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.hub-center.has-squad .sel-bar {
+  width: 100%;
+  margin-top: 1px;
+}
+
+/* Zone A — portrait(s) + HP bar stacked */
+.hub-zone-a {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+.hub-zone-a .hub-portrait,
+.hub-zone-a .hub-portraits {
+  flex: none;
+}
+/* sel-bar in zone-a spans portrait width */
+.hub-zone-a .sel-bar {
+  width: var(--unit-btn);
+  margin-top: 0;
+}
+.hub-zone-a .hub-portraits + .sel-bar {
+  width: 100%;
+}
+
+/* Zone B — queue chips, hidden when empty */
+.hub-zone-b {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+  max-width: calc(var(--unit-btn) * 3 + 8px);
+}
+.hub-center:not(.has-queue) .hub-zone-b {
+  display: none;
+}
+/* Queue chips inside zone-b */
+.hub-zone-b .sel-queue {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 3px;
+  align-items: center;
+  overflow: hidden;
+}
+.hub-zone-b .sel-queue .qchip:nth-child(n+4) { display: none; }
+
+/* Zone C — title / subtype / status / passives */
+.hub-zone-c {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+  gap: 1px;
+}
+
+/* hub-body kept as fallback alias for hub-zone-c */
+.hub-body {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+}
+
+/* Portrait elements */
 .hub-portrait {
   width: var(--unit-btn); height: var(--unit-btn);
+  flex: 0 0 var(--unit-btn);
   border-radius: 0;
   background: var(--ts-btn-sq-blue) center/contain no-repeat;
   border: none;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
   display: flex; align-items: center; justify-content: center;
-  overflow: hidden; flex-shrink: 0;
+  overflow: hidden;
   image-rendering: pixelated;
 }
-.hub-body { min-width: 0; flex: 1; }
+.hub-portraits {
+  display: flex;
+  flex-direction: row;
+  gap: 2px;
+  flex: 0 0 auto;
+  flex-shrink: 0;
+}
+.hub-portraits .hub-portrait {
+  width: calc(var(--unit-btn) * 0.72);
+  height: calc(var(--unit-btn) * 0.72);
+  flex: 0 0 calc(var(--unit-btn) * 0.72);
+}
+
 .hub-title {
   font-weight: 700; font-size: 11px; color: #ffd54f;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -737,7 +962,9 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   text-transform: uppercase; letter-spacing: 0.04em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.hub-status, .hub-passives + .hub-status { color: rgba(255, 255, 255, 0.52); font-size: 8px; }
+.hub-status, .hub-passives + .hub-status { color: rgba(255, 255, 255, 0.52); font-size: 8px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .hub-passives {
   display: flex; flex-wrap: wrap; gap: 2px; margin-top: 2px;
 }
@@ -749,8 +976,10 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   color: #ffe082;
 }
 
-/* Command card — fixed 3×2, icon-first mobile slots */
-.hub-cmd { flex: 0 0 auto; align-self: center; }
+/* ============================================================================
+ * hub-cmd — command card (3x2 grid)
+ * ==========================================================================*/
+.hub-cmd { flex: 0 0 auto; align-self: center; min-width: 0; overflow: hidden; }
 .cmd-grid {
   display: grid;
   grid-template-columns: repeat(3, var(--cmd-slot));
@@ -815,9 +1044,7 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 }
 
 /* ============================================================================
- * Combat cluster — FIXED: now sits inside .deck-row on the right side.
- * It is flex: 0 0 auto so it never gets squeezed.
- * Layout is a column-reverse stack so the primary (attack-move) is on bottom.
+ * Combat cluster
  * ==========================================================================*/
 .combat-cluster {
   flex: 0 0 auto;
@@ -826,7 +1053,6 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   align-items: center;
   justify-content: center;
   gap: 4px;
-  /* FIXED: constrain height to fit inside the deck rectangle */
   max-height: calc(var(--deck-expanded-h) - 10px);
   padding: 0;
   margin-left: 2px;
@@ -836,7 +1062,6 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   width: var(--combat-btn); height: var(--combat-btn);
   padding: 0; cursor: pointer;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.42);
-  /* FIXED: shrink slightly so 3 stacked buttons fit in --deck-expanded-h */
   flex-shrink: 1;
 }
 .combat-btn.combat-primary {
@@ -848,10 +1073,70 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   filter: brightness(1.1) saturate(1.15);
 }
 
-@media (min-width: 520px) {
-  :root { --deck-expanded-h: 112px; --unit-btn: 52px; --cmd-slot: var(--unit-btn); --cmd-btn: 48px; --combat-btn: 46px; --combat-primary: 54px; }
+/* circular queue chips */
+.sel-queue--circular {
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  margin-top: 2px;
+}
+.qchip-ring {
+  position: relative;
+  width: 22px; height: 22px;
+  flex: 0 0 22px;
+  display: flex; align-items: center; justify-content: center;
+}
+.qring-svg {
+  position: absolute; inset: 0;
+  width: 22px; height: 22px;
+  overflow: visible;
+}
+.qring-bg {
+  fill: #131e2a;
+  stroke: rgba(255, 255, 255, 0.14);
+  stroke-width: 1.5;
+}
+.qring-fill {
+  fill: none;
+  stroke: #34e0c4;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 56.5;
+  transform-origin: 11px 11px;
+  transform: rotate(-90deg);
+}
+.qchip-ico {
+  position: relative; z-index: 1;
+  width: 14px; height: 14px;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden; image-rendering: pixelated;
+}
+.qchip-ico img {
+  width: 100% !important; height: 100% !important;
+  object-fit: contain; image-rendering: pixelated;
+}
+.qchip-overflow {
+  font: bold 8px Fredoka, system-ui;
+  color: rgba(255, 255, 255, 0.45);
+  padding: 0 2px;
 }
 
+@media (min-width: 520px) {
+  :root {
+    --deck-expanded-h: 112px; --unit-btn: 52px; --cmd-slot: var(--unit-btn);
+    --cmd-btn: 48px; --act-slot: 36px;
+  }
+  .bottom-hub { grid-template-columns: 84px minmax(0, 1fr) auto; }
+  #hub-minimap { width: 84px; }
+  .hub-hero { width: 58px; height: 58px; flex: 0 0 58px; }
+}
+
+/* ============================================================================
+ * sel-queue — queue chips (lives in hub-zone-b)
+ * ==========================================================================*/
 .sel-queue {
   display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px; align-items: center;
 }
@@ -888,6 +1173,10 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   font-variant-numeric: tabular-nums; z-index: 1;
 }
 .sel-chips { display: none; }
+
+/* ============================================================================
+ * sel-bar — HP bar in Zone A (under the portrait)
+ * ==========================================================================*/
 .sel-bar { display: flex; align-items: center; gap: 4px; margin-top: 2px; }
 .sel-bar span { display: none; }
 .sel-bar .hp-bar {
@@ -929,7 +1218,6 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 .sel-bar .hp-bar.is-warn { --hp-color: #e0a820; }
 .sel-bar .hp-bar.is-crit { --hp-color: #d94040; }
 .sel-bar b { font-size: 8px; color: rgba(255, 255, 255, 0.6); font-variant-numeric: tabular-nums; }
-
 
 .act {
   flex: 0 0 var(--cmd-btn); width: var(--cmd-btn); height: var(--cmd-btn);
@@ -973,7 +1261,37 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
   object-position: center bottom;
 }
 
-/* Events + toast — unobtrusive overlays */
+/* slot-icon for cmd-grid buttons rendered by renderCommandCard */
+.cmd-slot .slot-icon {
+  width: 78%; height: 78%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  display: block;
+}
+.cmd-slot .slot-cost {
+  position: absolute; bottom: 2px; right: 3px;
+  font: bold 8px Fredoka, system-ui;
+  color: #ffd54f;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.6);
+  line-height: 1;
+}
+.cmd-slot.pressing {
+  transform: scale(0.94);
+  background-image: var(--ts-btn-sq-blue-pressed);
+}
+.cmd-slot.targeting {
+  box-shadow: 0 0 12px rgba(255, 112, 67, 0.55), 0 2px 6px rgba(0, 0, 0, 0.35);
+  filter: brightness(1.12);
+}
+.cmd-slot.autocast::after {
+  content: '';
+  position: absolute; bottom: 2px; right: 2px;
+  width: 5px; height: 5px; border-radius: 50%;
+  background: #66bb6a;
+  box-shadow: 0 0 4px rgba(102,187,106,0.8);
+}
+
+/* Events + toast */
 #event-log {
   position: absolute; top: calc(36px + env(safe-area-inset-top)); left: 8px;
   display: flex; flex-direction: column; gap: 2px;
@@ -1027,7 +1345,6 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 }
 #long-press-ring.hidden { display: none; }
 
-/* Radial menu — removed. #radial-menu and .rcard are no longer used. */
 #radial-menu { display: none !important; pointer-events: none !important; }
 
 @media (orientation: landscape) and (max-height: 480px) {

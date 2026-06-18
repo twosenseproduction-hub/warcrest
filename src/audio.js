@@ -25,24 +25,17 @@
   var BOOM_SRC = 'assets/audio/building-explosion.wav';
   var BOOM_GAIN = 0.38;
 
-  /* Menu / title theme — Rimwalker elves (main game theme). */
+  /* All factions share the same two-track playlist. */
+  var CORE_TRACKS = [
+    'assets/audio/moonlit-citadel.mp3',
+    'assets/audio/celestial-forest.mp3',
+  ];
+
   var PLAYLISTS = {
-    default: ['assets/audio/moonlit-citadel.mp3'],
-    aurex: [
-      'assets/audio/iron-crown-shadows.mp3',
-      'assets/audio/hurdy-gurdy-siege.mp3',
-      'assets/audio/hurdy-gurdy-oath.mp3',
-    ],
-    cinder: [
-      'assets/audio/siege-chimes-silenced.mp3',
-      'assets/audio/taiko-throat-scream.mp3',
-      'assets/audio/taiko-oath-drum.mp3',
-    ],
-    rimwalker: [
-      'assets/audio/moonlit-citadel.mp3',
-      'assets/audio/celestial-forest.mp3',
-      'assets/audio/moonlit-citadel-2.mp3',
-    ],
+    default:   CORE_TRACKS,
+    aurex:     CORE_TRACKS,
+    cinder:    CORE_TRACKS,
+    rimwalker: CORE_TRACKS,
   };
 
   var meleeBuffer = null;

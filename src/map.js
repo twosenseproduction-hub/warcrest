@@ -404,6 +404,40 @@
     return grid;
   }
 
+  /* Mark tree trunk footprints as impassable on the path grid.
+   * Uses 55% of the visual radius as the blocking circle — tight enough
+   * that units can squeeze along forest edges but can't path through a trunk.
+   * forestWall trees are skipped; their cells are already blocked by terrain. */
+  function markTreesOnPathGrid(meta) {
+    if (!meta.pathGrid || !meta.decor || !meta.decor.length) return;
+    var TILE = RTS.TILE || 64;
+    var cols = meta.pathGridCols;
+    var rows = meta.pathGridRows;
+    var grid = meta.pathGrid;
+    var BLOCK_RATIO = 0.55;
+
+    meta.decor.forEach(function (d) {
+      if (d.kind !== 'tree') return;
+      if (d.forestWall) return; // terrain mask already covers these
+      var blockR = d.r * BLOCK_RATIO;
+      // Clamp search to the bounding box of the blocking circle
+      var cMinC = Math.max(0, Math.floor((d.x - blockR) / TILE));
+      var cMaxC = Math.min(cols - 1, Math.floor((d.x + blockR) / TILE));
+      var cMinR = Math.max(0, Math.floor((d.y - blockR) / TILE));
+      var cMaxR = Math.min(rows - 1, Math.floor((d.y + blockR) / TILE));
+      var r, c, cx, cy;
+      for (r = cMinR; r <= cMaxR; r++) {
+        for (c = cMinC; c <= cMaxC; c++) {
+          cx = c * TILE + TILE * 0.5;
+          cy = r * TILE + TILE * 0.5;
+          if (dist(cx, cy, d.x, d.y) < blockR) {
+            grid[r][c] = 1;
+          }
+        }
+      }
+    });
+  }
+
   function syncMapBuildingFootprints(s) {
     if (!s.map || !s.map.pathGrid) return;
     s.entities.buildings.forEach(function (b) {
@@ -447,8 +481,10 @@
           forestWallTrees(meta.terrainGrid, meta.forestWallSeed || 8801));
       }
       initPathGrid(meta);
+      markTreesOnPathGrid(meta);
     } else {
       initPathGrid(meta);
+      markTreesOnPathGrid(meta);
     }
     s.map = meta;
     syncMapBuildingFootprints(s);
@@ -551,14 +587,15 @@
     var enemySpawn = { x: w - 280, y: midY };
     var bases = [playerSpawn, enemySpawn];
 
-    mine(s, 400, midY - 220, isStartingMine(400, midY - 220, bases));
-    mine(s, 400, midY + 220, isStartingMine(400, midY + 220, bases));
-    mine(s, w - 400, midY - 220, isStartingMine(w - 400, midY - 220, bases));
-    mine(s, w - 400, midY + 220, isStartingMine(w - 400, midY + 220, bases));
-    mine(s, 360, midY - 380, false);
-    mine(s, 360, midY + 380, false);
-    mine(s, w - 360, midY - 380, false);
-    mine(s, w - 360, midY + 380, false);
+    // Starting mines pushed out to ~520px from core (was 400px) — wider worker path
+    mine(s, 520, midY - 260, isStartingMine(520, midY - 260, bases));
+    mine(s, 520, midY + 260, isStartingMine(520, midY + 260, bases));
+    mine(s, w - 520, midY - 260, isStartingMine(w - 520, midY - 260, bases));
+    mine(s, w - 520, midY + 260, isStartingMine(w - 520, midY + 260, bases));
+    mine(s, 480, midY - 420, false);
+    mine(s, 480, midY + 420, false);
+    mine(s, w - 480, midY - 420, false);
+    mine(s, w - 480, midY + 420, false);
     mine(s, 980, midY - 150, false);
     mine(s, 1100, midY + 130, false);
     mine(s, 1500, midY - 110, false);
@@ -598,14 +635,15 @@
     var enemySpawn = { x: midX, y: ey };
     var bases = [playerSpawn, enemySpawn];
 
-    mine(s, midX - 220, py - 190, isStartingMine(midX - 220, py - 190, bases));
-    mine(s, midX + 220, py - 190, isStartingMine(midX + 220, py - 190, bases));
-    mine(s, midX - 220, ey + 190, isStartingMine(midX - 220, ey + 190, bases));
-    mine(s, midX + 220, ey + 190, isStartingMine(midX + 220, ey + 190, bases));
-    mine(s, midX - 380, py - 320, false);
-    mine(s, midX + 380, py - 320, false);
-    mine(s, midX - 380, ey + 320, false);
-    mine(s, midX + 380, ey + 320, false);
+    // Starting mines pushed out to ~300px offset (was 190px) — more breathing room
+    mine(s, midX - 310, py - 300, isStartingMine(midX - 310, py - 300, bases));
+    mine(s, midX + 310, py - 300, isStartingMine(midX + 310, py - 300, bases));
+    mine(s, midX - 310, ey + 300, isStartingMine(midX - 310, ey + 300, bases));
+    mine(s, midX + 310, ey + 300, isStartingMine(midX + 310, ey + 300, bases));
+    mine(s, midX - 480, py - 420, false);
+    mine(s, midX + 480, py - 420, false);
+    mine(s, midX - 480, ey + 420, false);
+    mine(s, midX + 480, ey + 420, false);
     mine(s, w * 0.24, h * 0.44, false);
     mine(s, w * 0.24, h * 0.56, false);
     mine(s, w * 0.76, h * 0.44, false);
@@ -643,12 +681,13 @@
     spawnBase(s, RTS.TEAM.ENEMY, ex, ey, ef, true, { rallyDx: -110, rallyDy: -110 });
 
     var bases = [{ x: px, y: py }, { x: ex, y: ey }];
-    mine(s, px + 60, py - 140, isStartingMine(px + 60, py - 140, bases));
-    mine(s, px - 140, py + 60, isStartingMine(px - 140, py + 60, bases));
-    mine(s, px + 200, py + 200, isStartingMine(px + 200, py + 200, bases));
-    mine(s, ex - 60, ey + 140, isStartingMine(ex - 60, ey + 140, bases));
-    mine(s, ex + 140, ey - 60, isStartingMine(ex + 140, ey - 60, bases));
-    mine(s, ex - 200, ey - 200, isStartingMine(ex - 200, ey - 200, bases));
+    // Starting mines pushed outward ~100px further from core on each side
+    mine(s, px + 120, py - 230, isStartingMine(px + 120, py - 230, bases));
+    mine(s, px - 230, py + 120, isStartingMine(px - 230, py + 120, bases));
+    mine(s, px + 300, py + 300, isStartingMine(px + 300, py + 300, bases));
+    mine(s, ex - 120, ey + 230, isStartingMine(ex - 120, ey + 230, bases));
+    mine(s, ex + 230, ey - 120, isStartingMine(ex + 230, ey - 120, bases));
+    mine(s, ex - 300, ey - 300, isStartingMine(ex - 300, ey - 300, bases));
     mine(s, w * 0.5, h * 0.5 - 80, false);
     mine(s, w * 0.5, h * 0.5 + 80, false);
     mine(s, w * 0.5 - 200, h * 0.5, false);
