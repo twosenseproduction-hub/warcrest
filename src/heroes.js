@@ -284,25 +284,105 @@
     },
 
     /* -----------------------------------------------------------------------
-     * RIMWALKER HERO — future expansion, not yet playable
+     * RIMWALKER HEROES — future expansion, not yet playable in skirmish
      * ----------------------------------------------------------------------- */
+
+    thoryn: {
+      id: 'thoryn',
+      faction: 'rimwalker',
+      name: 'Thoryn',
+      shortName: 'Thoryn',
+      class: 'Bladedrifter',
+      role: 'hero',
+      quote: 'I do not fight for what the Spine was. I fight for what is still standing.',
+      lore: 'Born after the Ashfall — he never saw the Verdant Spine whole. ' +
+            'Grew up on what remains of the Rim, learned to fight because those forests ' +
+            'were always under pressure. Takes coin-work when the trees cannot pay. ' +
+            'His blade is Rimwalker-forged: heartwood core, tempered in ashfall resin, ' +
+            'holds an edge longer than iron. When the war started bleeding toward Rimwalker ' +
+            'territory he took a contract. That the contract aligns with keeping his land ' +
+            'intact is something he does not acknowledge out loud.',
+      playable: true,
+
+      hp: 270,
+      speed: 148,
+      dmg: 34,
+      range: 52,        // melee
+      ranged: false,
+      supply: 0,
+
+      // Passive — always active
+      passive: {
+        id: 'spine_edge',
+        name: "Spine's Edge",
+        desc: 'Each consecutive attack on the same target builds tempo — +12% attack speed ' +
+              'per hit, up to 3 stacks (+36%). Stacks reset after 2s without attacking ' +
+              'or if Thoryn switches targets.',
+        stackAtkSpeed: 0.12,
+        maxStacks: 3,
+        decaySec: 2.0,
+      },
+
+      abilities: [
+        {
+          id: 'thorn_cut',
+          name: 'Thorn Cut',
+          unlockLevel: 1,
+          cooldown: 7,
+          desc: 'Three rapid slashes — each deals 38 damage. ' +
+                'The third strike leaves a bleeding wound dealing 12 damage/sec for 4s.',
+          strikes: 3,
+          dmgPerStrike: 38,
+          bleedDmgPerSec: 12,
+          bleedDuration: 4,
+        },
+        {
+          id: 'vanishing_step',
+          name: 'Vanishing Step',
+          unlockLevel: 3,
+          cooldown: 18,
+          desc: 'Thoryn blinks 200px toward target and reappears behind them. ' +
+                'Next attack within 3s deals +80% damage.',
+          blinkPx: 200,
+          bonusDmgPct: 0.80,
+          bonusWindow: 3,
+        },
+        {
+          id: 'ashfall_draw',
+          name: 'Ashfall Draw',
+          unlockLevel: 5,
+          cooldown: 38,
+          desc: '1.5s draw. Thoryn releases a single cut across a 260px line — ' +
+                'all enemies hit take 280 damage and are slowed 50% for 2.5s. ' +
+                'The blade carries the memory of the Spine. So does he.',
+          castTime: 1.5,
+          linePx: 260,
+          dmg: 280,
+          slowPct: 0.50,
+          slowDuration: 2.5,
+        },
+      ],
+    },
 
     aelindra: {
       id: 'aelindra',
       faction: 'rimwalker',
       name: 'Aelindra Ashveil',
+      shortName: 'Aelindra',
       class: 'Tendkeeper',
+      role: 'hero',
       quote: 'I watched the Spine fall. I have been patient ever since.',
       lore: 'The oldest living Rimwalker. She was a young Sylhen during the Ashfall and ' +
             'carries the memory of the Verdant Spine like a wound. She does not enter wars. ' +
             'Until now.',
-      playable: false,  // locked until Rimwalker faction ships
+      playable: true,  // test arena map; Rimwalker faction not in skirmish yet
+      portraitFile: 'Aelindra_Idle.png',
 
       hp: 380,
       speed: 72,
       dmg: 14,
       range: 160,
-      ranged: true,
+      ranged: false,
       supply: 0,
 
       passive: {

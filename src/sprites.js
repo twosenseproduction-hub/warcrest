@@ -112,10 +112,16 @@
     },
   };
 
-  /* Custom heroes — Pixel Labs / bespoke art under assets/heroes/ */
-  var HERO_BASE = 'assets/heroes/aurex/';
+  /* Custom heroes — Pixel Labs / bespoke art under assets/heroes/<faction>/ */
+  function heroBase(heroId) {
+    var def = HERO_DEF[heroId];
+    if (!def) return 'assets/heroes/aurex/';
+    return 'assets/heroes/' + (def.faction || 'aurex') + '/';
+  }
+
   var HERO_DEF = {
     valdris: {
+      faction: 'aurex',
       folder: 'valdris',
       frameH: 256,
       scale: 1.05,
@@ -124,6 +130,27 @@
         walk: { file: 'Valdris_Run.png', count: 8, speed: 10 },
         guard: { file: 'Valdris_Idle.png', count: 8, speed: 2.5 },
         attack: { file: 'Valdris_Attack.png', count: 4, fps: 12, impactFrame: 2 },
+      },
+    },
+    aelindra: {
+      faction: 'rimwalker',
+      folder: 'aelindra',
+      frameH: 256,
+      scale: 1.05,
+      clips: {
+        idle: { file: 'Aelindra_idle.png', count: 8, speed: 12 },
+        walk: {
+          count: 8,
+          speed: 16,
+          directions: {
+            south: 'Aelindra_Run_South.png',
+            north: 'Aelindra_Run_North.png',
+            east:  'Aelindra_Run_East.png',
+            west:  'Aelindra_Run_West.png',
+          },
+        },
+        guard: { file: 'Aelindra_idle.png', count: 8, speed: 7.5 },
+        attack: { file: 'Aelindra_Attack.png', count: 8, fps: 14, impactFrame: 4, vfx: 'root_lash' },
       },
     },
   };
@@ -197,18 +224,153 @@
     });
   }
 
+  function heroWalkDir(facing) {
+    var c = Math.cos(facing);
+    var s = Math.sin(facing);
+    if (Math.abs(c) >= Math.abs(s)) return c >= 0 ? 'east' : 'west';
+    return s >= 0 ? 'south' : 'north';
+  }
+
+  /* Bump when hero strip PNGs change — busts browser image cache on reload. */
+  var HERO_ASSET_V = '20260620r';
+  var HERO_CROP_INSET = 4;
+
+  /** Detect frame count from strip geometry (w÷h when cells are square). */
+  function heroStripFrameCount(img, configured) {
+    var w = img.width;
+    var h = img.height;
+    if (h <= 0) return configured || 1;
+    if (w % h === 0) {
+      var detected = w / h;
+      if (configured && detected !== configured) {
+        console.warn('hero strip frame count: configured ' + configured +
+          ', detected ' + detected + ' (' + w + '×' + h + ') — using detected');
+      }
+      return detected;
+    }
+    if (w % 256 === 0) return w / 256;
+    return configured || 1;
+  }
+
+  /** Strip near-black fringe; per-frame crop so run/attack cycles stay aligned. */
+  function prepareHeroStrip(img, count) {
+    count = heroStripFrameCount(img, count);
+    var fw = Math.round(img.width / count);
+    var fh = img.height;
+    var c = document.createElement('canvas');
+    c.width = img.width;
+    c.height = fh;
+    var ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    var id = ctx.getImageData(0, 0, c.width, fh);
+    var d = id.data;
+    var frameCrops = [];
+    var inset = HERO_CROP_INSET;
+
+    for (var fi = 0; fi < count; fi++) {
+      var ox = fi * fw;
+      var minX = fw;
+      var minY = fh;
+      var maxX = 0;
+      var maxY = 0;
+      for (var y = 0; y < fh; y++) {
+        for (var x = 0; x < fw; x++) {
+          var i = (y * c.width + ox + x) * 4;
+          var r = d[i];
+          var g = d[i + 1];
+          var b = d[i + 2];
+          var a = d[i + 3];
+          if (a === 0) {
+            d[i] = d[i + 1] = d[i + 2] = 0;
+            continue;
+          }
+          if (r < 24 && g < 24 && b < 24) {
+            d[i] = d[i + 1] = d[i + 2] = d[i + 3] = 0;
+            continue;
+          }
+          if (a < 220 && r < 40 && g < 40 && b < 40) {
+            d[i] = d[i + 1] = d[i + 2] = d[i + 3] = 0;
+            continue;
+          }
+          if (a > 24) {
+            if (x < minX) minX = x;
+            if (y < minY) minY = y;
+            if (x > maxX) maxX = x;
+            if (y > maxY) maxY = y;
+          }
+        }
+      }
+      var crop = null;
+      if (maxX >= minX && maxY >= minY) {
+        var cx = minX + inset;
+        var cy = minY;
+        var cw = maxX - minX + 1 - inset * 2;
+        var ch = maxY - minY + 1;
+        if (cw > 8 && ch > 8) {
+          crop = { x: cx, y: cy, w: cw, h: ch };
+        }
+      }
+      frameCrops.push(crop);
+    }
+    ctx.putImageData(id, 0, 0);
+    return { canvas: c, crop: null, frameCrops: frameCrops, frameW: fw, count: count };
+  }
+
   function loadHeroSheet(heroId) {
     var def = HERO_DEF[heroId];
     if (!def) return Promise.resolve(null);
-    var base = HERO_BASE + def.folder + '/';
+    var base = heroBase(heroId) + def.folder + '/';
     var clipKeys = Object.keys(def.clips);
-    var promises = clipKeys.map(function (ck) {
+    var promises = [];
+    clipKeys.forEach(function (ck) {
       var clip = def.clips[ck];
-      return RTS.Assets.loadImg(clip.file, base).then(function (img) {
-        return { key: ck, img: img, meta: clip };
-      });
+      if (clip.directions) {
+        Object.keys(clip.directions).forEach(function (dir) {
+          var file = clip.directions[dir];
+          promises.push(
+            RTS.Assets.loadImg(file, base, HERO_ASSET_V).then(function (img) {
+              var prep = prepareHeroStrip(img, clip.count);
+              return {
+                key: ck + '_' + dir,
+                img: prep.canvas,
+                meta: clip,
+                crop: prep.crop,
+                frameCrops: prep.frameCrops,
+                frameW: prep.frameW,
+                count: prep.count,
+              };
+            }).catch(function (err) {
+              console.warn('hero clip missing: ' + heroId + '/' + file, err.message || err);
+              return null;
+            })
+          );
+        });
+        return;
+      }
+      promises.push(
+        RTS.Assets.loadImg(clip.file, base, HERO_ASSET_V).then(function (img) {
+          var prep = prepareHeroStrip(img, clip.count);
+          return {
+            key: ck,
+            img: prep.canvas,
+            meta: clip,
+            crop: prep.crop,
+            frameCrops: prep.frameCrops,
+            frameW: prep.frameW,
+            count: prep.count,
+          };
+        }).catch(function (err) {
+          console.warn('hero clip missing: ' + heroId + '/' + clip.file, err.message || err);
+          return null;
+        })
+      );
     });
     return Promise.all(promises).then(function (parts) {
+      parts = parts.filter(function (p) { return p && p.img; });
+      if (!parts.length) {
+        console.warn('hero sprites skipped (no clips loaded): ' + heroId);
+        return null;
+      }
       var entry = {
         frameH: def.frameH,
         frameW: def.frameH,
@@ -217,18 +379,26 @@
         heroId: heroId,
       };
       parts.forEach(function (p) {
-        var fw = Math.round(p.img.width / p.meta.count);
+        var fw = p.frameW || Math.round(p.img.width / p.meta.count);
+        var crop = p.crop;
+        var fc = p.frameCrops;
         entry.clips[p.key] = {
           img: p.img,
-          count: p.meta.count,
+          count: p.count || p.meta.count,
           speed: p.meta.speed,
           fps: p.meta.fps,
           releaseFrame: p.meta.releaseFrame,
           impactFrame: p.meta.impactFrame,
           frameW: fw,
+          frameCrops: fc,
+          cropX: crop ? crop.x : 0,
+          cropY: crop ? crop.y : 0,
+          cropW: crop ? crop.w : fw,
+          cropH: crop ? crop.h : entry.frameH,
         };
         entry.frameW = fw;
       });
+      entry.idleMissing = !entry.clips.idle;
       sheets['hero_' + heroId] = entry;
       return entry;
     });
@@ -286,20 +456,39 @@
   }
 
   function getClip(sheet, key) {
-    return sheet.clips[key] || sheet.clips.attack || sheet.clips.idle;
+    if (key && key.indexOf('walk_') === 0 && !sheet.clips[key]) {
+      return sheet.clips.walk_south || sheet.clips.walk || sheet.clips.idle;
+    }
+    if (sheet.clips[key]) return sheet.clips[key];
+    /* Never fall back to attack for idle / guard / walk — missing idle looked like stuck attack. */
+    if (key === 'idle' || key === 'idle_hammer' || key === 'guard') {
+      return sheet.clips.walk_south || sheet.clips.walk || sheet.clips.idle || null;
+    }
+    if (isAttackClipKey(key)) return sheet.clips[key] || sheet.clips.attack || null;
+    return sheet.clips.idle || sheet.clips.walk_south || sheet.clips.walk || null;
   }
 
   function drawSpriteFrame(ctx, clip, sheet, fi, u, drawW, drawH, drawY, flip) {
     var fw = clip.frameW || sheet.frameW;
     var fh = sheet.frameH;
-    var sx = fi * fw;
+    var fc = clip.frameCrops && clip.frameCrops[fi] ? clip.frameCrops[fi] : null;
+    var cropX = fc ? fc.x : (clip.cropX || 0);
+    var cropY = fc ? fc.y : (clip.cropY || 0);
+    var cropW = fc ? fc.w : (clip.cropW || fw);
+    var cropH = fc ? fc.h : (clip.cropH || fh);
+    var sx = fi * fw + cropX;
     ctx.save();
+    ctx.imageSmoothingEnabled = false;
     if (flip < 0) {
       ctx.translate(u.x, 0);
       ctx.scale(-1, 1);
       ctx.translate(-u.x, 0);
     }
-    ctx.drawImage(clip.img, sx, 0, fw, fh, u.x - drawW / 2, drawY, drawW, drawH);
+    var dx = Math.round(u.x - drawW / 2);
+    var dy = Math.round(drawY);
+    var dw = Math.round(drawW);
+    var dh = Math.round(drawH);
+    ctx.drawImage(clip.img, sx, cropY, cropW, cropH, dx, dy, dw, dh);
     ctx.restore();
   }
 
@@ -396,6 +585,12 @@
       return this.currentAttackFrame(u) >= frame;
     },
 
+    heroAttackVfx: function (heroId) {
+      var def = HERO_DEF[heroId];
+      var clip = def && def.clips && def.clips.attack;
+      return clip && clip.vfx ? clip.vfx : null;
+    },
+
     pickAnim: function (u, walking) {
       if (u.role === 'pawn' && u.buildTask) {
         if (u._builderOnSite) return 'work_hammer';
@@ -408,28 +603,35 @@
       if (this.attackActive(u)) return u.attackClip;
       if (u.role === 'warrior' && u.inAttackRange && !walking) return 'guard';
       if (u.role === 'hero' && u.inAttackRange && !walking) return 'guard';
-      if (walking) return 'walk';
+      if (walking) {
+        if (u.role === 'hero') {
+          var sheet = sheets[this.sheetKey(u)];
+          if (sheet && sheet.clips.walk_south) {
+            return 'walk_' + heroWalkDir(u.facing);
+          }
+        }
+        return 'walk';
+      }
       return 'idle';
     },
 
-    frameIndex: function (u, clip, animName) {
+    frameIndex: function (u, clip, animName, sheet) {
       if (isAttackClipKey(animName) && u.attackAnimT != null) {
         return Math.min(clip.count - 1, Math.floor(u.attackAnimT * clipFps(clip)));
       }
       if (animName === 'work' || animName === 'work_hammer') {
         return Math.floor((u._workPhase || 0) * clip.speed) % clip.count;
       }
-      // Idle clips — use dedicated idle phase ticked every draw call
       if (animName === 'idle' || animName === 'idle_hammer') {
+        if (sheet && sheet.idleMissing && clip === sheet.clips.walk_south) return 0;
         var idleFps = clip.speed || clip.fps || 4;
         return Math.floor((u._idlePhase || 0) * idleFps) % clip.count;
       }
-      // Guard uses idle phase too (warrior standing in attack range)
       if (animName === 'guard') {
+        if (sheet && sheet.idleMissing && clip === sheet.clips.walk_south) return 0;
         var guardFps = clip.speed || clip.fps || 4;
         return Math.floor((u._idlePhase || 0) * guardFps) % clip.count;
       }
-      // Walk clips
       return Math.floor((u._walkPhase || 0) * clip.speed) % clip.count;
     },
 
@@ -444,20 +646,24 @@
       var r = unitDrawRadius(u);
       var footY = this.unitFootY(u, s);
       var drawH = unitDrawHeight(r, u, sheet);
-      var clip = sheet.clips.idle || sheet.clips.walk;
+      var clip = sheet.clips.idle || sheet.clips.walk || sheet.clips.walk_south;
       var fw = clip ? (clip.frameW || sheet.frameW) : sheet.frameW;
       var fh = sheet.frameH;
-      var drawW = (fw / fh) * drawH;
-      var footRatio = RTS.SizeRef && RTS.SizeRef.unitFootRatio
-        ? RTS.SizeRef.unitFootRatio(u.role, fh)
-        : (fh >= 300 ? 0.91 : 0.94);
-      var drawY = footY - drawH * footRatio;
-      var soleY = drawY + drawH * footRatio;
+      var cw = clip && clip.cropW ? clip.cropW : fw;
+      var ch = clip && clip.cropH ? clip.cropH : fh;
+      var drawW = (cw / ch) * drawH;
+      var footLine = clip && clip.cropH
+        ? (clip.cropY + clip.cropH) / fh
+        : (RTS.SizeRef && RTS.SizeRef.unitFootRatio
+          ? RTS.SizeRef.unitFootRatio(u.role, fh)
+          : (fh >= 300 ? 0.91 : 0.94));
+      var drawY = footY - drawH * footLine;
+      var soleY = footY;
       var insetX = 0.18;
       var insetTop = 0.08;
       var insetBot = 0.05;
       return {
-        x: u.x, footY: footY, soleY: soleY, footRatio: footRatio,
+        x: u.x, footY: footY, soleY: soleY, footRatio: footLine,
         drawW: drawW, drawH: drawH, drawY: drawY,
         groundRx: Math.max(r * 0.95, drawW * 0.24),
         groundRy: Math.max(r * 0.36, 8),
@@ -505,7 +711,7 @@
         var k = Math.max(0, u.corpse) / max;
         if (k >= 1) return;
         var a = 1 - k;
-        var corpseClip = sheet.clips.idle || sheet.clips.walk;
+        var corpseClip = sheet.clips.idle || sheet.clips.walk || sheet.clips.walk_south;
         if (!corpseClip) return;
         var r = unitDrawRadius(u) * (1 - k * 0.15);
         var vb = this.unitVisualBounds(u, s);
@@ -529,16 +735,18 @@
       var dy = u.y - (u._ay != null ? u._ay : u.y);
       var dist = Math.hypot(dx, dy);
       if (dist > 0.8) {
-        u._walkPhase = (u._walkPhase || 0) + dist * 0.022;
+        var walkRate = u.role === 'hero' ? 0.036 : 0.022;
+        u._walkPhase = (u._walkPhase || 0) + dist * walkRate;
         u._moveHold = 4;
         u._idlePhase = u._idlePhase || 0; // don't reset idle phase
       } else if (u._moveHold > 0) {
         u._moveHold--;
       }
-      // Always tick idle phase with real elapsed time.
-      // dt is not directly available here, so derive it from a stable 60fps assumption.
-      // The game runs requestAnimationFrame — use a fixed 1/60 tick per draw call.
-      u._idlePhase = ((u._idlePhase || 0) + (1 / 60));
+      // When paused (onboarding overlay), sim dt is frozen — tick idle here so
+      // standing units still breathe. During play, updateUnit advances _idlePhase.
+      if (s && s.scene !== 'playing') {
+        u._idlePhase = ((u._idlePhase || 0) + (1 / 60));
+      }
       u._ax = u.x;
       u._ay = u.y;
 
@@ -552,8 +760,10 @@
       var clip = getClip(sheet, animName);
       if (!clip || !clip.img) return;
 
-      var fi = rm ? 0 : this.frameIndex(u, clip, animName);
-      var flip = Math.cos(u.facing) < -0.12 ? -1 : 1;
+      // Idle/guard/walk cycles stay alive under reduced-motion; rm only trims bob FX elsewhere.
+      var freezeFrame = rm && isAttackClipKey(animName);
+      var fi = freezeFrame ? 0 : this.frameIndex(u, clip, animName, sheet);
+      var flip = animName.indexOf('walk_') === 0 ? 1 : (Math.cos(u.facing) < -0.12 ? -1 : 1);
       var vb = this.unitVisualBounds(u, s);
       if (!vb) return;
 
