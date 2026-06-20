@@ -138,7 +138,7 @@
       frameH: 256,
       scale: 1.05,
       clips: {
-        idle: { file: 'Aelindra_idle.png', count: 24, speed: 12 },
+        idle:  { file: 'Aelindra_idle.png', count: 19, speed: 12 },
         walk: {
           count: 8,
           speed: 16,
@@ -149,7 +149,7 @@
             west:  'Aelindra_Run_West.png',
           },
         },
-        guard: { file: 'Aelindra_idle.png', count: 8, speed: 7.5 },
+        guard: { file: 'Aelindra_idle.png', count: 19, speed: 7.5 },
         attack: { file: 'Aelindra_Attack.png', count: 8, fps: 14, impactFrame: 4, vfx: 'root_lash' },
       },
     },
@@ -232,7 +232,7 @@
   }
 
   /* Bump when hero strip PNGs change — busts browser image cache on reload. */
-  var HERO_ASSET_V = '20260620s';
+  var HERO_ASSET_V = '20260620t';
   var HERO_CROP_INSET = 4;
 
   /** Detect frame count from strip geometry (w÷h when cells are square). */
