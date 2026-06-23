@@ -1,0 +1,20 @@
+{
+  "source": "LAB median-cut from pixellab walk (S/N/E) + canonical_idle_keyed",
+  "colors": [
+    "#110509",
+    "#0a1013",
+    "#0b130c",
+    "#2a1412",
+    "#3c1f17",
+    "#481e16",
+    "#59382d",
+    "#764126",
+    "#46534a",
+    "#366431",
+    "#7f6657",
+    "#a36940",
+    "#95a17e",
+    "#a9ac9e"
+  ],
+  "outline": "#110509"
+}

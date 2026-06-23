@@ -417,7 +417,7 @@
     var BLOCK_RATIO = 0.55;
 
     meta.decor.forEach(function (d) {
-      if (d.kind !== 'tree') return;
+      if (d.kind !== 'tree' && d.kind !== 'grove_tree') return;
       if (d.forestWall) return; // terrain mask already covers these
       var blockR = d.r * BLOCK_RATIO;
       // Clamp search to the bounding box of the blocking circle
@@ -455,8 +455,9 @@
       if (meta.coastalRing) {
         meta.decor = (meta.decor || []).concat(
           coastalRingTrees(meta.terrainGrid, meta.shoreSeed, avoid));
-      } else if (meta.mapgenForest && RTS.SapphireMapgen) {
-        meta.decor = (meta.decor || []).concat(forestFromMapgen(RTS.SapphireMapgen, avoid));
+      } else if (meta.mapgenForest) {
+        var mg = RTS.CurrentMapgen || RTS.SapphireMapgen;
+        if (mg) meta.decor = (meta.decor || []).concat(forestFromMapgen(mg, avoid));
       } else {
         if (meta.shoreSeed != null) {
           meta.decor = (meta.decor || []).concat(
@@ -523,7 +524,7 @@
       var ox = isEnemy ? -70 - i * 26 : 70 + i * 26;
       RTS.makeUnit(s, 'pawn', team, cx + ox, cy + (isEnemy ? 64 : 64), faction);
     }
-    if (!isEnemy && faction === 'aurex' && RTS.makeHero) {
+    if (!isEnemy && faction === 'aurex' && RTS.makeHero && !opts.skipHero) {
       var heroRallyDx = opts.rallyDx != null ? opts.rallyDx : 130;
       var valdris = RTS.makeHero(s, 'valdris', team, cx + heroRallyDx * 0.55, cy + 52, faction);
       if (valdris && team === RTS.TEAM.PLAYER) {
@@ -533,18 +534,20 @@
   }
 
   /* ---- 1. Sapphire Shores — from tools/mapgen (import-mapgen.py) ---------- */
-  function buildSapphireShores(s) {
-    var mg = RTS.SapphireMapgen;
+  function buildFromAuthoredTMJ(s, meta) {
+    var mg = RTS.CurrentMapgen;
     if (!mg) {
-      console.error('SapphireMapgen data missing — run scripts/import-mapgen.py');
+      console.error('Map TMJ data missing for ' + meta.id);
       return;
     }
     var pf = s.playerFaction, ef = s.enemyFaction;
     var px = mg.playerBase.x, py = mg.playerBase.y;
     var ex = mg.enemyBase.x, ey = mg.enemyBase.y;
+    var rallyDx = meta.rallyDx != null ? meta.rallyDx : 130;
+    var rallyDy = meta.rallyDy != null ? meta.rallyDy : 90;
 
-    spawnBase(s, RTS.TEAM.PLAYER, px, py, pf, false, { rallyDx: 130, rallyDy: 90 });
-    spawnBase(s, RTS.TEAM.ENEMY, ex, ey, ef, true, { rallyDx: -130, rallyDy: 90 });
+    spawnBase(s, RTS.TEAM.PLAYER, px, py, pf, false, { rallyDx: rallyDx, rallyDy: rallyDy });
+    spawnBase(s, RTS.TEAM.ENEMY, ex, ey, ef, true, { rallyDx: -rallyDx, rallyDy: rallyDy });
 
     mg.gold.forEach(function (g) { mine(s, g.x, g.y, isHomeGoldOnMap(mg, g)); });
 
@@ -552,25 +555,84 @@
     mg.gold.forEach(function (g) { decorAvoid.push({ x: g.x, y: g.y }); });
 
     finishMap(s, {
-      id: 'sapphire_shores',
-      name: 'Sapphire Shores',
-      theme: 'grass',
+      id: meta.id,
+      name: meta.name,
+      theme: meta.theme || 'grass',
       w: mg.world.w,
       h: mg.world.h,
       decor: [],
       avoidDecor: decorAvoid,
-      coastalRing: true,
-      shoreSeed: 4207,
-      waterRocks: true,
-      rockSeed: 9105,
+      mapgenForest: true,
+      shoreSeed: meta.shoreSeed != null ? meta.shoreSeed : 4207,
+      waterRocks: meta.waterRocks !== false,
+      rockSeed: meta.rockSeed != null ? meta.rockSeed : 9105,
       terrainDef: {
-        theme: 'grass',
+        theme: meta.theme || 'grass',
         tileset: 'color1',
         terrainMask: { cols: mg.cols, rows: mg.rows, heights: mg.heights },
       },
+      intro: meta.intro,
+      win: meta.win,
+      lose: meta.lose,
+    });
+  }
+
+  function buildRunicClearing(s) {
+    buildFromAuthoredTMJ(s, {
+      id: 'runic_clearing',
+      name: 'Runic Clearing',
+      theme: 'grass',
+      rallyDx: 120,
+      rallyDy: 90,
+      shoreSeed: 7341,
+      rockSeed: 3812,
+      intro: 'Runic Clearing — an ancient forest clearing split by a standing-stone shrine',
+      win: 'The runic altar is yours. The clearing bows to your banner.',
+      lose: 'The forest reclaims the fallen. The clearing is lost.',
+    });
+  }
+
+  function buildFairyClearing(s) {
+    buildFromAuthoredTMJ(s, {
+      id: 'fairy_clearing',
+      name: 'Fairy Clearing',
+      theme: 'grass',
+      rallyDx: 120,
+      rallyDy: 90,
+      shoreSeed: 7341,
+      rockSeed: 3812,
+      intro: 'Fairy Clearing — an open flat field beneath the fairy-forest canopy',
+      win: 'The clearing is yours. The fairy grove bows to your banner.',
+      lose: 'The clearing is lost. The forest swallows your keep.',
+    });
+  }
+
+  function buildSapphireShores(s) {
+    buildFromAuthoredTMJ(s, {
+      id: 'sapphire_shores',
+      name: 'Sapphire Shores',
+      theme: 'grass',
+      shoreSeed: 4207,
+      rockSeed: 9105,
       intro: 'Sapphire Shores — forested isles linked by a shallow lane',
       win: 'The enemy heartland falls. The Reach is yours.',
       lose: 'Your keep falls. The shores are lost.',
+    });
+  }
+
+  /* ---- Turtle Cove — WC3 Turtle Rock–style island lattice ------------------ */
+  function buildTurtleCove(s) {
+    buildFromAuthoredTMJ(s, {
+      id: 'turtle_cove',
+      name: 'Turtle Cove',
+      theme: 'grass',
+      rallyDx: 120,
+      rallyDy: 100,
+      shoreSeed: 5107,
+      rockSeed: 9109,
+      intro: 'Turtle Cove — four gold corners and a contested center altar',
+      win: 'The cove is yours. Every island bows to your banner.',
+      lose: 'Cut off from the gold, your keep falls to the tide.',
     });
   }
 
@@ -720,13 +782,495 @@
     });
   }
 
+  function groveRiverPools(w, h, seed) {
+    var rnd = mulberry(seed || 77102);
+    var pools = [];
+    var n = 14;
+    var i, t;
+    for (i = 0; i < n; i++) {
+      t = i / Math.max(1, n - 1);
+      pools.push({
+        x: w * (0.28 + t * 0.38) + (rnd() - 0.5) * 48,
+        y: h * (0.12 + t * 0.76) + (rnd() - 0.5) * 36,
+        r: 62 + rnd() * 38,
+      });
+    }
+    return pools;
+  }
+
+  function buildGroveDecor(seed, w, h, avoid, opts) {
+    opts = opts || {};
+    var rnd = mulberry(seed);
+    var out = [];
+    var cx = opts.clearX != null ? opts.clearX : w * 0.5;
+    var cy = opts.clearY != null ? opts.clearY : h * 0.5;
+    var rx = opts.clearRx || 360;
+    var ry = opts.clearRy || 260;
+    var FF = RTS.FairyForest;
+    var treeIdx = FF && FF.treeIndex ? FF.treeIndex.bind(FF) : function (row, col) { return row * 6 + col; };
+
+    function inClearing(x, y, pad) {
+      pad = pad || 0;
+      return Math.abs(x - cx) / (rx + pad) + Math.abs(y - cy) / (ry + pad) < 1;
+    }
+
+    var treeCount = opts.treeCount || 92;
+    var t;
+    for (t = 0; t < treeCount; t++) {
+      var tx = 96 + rnd() * (w - 192);
+      var ty = 96 + rnd() * (h - 192);
+      if (inClearing(tx, ty, 40)) continue;
+      if (!clearOfPoints(tx, ty, avoid, 88)) continue;
+      var edgeBias = inClearing(tx, ty, 180) ? 0.55 : 0.25;
+      var purple = rnd() < edgeBias;
+      var size = Math.floor(rnd() * 4);
+      var row = purple ? 3 : (rnd() < 0.55 ? 0 : 1);
+      out.push({
+        x: tx,
+        y: ty,
+        kind: 'grove_tree',
+        spriteIdx: treeIdx(row, size),
+        targetH: 210 - size * 32,
+        r: 22 + size * 7,
+      });
+    }
+
+    var ringTrees = opts.ringCount || 36;
+    for (t = 0; t < ringTrees; t++) {
+      var ang = (t / ringTrees) * Math.PI * 2 + rnd() * 0.15;
+      var rad = 0.82 + rnd() * 0.12;
+      tx = cx + Math.cos(ang) * rx * rad * 1.35;
+      ty = cy + Math.sin(ang) * ry * rad * 1.35;
+      if (tx < 80 || ty < 80 || tx > w - 80 || ty > h - 80) continue;
+      if (!clearOfPoints(tx, ty, avoid, 72)) continue;
+      size = Math.floor(rnd() * 3);
+      row = rnd() < 0.42 ? 3 : 0;
+      out.push({
+        x: tx,
+        y: ty,
+        kind: 'grove_tree',
+        spriteIdx: treeIdx(row, size),
+        targetH: 230 - size * 34,
+        r: 24 + size * 8,
+      });
+    }
+
+    function scatterProp(prop, count, clearOk, minDist) {
+      var p, x, y, k;
+      for (p = 0; p < count; p++) {
+        for (k = 0; k < 24; k++) {
+          x = 120 + rnd() * (w - 240);
+          y = 120 + rnd() * (h - 240);
+          if (!clearOk && inClearing(x, y, -20)) continue;
+          if (clearOk && !inClearing(x, y, 60)) continue;
+          if (!clearOfPoints(x, y, avoid, minDist || 36)) continue;
+          break;
+        }
+        if (k >= 24) continue;
+        out.push({
+          x: x,
+          y: y,
+          kind: 'grove_prop',
+          prop: prop,
+          variant: Math.floor(rnd() * 8),
+          r: prop === 'rock' ? 14 : 10,
+        });
+      }
+    }
+
+    scatterProp('flower', opts.flowers || 18, true, 42);
+    scatterProp('mushroom', opts.mushrooms || 14, true, 34);
+    scatterProp('bush', opts.bushes || 26, false, 28);
+    scatterProp('rock', opts.rocks || 16, false, 32);
+    scatterProp('vine', opts.vines || 10, false, 40);
+    scatterProp('stump', opts.stumps || 8, false, 36);
+
+    return out;
+  }
+
+  /* ---- 5b. Aelindra grove — Fairy Forest environment ------------------------- */
+  function buildAelindraGrove(s) {
+    var w = W(), h = H();
+    var px = 480, py = h * 0.5;
+    var ex = w - 480, ey = h * 0.5;
+    var clearX = w * 0.5;
+    var clearY = h * 0.5;
+
+    var aelindra = null;
+    if (RTS.makeHero) {
+      aelindra = RTS.makeHero(s, 'aelindra', RTS.TEAM.PLAYER, px, py, s.playerFaction);
+      if (aelindra && RTS.UnitAI) {
+        RTS.UnitAI.setCommand(aelindra, 'idle', {
+          guardOrigin: { x: aelindra.x, y: aelindra.y },
+        });
+        aelindra._heroTestPassive = true;
+      }
+    }
+
+    var goblinXs = [ex, ex - 52, ex - 52];
+    var goblinYs = [ey - 72, ey, ey + 72];
+    var g;
+    for (g = 0; g < 3; g++) {
+      var gob = RTS.makeUnit(s, 'lancer', RTS.TEAM.ENEMY, goblinXs[g], goblinYs[g], 'cinder');
+      if (gob && RTS.UnitAI) {
+        RTS.UnitAI.setCommand(gob, 'hold', {
+          guardOrigin: { x: gob.x, y: gob.y },
+        });
+      }
+    }
+
+    var avoid = [
+      { x: px, y: py }, { x: ex, y: ey },
+      { x: goblinXs[0], y: goblinYs[0] },
+      { x: goblinXs[1], y: goblinYs[1] },
+      { x: goblinXs[2], y: goblinYs[2] },
+    ];
+
+    finishMap(s, {
+      id: 'aelindra_grove',
+      name: 'Aelindra Grove',
+      theme: 'grove',
+      decor: buildGroveDecor(88202, w, h, avoid, {
+        clearX: clearX,
+        clearY: clearY,
+        clearRx: 340,
+        clearRy: 250,
+      }),
+      terrainDef: {
+        theme: 'grove',
+        tileset: 'grove',
+        applyTerraform: false,
+        island: { x: 48, y: 48, w: w - 96, h: h - 96 },
+        waterPools: groveRiverPools(w, h, 88203),
+      },
+      terraformForestWalls: false,
+      intro: 'Verdant grove — glowing flowers, ancient trees, and a winding stream',
+      win: 'The grove is cleansed.',
+      lose: 'Aelindra has fallen.',
+      heroTestFocus: aelindra ? aelindra.id : null,
+      sandbox: true,
+    });
+
+    if (aelindra) {
+      RTS.log(s, 'Aelindra Ashveil — the grove awaits. Move through the clearing to engage.', 'good');
+    }
+  }
+
+  /* ---- 4b. Verdant Reach — hand-designed Rimwalker level ----------------------- */
+  function buildVerdantReachDecor(w, h, cx, cy, avoid) {
+    var out = [];
+    var FF = RTS.FairyForest;
+    var treeIdx = FF && FF.treeIndex ? FF.treeIndex.bind(FF) : function (r, c) { return r * 6 + c; };
+
+    var rx = 680, ry = 460;
+
+    function inClearing(x, y, pad) {
+      pad = pad || 0;
+      var ex = rx + pad, ey = ry + pad;
+      return ((x - cx) * (x - cx)) / (ex * ex) + ((y - cy) * (y - cy)) / (ey * ey) < 1;
+    }
+
+    function addTree(x, y, row, size, targetH) {
+      out.push({
+        x: x, y: y,
+        kind: 'grove_tree',
+        spriteIdx: treeIdx(row || 0, size || 0),
+        targetH: targetH || (220 - (size || 0) * 32),
+        r: 24 + (size || 0) * 7,
+      });
+    }
+
+    function addProp(x, y, prop, variant) {
+      out.push({
+        x: x, y: y,
+        kind: 'grove_prop',
+        prop: prop || 'rock',
+        variant: variant || 0,
+        r: prop === 'rock' ? 16 : (prop === 'stump' ? 12 : 10),
+      });
+    }
+
+    /* 1. Dense forest ring — encircles clearing with path gaps N and S */
+    var RING_N = 52;
+    var RING_SCALE = 1.30;
+    var PATH_HALF = 0.20;
+    var rndRing = mulberry(99402);
+
+    for (var ri = 0; ri < RING_N; ri++) {
+      var ang = (ri / RING_N) * Math.PI * 2;
+      var angN = ((ang % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+      var dNorth = Math.min(Math.abs(angN - Math.PI * 1.5), Math.PI * 2 - Math.abs(angN - Math.PI * 1.5));
+      var dSouth = Math.min(Math.abs(angN - Math.PI * 0.5), Math.PI * 2 - Math.abs(angN - Math.PI * 0.5));
+      if (dNorth < PATH_HALF || dSouth < PATH_HALF) continue;
+      var jitter = 0.88 + rndRing() * 0.24;
+      var tx = cx + Math.cos(ang) * rx * RING_SCALE * jitter;
+      var ty = cy + Math.sin(ang) * ry * RING_SCALE * jitter;
+      if (tx < 72 || ty < 72 || tx > w - 72 || ty > h - 72) continue;
+      var rSize = Math.floor(rndRing() * 3);
+      var rRow = rndRing() < 0.35 ? 3 : (rndRing() < 0.5 ? 1 : 0);
+      addTree(tx, ty, rRow, rSize, 235 - rSize * 36);
+    }
+
+    /* 2. Outer forest fills the rest of the world */
+    var rndOuter = mulberry(99403);
+    for (var oi = 0; oi < 88; oi++) {
+      var ox = 80 + rndOuter() * (w - 160);
+      var oy = 80 + rndOuter() * (h - 160);
+      if (inClearing(ox, oy, 120)) continue;
+      var oSize = Math.floor(rndOuter() * 4);
+      var oRow = rndOuter() < 0.28 ? 3 : (rndOuter() < 0.5 ? 1 : 0);
+      addTree(ox, oy, oRow, oSize, 200 - oSize * 26);
+    }
+
+    /* 3. Stone circle — 5 standing stones ringing the clearing center */
+    var STONE_R = 155;
+    for (var si = 0; si < 5; si++) {
+      var sAng = (si / 5) * Math.PI * 2 - Math.PI / 2;
+      var sx = cx + Math.cos(sAng) * STONE_R;
+      var sy = cy + Math.sin(sAng) * STONE_R;
+      addProp(sx, sy, 'rock', si % 5);
+      addProp(sx + Math.cos(sAng + 0.6) * 40, sy + Math.sin(sAng + 0.6) * 40, 'rock', (si + 3) % 5);
+    }
+    addProp(cx, cy, 'rock', 2);
+
+    /* 4. Eastern ruins — crumbled stone cluster where enemies camp */
+    var ruinsX = cx + rx * 0.70;
+    var ruinsY = cy;
+    var ruinLayout = [
+      { dx: 0,   dy: -88, v: 0 }, { dx: -52, dy: -52, v: 1 }, { dx: 52,  dy: -50, v: 2 },
+      { dx: 0,   dy: 88,  v: 3 }, { dx: -62, dy: 58,  v: 4 }, { dx: 64,  dy: 44,  v: 0 },
+      { dx: -28, dy: 0,   v: 1 }, { dx: 36,  dy: 0,   v: 2 },
+    ];
+    ruinLayout.forEach(function (r) { addProp(ruinsX + r.dx, ruinsY + r.dy, 'rock', r.v); });
+    addProp(ruinsX - 100, ruinsY - 118, 'stump', 0);
+    addProp(ruinsX + 88, ruinsY + 98, 'stump', 2);
+
+    /* 5. Western alcove — Aelindra spawn area (roots and vines) */
+    var westX = cx - rx * 0.72;
+    var westY = cy;
+    [
+      { dx: 0,   dy: -82, prop: 'vine' },  { dx: 0,  dy: 82, prop: 'vine' },
+      { dx: -58, dy: -42, prop: 'stump' }, { dx: -58, dy: 44, prop: 'stump' },
+    ].forEach(function (v, vi) { addProp(westX + v.dx, westY + v.dy, v.prop, vi % 3); });
+
+    /* 6. Clearing flowers, mushrooms, and path-entrance markers */
+    var clearDetail = [
+      { x: cx - 310, y: cy - 60,       prop: 'flower' },
+      { x: cx + 290, y: cy - 80,       prop: 'flower' },
+      { x: cx - 280, y: cy + 72,       prop: 'flower' },
+      { x: cx + 260, y: cy + 90,       prop: 'flower' },
+      { x: cx - 430, y: cy + 148,      prop: 'mushroom' },
+      { x: cx - 398, y: cy - 158,      prop: 'mushroom' },
+      { x: cx + 350, y: cy + 168,      prop: 'mushroom' },
+      { x: cx - 100, y: cy - ry * 0.82, prop: 'flower' },
+      { x: cx + 100, y: cy - ry * 0.82, prop: 'flower' },
+      { x: cx - 100, y: cy + ry * 0.82, prop: 'flower' },
+      { x: cx + 100, y: cy + ry * 0.82, prop: 'flower' },
+      { x: cx - rx * 0.88, y: cy - 120, prop: 'vine' },
+      { x: cx - rx * 0.88, y: cy + 130, prop: 'vine' },
+      { x: cx + rx * 0.50, y: cy - ry * 0.70, prop: 'stump' },
+      { x: cx - rx * 0.54, y: cy + ry * 0.65, prop: 'stump' },
+      { x: cx + rx * 0.44, y: cy + ry * 0.72, prop: 'stump' },
+    ];
+    clearDetail.forEach(function (d, di) {
+      if (!inClearing(d.x, d.y, 30)) return;
+      var ok = clearOfPoints(d.x, d.y, avoid, 100);
+      if (ok) addProp(d.x, d.y, d.prop, di % 4);
+    });
+
+    return out;
+  }
+
+  function buildVerdantReach(s) {
+    var w = W(), h = H();
+    var cx = w * 0.5, cy = h * 0.5;
+    var px = 480, py = cy;
+
+    var aelindra = null;
+    if (RTS.makeHero) {
+      aelindra = RTS.makeHero(s, 'aelindra', RTS.TEAM.PLAYER, px, py, s.playerFaction);
+      if (aelindra && RTS.UnitAI) {
+        RTS.UnitAI.setCommand(aelindra, 'idle', {
+          guardOrigin: { x: aelindra.x, y: aelindra.y },
+        });
+        aelindra._heroTestPassive = true;
+      }
+    }
+
+    var rx = 680;
+    var enemyCx = cx + rx * 0.70, enemyCy = cy;
+    var goblinDefs = [
+      { dx: 0,   dy: 0,   type: 'warrior' },
+      { dx: -50, dy: -78, type: 'lancer' },
+      { dx: -50, dy: 78,  type: 'lancer' },
+      { dx: 80,  dy: -40, type: 'archer' },
+      { dx: 80,  dy: 40,  type: 'archer' },
+    ];
+    goblinDefs.forEach(function (g) {
+      var u = RTS.makeUnit(s, g.type, RTS.TEAM.ENEMY, enemyCx + g.dx, enemyCy + g.dy, 'cinder');
+      if (u && RTS.UnitAI) RTS.UnitAI.setCommand(u, 'hold', { guardOrigin: { x: u.x, y: u.y } });
+    });
+
+    var avoid = [{ x: px, y: py }, { x: enemyCx, y: enemyCy }];
+
+    finishMap(s, {
+      id: 'verdant_reach',
+      name: 'The Verdant Reach',
+      theme: 'grove',
+      decor: buildVerdantReachDecor(w, h, cx, cy, avoid),
+      terrainDef: {
+        theme: 'grove',
+        tileset: 'grove',
+        applyTerraform: false,
+        island: { x: 48, y: 48, w: w - 96, h: h - 96 },
+        waterPools: groveRiverPools(w, h, 99401),
+      },
+      terraformForestWalls: false,
+      intro: 'The Verdant Reach — sacred Rimwalker ground, a great clearing ringed by ancient trees',
+      win: 'The reach is held.',
+      lose: 'Aelindra has fallen.',
+      heroTestFocus: aelindra ? aelindra.id : null,
+      sandbox: true,
+    });
+
+    if (aelindra) {
+      RTS.log(s, 'Aelindra Ashveil — the Verdant Reach. Rimwalker territory. Move through the clearing and hold the ruins.', 'good');
+    }
+  }
+
+  /* ---- 5. Aelindra vs goblins — bare grass duel -------------------------------- */
+  function buildAelindraDuel(s) {
+    var w = W(), h = H();
+    var px = 520, py = h * 0.5;
+    var ex = w - 520, ey = h * 0.5;
+
+    var aelindra = null;
+    if (RTS.makeHero) {
+      aelindra = RTS.makeHero(s, 'aelindra', RTS.TEAM.PLAYER, px, py, s.playerFaction);
+      if (aelindra && RTS.UnitAI) {
+        RTS.UnitAI.setCommand(aelindra, 'idle', {
+          guardOrigin: { x: aelindra.x, y: aelindra.y },
+        });
+        aelindra._heroTestPassive = true;
+      }
+    }
+
+    var goblinXs = [ex, ex - 48, ex - 48];
+    var goblinYs = [ey - 70, ey, ey + 70];
+    for (var g = 0; g < 3; g++) {
+      var gob = RTS.makeUnit(s, 'lancer', RTS.TEAM.ENEMY, goblinXs[g], goblinYs[g], 'cinder');
+      if (gob && RTS.UnitAI) {
+        RTS.UnitAI.setCommand(gob, 'hold', {
+          guardOrigin: { x: gob.x, y: gob.y },
+        });
+      }
+    }
+
+    finishMap(s, {
+      id: 'aelindra_duel',
+      name: 'Aelindra vs Goblins',
+      theme: 'grass',
+      decor: [],
+      terrainDef: {
+        theme: 'grass',
+        tileset: 'color1',
+        island: { x: 64, y: 64, w: w - 128, h: h - 128 },
+      },
+      terraformForestWalls: false,
+      intro: 'Open grass — Aelindra west, three Spear Goblins east',
+      win: 'The goblins are routed.',
+      lose: 'Aelindra has fallen.',
+      heroTestFocus: aelindra ? aelindra.id : null,
+      sandbox: true,
+    });
+
+      if (aelindra) {
+        RTS.log(s, 'Aelindra Ashveil — right-click ground to move (or Move button, then click ground)', 'good');
+      }
+  }
+
+  /* ---- 6. Aelindra hero test arena — open lane, target dummies ---------------- */
+  function buildAelindraTest(s) {
+    var w = W(), h = H();
+    var pf = s.playerFaction, ef = s.enemyFaction;
+    var px = 620, py = h * 0.5;
+    var ex = w - 620, ey = h * 0.5;
+
+    spawnBase(s, RTS.TEAM.PLAYER, px, py, pf, false, {
+      workers: 0, rallyDx: 100, rallyDy: 0, skipHero: true,
+    });
+    spawnBase(s, RTS.TEAM.ENEMY, ex, ey, ef, true, {
+      workers: 0, rallyDx: -100, rallyDy: 0, skipHero: true,
+    });
+
+    var aelindra = null;
+    if (RTS.makeHero) {
+      aelindra = RTS.makeHero(s, 'aelindra', RTS.TEAM.PLAYER, px + 100, py, s.playerFaction);
+      if (aelindra) {
+        if (RTS.UnitAI) {
+          RTS.UnitAI.setCommand(aelindra, 'idle', {
+            guardOrigin: { x: aelindra.x, y: aelindra.y },
+          });
+        }
+        aelindra._heroTestPassive = true;
+        RTS.log(s, 'Aelindra Ashveil — right-click ground to move (or Move button, then click ground)', 'good');
+      }
+    }
+
+    RTS.makeUnit(s, 'pawn', RTS.TEAM.PLAYER, px + 50, py + 70, pf);
+    RTS.makeUnit(s, 'pawn', RTS.TEAM.ENEMY, ex - 150, ey, ef);
+    RTS.makeUnit(s, 'archer', RTS.TEAM.ENEMY, ex - 220, ey - 55, ef);
+    RTS.makeUnit(s, 'warrior', RTS.TEAM.ENEMY, ex - 220, ey + 55, ef);
+
+    mine(s, px - 100, py - 140, true);
+    mine(s, ex + 100, ey + 140, true);
+
+    finishMap(s, {
+      id: 'aelindra_test',
+      name: 'Aelindra Test Arena',
+      theme: 'grass',
+      decor: decor(99101, 14, w, h, 0.28),
+      shoreSeed: 99102,
+      terrainDef: {
+        theme: 'grass',
+        tileset: 'color1',
+        island: { x: 100, y: 100, w: w - 200, h: h - 200 },
+      },
+      intro: 'Aelindra test arena — practice movement and attacks on training dummies',
+      win: 'Test complete.',
+      lose: 'Your keep fell.',
+      heroTestFocus: aelindra ? aelindra.id : null,
+    });
+  }
+
   RTS.Maps = {
+    fairy_clearing: {
+      id: 'fairy_clearing',
+      name: 'Fairy Clearing',
+      tagline: 'Fairy Forest · Flat field',
+      blurb: 'An open flat clearing beneath the fairy-forest canopy. No cliffs, no voids — fight for five gold nodes across unobstructed terrain.',
+      build: buildFairyClearing,
+    },
+    runic_clearing: {
+      id: 'runic_clearing',
+      name: 'Runic Clearing',
+      tagline: 'Grass · Ancient forest shrine',
+      blurb: 'A vast sacred clearing ringed by a thinning forest. Runic standing stones dominate the upper-right — control the shrine to control the gold.',
+      build: buildRunicClearing,
+    },
     sapphire_shores: {
       id: 'sapphire_shores',
       name: 'Sapphire Shores',
       tagline: 'Grass · Island archipelago',
       blurb: 'Forested isles with a shallow central lane — bases at the north shores.',
       build: buildSapphireShores,
+    },
+    turtle_cove: {
+      id: 'turtle_cove',
+      name: 'Turtle Cove',
+      tagline: 'Grass · Turtle Rock lattice',
+      blurb: 'Four corner gold mines linked by shallow bridges — north spawns face off across the cove.',
+      build: buildTurtleCove,
     },
     ember_divide: {
       id: 'ember_divide',
@@ -749,15 +1293,43 @@
       blurb: 'Twin elevated corners joined by a tight isthmus. Contested Ironstone sits in the choke.',
       build: buildCrownIsthmus,
     },
+    aelindra_test: {
+      id: 'aelindra_test',
+      name: 'Aelindra Test Arena',
+      tagline: 'Hero sandbox · Rimwalker',
+      blurb: 'Open grass lane with Aelindra and enemy training dummies — for animation and combat testing.',
+      build: buildAelindraTest,
+    },
+    aelindra_duel: {
+      id: 'aelindra_duel',
+      name: 'Aelindra vs Goblins',
+      tagline: 'Open grass · 1v3 duel',
+      blurb: 'Bare grass field — Aelindra on one flank, three Spear Goblins on the other. No bases, no waves.',
+      build: buildAelindraDuel,
+    },
+    aelindra_grove: {
+      id: 'aelindra_grove',
+      name: 'Aelindra Grove',
+      tagline: 'Fairy Forest · Magical clearing',
+      blurb: 'Purple-canopy grove with glowing flowers, mushrooms, and a winding stream — Aelindra vs three goblins.',
+      build: buildAelindraGrove,
+    },
+    verdant_reach: {
+      id: 'verdant_reach',
+      name: 'The Verdant Reach',
+      tagline: 'Rimwalker territory · Ancient clearing',
+      blurb: 'A vast sacred clearing ringed by ancient trees. Stone circle, crumbled ruins, and five waiting goblins.',
+      build: buildVerdantReach,
+    },
   };
 
-  /* Visible in map select — other maps kept in RTS.Maps but archived */
-  RTS.MapList = ['sapphire_shores'];
+  /* Visible in map select */
+  RTS.MapList = ['fairy_clearing'];
 
   RTS.buildMap = function (s, mapId) {
-    mapId = mapId || s.mapId || 'sapphire_shores';
-    if (RTS.MapList.indexOf(mapId) < 0) mapId = 'sapphire_shores';
-    var def = RTS.Maps[mapId] || RTS.Maps.sapphire_shores;
+    mapId = mapId || s.mapId || 'fairy_clearing';
+    if (RTS.MapList.indexOf(mapId) < 0) mapId = 'fairy_clearing';
+    var def = RTS.Maps[mapId] || RTS.Maps.fairy_clearing;
     s.mapId = def.id;
     def.build(s);
   };

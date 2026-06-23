@@ -409,7 +409,7 @@
       if (u.harvest.phase === 'toBase' && u.harvest.carry > 0) {
         return 'returning +' + Math.floor(u.harvest.carry);
       }
-      return 'to Ironstone';
+      return 'to ' + RTS.resourceLabel(u.faction);
     }
     if (u.role === 'pawn') return 'Hold site \u2192 build';
     return 'Ready';
@@ -825,6 +825,15 @@
       RTS.toggleAutomine && RTS.toggleAutomine(s, data.bid);
     } else if (act === 'move') {
       s.pendingOrder = 'move';
+      s.ui.lastUiAt = 0;
+      if (RTS.Input && RTS.Input.ensureHeroTestSelection) {
+        RTS.Input.ensureHeroTestSelection(s);
+      }
+      if (RTS.activeCombatUnits && RTS.activeCombatUnits(s).length) {
+        RTS.toast && RTS.toast(s, 'Tap ground to move');
+      } else if (s.map && s.map.heroTestFocus) {
+        RTS.toast && RTS.toast(s, 'Tap ground to move');
+      }
     } else if (act === 'attack-move') {
       s.attackMoveArmed = !s.attackMoveArmed;
       RTS.refreshMode && RTS.refreshMode(s);

@@ -1510,4 +1510,58 @@
     });
   }
 
+  /*
+   * Fairy Clearing — tile the Pixel Crawler grass tiles across the visible viewport.
+   * Uses interior grass tiles (row 1-2, col 1-3) to get clean, flat green ground.
+   * A checkerboard-like pattern of 3 tile variants prevents monotone repetition.
+   * Rendered at 2× scale (16px → 32px per tile) with pixelated scaling.
+   */
+  var _fcGrassTiles = [
+    { sx: 16, sy: 16 },  // col 1 row 1 — medium green
+    { sx: 32, sy: 16 },  // col 2 row 1 — medium green (slightly lighter)
+    { sx: 32, sy: 32 },  // col 2 row 2 — slightly deeper green
+  ];
+
+  // Draws the PC fairy grass tiles in CSS pixel space (before the world transform).
+  // This ensures the tiling covers the full canvas regardless of DPR or camera zoom.
+  // W and H are the CSS pixel dimensions of the canvas (passed from render.js).
+  function drawFairyGrassFloor(ctx, s, W, H) {
+    var img = RTS.Assets && RTS.Assets.img ? RTS.Assets.img('pc-fairy-tiles.png', 'assets/terrain/') : null;
+    if (!img) return;
+    if (!W || !H) {
+      W = RTS.canvas ? RTS.canvas.clientWidth : 1920;
+      H = RTS.canvas ? RTS.canvas.clientHeight : 1080;
+    }
+    var cam = s.camera;
+    var tileWorld = 32;   // world units per tile
+    var sw = 16, sh = 16; // source pixels in the tileset
+    var tileCSS = tileWorld * cam.zoom;  // CSS pixels per displayed tile (scrolls naturally)
+
+    // First tile column/row in world units that is at or just before the left/top screen edge
+    var startCol = Math.floor(cam.x / tileWorld);
+    var startRow = Math.floor(cam.y / tileWorld);
+
+    // CSS screen offset of that first tile (will be in [-tileCSS, 0])
+    var startX = (startCol * tileWorld - cam.x) * cam.zoom;
+    var startY = (startRow * tileWorld - cam.y) * cam.zoom;
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    var colIdx = 0;
+    for (var dx = startX; dx < W + tileCSS; dx += tileCSS, colIdx++) {
+      var rowIdx = 0;
+      for (var dy = startY; dy < H + tileCSS; dy += tileCSS, rowIdx++) {
+        var worldCol = startCol + colIdx;
+        var worldRow = startRow + rowIdx;
+        var variant = ((worldRow + worldCol) % 3 + 3) % 3;
+        var t = _fcGrassTiles[variant];
+        ctx.drawImage(img, t.sx, t.sy, sw, sh, dx, dy, tileCSS, tileCSS);
+      }
+    }
+    ctx.restore();
+  }
+
+  RTS.Art = RTS.Art || {};
+  RTS.Art.drawFairyGrassFloor = drawFairyGrassFloor;
+
 })(window.RTS = window.RTS || {});

@@ -1,0 +1,12 @@
+{
+  "storageKey": "44998a59-f5f5-4ba7-bf18-0d3e55995e7b",
+  "storageUrl": "https://uqutkiynldivysxyzuuu.supabase.co/storage/v1/object/sign/generations/4bda7a3d-356e-49f3-80ac-d4cd8c52db4e/44998a59-f5f5-4ba7-bf18-0d3e55995e7b/sheet.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84MjJjM2FlNi01OWFhLTRkMWQtYTkzMi0yNzJmZDgzYWQxZTMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJnZW5lcmF0aW9ucy80YmRhN2EzZC0zNTZlLTQ5ZjMtODBhYy1kNGNkOGM1MmRiNGUvNDQ5OThhNTktZjVmNS00YmE3LWJmMTgtMGQzZTU1OTk1ZTdiL3NoZWV0LnBuZyIsInNjb3BlIjoiZG93bmxvYWQiLCJpYXQiOjE3ODE4NTEyNDgsImV4cCI6MTc4MTg1NDg0OH0.HZkLloEnQ4NW9fIK1cw504x1maf3sSAiFJPUYiFK6qw",
+  "mimeType": "image/png",
+  "refinedPrompt": "Chibi high-detail pixel art mage character casting a spell with eyes closing and posture sinking, heavy Valdris style, facing right",
+  "usage": {
+    "provider": "gemini",
+    "imageCount": 1,
+    "cost": 0.039
+  },
+  "balanceMdollars": 7300
+}

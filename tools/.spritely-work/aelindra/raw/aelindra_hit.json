@@ -1,0 +1,12 @@
+{
+  "storageKey": "f8ec13af-1ef5-4da8-a477-2882a2ec3e2c",
+  "storageUrl": "https://uqutkiynldivysxyzuuu.supabase.co/storage/v1/object/sign/generations/4bda7a3d-356e-49f3-80ac-d4cd8c52db4e/f8ec13af-1ef5-4da8-a477-2882a2ec3e2c/sheet.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84MjJjM2FlNi01OWFhLTRkMWQtYTkzMi0yNzJmZDgzYWQxZTMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJnZW5lcmF0aW9ucy80YmRhN2EzZC0zNTZlLTQ5ZjMtODBhYy1kNGNkOGM1MmRiNGUvZjhlYzEzYWYtMWVmNS00ZGE4LWE0NzctMjg4MmEyZWMzZTJjL3NoZWV0LnBuZyIsInNjb3BlIjoiZG93bmxvYWQiLCJpYXQiOjE3ODE4NTEyODMsImV4cCI6MTc4MTg1NDg4M30.5-UeMfnkTsGRNoPWUp_DmXY0gJaolUcsAj30jk2aY4E",
+  "mimeType": "image/png",
+  "refinedPrompt": "Chibi high-detail pixel art RTS hero with staff planted, reacting to hit with tiny flinch and shudder, facing right",
+  "usage": {
+    "provider": "gemini",
+    "imageCount": 1,
+    "cost": 0.039
+  },
+  "balanceMdollars": 7200
+}

@@ -79,7 +79,7 @@
     RTS.HUD.sync(s);
   };
 
-  var MACRO_ROLE_ORDER = ['pawn', 'lancer', 'archer', 'monk', 'warrior'];
+  var MACRO_ROLE_ORDER = ['pawn', 'lancer', 'archer', 'monk', 'warrior', 'hero'];
 
   RTS.clearMacroGroups = function (s) {
     s.ui.macroGroups = null;
@@ -254,7 +254,12 @@
   };
 
   RTS.activeCombatUnits = function (s) {
-    return RTS.activeSelectedUnits(s).filter(function (u) { return u.role !== 'pawn'; });
+    var units = RTS.activeSelectedUnits(s).filter(function (u) { return u.role !== 'pawn'; });
+    // Selected heroes always receive move/attack orders, even under a pawn subgroup filter.
+    RTS.selectedUnits(s).forEach(function (u) {
+      if (u.role === 'hero' && units.indexOf(u) < 0) units.push(u);
+    });
+    return units;
   };
 
   RTS.activeWorkers = function (s) {
@@ -375,6 +380,10 @@
   // ---- Normalized unit commands (legacy fields kept in sync) ---------------
   function applyUnitCommand(u, mode, payload) {
     payload = payload || {};
+    if (u._heroTestPassive &&
+        (mode === 'move' || mode === 'attackMove' || mode === 'attackTarget')) {
+      u._heroTestPassive = false;
+    }
     u.commandMode = mode === 'assistBuild' ? 'build' : mode;
     u.commandTargetId = payload.targetId || null;
     u.commandTargetPos = payload.pos ? { x: payload.pos.x, y: payload.pos.y } : null;
@@ -884,7 +893,7 @@
     s.pending.building = type;
     s.inputMode = 'place-building';
     var hint = type === 'outpost'
-      ? 'Tap a glowing ring near Ironstone to raise a Forward Bastion'
+      ? 'Tap a glowing ring near ' + RTS.resourceLabel(s.playerFaction) + ' to raise a ' + RTS.nameFor(s.playerFaction, 'outpost')
       : type === 'turret'
         ? 'Tap open land to place a Tower'
         : 'Tap a highlighted spot to build ' + RTS.nameFor(s.playerFaction, type);
@@ -1099,7 +1108,7 @@
     y = snapped.y;
     if (!RTS.canPlaceAt(s, type, x, y)) {
       var denyMsg = type === 'outpost'
-        ? 'Build in the ring beside Ironstone, away from other keeps'
+        ? 'Build in the ring beside ' + RTS.resourceLabel(s.playerFaction) + ', away from other keeps'
         : type === 'turret'
           ? 'Tower needs open land — not water or trees'
           : 'Invalid location';
@@ -1107,7 +1116,7 @@
       RTS.Audio.play('deny'); return false;
     }
     if (!RTS.canAfford(s, RTS.TEAM.PLAYER, RTS.Buildings[type].cost)) {
-      RTS.toast(s, 'Not enough ' + RTS.resourceLabel()); RTS.Audio.play('deny'); return false;
+      RTS.toast(s, 'Not enough ' + RTS.resourceLabel(s.playerFaction)); RTS.Audio.play('deny'); return false;
     }
     s.res.player.halcite -= RTS.Buildings[type].cost;
     var b = RTS.makeBuilding(s, type, RTS.TEAM.PLAYER, x, y, s.playerFaction, false);
@@ -1127,7 +1136,7 @@
       RTS.toast(s, 'No Pawn available to build');
     }
     RTS.log(s, RTS.nameFor(s.playerFaction, type) + ' under construction', 'good');
-    if (type === 'outpost') RTS.log(s, 'Forward Bastion raised — secure the Ironstone', 'good');
+    if (type === 'outpost') RTS.log(s, RTS.nameFor(s.playerFaction, 'outpost') + ' raised — secure the ' + RTS.resourceLabel(s.playerFaction), 'good');
     RTS.Audio.play('build');
     s.pending.building = null;
     s.inputMode = 'select';
@@ -1158,6 +1167,32 @@
     b.dead = true;
     RTS.clearSelection(s);
     if (RTS.Audio) RTS.Audio.play('click');
+    if (RTS.HUD) RTS.HUD.sync(s);
+  };
+
+  RTS.upgradeBuilding = function (s, buildingId) {
+    var b = (s.entities.buildings || []).find(function (x) { return x.id === buildingId; });
+    if (!b || !b.built) return;
+    if (!RTS.Config.canUpgrade || !RTS.Config.canUpgrade(b)) return;
+    var cost = RTS.Config.upgradeCost ? RTS.Config.upgradeCost(b) : 0;
+    if (!RTS.canAfford(s, RTS.TEAM.PLAYER, cost)) {
+      RTS.toast(s, 'Not enough ' + RTS.resourceLabel(s.playerFaction));
+      if (RTS.Audio) RTS.Audio.play('deny');
+      return;
+    }
+    s.res.player.halcite -= cost;
+    b.level = (b.level || 1) + 1;
+    /* Restore HP proportionally at new level */
+    var spec = RTS.Buildings[b.type];
+    if (spec && spec.upgradeHp) {
+      var newMax = spec.upgradeHp[b.level - 2] || spec.hp;
+      b.maxHp = newMax;
+      b.hp = Math.min(b.hp + Math.floor(newMax * 0.25), newMax);
+    }
+    RTS.recalcSupply(s, b.team);
+    var lvName = ['', '', 'II', 'III'][b.level] || ('Lv' + b.level);
+    RTS.log(s, RTS.nameFor(s.playerFaction, b.type) + ' upgraded to ' + lvName, 'good');
+    if (RTS.Audio) RTS.Audio.play('ready');
     if (RTS.HUD) RTS.HUD.sync(s);
   };
 

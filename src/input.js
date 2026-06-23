@@ -96,6 +96,12 @@
       { ox:   0, oy:  0, rx: 72, ry: 80 },   // centre body
       { ox:  72, oy:  0, rx: 62, ry: 72 },   // right section
     ],
+    // ── rimwalker_core (Roothold tree 256×256, draws ~192px tall, canopy extends ~177px above foot)
+    // Two ellipses covering full tree: lower trunk/door + upper canopy
+    rimwalker_core: [
+      { ox:  0, oy:  -55, rx: 80, ry: 75 },  // trunk & door (foot to mid-tree)
+      { ox:  0, oy: -140, rx: 70, ry: 60 },  // canopy (upper tree)
+    ],
     // ── outpost (128 × 128) ───────────────────────────────────────────────
     // Two ellipses: upper tower · lower base
     outpost: [
@@ -147,7 +153,7 @@
   function buildingEllipseHit(b, wx, wy, slop) {
     var lx = wx - b.x;   // building-local coords
     var ly = wy - b.y;
-    var ellipses = BUILDING_ELLIPSES[b.type];
+    var ellipses = BUILDING_ELLIPSES[(b.faction || '') + '_' + b.type] || BUILDING_ELLIPSES[b.type];
     if (!ellipses) {
       // Fallback: single centred ellipse sized to the footprint
       var rx = b.w / 2 + slop, ry = b.h / 2 + slop;
@@ -229,13 +235,34 @@
     };
   }
 
+  function ensureHeroTestSelection(s) {
+    if (!s.map || !s.map.heroTestFocus) return;
+    if (RTS.activeCombatUnits(s).length) return;
+    var hero = RTS.getById(s, s.map.heroTestFocus);
+    if (!hero || hero.dead) return;
+    s.selectedIds = [hero.id];
+    if (RTS.clearMacroGroups) RTS.clearMacroGroups(s);
+    s.ui.selectionFilter = 'all';
+    if (RTS.refreshMode) RTS.refreshMode(s);
+  }
+
   function resolveTapIntent(s, wx, wy, additive) {
+    ensureHeroTestSelection(s);
     var ctx = resolveHitContext(s, wx, wy);
     var hit = ctx.hit;
     var sel = ctx.sel;
     var combat = ctx.combat;
     var workers = ctx.workers;
 
+    if (s.pendingOrder === 'move' &&
+        (!hit || hit.kind === 'resource' || isBareGround(hit))) {
+      if (!combat.length) {
+        s.pendingOrder = null;
+        return { type: 'noop' };
+      }
+      s.pendingOrder = null;
+      return { type: 'moveCombat', x: wx, y: wy, attackMove: false, units: combat };
+    }
     if (!sel.length && hit && hit.kind === 'resource') {
       return { type: 'smartMine', nodeId: hit.id, x: wx, y: wy };
     }
@@ -327,6 +354,9 @@
       case 'moveCombat':
         RTS.orderMove(s, intent.units, intent.x, intent.y, intent.attackMove);
         flash(s, intent.x, intent.y, intent.attackMove ? '#ff9a3c' : RTS.Factions[s.playerFaction].primary);
+        if (intent.units.some(function (u) { return u.role === 'hero'; })) {
+          RTS.toast(s, 'Move order');
+        }
         haptic(8);
         break;
       case 'moveWorkers':
@@ -348,6 +378,8 @@
   }
 
   function tapWorld(s, wx, wy, additive) {
+    ensureHeroTestSelection(s);
+
     if (s.inputMode !== 'place-building' && s.ui.buildPanelOpen) {
       s.ui.buildPanelOpen = false;
       if (RTS.HUD && RTS.HUD.sync) RTS.HUD.sync(s);
@@ -493,6 +525,7 @@
 
   // ---- Init / event wiring -------------------------------------------------
   RTS.Input = {
+    ensureHeroTestSelection: ensureHeroTestSelection,
     init: function (canvas, getState) {
       var DRAG = (RTS.Config.touch && RTS.Config.touch.dragPx) || 12;
       var UIBLOCK = (RTS.Config.touch && RTS.Config.touch.uiBlockMs) || 320;
@@ -534,7 +567,8 @@
 
       // --- single-pointer (mouse or 1 touch) ---
       function down(cssX, cssY, shift) {
-        var s = st(); if (!s || !active() || uiBlocked(s)) return;
+        var s = st();
+        if (!s || !active() || (uiBlocked(s) && s.pendingOrder !== 'move')) return;
         if (RTS.RadialMenu && RTS.RadialMenu.isOpen()) {
           s.ui.pointer = {
             cssX: cssX, cssY: cssY, startX: cssX, startY: cssY,
@@ -614,7 +648,8 @@
           s.selectionBox = { x1: p.wx, y1: p.wy, x2: w.x, y2: w.y };
           return;
         }
-        if (p.onEmpty) {
+        // With fighters selected, drag on open ground issues a move on release — don't pan.
+        if (p.onEmpty && !RTS.activeCombatUnits(s).length) {
           p.panning = true;
           var prev = RTS.Cam.screenToWorld(s, p.cssX, p.cssY);
           s.camera.x -= (w.x - prev.x);
@@ -657,7 +692,27 @@
           return;
         }
         s.selectionBox = null;
-        if (!p.moved && !p.longPressFired && !p.menuHoldFired && !uiBlocked(s)) {
+        var w = RTS.Cam.screenToWorld(s, cssX, cssY);
+        var hitUp = hitTest(s, w.x, w.y);
+        ensureHeroTestSelection(s);
+        var combatSel = RTS.activeCombatUnits(s);
+        var pendingMove = s.pendingOrder === 'move';
+        var groundMove = (combatSel.length || pendingMove) && p.onEmpty && isBareGround(hitUp)
+          && s.inputMode !== 'place-building';
+
+        // Fighters selected + bare ground: always move on release (even after a small drag).
+        // Skip uiBlocked when Move button just armed a pending order (HUD tap sets lastUiAt).
+        var uiOk = !uiBlocked(s) || pendingMove;
+        if (groundMove && !p.longPressFired && !p.menuHoldFired && uiOk
+            && !p.armyDouble && !p.buildingDouble && !p.pawnDouble) {
+          clearPendingTap();
+          tapWorld(s, w.x, w.y, p.shift);
+          if (pendingMove) s.pendingOrder = null;
+          lastTap = { t: performance.now(), x: cssX, y: cssY, empty: true, hitId: null, hitKind: null };
+          return;
+        }
+
+        if (!p.moved && !p.longPressFired && !p.menuHoldFired && (uiOk || pendingMove)) {
           if (p.armyDouble) {
             RTS.selectAllArmy(s);
             RTS.toast(s, 'Army selected');
@@ -673,12 +728,17 @@
             lastTap = { t: 0, x: 0, y: 0, empty: false, hitId: null, hitKind: null };
             return;
           }
-          var w = RTS.Cam.screenToWorld(s, cssX, cssY);
-          var hitUp = hitTest(s, w.x, w.y);
           var now = performance.now();
           if (isBareGround(hitUp) && s.inputMode !== 'place-building') {
-            schedulePendingTap(s, w.x, w.y, p.shift);
-            lastTap = { t: now, x: cssX, y: cssY, empty: true, hitId: null, hitKind: null };
+            if (pendingMove) {
+              clearPendingTap();
+              tapWorld(s, w.x, w.y, p.shift);
+              s.pendingOrder = null;
+              lastTap = { t: 0, x: 0, y: 0, empty: false, hitId: null, hitKind: null };
+            } else {
+              schedulePendingTap(s, w.x, w.y, p.shift);
+              lastTap = { t: now, x: cssX, y: cssY, empty: true, hitId: null, hitKind: null };
+            }
           } else {
             clearPendingTap();
             lastTap = {
@@ -712,8 +772,21 @@
         if (!s.ui.pointer && s.inputMode !== 'place-building') return;
         var r = rect(); move(e.clientX - r.left, e.clientY - r.top);
       });
-      window.addEventListener('mouseup', function (e) {
+      canvas.addEventListener('mouseup', function (e) {
+        if (!isSurface(e)) return;
         var r = rect(); up(e.clientX - r.left, e.clientY - r.top);
+      });
+      window.addEventListener('mouseup', function (e) {
+        if (e.target === canvas) return;
+        var r = rect(); up(e.clientX - r.left, e.clientY - r.top);
+        if (e.button === 2) {
+          var s = st();
+          if (s && active()) {
+            var w = RTS.Cam.screenToWorld(s, e.clientX - r.left, e.clientY - r.top);
+            ensureHeroTestSelection(s);
+            if (RTS.activeCombatUnits(s).length) tapWorld(s, w.x, w.y, false);
+          }
+        }
       });
       canvas.addEventListener('wheel', function (e) {
         var s = st(); if (!s || !active()) return; e.preventDefault();
@@ -723,7 +796,7 @@
       canvas.addEventListener('contextmenu', function (e) {
         e.preventDefault();
         var s = st(); if (!s || !active()) return;
-        // right-click = quick command (move/attack) like RTS
+        if (uiBlocked(s) && s.pendingOrder !== 'move') return;
         var r = rect();
         var w = RTS.Cam.screenToWorld(s, e.clientX - r.left, e.clientY - r.top);
         if (s.inputMode === 'place-building') { RTS.cancelPlacement(s); return; }
@@ -845,6 +918,11 @@
         var s = st(); if (!s || !active()) return;
         if (e.key === 'Escape') { if (s.inputMode === 'place-building') RTS.cancelPlacement(s); else RTS.clearSelection(s); }
         if (e.key === 'a' || e.key === 'A') { s.attackMoveArmed = !s.attackMoveArmed; RTS.refreshMode(s); RTS.HUD.sync(s); }
+        if (e.key === 'm' || e.key === 'M') {
+          s.pendingOrder = 'move';
+          ensureHeroTestSelection(s);
+          if (RTS.activeCombatUnits(s).length) RTS.toast(s, 'Click ground to move');
+        }
         if (e.key === 's' || e.key === 'S') { RTS.orderStop(s, RTS.activeSelectedUnits(s)); }
       });
     },

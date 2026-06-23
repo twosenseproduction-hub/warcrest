@@ -7,6 +7,8 @@
 
   var KINGDOM_BASE = 'assets/tiny-swords/';
   var KINGDOM_CUSTOM_BASE = 'assets/kingdom/';
+  var IRON_CROWN_BASE = 'assets/buildings/iron_crown/';
+  var RIMWALKER_BASE  = 'assets/buildings/rimwalker/';
   var ENEMY_BASE = 'assets/tiny-swords-enemy/';
   var LIVESTOCK_BASE = 'assets/livestock/';
   var RAIDER_BASE = 'assets/raider/';
@@ -18,9 +20,10 @@
     return base + rel.split('/').map(encodeURIComponent).join('/');
   }
 
-  function loadImg(rel, base) {
-    base = base || KINGDOM_BASE;
+  function loadImg(rel, base, cacheV) {
+    base = (base != null) ? base : KINGDOM_BASE;
     var key = base + rel;
+    if (cacheV) key += '?v=' + cacheV;
     if (cache[key]) {
       if (cache[key]._img) return Promise.resolve(cache[key]._img);
       return cache[key];
@@ -32,14 +35,14 @@
         delete cache[key];
         reject(new Error('asset: ' + key));
       };
-      img.src = url(base, rel);
+      img.src = url(base, rel) + (cacheV ? ('?v=' + cacheV) : '');
     });
     cache[key] = promise;
     return promise;
   }
 
   function imgSync(rel, base) {
-    base = base || KINGDOM_BASE;
+    base = (base != null) ? base : KINGDOM_BASE;
     var p = cache[base + rel];
     return (p && p._img) ? p._img : null;
   }
@@ -57,6 +60,10 @@
     (factionIds || []).forEach(function (fid) {
       if (fid === 'aurex') {
         loadImg(SHEPHERDS_HUT, KINGDOM_CUSTOM_BASE);
+        loadImg('castle.png', IRON_CROWN_BASE);
+        loadImg('farm.png',   IRON_CROWN_BASE);
+        loadImg('keep.png',   IRON_CROWN_BASE);
+        loadImg('pavilion.png', IRON_CROWN_BASE);
       }
       if (fid === 'cinder') {
         loadImg('Warren_Maw.png', RAIDER_BASE);
@@ -66,6 +73,15 @@
         loadImg(CHIEFS_HALL, RAIDER_BASE);
         loadImg(BONE_SPIRE, RAIDER_BASE);
         loadImg(GNOLL_BONE, ENEMY_BASE);
+      }
+      if (fid === 'rimwalker') {
+        loadImg('roothold.png',     RIMWALKER_BASE);
+        loadImg('briar_fold_1.png', RIMWALKER_BASE);
+        loadImg('briar_fold_2.png', RIMWALKER_BASE);
+        loadImg('briar_fold_3.png', RIMWALKER_BASE);
+        loadImg('warden_lodge.png', RIMWALKER_BASE);
+        loadImg('root_forge.png',   RIMWALKER_BASE);
+        loadImg('canopy_spire.png', RIMWALKER_BASE);
       }
     });
   }
@@ -108,6 +124,17 @@
     War_Pit:  { l: 0.010, r: 0.010, t: 0.020, b: 0.010 },
     House1:   { l: 0.062, r: 0.062, t: 0.083, b: 0.099 },
     House2:   { l: 0.000, r: 0.000, t: 0.120, b: 0.073 },
+    /* Iron Crown custom buildings */
+    IronCrown_Castle:   { l: 0.04, r: 0.04, t: 0.08, b: 0.04 },
+    IronCrown_Farm:     { l: 0.02, r: 0.02, t: 0.06, b: 0.04 },
+    IronCrown_Keep:     { l: 0.04, r: 0.04, t: 0.08, b: 0.04 },
+    IronCrown_Pavilion: { l: 0.02, r: 0.02, t: 0.06, b: 0.04 },
+    /* Rimwalker custom buildings */
+    RW_Roothold:     { l: 0.04, r: 0.04, t: 0.08, b: 0.04 },
+    RW_BriarFold:    { l: 0.03, r: 0.03, t: 0.06, b: 0.04 },
+    RW_WardenLodge:  { l: 0.04, r: 0.04, t: 0.08, b: 0.04 },
+    RW_RootForge:    { l: 0.04, r: 0.04, t: 0.08, b: 0.04 },
+    RW_CanopySpire:  { l: 0.06, r: 0.06, t: 0.10, b: 0.04 },
     PigSty:       { l: 0.06, r: 0.06, t: 0.10, b: 0.05 },
     Bone_Spire:   { l: 0.148, r: 0.120, t: 0.065, b: 0.038 },
     Skull_Den:    { l: 0.031, r: 0.031, t: 0.057, b: 0.044 },
@@ -282,7 +309,18 @@
     if (b.type === 'chiefs_hall' && b.faction === 'cinder') return 'Chiefs_Hall';
     if (b.type === 'conduit' && b.faction === 'cinder') return 'PigSty';
     if (b.type === 'turret' && b.faction === 'cinder') return 'Bone_Spire';
-    if (b.type === 'conduit' && b.faction === 'aurex') return 'ShepherdsHut';
+    if (b.type === 'core'    && b.faction === 'aurex') return 'IronCrown_Castle';
+    if (b.type === 'conduit' && b.faction === 'aurex') return 'IronCrown_Farm';
+    if (b.type === 'foundry' && b.faction === 'aurex') return 'IronCrown_Keep';
+    if (b.type === 'forge'   && b.faction === 'aurex') return 'IronCrown_Pavilion';
+    if (b.faction === 'rimwalker') {
+      if (b.type === 'core')    return 'RW_Roothold';
+      if (b.type === 'conduit') return 'RW_BriarFold';
+      if (b.type === 'foundry') return 'RW_WardenLodge';
+      if (b.type === 'forge')   return 'RW_RootForge';
+      if (b.type === 'turret')  return 'RW_CanopySpire';
+      if (b.type === 'outpost') return 'RW_Roothold';
+    }
     return BUILDING_TYPE_TO_INSET_KEY[b.type] || 'House1';
   }
 
@@ -305,8 +343,33 @@
     if (b.type === 'turret' && b.faction === 'cinder') {
       return { base: RAIDER_BASE, rel: BONE_SPIRE, frames: 1 };
     }
+    if (b.type === 'core'    && b.faction === 'aurex') {
+      return { base: IRON_CROWN_BASE, rel: 'castle.png', frames: 1 };
+    }
     if (b.type === 'conduit' && b.faction === 'aurex') {
-      return { base: KINGDOM_CUSTOM_BASE, rel: SHEPHERDS_HUT, frames: 1 };
+      return { base: IRON_CROWN_BASE, rel: 'farm.png', frames: 1 };
+    }
+    if (b.type === 'foundry' && b.faction === 'aurex') {
+      return { base: IRON_CROWN_BASE, rel: 'keep.png', frames: 1 };
+    }
+    if (b.type === 'forge' && b.faction === 'aurex') {
+      return { base: IRON_CROWN_BASE, rel: 'pavilion.png', frames: 1 };
+    }
+    if (b.faction === 'rimwalker') {
+      var rwFiles = {
+        core:    'roothold.png',
+        outpost: 'roothold.png',
+        foundry: 'warden_lodge.png',
+        forge:   'root_forge.png',
+        turret:  'canopy_spire.png',
+      };
+      if (b.type === 'conduit') {
+        var lv = (b.level && b.level > 1) ? b.level : 1;
+        return { base: RIMWALKER_BASE, rel: 'briar_fold_' + lv + '.png', frames: 1 };
+      }
+      if (rwFiles[b.type]) {
+        return { base: RIMWALKER_BASE, rel: rwFiles[b.type], frames: 1 };
+      }
     }
     var file = BUILDING_FILES[b.type] || BUILDING_FILES.foundry;
     return {
@@ -340,6 +403,10 @@
       paths.push({ base: KINGDOM_BASE, rel: 'Buildings/Red Buildings/' + BUILDING_FILES[t] });
     });
     paths.push({ base: KINGDOM_CUSTOM_BASE, rel: SHEPHERDS_HUT });
+    paths.push({ base: IRON_CROWN_BASE, rel: 'castle.png' });
+    paths.push({ base: IRON_CROWN_BASE, rel: 'farm.png' });
+    paths.push({ base: IRON_CROWN_BASE, rel: 'keep.png' });
+    paths.push({ base: IRON_CROWN_BASE, rel: 'pavilion.png' });
     paths.push({ base: RAIDER_BASE, rel: 'Warren_Maw.png' });
     paths.push({ base: RAIDER_BASE, rel: WAR_PIT });
     paths.push({ base: RAIDER_BASE, rel: SKULL_DEN });
@@ -358,7 +425,12 @@
         paths.push({ base: LIVESTOCK_BASE, rel: species + '/' + LIVESTOCK_CLIPS[species][clipName].file });
       });
     });
-    return Promise.all(paths.map(function (p) { return loadImg(p.rel, p.base); }));
+    paths.push({ base: 'assets/terrain/', rel: 'pc-fairy-tiles.png' });
+    var chain = Promise.all(paths.map(function (p) { return loadImg(p.rel, p.base); }));
+    if (RTS.FairyForest && RTS.FairyForest.load) {
+      chain = chain.then(function () { return RTS.FairyForest.load(); });
+    }
+    return chain;
   }
 
   function drawTerrain(s, ctx) {
@@ -401,6 +473,10 @@
   }
 
   function drawDecorSprite(ctx, d, theme, s) {
+    if ((theme === 'grove' || d.kind === 'grove_tree' || d.kind === 'grove_prop') &&
+        RTS.FairyForest && RTS.FairyForest.drawDecor(ctx, d, s)) {
+      return;
+    }
     var h = hashId((d.x | 0) * 73856093 ^ (d.y | 0) * 19349663);
     var t = RTS._renderT || 0;
     var rm = RTS.Config.reducedMotion;
@@ -468,6 +544,24 @@
     var ht = img.height * sc;
     RTS.Art.drawShadow(ctx, d.x, footY + ht * 0.08, d.r * 0.9, 0.25);
     ctx.drawImage(img, d.x - w / 2, footY - ht * 0.85, w, ht);
+  }
+
+  /* Draw ONLY the map decorations (trees / rocks / bushes), independent of the
+   * terrain tiles. Used when Phaser owns terrain rendering but the decoration
+   * sprites still draw on the canvas overlay in render.frame. */
+  function drawDecorLayer(s, ctx) {
+    if (!ready || !s.map || !s.map.decor) return false;
+    var theme = (s.map && s.map.theme) || 'grass';
+    var cam = s.camera, cv = RTS.canvas;
+    var vw = cv.clientWidth / cam.zoom, vh = cv.clientHeight / cam.zoom;
+    var vx = cam.x - 8, vy = cam.y - 8;
+    vw += 16; vh += 16;
+    var pad = 80;
+    s.map.decor.forEach(function (d) {
+      if (d.x < vx - pad || d.x > vx + vw + pad || d.y < vy - pad || d.y > vy + vh + pad) return;
+      drawDecorSprite(ctx, d, theme, s);
+    });
+    return true;
   }
 
   function drawResource(ctx, n) {
@@ -756,8 +850,8 @@
     BASE: KINGDOM_BASE,
     url: function (rel) { return url(KINGDOM_BASE, rel); },
     ENEMY_BASE: ENEMY_BASE,
-    loadImg: function (rel, base) { return loadImg(rel, base || KINGDOM_BASE); },
-    img: function (rel, base) { return imgSync(rel, base || KINGDOM_BASE); },
+    loadImg: function (rel, base, cacheV) { return loadImg(rel, (base != null) ? base : KINGDOM_BASE, cacheV); },
+    img: function (rel, base) { return imgSync(rel, (base != null) ? base : KINGDOM_BASE); },
     packBase: function () { return KINGDOM_BASE; },
     enemyBase: function () { return ENEMY_BASE; },
     factionColor: factionColor,
@@ -780,6 +874,7 @@
     ensureImg: function (rel, base) { return ensureImg(rel, base); },
 
     drawTerrain: drawTerrain,
+    drawDecor: drawDecorLayer,
     drawResource: drawResource,
     drawBuilding: drawBuilding,
     drawProjectile: drawProjectile,

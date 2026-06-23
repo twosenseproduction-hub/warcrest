@@ -207,14 +207,14 @@
   <section id="screen-map" class="screen hidden">
     <div class="bg-grid"></div>
     <div class="faction-inner">
-      <div class="ts-ribbon-banner blue"><h2 class="screen-title">Sapphire Shores</h2></div>
-      <p class="screen-sub">Forested archipelago — build near your base, Ironstone at your gate.</p>
+      <div class="ts-ribbon-banner blue"><h2 class="screen-title">Choose Your Battlefield</h2></div>
+      <p class="screen-sub">Island archipelagos with corner gold and contested center nodes.</p>
       <div class="map-cards map-cards-grid">
-        <button class="map-card sapphire" data-map="sapphire_shores">
+        <button class="map-card sapphire" data-map="fairy_clearing">
           <div class="mc-emblem" aria-hidden="true"></div>
-          <h3>Sapphire Shores</h3>
-          <div class="mc-tag">Grass &middot; Archipelago</div>
-          <p>Dense forests and rocky shores. Home Ironstone sits beside your core.</p>
+          <h3>Fairy Clearing</h3>
+          <div class="mc-tag">Fairy Forest &middot; Flat Clearing</div>
+          <p>An open fairy-forest clearing bathed in soft light. Fight for the gold nodes across a flat, unobstructed field.</p>
           <div class="fc-go">Deploy here &rarr;</div>
         </button>
       </div>
@@ -237,6 +237,15 @@
              and Warriors from stone keeps. Fast to tech, brutal in formation.</p>
           <div class="fc-traits"><span>Ranged focus</span><span>Disciplined</span></div>
           <div class="fc-go">Lead the Crown &rarr;</div>
+        </button>
+        <button class="faction-card rimwalker" data-faction="rimwalker">
+          <img class="fc-avatar" src="assets/units/rimwalker/sapling_mystic/sapling_mystic_south_facing.png" alt="" />
+          <h3>Rimwalkers</h3>
+          <div class="fc-tag">Root &middot; Grove &middot; Thorncraft</div>
+          <p>Ancient forest wardens — Grove Hands, Bark Archers, Bramble Wardens,
+             and Thornguards rising from living wood and stone.</p>
+          <div class="fc-traits"><span>Grove Bond</span><span>Organic</span></div>
+          <div class="fc-go">Lead the Grove &rarr;</div>
         </button>
         <button class="faction-card cinder" data-faction="cinder">
           <img class="fc-avatar" src="assets/tiny-swords-enemy/Enemy%20Avatars/Enemy%20Avatars_16.png" alt="" />
@@ -346,33 +355,34 @@
 <!-- RTS game logic — same load order as original (game.js last) -->
 <script src="src/config.js"></script>
 <script src="src/heroes.js"></script>
-<script src="src/size-ref.js"></script>
+<script src="src/size-ref.js?v=20260622a"></script>
 <script src="src/state.js"></script>
 <script src="src/entities.js"></script>
 <script src="src/sapphire-mapgen.js"></script>
 <script src="src/terraform-zones.js"></script>
-<script src="src/map.js"></script>
-<script src="src/commands.js"></script>
+<script src="src/map.js?v=20260622a"></script>
+<script src="src/commands.js?v=20260620"></script>
 <script src="src/audio.js"></script>
-<script src="src/art.js"></script>
+<script src="src/art.js?v=20260622c"></script>
 <script src="src/terrain.js"></script>
-<script src="src/assets.js?v=4"></script>
+<script src="src/fairy-forest.js"></script>
+<script src="src/assets.js?v=20260623a"></script>
 <script src="src/components/GoldMound.js"></script>
-<script src="src/particles.js"></script>
-<script src="src/sprites.js"></script>
+<script src="src/particles.js?v=20260620o"></script>
+    <script src="src/sprites.js?v=20260622a"></script>
 <script src="src/pathfind.js"></script>
-<script src="src/unit-ai.js"></script>
-<script src="src/systems.js"></script>
+<script src="src/unit-ai.js?v=20260620"></script>
+<script src="src/systems.js?v=20260620"></script>
 <script src="src/ai.js"></script>
 <script src="src/radial-menu.js"></script>
 <script src="src/building-menu.js"></script>
-<script src="src/input.js"></script>
-<script src="src/render.js"></script>
+<script src="src/input.js?v=20260620e"></script>
+<script src="src/render.js?v=20260622d"></script>
 <script src="src/ui.js"></script>
-<script src="src/hud.js"></script>
-<script src="src/game.js"></script>
+<script src="src/hud.js?v=20260620e"></script>
+<script src="src/game.js?v=20260622a"></script>
 
 <!-- Phaser bootstrap — after window.RTS is populated -->
-<script type="module" src="./src/main.js"></script>
+<script type="module" src="./src/main.js?v=20260622b"></script>
 </body>
 </html>

@@ -22,7 +22,7 @@
 
       playerFaction: 'aurex',
       enemyFaction: 'cinder',
-      mapId: 'sapphire_shores',
+      mapId: 'fairy_clearing',
 
       camera: { x: 0, y: 0, zoom: RTS.Config.camera.default, vx: 0, vy: 0,
                 dragging: false, dragStart: null, panTarget: null },
@@ -153,6 +153,9 @@
       var bspec = RTS.Buildings[b.type];
       if (!bspec) return;
       if (bspec.supply) cap += bspec.supply;
+      if (bspec.supplyByLevel && b.level) {
+        cap += bspec.supplyByLevel[Math.min(b.level, bspec.supplyByLevel.length) - 1] || 0;
+      }
       if (bspec.isPasture && b.livestock && lc) {
         var live = b.livestock.filter(function (a) { return !a.dead; }).length;
         cap += live * lc.supplyPerAnimal;

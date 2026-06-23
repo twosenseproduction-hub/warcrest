@@ -2,18 +2,215 @@
     "id": "29437a7b-3fcb-4802-8fe6-e1a3379902b5",
     "sceneType": "SCENE",
     "settings": {
-        "preloadPackFiles": [],
+        "snapEnabled": true,
+        "snapWidth": 64,
+        "snapHeight": 64,
+        "preloadPackFiles": [
+            "assets/asset-pack.json"
+        ],
         "createMethodName": "editorCreate",
         "sceneKey": "SapphireShores"
     },
-    "displayList": [],
+    "displayList": [
+        {
+            "type": "TilemapLayer",
+            "id": "534a10fe-ec23-4c62-9ef7-7cb1adefa4ae",
+            "label": "ground",
+            "tilemapId": "468135cc-add3-417d-a35f-d4855ba47fd0",
+            "layerName": "ground",
+            "tilesets": [
+                "terrain-grass"
+            ]
+        },
+        {
+            "type": "TilemapLayer",
+            "id": "9cc50248-85a4-4750-af35-878b27a6d59e",
+            "label": "elevated",
+            "tilemapId": "468135cc-add3-417d-a35f-d4855ba47fd0",
+            "layerName": "elevated",
+            "tilesets": [
+                "terrain-grass"
+            ]
+        },
+        {
+            "type": "TilemapLayer",
+            "id": "49129fb2-5362-46fe-8e4a-808aa26ae3cb",
+            "label": "cliffs",
+            "tilemapId": "468135cc-add3-417d-a35f-d4855ba47fd0",
+            "layerName": "cliffs",
+            "tilesets": [
+                "terrain-grass"
+            ]
+        },
+        {
+            "type": "Image",
+            "id": "c850196b-d6da-4957-a5f3-165f88272e2b",
+            "label": "tree1",
+            "texture": {
+                "key": "Bushe1",
+                "frame": 0
+            },
+            "x": 224,
+            "y": 32,
+            "scaleX": 2,
+            "scaleY": 2
+        },
+        {
+            "type": "Image",
+            "id": "73714d35-50e9-41ce-95eb-a1049e5e7b25",
+            "label": "tree2",
+            "texture": {
+                "key": "Bushe1",
+                "frame": 4
+            },
+            "x": 288,
+            "y": 16,
+            "scaleX": 2,
+            "scaleY": 2
+        },
+        {
+            "type": "Image",
+            "id": "ad4dc294-b956-425b-b923-dfc339781f8a",
+            "label": "tree3",
+            "texture": {
+                "key": "Bushe1",
+                "frame": 8
+            },
+            "x": 352,
+            "y": 32,
+            "scaleX": 2,
+            "scaleY": 2
+        },
+        {
+            "type": "Image",
+            "id": "980e9a30-6639-4e60-aa9d-dc8123f52922",
+            "label": "tree4",
+            "texture": {
+                "key": "Bushe1",
+                "frame": 12
+            },
+            "x": 416,
+            "y": 16,
+            "scaleX": 2,
+            "scaleY": 2
+        },
+        {
+            "type": "Image",
+            "id": "70361008-cf38-4c16-885e-103f02dd1742",
+            "label": "tree5",
+            "texture": {
+                "key": "Bushe1",
+                "frame": 16
+            },
+            "x": 192,
+            "y": 80,
+            "scaleX": 2,
+            "scaleY": 2
+        },
+        {
+            "type": "Image",
+            "id": "74d10a9f-67c1-478e-aff0-65abdada0983",
+            "label": "tree6",
+            "texture": {
+                "key": "Bushe1",
+                "frame": 20
+            },
+            "x": 256,
+            "y": 96,
+            "scaleX": 2,
+            "scaleY": 2
+        },
+        {
+            "type": "Image",
+            "id": "5db94869-7b5e-435e-89d2-6c8e47b759e3",
+            "label": "tree7",
+            "texture": {
+                "key": "Bushe1",
+                "frame": 24
+            },
+            "x": 320,
+            "y": 80,
+            "scaleX": 2,
+            "scaleY": 2
+        },
+        {
+            "type": "Image",
+            "id": "0e9958f8-cd00-4f19-93ad-36906397bb4e",
+            "label": "tree8",
+            "texture": {
+                "key": "Bushe1",
+                "frame": 28
+            },
+            "x": 448,
+            "y": 80,
+            "scaleX": 2,
+            "scaleY": 2
+        },
+        {
+            "type": "Image",
+            "id": "df4b55a4-4cb8-45c7-96ae-a16701536755",
+            "label": "tree9",
+            "texture": {
+                "key": "Bushe1",
+                "frame": 2
+            },
+            "x": 160,
+            "y": 144,
+            "scaleX": 2,
+            "scaleY": 2
+        },
+        {
+            "type": "Image",
+            "id": "29d92b09-9b3b-48f7-98f3-5f4623e408a3",
+            "label": "tree10",
+            "texture": {
+                "key": "Bushe1",
+                "frame": 6
+            },
+            "x": 224,
+            "y": 160,
+            "scaleX": 2,
+            "scaleY": 2
+        },
+        {
+            "type": "Image",
+            "id": "bfe5784c-6e8b-46ac-886c-afdbe1533dd9",
+            "label": "tree11",
+            "texture": {
+                "key": "Bushe1",
+                "frame": 10
+            },
+            "x": 384,
+            "y": 144,
+            "scaleX": 2,
+            "scaleY": 2
+        },
+        {
+            "type": "Image",
+            "id": "873b23bf-0893-459f-bd08-9869fa121e86",
+            "label": "tree12",
+            "texture": {
+                "key": "Bushe1",
+                "frame": 14
+            },
+            "x": 480,
+            "y": 144,
+            "scaleX": 2,
+            "scaleY": 2
+        }
+    ],
     "plainObjects": [
         {
             "id": "468135cc-add3-417d-a35f-d4855ba47fd0",
             "type": "Tilemap",
             "label": "sapphireShores",
             "key": "sapphire-shores",
-            "tilesets": []
+            "tilesets": [
+                {
+                    "name": "terrain-grass",
+                    "imageKey": "terrain-grass"
+                }
+            ]
         }
     ],
     "meta": {

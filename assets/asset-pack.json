@@ -1,0 +1,107 @@
+{
+    "section1": {
+        "files": [
+            {
+                "type": "tilemapTiledJSON",
+                "key": "sapphire-shores",
+                "url": "assets/maps/sapphire-shores.tmj"
+            },
+            {
+                "type": "image",
+                "key": "terrain-grass",
+                "url": "assets/tiny-swords/Terrain/Tileset/Tilemap_color1.png"
+            },
+            {
+                "url": "assets/tiny-swords/Terrain/Tileset/Tilemap_color2.png",
+                "frameConfig": {
+                    "frameWidth": 16,
+                    "frameHeight": 6,
+                    "startFrame": 0,
+                    "endFrame": -1,
+                    "spacing": 0,
+                    "margin": 0
+                },
+                "type": "spritesheet",
+                "key": "Tilemap_color2"
+            },
+            {
+                "url": "assets/tiny-swords/Terrain/Tileset/Tilemap_color3.png",
+                "frameConfig": {
+                    "frameWidth": 16,
+                    "frameHeight": 16,
+                    "startFrame": 0,
+                    "endFrame": -1,
+                    "spacing": 0,
+                    "margin": 0
+                },
+                "type": "spritesheet",
+                "key": "Tilemap_color3"
+            },
+            {
+                "url": "assets/tiny-swords/Terrain/Tileset/Tilemap_color4.png",
+                "frameConfig": {
+                    "frameWidth": 16,
+                    "frameHeight": 16,
+                    "startFrame": 0,
+                    "endFrame": -1,
+                    "spacing": 0,
+                    "margin": 0
+                },
+                "type": "spritesheet",
+                "key": "Tilemap_color4"
+            },
+            {
+                "url": "assets/tiny-swords/Terrain/Tileset/Tilemap_color5.png",
+                "frameConfig": {
+                    "frameWidth": 16,
+                    "frameHeight": 16,
+                    "startFrame": 0,
+                    "endFrame": -1,
+                    "spacing": 0,
+                    "margin": 0
+                },
+                "type": "spritesheet",
+                "key": "Tilemap_color5"
+            },
+            {
+                "url": "assets/Pixel Crawler/Pixel Crawler - Fairy Forest 1.7/Assets/Tiles.png",
+                "frameConfig": {
+                    "frameWidth": 32,
+                    "frameHeight": 32,
+                    "startFrame": 0,
+                    "endFrame": -1,
+                    "spacing": 0,
+                    "margin": 0
+                },
+                "type": "spritesheet",
+                "key": "Tiles"
+            },
+            {
+                "type": "tilemapTiledJSON",
+                "key": "turtle-cove",
+                "url": "assets/maps/turtle-cove.tmj"
+            },
+            {
+                "url": "assets/tiny-swords/Terrain/Tileset/Water Background color.png",
+                "frameConfig": {
+                    "frameWidth": 16,
+                    "frameHeight": 32,
+                    "startFrame": 0,
+                    "endFrame": -1,
+                    "spacing": 0,
+                    "margin": 0
+                },
+                "type": "spritesheet",
+                "key": "Water Background color"
+            }
+        ]
+    },
+    "meta": {
+        "app": "Phaser Editor 2D - Asset Pack Editor",
+        "contentType": "phasereditor2d.pack.core.AssetContentType",
+        "url": "https://phasereditor2d.com",
+        "version": 2,
+        "showAllFilesInBlocks": false,
+        "visible": true
+    }
+}

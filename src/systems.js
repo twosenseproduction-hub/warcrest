@@ -190,7 +190,7 @@
     updateProjectiles(s, dt);
     updateEffects(s, dt);
     tickAutoMine(s, dt);
-    RTS.AI.update(s, dt);
+    if (!(s.map && s.map.sandbox)) RTS.AI.update(s, dt);
 
     // cull dead units after corpse fade
     s.entities.units = s.entities.units.filter(function (u) {
@@ -217,6 +217,7 @@
     u.cooldown = Math.max(0, u.cooldown - dt);
     u.muzzleFlash = Math.max(0, u.muzzleFlash - dt);
     u.spawnFlash = Math.max(0, u.spawnFlash - dt);
+    u._idlePhase = (u._idlePhase || 0) + dt;
     if (RTS.Sprites && RTS.Sprites.ready) {
       RTS.Sprites.tickAttack(u, dt);
       tryCombatRelease(s, u);
@@ -374,7 +375,19 @@
     if (u._pendingMelee && !u._pendingMelee.released && RTS.Sprites.atImpactFrame(u)) {
       var pm = u._pendingMelee;
       var mt = RTS.getById(s, pm.targetId);
-      if (mt && !mt.dead) applyDamage(s, mt, pm.dmg, u);
+      if (mt && !mt.dead) {
+        applyDamage(s, mt, pm.dmg, u);
+        var vfxKey = u.heroId && RTS.Sprites.heroAttackVfx
+          ? RTS.Sprites.heroAttackVfx(u.heroId) : null;
+        if (vfxKey && RTS.Particles && RTS.Particles.spawnHeroVfx) {
+          RTS.Particles.spawnHeroVfx(
+            s,
+            vfxKey,
+            mt.x,
+            RTS.Particles.targetFootY(mt, s)
+          );
+        }
+      }
       u._pendingMelee.released = true;
       if (u._pendingMelee.released) u._pendingMelee = null;
     }
@@ -1036,7 +1049,7 @@
     }
     target.hp -= amount;
     var pt = impactPoint(target, attacker, impact);
-    RTS.spawnHit(s, pt.x, pt.y);
+    RTS.spawnHit(s, pt.x, pt.y, attacker && attacker.role, attacker && attacker.faction);
 
     if (attacker && attacker.heroId === 'valdris' && amount > 0 && RTS.getHero) {
       var vh = RTS.getHero('valdris');
@@ -1066,7 +1079,7 @@
     if (e.kind === 'unit') {
       e.corpse = RTS.Config.corpseFade;
       if (RTS.Particles && RTS.Particles.ready) {
-        RTS.Particles.spawnDust(s, e.x, e.y + 2, 1.15, true);
+        RTS.Particles.spawnUnitDeath(s, e.x, e.y, e.faction);
       } else if (!(RTS.Sprites && RTS.Sprites.ready)) {
         RTS.spawnExplosion(s, e.x, e.y, e.radius + 6, RTS.Factions[e.faction].primary);
       }
@@ -1512,6 +1525,7 @@
 
   function checkEndGame(s) {
     if (s.scene !== 'playing') return;
+    if (s.map && s.map.sandbox) return;
     var playerCastle = castleAlive(s, RTS.TEAM.PLAYER);
     var enemyCastle = castleAlive(s, RTS.TEAM.ENEMY);
     if (!enemyCastle) RTS.endMatch(s, 'won');

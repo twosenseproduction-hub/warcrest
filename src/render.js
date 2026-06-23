@@ -91,6 +91,10 @@
     }
   };
 
+  function factionForUnit(u, s) {
+    return RTS.Factions[u.faction] || RTS.Factions[s.playerFaction] || RTS.Factions.aurex;
+  }
+
   RTS.Render = {
     dpr: 1,
     resize: function (s) {
@@ -99,61 +103,93 @@
       this.dpr = dpr;
       cv.width = Math.floor(cv.clientWidth * dpr);
       cv.height = Math.floor(cv.clientHeight * dpr);
+      cv.style.width  = cv.clientWidth + 'px';
+      cv.style.height = cv.clientHeight + 'px';
       RTS.Cam.clamp(s);
+      if (RTS._syncPhaserAfterResize) RTS._syncPhaserAfterResize();
+      if (RTS._phaserWorldLayer && RTS._phaserWorldLayer.resize) {
+        RTS._phaserWorldLayer.resize();
+      }
     },
 
-    frame: function (s) {
-      RTS._renderT = s.timers.gameTime;
-      var cv = RTS.canvas, ctx = RTS.ctx, dpr = this.dpr;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.imageSmoothingEnabled = true;
-      if (ctx.imageSmoothingQuality) ctx.imageSmoothingQuality = 'high';
-      var W = cv.clientWidth, H = cv.clientHeight;
+    /** Camera shake offset for the current frame. */
+    _shakeOffset: function (s) {
+      return (s.screenShake > 0 && !RTS.Config.reducedMotion)
+        ? { x: (Math.random() - 0.5) * s.screenShake, y: (Math.random() - 0.5) * s.screenShake }
+        : { x: 0, y: 0 };
+    },
 
-      ctx.fillStyle = '#4caf50';
-      ctx.fillRect(0, 0, W, H);
+    _prepareCtx: function (ctx, dpr) {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+    },
+
+    /**
+     * Draw all world-space content (decor, entities, fog, effects, selection).
+     * Used by WorldCanvasLayer (Phaser) and the legacy frame() fallback.
+     */
+    drawWorld: function (s, ctx, opts) {
+      RTS._renderT = s.timers.gameTime;
+      var dpr = (opts && opts.dpr) || this.dpr;
+      var W = (opts && opts.width) || (RTS.canvas && RTS.canvas.clientWidth) || 0;
+      var H = (opts && opts.height) || (RTS.canvas && RTS.canvas.clientHeight) || 0;
+      var onMainCanvas = !opts || opts.onMainCanvas !== false;
+
+      this._prepareCtx(ctx, dpr);
+
+      // Fill canvas background — must happen in screen (CSS pixel) space before world transform.
+      // For fairy_clearing or when Phaser has no terrain active, fill solid color so
+      // the WorldCanvasLayer is opaque and the Phaser scene background can't bleed through.
+      if (s.mapId === 'fairy_clearing' || !RTS._phaserTerrainActive) {
+        ctx.fillStyle = s.mapId === 'fairy_clearing' ? '#1d401d' : '#4caf50';
+        ctx.fillRect(0, 0, W, H);
+      }
+
+      // Fairy clearing: draw grass in CSS pixel space BEFORE the world transform so
+      // the tiling fills the full canvas regardless of DPR-driven camera zoom.
+      if (s.mapId === 'fairy_clearing' && RTS.Art && RTS.Art.drawFairyGrassFloor) {
+        RTS.Art.drawFairyGrassFloor(ctx, s, W, H);
+      }
 
       ctx.save();
-      var shake = (s.screenShake > 0 && !RTS.Config.reducedMotion)
-        ? { x: (Math.random() - 0.5) * s.screenShake, y: (Math.random() - 0.5) * s.screenShake } : { x: 0, y: 0 };
+      var shake = this._shakeOffset(s);
       var c = s.camera;
       ctx.translate(-c.x * c.zoom + shake.x, -c.y * c.zoom + shake.y);
       ctx.scale(c.zoom, c.zoom);
 
-      // ── 1. Terrain always draws — fog never hides terrain ──────────────────
-      Art().drawTerrain(s, ctx);
+      if (s.mapId !== 'fairy_clearing') {
+        Art().drawTerrain(s, ctx);
+      }
+      if (RTS._phaserTerrainActive && RTS.Assets && RTS.Assets.drawDecor) {
+        RTS.Assets.drawDecor(s, ctx);
+      }
       s.entities.resources.forEach(function (n) { if (n.amount > 0) Art().drawResource(ctx, n); });
       drawSelectionBack(s, ctx);
 
-      // ── 2. Buildings always draw (enemy buildings show in explored fog) ─────
       s.entities.buildings.forEach(function (b) { Art().drawBuilding(ctx, b, RTS.Factions[b.faction], s); });
       if (Art().drawLivestock) Art().drawLivestock(ctx, s);
 
-      // ── 3. Fog overlay — sits above terrain/buildings, below units ──────────
       if (RTS.fogEnabled) {
         var visibleSet = RTS._calcVisibleTiles(s);
         RTS._drawFogOverlay(s, ctx, visibleSet);
 
-        // ── 4a. Friendly units — always draw on top of fog ───────────────────
         s.entities.units.forEach(function (u) {
           if (u.dead) return;
           if (u.team === TEAM.PLAYER) {
-            Art().drawUnit(ctx, u, RTS.Factions[u.faction], s);
+            Art().drawUnit(ctx, u, factionForUnit(u, s), s);
           }
         });
 
-        // ── 4b. Enemy units — only draw if inside player vision ──────────────
         var tileSize = RTS.Config.tileSize || RTS.Config.world && RTS.Config.world.tileSize || 64;
         s.entities.units.forEach(function (u) {
           if (u.dead || u.team === TEAM.PLAYER) return;
           var key = Math.floor(u.x / tileSize) + ',' + Math.floor(u.y / tileSize);
           if (visibleSet.has(key)) {
-            Art().drawUnit(ctx, u, RTS.Factions[u.faction], s);
+            Art().drawUnit(ctx, u, factionForUnit(u, s), s);
           }
         });
       } else {
-        // Fog OFF — draw all units normally
-        s.entities.units.forEach(function (u) { Art().drawUnit(ctx, u, RTS.Factions[u.faction], s); });
+        s.entities.units.forEach(function (u) { Art().drawUnit(ctx, u, factionForUnit(u, s), s); });
       }
 
       drawProjectiles(s, ctx);
@@ -164,6 +200,14 @@
       if (RTS.BuildingMenu) RTS.BuildingMenu.draw(ctx, s);
 
       ctx.restore();
+    },
+
+    /** Screen-space flash and base-alarm chrome (not affected by camera). */
+    drawScreenFx: function (s, ctx, opts) {
+      var dpr = (opts && opts.dpr) || this.dpr;
+      var W = (opts && opts.width) || (RTS.canvas && RTS.canvas.clientWidth) || 0;
+      var H = (opts && opts.height) || (RTS.canvas && RTS.canvas.clientHeight) || 0;
+      this._prepareCtx(ctx, dpr);
 
       if (s.screenFlash > 0) {
         ctx.fillStyle = RTS.hexA(s.flashColor, s.screenFlash * 0.28);
@@ -172,8 +216,21 @@
       if (s.ui.baseAlarm > 0) {
         var a = (Math.sin(s.timers.gameTime * 9) * 0.5 + 0.5) * s.ui.baseAlarm * 0.22;
         ctx.strokeStyle = RTS.hexA('#ff5252', Math.min(0.95, a + 0.25));
-        ctx.lineWidth = 8; ctx.strokeRect(4, 4, W - 8, H - 8);
+        ctx.lineWidth = 8;
+        ctx.strokeRect(4, 4, W - 8, H - 8);
       }
+    },
+
+    frame: function (s) {
+      // Phaser WorldCanvasLayer owns rendering when active.
+      if (RTS._phaserWorldLayer) return;
+
+      RTS._renderT = s.timers.gameTime;
+      var cv = RTS.canvas, ctx = RTS.ctx;
+      var W = cv.clientWidth, H = cv.clientHeight;
+
+      this.drawWorld(s, ctx, { width: W, height: H, dpr: this.dpr, onMainCanvas: true });
+      this.drawScreenFx(s, ctx, { width: W, height: H, dpr: this.dpr });
     },
   };
 

@@ -82,9 +82,10 @@
       hp: prebuilt ? spec.hp : Math.max(1, spec.hp * 0.08), maxHp: spec.hp,
       built: !!prebuilt, progress: prebuilt ? 1 : 0, buildTime: spec.build || 0.001,
       queue: [], train: null, rally: null, autoMine: false,
-      primaryNodeId: null,     // linked home/expansion vein for auto-mine
+      primaryNodeId: null,
       builderId: null,
       cooldown: 0, target: null,
+      level: 1,
       hitFlash: 0, dead: false, spawnFlash: 0.3,
     };
     s.entities.buildings.push(b);
@@ -125,10 +126,10 @@
     }
   };
 
-  RTS.spawnHit = function (s, x, y) {
+  RTS.spawnHit = function (s, x, y, role, faction) {
     if (RTS.Config.reducedMotion) return;
     if (RTS.Particles && RTS.Particles.ready) {
-      RTS.Particles.spawnImpact(s, x, y);
+      RTS.Particles.spawnImpact(s, x, y, role, faction);
       return;
     }
     RTS.addEffect(s, { kind: 'spark', x: x, y: y, life: 0.12, max: 0.12, color: '#ffe8c8' });

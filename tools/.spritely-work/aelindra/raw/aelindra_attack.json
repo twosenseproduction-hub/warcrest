@@ -1,0 +1,12 @@
+{
+  "storageKey": "40e87cef-f56d-4e3b-a32b-7141c9bb7da7",
+  "storageUrl": "https://uqutkiynldivysxyzuuu.supabase.co/storage/v1/object/sign/generations/4bda7a3d-356e-49f3-80ac-d4cd8c52db4e/40e87cef-f56d-4e3b-a32b-7141c9bb7da7/sheet.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84MjJjM2FlNi01OWFhLTRkMWQtYTkzMi0yNzJmZDgzYWQxZTMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJnZW5lcmF0aW9ucy80YmRhN2EzZC0zNTZlLTQ5ZjMtODBhYy1kNGNkOGM1MmRiNGUvNDBlODdjZWYtZjU2ZC00ZTNiLWEzMmItNzE0MWM5YmI3ZGE3L3NoZWV0LnBuZyIsInNjb3BlIjoiZG93bmxvYWQiLCJpYXQiOjE3ODE4NTEyMDQsImV4cCI6MTc4MTg1NDgwNH0.GPCGBA3SF7eh-VyPmopa5fcm1QRSrdGn7Z8AIGEEi-o",
+  "mimeType": "image/png",
+  "refinedPrompt": "Heavy chibi high-detail pixel art RTS hero performing a Root Lash attack with staff, facing right",
+  "usage": {
+    "provider": "gemini",
+    "imageCount": 1,
+    "cost": 0.039
+  },
+  "balanceMdollars": 7400
+}

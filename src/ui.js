@@ -79,6 +79,23 @@
     warrior: { unit: 'Warrior', file: 'Warrior_Idle.png', frames: 8, fw: 192, fh: 192 },
   };
 
+  /* Iron Crown / Rimwalker — 36×36 idle strips */
+  var IC_UNIT_STRIP = {
+    pawn:    { file: 'assets/units/iron_crown/worker_idle.png',           frames: 6, fw: 36, fh: 36, trayZoom: 2.40 },
+    warrior: { file: 'assets/units/iron_crown/swordman/idle.png',         frames: 6, fw: 64, fh: 64, trayZoom: 1.35 },
+    archer:  { file: 'assets/units/iron_crown/archer/idle.png',           frames: 6, fw: 64, fh: 64, trayZoom: 1.35 },
+    lancer:  { file: 'assets/units/iron_crown/sword_horse/idle.png',      frames: 6, fw: 64, fh: 64, trayZoom: 1.15 },
+    monk:    { file: 'assets/units/iron_crown/Mage/mage_l1_idle.png',     frames: 6, fw: 36, fh: 36, trayZoom: 2.40 },
+  };
+
+  var RW_COMBAT_UNIT_STRIP = {
+    pawn:    { file: 'assets/units/iron_crown/worker_idle.png',           frames: 6, fw: 36, fh: 36, trayZoom: 2.40 },
+    warrior: { file: 'assets/units/rimwalker/blade/idle.png',             frames: 6, fw: 64, fh: 64, trayZoom: 1.35 },
+    archer:  { file: 'assets/units/rimwalker/archer/idle.png',            frames: 6, fw: 64, fh: 64, trayZoom: 1.35 },
+    lancer:  { file: 'assets/units/rimwalker/rider/idle.png',             frames: 6, fw: 64, fh: 64, trayZoom: 1.15 },
+    monk:    { file: 'assets/units/rimwalker/wizard/idle.png',            frames: 6, fw: 64, fh: 64, trayZoom: 1.35 },
+  };
+
   var BUILDING_FILE = {
     core: 'Castle.png',
     conduit: 'House2.png',
@@ -124,6 +141,14 @@
 
   function unitStripUrl(factionId, role) {
     if (factionId === 'cinder') return enemyStripUrl(role);
+    if (factionId === 'aurex') {
+      var icDef = IC_UNIT_STRIP[role];
+      if (icDef) return icDef.file;
+    }
+    if (factionId === 'rimwalker') {
+      var rwDef = RW_COMBAT_UNIT_STRIP[role];
+      if (rwDef) return rwDef.file;
+    }
     var def = UNIT_STRIP[role];
     if (!def) return '';
     var color = RTS.Assets ? RTS.Assets.factionColor(factionId) : 'Blue';
@@ -149,8 +174,26 @@
     if (type === 'turret' && factionId === 'cinder') {
       return enc('assets/raider/', 'Bone_Spire.png');
     }
+    if (type === 'core'    && factionId === 'aurex') {
+      return enc('assets/buildings/iron_crown/', 'castle.png');
+    }
     if (type === 'conduit' && factionId === 'aurex') {
-      return enc('assets/kingdom/', 'Shepherds_Hut.png');
+      return enc('assets/buildings/iron_crown/', 'farm.png');
+    }
+    if (type === 'foundry' && factionId === 'aurex') {
+      return enc('assets/buildings/iron_crown/', 'keep.png');
+    }
+    if (type === 'forge' && factionId === 'aurex') {
+      return enc('assets/buildings/iron_crown/', 'pavilion.png');
+    }
+    if (factionId === 'rimwalker') {
+      var rwFile = {
+        core: 'roothold.png', outpost: 'roothold.png',
+        conduit: 'briar_fold_1.png', foundry: 'warden_lodge.png',
+        forge: 'root_forge.png', chiefs_hall: 'root_forge.png',
+        turret: 'canopy_spire.png',
+      }[type] || 'roothold.png';
+      return enc('assets/buildings/rimwalker/', rwFile);
     }
     var file = BUILDING_FILE[type] || BUILDING_FILE.foundry;
     var color = RTS.Assets ? RTS.Assets.factionColor(factionId) : 'Blue';
@@ -167,6 +210,14 @@
 
   function unitAvatarUrl(factionId, role) {
     if (factionId === 'cinder') return enemyAvatarUrl(role);
+    if (factionId === 'aurex') {
+      var icDef = IC_UNIT_STRIP[role];
+      if (icDef) return icDef.file;
+    }
+    if (factionId === 'rimwalker') {
+      var rwDef = RW_COMBAT_UNIT_STRIP[role];
+      if (rwDef) return rwDef.file;
+    }
     var col = UNIT_AVATAR_COL[role];
     if (col == null) return '';
     var row = FACTION_AVATAR_ROW[factionId];
@@ -214,6 +265,22 @@
 
   function stripPortraitHtml(factionId, role, px) {
     if (factionId === 'cinder') return enemyStripPortraitHtml(role, px);
+
+    /* Iron Crown / Rimwalker — custom 36×36 idle strips */
+    var customStripMap = (factionId === 'rimwalker') ? RW_COMBAT_UNIT_STRIP : IC_UNIT_STRIP;
+    var customDef = customStripMap[role];
+    if (factionId === 'aurex' || factionId === 'rimwalker') {
+      if (customDef) {
+        var zoom = customDef.trayZoom || 1;
+        var url = unitStripUrl(factionId, role);
+        var zoomStyle = zoom !== 1
+          ? 'transform:scale(' + zoom + ');transform-origin:bottom center;'
+          : '';
+        return '<span class="ts-strip-portrait" style="--frames:' + customDef.frames + ';' +
+          zoomStyle + 'background-image:url(\'' + url + '\')"></span>';
+      }
+    }
+
     var def = UNIT_STRIP[role];
     if (!def) return '';
     px = px || 36;
@@ -225,7 +292,6 @@
     var zoomStyle = zoom !== 1
       ? 'transform:scale(' + zoom + ');transform-origin:bottom center;'
       : '';
-    /* Width/height are set via CSS; inline style only provides sprite-sheet vars */
     return '<span class="ts-strip-portrait" style="--frames:' + def.frames + ';' + posX + posY + zoomStyle +
       'background-image:url(\'' + url + '\')"></span>';
   }
@@ -248,8 +314,12 @@
   }
 
   function heroPortraitHtml(heroId, px) {
-    return '<img class="ts-hero-portrait" src="assets/heroes/aurex/' + heroId +
-      '/Valdris_Portrait.png" alt="" />';
+    var hero = RTS.getHero ? RTS.getHero(heroId) : null;
+    var faction = (hero && hero.faction) || 'aurex';
+    var short = heroId.charAt(0).toUpperCase() + heroId.slice(1);
+    var file = (hero && hero.portraitFile) || (short + '_Portrait.png');
+    return '<img class="ts-hero-portrait" src="assets/heroes/' + faction + '/' +
+      heroId + '/' + file + '" alt="" />';
   }
 
   RTS.UI = {

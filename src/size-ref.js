@@ -100,7 +100,7 @@
    * ~30% transparent headroom (footRatio ~0.70), so visible bodies read ~35–45% of
    * Barracks (128px) until this multiplier is applied.
    */
-  var GLOBAL_UNIT_SCALE = 2.0;
+  var GLOBAL_UNIT_SCALE = 0.85;
   var UNIT_VISUAL_SCALE =
     (REF.charH / (UNIT.pawn * HEIGHT_MUL)) * GLOBAL_UNIT_SCALE;
   var LANCER_VISUAL_MUL = 1.12;

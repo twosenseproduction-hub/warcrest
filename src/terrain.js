@@ -25,6 +25,7 @@
     volcanic: 'color3',
     amber: 'color4',
     frost: 'color5',
+    grove: 'grove',
   };
 
   /* 4-neighbor bitmask (N=1,E=2,S=4,W=8) → flat-ground tile 1–16.
@@ -224,6 +225,11 @@
   function render(ctx, s, grid, vx, vy, vw, vh) {
     var Assets = RTS.Assets;
     if (!Assets || !Assets.ready) return false;
+
+    if ((grid.theme === 'grove' || grid.tileset === 'grove') &&
+        RTS.FairyForest && RTS.FairyForest.isReady()) {
+      return RTS.FairyForest.renderTerrain(ctx, s, grid, vx, vy, vw, vh);
+    }
 
     var atlas = Assets.img(TILESETS[grid.tileset] || TILESETS.color1);
     var water = Assets.img('Terrain/Tileset/Water Background color.png');

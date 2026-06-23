@@ -5,20 +5,45 @@
 (function (RTS) {
   'use strict';
 
+  var EFFECTS_BASE = 'assets/effects/';
+
   var SHEETS = {
-    dust1:      { rel: 'Particle FX/Dust_01.png',      frameW: 64,  frames: 8,  fps: 14, loop: false },
-    dust2:      { rel: 'Particle FX/Dust_02.png',      frameW: 64,  frames: 10, fps: 14, loop: false },
-    fire1:      { rel: 'Particle FX/Fire_01.png',      frameW: 64,  frames: 8,  fps: 10, loop: true },
-    fire2:      { rel: 'Particle FX/Fire_02.png',      frameW: 64,  frames: 10, fps: 10, loop: true },
-    fire3:      { rel: 'Particle FX/Fire_03.png',      frameW: 64,  frames: 12, fps: 10, loop: true },
-    explosion1: { rel: 'Particle FX/Explosion_01.png', frameW: 192, frames: 8,  fps: 18, loop: false },
-    explosion2: { rel: 'Particle FX/Explosion_02.png', frameW: 192, frames: 10, fps: 18, loop: false },
-    splash:     { rel: 'Particle FX/Water Splash.png', frameW: 192, frames: 9,  fps: 20, loop: false },
+    dust1:        { rel: 'Particle FX/Dust_01.png',      frameW: 64,  frames: 8,  fps: 14, loop: false },
+    dust2:        { rel: 'Particle FX/Dust_02.png',      frameW: 64,  frames: 10, fps: 14, loop: false },
+    fire1:        { rel: 'Particle FX/Fire_01.png',      frameW: 64,  frames: 8,  fps: 10, loop: true },
+    fire2:        { rel: 'Particle FX/Fire_02.png',      frameW: 64,  frames: 10, fps: 10, loop: true },
+    fire3:        { rel: 'Particle FX/Fire_03.png',      frameW: 64,  frames: 12, fps: 10, loop: true },
+    explosion1:   { rel: 'Particle FX/Explosion_01.png', frameW: 192, frames: 8,  fps: 18, loop: false },
+    explosion2:   { rel: 'Particle FX/Explosion_02.png', frameW: 192, frames: 10, fps: 18, loop: false },
+    splash:       { rel: 'Particle FX/Water Splash.png', frameW: 192, frames: 9,  fps: 20, loop: false },
+    splatterRed:  { rel: 'Super Pixel Effects Mini Pack 1/spritesheet/fx1_splatter_small_red/spritesheet.png',      base: EFFECTS_BASE, frameW: 32,  frames: 6,  fps: 18, loop: false },
+    burstOrange:  { rel: 'Super Pixel Effects Mini Pack 1/spritesheet/fx1_explosion_small_orange/spritesheet.png',  base: EFFECTS_BASE, frameW: 32,  frames: 11, fps: 18, loop: false },
+    burstViolet:  { rel: 'Super Pixel Effects Mini Pack 1/spritesheet/fx2_electric_burst_large_violet/spritesheet.png', base: EFFECTS_BASE, frameW: 72, frames: 16, fps: 20, loop: false },
+    hexExplosion: { rel: 'Hex Shaman_Explosion.png',     base: EFFECTS_BASE, frameW: 128, frames: 9,  fps: 18, loop: false },
+    healEffect:   { rel: 'Heal_Effect.png',              base: EFFECTS_BASE, frameW: 192, frames: 11, fps: 18, loop: false },
   };
 
   var FIRE_KEYS = ['fire1', 'fire2', 'fire3'];
   var ready = false;
   var firesByBuilding = {};
+
+  /** Hero ability VFX — separate from Tiny Swords particle sheets. */
+  var HERO_VFX = {
+    root_lash: {
+      file: 'RootLash_VFX.png',
+      base: 'assets/heroes/rimwalker/aelindra/',
+      frameW: 256,
+      frames: 6,
+      fps: 18,
+      loop: false,
+      foot: true,
+      footFrac: 0.703,  // content ground-line is at y≈180/256 of frame; aligns roots to target feet
+      scale: 1.45,
+    },
+  };
+  var HERO_VFX_CACHE_V = '20260620o';
+  var heroVfxImgs = {};
+  var heroVfxReady = false;
 
   // Scatter slots on roof/walls — ux/uy are fractions of sprite width/height from top-left.
   var FIRE_SLOTS = [
@@ -116,6 +141,61 @@
     firesByBuilding[b.id] = existing;
   }
 
+  function heroVfxDuration(key) {
+    var hv = HERO_VFX[key];
+    return hv ? hv.frames / hv.fps : 0;
+  }
+
+  function addHeroVfx(s, key, x, y, opts) {
+    var hv = HERO_VFX[key];
+    if (!hv || !heroVfxImgs[key]) return null;
+    var rm = RTS.Config.reducedMotion;
+    var life = opts && opts.life != null ? opts.life : heroVfxDuration(key);
+    if (rm) life = Math.min(life, 0.12);
+    var fx = {
+      kind: 'pfx',
+      heroVfx: key,
+      x: x,
+      y: y,
+      life: life,
+      max: life,
+      scale: (opts && opts.scale != null) ? opts.scale : (hv.scale || 1),
+      loop: false,
+      alpha: opts && opts.alpha != null ? opts.alpha : 1,
+    };
+    RTS.addEffect(s, fx);
+    return fx;
+  }
+
+  function heroVfxFrameIndex(fx) {
+    var hv = HERO_VFX[fx.heroVfx];
+    if (!hv) return 0;
+    if (RTS.Config.reducedMotion) return 0;
+    var elapsed = fx.max - fx.life;
+    var fi = Math.floor(elapsed * hv.fps);
+    return Math.min(hv.frames - 1, Math.max(0, fi));
+  }
+
+  function drawHeroVfxSheet(ctx, key, fi, x, y, scale, alpha) {
+    var hv = HERO_VFX[key];
+    var img = heroVfxImgs[key];
+    if (!hv || !img) return;
+    var fw = hv.frameW;
+    var fh = img.height;
+    var sx = fi * fw;
+    if (sx + fw > img.width) return;
+    var drawW = Math.round(fw * scale);
+    var drawH = Math.round(fh * scale);
+    var dx = Math.round(x - drawW / 2);
+    var footFrac = hv.footFrac != null ? hv.footFrac : 1.0;
+    var dy = hv.foot ? Math.round(y - footFrac * drawH) : Math.round(y - drawH / 2);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, sx, 0, fw, fh, dx, dy, drawW, drawH);
+    ctx.restore();
+  }
+
   function addPfx(s, opts) {
     var sh = SHEETS[opts.sheet];
     if (!sh) return null;
@@ -153,6 +233,7 @@
   }
 
   function frameIndex(fx) {
+    if (fx.heroVfx) return heroVfxFrameIndex(fx);
     var sh = SHEETS[fx.sheet];
     if (!sh) return 0;
     if (RTS.Config.reducedMotion) return 0;
@@ -164,7 +245,7 @@
 
   function drawSheet(ctx, key, fi, x, y, scale, alpha) {
     var sh = SHEETS[key];
-    var img = RTS.Assets.img(sh.rel);
+    var img = RTS.Assets.img(sh.rel, sh.base);
     if (!img) return;
     var fw = sh.frameW;
     var fh = img.height;
@@ -183,9 +264,23 @@
 
     load: function (cb) {
       var keys = Object.keys(SHEETS);
-      Promise.all(keys.map(function (k) { return RTS.Assets.loadImg(SHEETS[k].rel); }))
+      var heroKeys = Object.keys(HERO_VFX);
+      var loads = keys.map(function (k) {
+        var sh = SHEETS[k];
+        return RTS.Assets.loadImg(sh.rel, sh.base);
+      });
+      heroKeys.forEach(function (k) {
+        var hv = HERO_VFX[k];
+        loads.push(
+          RTS.Assets.loadImg(hv.file, hv.base, HERO_VFX_CACHE_V).then(function (img) {
+            heroVfxImgs[k] = img;
+          })
+        );
+      });
+      Promise.all(loads)
         .then(function () {
           ready = true;
+          heroVfxReady = heroKeys.every(function (k) { return !!heroVfxImgs[k]; });
           RTS.Particles.ready = true;
           if (cb) cb();
         })
@@ -290,11 +385,61 @@
       return true;
     },
 
-    /** Small dust puff at projectile / melee impact — not a full-sprite flash. */
-    spawnImpact: function (s, x, y) {
+    /** Small impact VFX at projectile / melee hit — faction/role aware. */
+    spawnImpact: function (s, x, y, role, faction) {
       if (!ready || RTS.Config.reducedMotion) return;
+      if (role === 'monk' && faction === 'rimwalker') {
+        addPfx(s, { sheet: 'hexExplosion', x: x, y: y, scale: 0.35, alpha: 0.88 });
+        return;
+      }
+      if (role === 'monk') {
+        addPfx(s, { sheet: 'burstViolet', x: x, y: y, scale: 0.35, alpha: 0.88 });
+        return;
+      }
+      if (role === 'warrior' || role === 'lancer') {
+        var dkey = ((x * 3 + y * 5) | 0) % 2 ? 'dust2' : 'dust1';
+        addPfx(s, { sheet: dkey, x: x, y: y, scale: 0.34, alpha: 0.72 });
+        addPfx(s, { sheet: 'splatterRed', x: x, y: y + 2, scale: 0.45, alpha: 0.9 });
+        return;
+      }
       var key = ((x * 3 + y * 5) | 0) % 2 ? 'dust2' : 'dust1';
       addPfx(s, { sheet: key, x: x, y: y, scale: 0.34, alpha: 0.72 });
+    },
+
+    /** Death burst sized and styled to the dying unit's faction. */
+    spawnUnitDeath: function (s, x, y, faction) {
+      if (!ready || RTS.Config.reducedMotion) return;
+      if (faction === 'rimwalker') {
+        addPfx(s, { sheet: 'hexExplosion', x: x, y: y, scale: 0.9 });
+      } else if (faction === 'cinder') {
+        addPfx(s, { sheet: 'splatterRed',  x: x, y: y,     scale: 0.8 });
+        addPfx(s, { sheet: 'burstOrange',  x: x, y: y - 4, scale: 0.7, alpha: 0.85 });
+      } else {
+        addPfx(s, { sheet: 'burstOrange',  x: x, y: y, scale: 0.9 });
+      }
+    },
+
+    /** Hero ability VFX (e.g. Root Lash at target feet). */
+    spawnHeroVfx: function (s, key, x, y, scale) {
+      if (!heroVfxReady || RTS.Config.reducedMotion) return null;
+      return addHeroVfx(s, key, x, y, { scale: scale });
+    },
+
+    spawnRootLash: function (s, x, y, scale) {
+      return this.spawnHeroVfx(s, 'root_lash', x, y, scale);
+    },
+
+    targetFootY: function (target, s) {
+      if (!target) return 0;
+      if (target.role && RTS.Sprites && RTS.Sprites.unitFootY) {
+        return RTS.Sprites.unitFootY(target, s);
+      }
+      if (target.type && RTS.Assets && RTS.Assets.buildingVisualBounds) {
+        var vb = RTS.Assets.buildingVisualBounds(target, s);
+        if (vb && vb.footY != null) return vb.footY;
+      }
+      var r = target.radius || Math.max(target.w || 0, target.h || 0) / 2;
+      return target.y + r * 0.35;
     },
 
     tick: function (s, dt) {
@@ -316,7 +461,12 @@
         if (fx.kind !== 'pfx') return;
         var a = fx.life > 9000 ? 1 : Math.max(0, fx.life / fx.max);
         var fi = frameIndex(fx);
-        drawSheet(ctx, fx.sheet, fi, fx.x, fx.y, fx.scale, (fx.alpha != null ? fx.alpha : 1) * a);
+        var alpha = (fx.alpha != null ? fx.alpha : 1) * a;
+        if (fx.heroVfx) {
+          drawHeroVfxSheet(ctx, fx.heroVfx, fi, fx.x, fx.y, fx.scale, alpha);
+          return;
+        }
+        drawSheet(ctx, fx.sheet, fi, fx.x, fx.y, fx.scale, alpha);
       });
     },
   };

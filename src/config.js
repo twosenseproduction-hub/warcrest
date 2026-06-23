@@ -187,7 +187,11 @@
   };
 
   RTS.Resource      = { label: 'Ironstone' };
-  RTS.resourceLabel = function () { return RTS.Resource.label; };
+  RTS.resourceLabel = function (factionId) {
+    var f = factionId && RTS.Factions && RTS.Factions[factionId];
+    if (f && f.resource) return f.resource;
+    return RTS.Resource.label;
+  };
 
   RTS.TEAM = { PLAYER: 'player', ENEMY: 'enemy', NEUTRAL: 'neutral' };
 
@@ -241,6 +245,16 @@
       traits: ['formation_bonus', 'taunt'],
       tauntRadius: 90,
       desc: 'Armored frontline. Draws nearby enemy attacks toward himself.',
+    },
+
+    // ---- Rimwalker units ---------------------------------------------------
+
+    rim_pawn: {
+      role: 'pawn', label: 'Grove Hand', glyph: 'circle', faction: 'rimwalker',
+      hp: 60, speed: 95, dmg: 6, range: 22, rof: 0.9,
+      cost: 45, supply: 1, build: 0, canHarvest: true, canBuild: true,
+      traits: [],
+      desc: 'Harvests Ironstone and raises structures. Slightly tougher than a Pawn, but slower.',
     },
 
     // ---- Raider Horde units ------------------------------------------------
@@ -307,6 +321,10 @@
       hp: 420, cost: 65, build: 10, isPasture: true,
       trains: ['_livestock'],
       desc: 'Raise livestock to increase supply cap.',
+      /* Rimwalker Briar Fold: 3 levels each granting more population */
+      supplyByLevel: [6, 12, 20],
+      upgradeCosts:  [80, 130],   /* cost to go lvl1→2 and lvl2→3 */
+      upgradeHp:     [560, 700],  /* maxHp at each upgraded level */
     },
     foundry: {
       type: 'foundry', label: 'Barracks', w: 192, h: 128,
@@ -391,6 +409,37 @@
         monk: 'Hex Shaman', warrior: 'Troll',
       },
     },
+
+    rimwalker: {
+      id: 'rimwalker',
+      name: 'Rimwalkers',
+      tagline: 'Root · Grove · Thorncraft',
+      blurb: 'Ancient forest wardens who grow their fortifications from living wood and stone. ' +
+             'Swift workers, nature-attuned warriors, and buildings that rise from the earth. ' +
+             'Grove Bond: Rimwalker units near a friendly building gain +10% move speed.',
+      primary:    '#2E7D32',
+      secondary:  '#A5D6A7',
+      dark:       '#1B5E20',
+      accent:     '#FFE082',
+      shapeStyle: 'organic',
+      passiveTrait: 'grove_bond',
+      resource:   'Thornstone',
+      units: ['pawn', 'lancer', 'archer', 'monk', 'warrior'],
+      names: {
+        core:        'Roothold',
+        conduit:     'Briar Fold',
+        foundry:     'Warden Lodge',
+        forge:       'Root Forge',
+        chiefs_hall: 'Elder Sanctum',
+        turret:      'Canopy Spire',
+        outpost:     'Grove Cache',
+        pawn:        'Grove Hand',
+        lancer:      'Bramble Warden',
+        archer:      'Bark Archer',
+        monk:        'Sapling Mystic',
+        warrior:     'Thornguard',
+      },
+    },
   };
 
   RTS.nameFor = function (factionId, key) {
@@ -434,7 +483,23 @@
   };
 
   RTS.Config.canUpgrade = function (b) {
+    if (!b || !b.built) return false;
+    /* Briar Fold (Rimwalker conduit) upgrades through 3 levels */
+    if (b.type === 'conduit' && b.faction === 'rimwalker') {
+      var spec = RTS.Buildings.conduit;
+      var maxLevel = spec.supplyByLevel ? spec.supplyByLevel.length : 1;
+      return (b.level || 1) < maxLevel;
+    }
     return false;
+  };
+
+  RTS.Config.upgradeCost = function (b) {
+    if (b.type === 'conduit') {
+      var spec = RTS.Buildings.conduit;
+      var lv = (b.level || 1) - 1; /* 0-indexed into upgradeCosts */
+      return spec.upgradeCosts ? (spec.upgradeCosts[lv] || 0) : 0;
+    }
+    return 0;
   };
 
   RTS.Config.passiveTags = function (entity) {

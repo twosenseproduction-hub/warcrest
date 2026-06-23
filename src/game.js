@@ -43,8 +43,13 @@
       }
 
       // Expose the step function for Phaser's scene update() to call each frame.
-      // GameScene drives the loop — we do NOT start a requestAnimationFrame here.
+      // Also drive sim on our own rAF so movement cannot stall if Phaser skips
+      // Scene.update/postrender (seen on some CANVAS + Scale.NONE setups).
       RTS.Game._step = loop;
+      (function rafDrive() {
+        RTS.Game._step(performance.now());
+        requestAnimationFrame(rafDrive);
+      })();
     },
 
     scene: function (name) {
@@ -72,7 +77,7 @@
     startMatch: function (factionId, mapId) {
       state = RTS.createState();
       RTS.resetIds();
-      state.mapId = mapId || state.mapId || 'sapphire_shores';
+      state.mapId = mapId || state.mapId || 'fairy_clearing';
       state.playerFaction = factionId;
       state.enemyFaction = factionId === 'aurex' ? 'cinder' : 'aurex';
       applyFactionTheme(factionId);
@@ -80,11 +85,20 @@
       if (RTS.Assets && RTS.Assets.preloadFactions) {
         RTS.Assets.preloadFactions([state.playerFaction, state.enemyFaction]);
       }
-      RTS.buildMap(state, state.mapId);
-      this.scene('playing');           // make canvas visible before sizing
+      this.scene('playing');
       RTS.Render.resize(state);
-      var core = RTS.playerCore(state);
-      if (core) RTS.Cam.centerOn(state, core.x, core.y);
+      if (RTS._rebuildPhaserTerrain) RTS._rebuildPhaserTerrain(state.mapId, true);
+      RTS.buildMap(state, state.mapId);
+      if (state.map && state.map.heroTestFocus) {
+        state.selectedIds = [state.map.heroTestFocus];
+        if (RTS.clearMacroGroups) RTS.clearMacroGroups(state);
+        state.ui.selectionFilter = 'all';
+        var heroUnit = RTS.getById(state, state.map.heroTestFocus);
+        if (heroUnit && RTS.Cam) RTS.Cam.centerOn(state, heroUnit.x, heroUnit.y);
+      } else {
+        var core = RTS.playerCore(state);
+        if (core) RTS.Cam.centerOn(state, core.x, core.y);
+      }
       RTS.HUD.sync(state);
       RTS.HUD.renderLog(state);
       updateOnboarding(state);
@@ -95,7 +109,10 @@
       RTS.Audio.resume();
       lastT = performance.now();
 
-      if (!localStorage.getItem(ONBOARD_KEY)) {
+      var heroTestArena = state.mapId === 'aelindra_test' || state.mapId === 'aelindra_duel'
+        || state.mapId === 'aelindra_grove' || state.mapId === 'verdant_reach'
+        || !!(state.map && state.map.heroTestFocus);
+      if (!localStorage.getItem(ONBOARD_KEY) && !heroTestArena) {
         show($('overlay-onboard'), true);
         state.scene = 'paused'; // pause sim while reading tips, but keep visuals
         show($('hud'), true);
@@ -163,12 +180,18 @@
 
   // ---- Menu wiring ---------------------------------------------------------
   var settingsReturn = 'menu';
-  var pendingMapId = 'sapphire_shores';
+  var pendingMapId = 'fairy_clearing';
 
   function wireMenus() {
     on('btn-play', function () {
-      pendingMapId = 'sapphire_shores';
-      RTS.Game.scene('factionselect');
+      pendingMapId = 'fairy_clearing';
+      RTS.Game.scene('mapselect');
+      RTS.Audio.resume();
+      RTS.Audio.play('click');
+    });
+    on('btn-heroes', function () {
+      pendingMapId = 'fairy_clearing';
+      RTS.Game.scene('mapselect');
       RTS.Audio.resume();
       RTS.Audio.play('click');
     });
@@ -176,7 +199,7 @@
     on('btn-settings', function () { RTS.Game.scene('settings'); RTS.Audio.play('click'); });
     on('btn-howto-back', function () { RTS.Game.scene('menu'); });
     on('btn-map-back', function () { RTS.Game.scene('menu'); });
-    on('btn-faction-back', function () { RTS.Game.scene('menu'); });
+    on('btn-faction-back', function () { RTS.Game.scene('mapselect'); });
 
     Array.prototype.forEach.call(document.querySelectorAll('[data-map]'), function (card) {
       card.addEventListener('click', function () {
@@ -228,8 +251,10 @@
   function on(id, fn) { var el = $(id); if (el) el.addEventListener('click', fn); }
 
   // ---- Main loop -----------------------------------------------------------
-  function loop(now) {
-    var dt = Math.min(0.05, (now - lastT) / 1000) || 0;
+  function loop(_phaserTime) {
+    var now = performance.now();
+    var dt = Math.min(0.05, (now - lastT) / 1000);
+    if (dt < 0) dt = 0;
     lastT = now;
 
     if (state.scene === 'playing') {
@@ -239,8 +264,19 @@
       if (RTS.Cam && RTS.Cam.updatePan) RTS.Cam.updatePan(state, dt);
       RTS.HUD.tick(state, 0);
     }
-    // Rendering is handled by GameScene's postrender event — not here.
-    // requestAnimationFrame is driven by Phaser — not here.
+
+    // Repaint entity overlay every sim frame. Phaser CANVAS + Scale.NONE often skips
+    // game.events postrender, leaving units visually frozen while sim still advances.
+    var inGame = state.scene === 'playing' || state.scene === 'paused'
+      || state.scene === 'won' || state.scene === 'lost';
+    if (inGame) {
+      if (RTS._phaserWorldLayer && RTS._phaserWorldLayer.refresh) {
+        RTS._phaserWorldLayer.refresh(state);
+      } else if (RTS.Render && RTS.Render.frame) {
+        RTS.Render.frame(state);
+      }
+      if (RTS.renderMinimap) RTS.renderMinimap(state);
+    }
   }
 
   function fmt(t) { var m = Math.floor(t / 60), s = Math.floor(t % 60); return m + ':' + (s < 10 ? '0' : '') + s; }

@@ -62,7 +62,106 @@
     },
   };
 
+  /* -----------------------------------------------------------------------
+   * Iron Crown — 36×36 per-frame custom unit art in assets/units/iron_crown/
+   * Actual clip frame counts measured from PNG dimensions (width ÷ height).
+   * idle(10) walk(10) run(5) attack(8) cast(10) death(8)
+   * ----------------------------------------------------------------------- */
+  function icClips(key) {
+    /* key = e.g. 'mage_l1' */
+    return {
+      idle:       { file: key + '_idle.png',   count: 10, speed: 2.2 },
+      walk:       { file: key + '_walk.png',   count: 10, speed: 9 },
+      guard:      { file: key + '_idle.png',   count: 10, speed: 2.0 },
+      walk_carry: { file: key + '_run.png',    count: 5,  speed: 9 },
+      attack:     { file: key + '_attack.png', count: 8,  fps: 12, impactFrame: 3 },
+      attack2:    { file: key + '_cast.png',   count: 10, fps: 12, releaseFrame: 5 },
+      death:      { file: key + '_death.png',  count: 8,  speed: 7 },
+    };
+  }
+  function icPawnClips(key) {
+    return {
+      idle:        { file: key + '_idle.png',   count: 10, speed: 2.2 },
+      walk:        { file: key + '_run.png',    count: 5,  speed: 9 },   /* no _walk.png strip — reuse run */
+      walk_carry:  { file: key + '_run.png',    count: 5,  speed: 9 },
+      work:        { file: key + '_attack.png', count: 8,  speed: 10 },
+      idle_hammer: { file: key + '_idle.png',   count: 10, speed: 2.2 },
+      walk_hammer: { file: key + '_run.png',    count: 5,  speed: 9 },
+      work_hammer: { file: key + '_attack.png', count: 8,  speed: 10 },
+      death:       { file: key + '_death.png',  count: 8,  speed: 7 },
+    };
+  }
+
+  var IC_FRAME_H = 36;
+  var IC_SCALE   = 2.0;   /* 36px frame rendered at ~100px — matches Tiny Swords visual size */
+
+  /* New 64×64px strips — swordman / archer / sword_horse / blade / rider / wizard */
+  function u64Clips(hasRun, hasDeath) {
+    return {
+      idle:       { file: 'idle.png',                          count: 6, speed: 2.2 },
+      walk:       { file: 'walk.png',                          count: 6, speed: 9 },
+      guard:      { file: 'idle.png',                          count: 6, speed: 2.0 },
+      walk_carry: { file: hasRun ? 'run.png' : 'walk.png',    count: 6, speed: 9 },
+      attack:     { file: 'attack.png', count: 6, fps: 12, impactFrame: 3 },
+      attack2:    { file: 'attack.png', count: 6, fps: 12, impactFrame: 3 },
+      death:      { file: hasDeath ? 'death.png' : 'walk.png', count: 6, speed: 7 },
+    };
+  }
+  var IC64_FRAME_H = 64;
+  var IC64_SCALE   = 1.1;
+
+  var IRON_CROWN_ROLE_DEF = {
+    pawn:    { folder: 'units/iron_crown',              frameH: IC_FRAME_H,   scale: IC_SCALE,          clips: icPawnClips('worker') },
+    warrior: { folder: 'units/iron_crown/swordman',     frameH: IC64_FRAME_H, scale: IC64_SCALE,         clips: u64Clips(false, true) },
+    archer:  { folder: 'units/iron_crown/archer',       frameH: IC64_FRAME_H, scale: IC64_SCALE,         clips: u64Clips(true,  false) },
+    lancer:  { folder: 'units/iron_crown/sword_horse',  frameH: IC64_FRAME_H, scale: IC64_SCALE * 1.12,  clips: u64Clips(false, true) },
+    monk:    { folder: 'units/iron_crown/Mage',         frameH: IC_FRAME_H,   scale: IC_SCALE,           clips: icClips('mage_l1') },
+  };
+
+  /* -----------------------------------------------------------------------
+   * Rimwalker combat units — 36×36 per-frame art in assets/units/rimwalker_combat/
+   * Same animation layout as Iron Crown.
+   * ----------------------------------------------------------------------- */
+  function rwClips(key) {
+    return {
+      idle:       { file: key + '_idle.png',   count: 6,  speed: 2.2 },
+      walk:       { file: key + '_walk.png',   count: 6,  speed: 9 },
+      guard:      { file: key + '_idle.png',   count: 6,  speed: 2.0 },
+      walk_carry: { file: key + '_run.png',    count: 5,  speed: 9 },
+      attack:     { file: key + '_attack.png', count: 8,  fps: 12, impactFrame: 3 },
+      attack2:    { file: key + '_cast.png',   count: 10, fps: 12, releaseFrame: 5 },
+      death:      { file: key + '_death.png',  count: 8,  speed: 7 },
+    };
+  }
+
+  var RW_FRAME_H = 36;
+  var RW_SCALE   = 2.0;
+
+  var RIMWALKER_COMBAT_ROLE_DEF = {
+    warrior: { folder: 'units/rimwalker/blade',   frameH: IC64_FRAME_H, scale: IC64_SCALE,        clips: u64Clips(false, true) },
+    archer:  { folder: 'units/rimwalker/archer',  frameH: IC64_FRAME_H, scale: IC64_SCALE,        clips: u64Clips(true,  false) },
+    lancer:  { folder: 'units/rimwalker/rider',   frameH: IC64_FRAME_H, scale: IC64_SCALE * 1.12, clips: u64Clips(true,  true) },
+    monk:    { folder: 'units/rimwalker/wizard',  frameH: IC64_FRAME_H, scale: IC64_SCALE,        clips: u64Clips(true,  true) },
+  };
+
   /* Cinder horde — tiny-swords-enemy pack (no faction color folders). */
+  /* Rimwalker faction — custom Pixel Crawler art in assets/units/ */
+  var RIMWALKER_ROLE_DEF = {
+    pawn: {
+      folder: 'units/elf_worker', frameH: 64, scale: 1.5,
+      clips: {
+        idle:        { file: 'Idle-Sheet.png', count: 4, speed: 2.2 },
+        walk:        { file: 'Run-Sheet.png',  count: 6, speed: 9 },
+        walk_carry:  { file: 'Run-Sheet.png',  count: 6, speed: 9 },
+        work:        { file: 'Hit-Sheet.png',  count: 4, speed: 10 },
+        idle_hammer: { file: 'Idle-Sheet.png', count: 4, speed: 2.2 },
+        walk_hammer: { file: 'Run-Sheet.png',  count: 6, speed: 9 },
+        work_hammer: { file: 'Hit-Sheet.png',  count: 4, speed: 10 },
+        death:       { file: 'Death-Sheet.png', count: 6, speed: 8 },
+      },
+    },
+  };
+
   var ENEMY_ROLE_DEF = {
     pawn: {
       folder: 'Enemies/Gnome', frameH: 192, scale: 1,
@@ -136,20 +235,12 @@
       faction: 'rimwalker',
       folder: 'aelindra',
       frameH: 256,
-      scale: 1.05,
+      scale: 0.68,   // art fills ~88% of the 256px frame vs Valdris's 58% — scaled down to match hero visual size
+      attackTopShift: 30 / 256,  // idle art has ~30px transparent headroom; attack fills full frame — shift down to match
       clips: {
-        idle:  { file: 'Aelindra_idle.png', count: 19, speed: 12 },
-        walk: {
-          count: 8,
-          speed: 16,
-          directions: {
-            south: 'Aelindra_Run_South.png',
-            north: 'Aelindra_Run_North.png',
-            east:  'Aelindra_Run_East.png',
-            west:  'Aelindra_Run_West.png',
-          },
-        },
-        guard: { file: 'Aelindra_idle.png', count: 19, speed: 7.5 },
+        idle:  { file: 'Aelindra_Idle.png', count: 19, speed: 12 },
+        walk: { file: 'Aelindra_Run_South.png', count: 8, speed: 16 },
+        guard: { file: 'Aelindra_Idle.png', count: 19, speed: 7.5 },
         attack: { file: 'Aelindra_Attack.png', count: 8, fps: 14, impactFrame: 4, vfx: 'root_lash' },
       },
     },
@@ -171,11 +262,18 @@
   }
 
   function roleDef(factionId, role) {
-    return factionId === 'cinder' ? ENEMY_ROLE_DEF[role] : ROLE_DEF[role];
+    if (factionId === 'cinder') return ENEMY_ROLE_DEF[role];
+    if (factionId === 'rimwalker') {
+      return RIMWALKER_COMBAT_ROLE_DEF[role] || RIMWALKER_ROLE_DEF[role] || ROLE_DEF[role];
+    }
+    if (factionId === 'aurex') return IRON_CROWN_ROLE_DEF[role] || ROLE_DEF[role];
+    return ROLE_DEF[role];
   }
 
   function assetBase(factionId) {
-    return factionId === 'cinder' ? RTS.Assets.ENEMY_BASE : RTS.Assets.KINGDOM_BASE;
+    if (factionId === 'cinder') return RTS.Assets.ENEMY_BASE;
+    /* aurex and rimwalker use custom art — paths relative to site root */
+    return '';
   }
 
   function unitPath(factionId, role, file) {
@@ -184,6 +282,10 @@
     if (factionId === 'cinder') {
       return def.folder + '/' + file;
     }
+    if (def.folder) {
+      return 'assets/' + def.folder + '/' + file;
+    }
+    /* Legacy Tiny Swords path fallback */
     var color = RTS.Assets.factionColor(factionId);
     return 'Units/' + color + ' Units/' + def.unit + '/' + file;
   }
@@ -197,9 +299,18 @@
       var clip = def.clips[ck];
       return RTS.Assets.loadImg(unitPath(factionId, role, clip.file), base).then(function (img) {
         return { key: ck, img: img, meta: clip };
+      }).catch(function (err) {
+        console.warn('sprite clip missing:', factionId + '/' + role + '/' + clip.file,
+          err && err.message ? err.message : err);
+        return null;
       });
     });
     return Promise.all(promises).then(function (parts) {
+      parts = parts.filter(function (p) { return p && p.img; });
+      if (!parts.length) {
+        console.warn('sprite sheet skipped (no clips loaded):', factionId, role);
+        return null;
+      }
       var entry = {
         frameH: def.frameH,
         frameW: def.frameH,
@@ -232,8 +343,7 @@
   }
 
   /* Bump when hero strip PNGs change — busts browser image cache on reload. */
-  var HERO_ASSET_V = '20260620t';
-  var HERO_CROP_INSET = 4;
+  var HERO_ASSET_V = '20260620z';
 
   /** Detect frame count from strip geometry (w÷h when cells are square). */
   function heroStripFrameCount(img, configured) {
@@ -252,7 +362,7 @@
     return configured || 1;
   }
 
-  /** Strip near-black fringe; per-frame crop so run/attack cycles stay aligned. */
+  /** Copy hero strip to canvas; frame detection only — no pixel keying, no per-frame crops. */
   function prepareHeroStrip(img, count) {
     count = heroStripFrameCount(img, count);
     var fw = Math.round(img.width / count);
@@ -261,59 +371,9 @@
     c.width = img.width;
     c.height = fh;
     var ctx = c.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
     ctx.drawImage(img, 0, 0);
-    var id = ctx.getImageData(0, 0, c.width, fh);
-    var d = id.data;
-    var frameCrops = [];
-    var inset = HERO_CROP_INSET;
-
-    for (var fi = 0; fi < count; fi++) {
-      var ox = fi * fw;
-      var minX = fw;
-      var minY = fh;
-      var maxX = 0;
-      var maxY = 0;
-      for (var y = 0; y < fh; y++) {
-        for (var x = 0; x < fw; x++) {
-          var i = (y * c.width + ox + x) * 4;
-          var r = d[i];
-          var g = d[i + 1];
-          var b = d[i + 2];
-          var a = d[i + 3];
-          if (a === 0) {
-            d[i] = d[i + 1] = d[i + 2] = 0;
-            continue;
-          }
-          if (r < 24 && g < 24 && b < 24) {
-            d[i] = d[i + 1] = d[i + 2] = d[i + 3] = 0;
-            continue;
-          }
-          if (a < 220 && r < 40 && g < 40 && b < 40) {
-            d[i] = d[i + 1] = d[i + 2] = d[i + 3] = 0;
-            continue;
-          }
-          if (a > 24) {
-            if (x < minX) minX = x;
-            if (y < minY) minY = y;
-            if (x > maxX) maxX = x;
-            if (y > maxY) maxY = y;
-          }
-        }
-      }
-      var crop = null;
-      if (maxX >= minX && maxY >= minY) {
-        var cx = minX + inset;
-        var cy = minY;
-        var cw = maxX - minX + 1 - inset * 2;
-        var ch = maxY - minY + 1;
-        if (cw > 8 && ch > 8) {
-          crop = { x: cx, y: cy, w: cw, h: ch };
-        }
-      }
-      frameCrops.push(crop);
-    }
-    ctx.putImageData(id, 0, 0);
-    return { canvas: c, crop: null, frameCrops: frameCrops, frameW: fw, count: count };
+    return { canvas: c, crop: null, frameCrops: [], frameW: fw, count: count };
   }
 
   function loadHeroSheet(heroId) {
@@ -375,6 +435,7 @@
         frameH: def.frameH,
         frameW: def.frameH,
         scale: def.scale,
+        attackTopShift: def.attackTopShift || 0,
         clips: {},
         heroId: heroId,
       };
@@ -504,11 +565,23 @@
         if (cb) cb(new Error('assets not ready'));
         return;
       }
+      function safeLoad(p, label) {
+        return p.catch(function (err) {
+          console.warn('sprite load failed (' + label + '):', err && err.message ? err.message : err);
+          return null;
+        });
+      }
       var jobs = [];
       FACTIONS.forEach(function (fid) {
-        ROLES.forEach(function (role) { jobs.push(loadRoleSheet(fid, role)); });
+        ROLES.forEach(function (role) { jobs.push(safeLoad(loadRoleSheet(fid, role), fid + '/' + role)); });
       });
-      Object.keys(HERO_DEF).forEach(function (hid) { jobs.push(loadHeroSheet(hid)); });
+      // Rimwalker pawn still uses Pixel Crawler elf worker art
+      jobs.push(safeLoad(loadRoleSheet('rimwalker', 'pawn'), 'rimwalker/pawn'));
+      // Rimwalker combat units
+      ['warrior', 'archer', 'lancer', 'monk'].forEach(function (role) {
+        jobs.push(safeLoad(loadRoleSheet('rimwalker', role), 'rimwalker/' + role));
+      });
+      Object.keys(HERO_DEF).forEach(function (hid) { jobs.push(safeLoad(loadHeroSheet(hid), 'hero/' + hid)); });
       Promise.all(jobs).then(function () {
         self.ready = Object.keys(sheets).length > 0;
         if (cb) cb();
@@ -767,7 +840,15 @@
       var vb = this.unitVisualBounds(u, s);
       if (!vb) return;
 
-      drawSpriteFrame(ctx, clip, sheet, fi, u, vb.drawW, vb.drawH, vb.drawY, flip);
+      // Attack frames fill the full sprite height (no top headroom), while idle/walk frames
+      // have ~30/256 transparent padding at the top. Shift attack down to keep visual height
+      // consistent so the character doesn't appear to jump taller during attacks.
+      var drawY = vb.drawY;
+      if (u.role === 'hero' && isAttackClipKey(animName) && sheet.attackTopShift) {
+        drawY += sheet.attackTopShift * vb.drawH;
+      }
+
+      drawSpriteFrame(ctx, clip, sheet, fi, u, vb.drawW, vb.drawH, drawY, flip);
 
       if (u.role === 'monk' && this.attackActive(u) && u.attackTargetId) {
         var ally = RTS.getById(s, u.attackTargetId);

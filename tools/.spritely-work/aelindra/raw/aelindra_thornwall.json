@@ -1,0 +1,12 @@
+{
+  "storageKey": "610d2a47-c87f-4ae2-b31b-4c3c1754f89a",
+  "storageUrl": "https://uqutkiynldivysxyzuuu.supabase.co/storage/v1/object/sign/generations/4bda7a3d-356e-49f3-80ac-d4cd8c52db4e/610d2a47-c87f-4ae2-b31b-4c3c1754f89a/sheet.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84MjJjM2FlNi01OWFhLTRkMWQtYTkzMi0yNzJmZDgzYWQxZTMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJnZW5lcmF0aW9ucy80YmRhN2EzZC0zNTZlLTQ5ZjMtODBhYy1kNGNkOGM1MmRiNGUvNjEwZDJhNDctYzg3Zi00YWUyLWIzMWItNGMzYzE3NTRmODlhL3NoZWV0LnBuZyIsInNjb3BlIjoiZG93bmxvYWQiLCJpYXQiOjE3ODE4NTEyMzAsImV4cCI6MTc4MTg1NDgzMH0.SBfSPui_tGvXDhjZMkyVlWZHd1VDscLVepLj-XT72Bs",
+  "mimeType": "image/png",
+  "refinedPrompt": "Chibi mage with staff pressing staff into ground with impact, heavy high-detail pixel art style, facing right",
+  "usage": {
+    "provider": "gemini",
+    "imageCount": 1,
+    "cost": 0.039
+  },
+  "balanceMdollars": 7350
+}

@@ -1,0 +1,23 @@
+{
+  "usage": {
+    "type": "usd",
+    "usd": 0.0
+  },
+  "id": "e3eb2dd2-d673-4154-829d-3948b3c085b4",
+  "status": "failed",
+  "created_at": "2026-06-19T06:51:35.993523+00:00",
+  "last_response": {
+    "type": "message_progress",
+    "action": "idle breathing loop, staff planted at side, subtle body bob and leaf cloak sway",
+    "status": "initializing",
+    "progress": 0.0,
+    "direction": "south",
+    "frame_count": 8,
+    "character_id": "28455441-c293-4fa0-a243-afd61b08c8b7",
+    "animation_name": "idle",
+    "queue_position": 0,
+    "generation_model": "v3",
+    "animation_group_id": "403ba816-42dd-4431-b8e4-6bd6f5377d1f",
+    "generation_started_at": "2026-06-19T06:51:51.473368+00:00"
+  }
+}

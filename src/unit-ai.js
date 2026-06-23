@@ -105,6 +105,7 @@
   }
 
   function unitCanAutoAcquire(s, u) {
+    if (u._heroTestPassive) return false;
     if (u.heal > 0 || u.role === 'monk') return false;
     if (u.commandMode === 'attackMove') return true;
     if (u.commandMode === 'guard' || u.commandMode === 'hold') return true;
@@ -303,6 +304,7 @@
 
     applyCommandFromOrder: function (u, attackMove, x, y) {
       initUnitAIState(u);
+      if (u._heroTestPassive) u._heroTestPassive = false;
       if (attackMove) {
         setCommand(u, 'attackMove', { pos: { x: x, y: y }, guardOrigin: { x: u.x, y: u.y } });
       } else {
@@ -317,6 +319,7 @@
 
     applyAttack: function (u, targetId) {
       initUnitAIState(u);
+      if (u._heroTestPassive) u._heroTestPassive = false;
       u.commandMode = 'attack';
       u.target = targetId;
       u.attackMove = false;

@@ -1,0 +1,12 @@
+{
+  "storageKey": "bb79958e-3a62-4c76-80dd-e550036f00e6",
+  "storageUrl": "https://uqutkiynldivysxyzuuu.supabase.co/storage/v1/object/sign/generations/4bda7a3d-356e-49f3-80ac-d4cd8c52db4e/bb79958e-3a62-4c76-80dd-e550036f00e6/sheet.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84MjJjM2FlNi01OWFhLTRkMWQtYTkzMi0yNzJmZDgzYWQxZTMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJnZW5lcmF0aW9ucy80YmRhN2EzZC0zNTZlLTQ5ZjMtODBhYy1kNGNkOGM1MmRiNGUvYmI3OTk1OGUtM2E2Mi00Yzc2LTgwZGQtZTU1MDAzNmYwMGU2L3NoZWV0LnBuZyIsInNjb3BlIjoiZG93bmxvYWQiLCJpYXQiOjE3ODE4NTExODksImV4cCI6MTc4MTg1NDc4OX0.JqasEvxdPLkSYkU6G-oQBQDbnn0tSdMxxu2qDMoKRS8",
+  "mimeType": "image/png",
+  "refinedPrompt": "Chibi pixel art hero running with staff in right hand and leaf cloak, heavy detail Valdris style, facing right",
+  "usage": {
+    "provider": "gemini",
+    "imageCount": 1,
+    "cost": 0.039
+  },
+  "balanceMdollars": 7450
+}

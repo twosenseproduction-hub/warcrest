@@ -1,0 +1,32 @@
+{
+  "usage": {
+    "type": "generations",
+    "generations": 8.0
+  },
+  "id": "7c73b84b-e150-4f16-9428-ac1186b00fb8",
+  "status": "completed",
+  "created_at": "2026-06-19T07:28:39.730288+00:00",
+  "last_response": {
+    "status": "completed",
+    "character_id": "25cba5ef-4c17-4b89-93c1-3abc53ef5015",
+    "storage_urls": {
+      "east": "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/25cba5ef-4c17-4b89-93c1-3abc53ef5015/rotations/east.png",
+      "west": "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/25cba5ef-4c17-4b89-93c1-3abc53ef5015/rotations/west.png",
+      "north": "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/25cba5ef-4c17-4b89-93c1-3abc53ef5015/rotations/north.png",
+      "south": "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/25cba5ef-4c17-4b89-93c1-3abc53ef5015/rotations/south.png",
+      "north-east": "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/25cba5ef-4c17-4b89-93c1-3abc53ef5015/rotations/north-east.png",
+      "north-west": "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/25cba5ef-4c17-4b89-93c1-3abc53ef5015/rotations/north-west.png",
+      "south-east": "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/25cba5ef-4c17-4b89-93c1-3abc53ef5015/rotations/south-east.png",
+      "south-west": "https://backblaze.pixellab.ai/file/pixellab-characters/7c14c3db-6082-4cbb-82ad-b3128bf7ac73/25cba5ef-4c17-4b89-93c1-3abc53ef5015/rotations/south-west.png"
+    },
+    "billing_usage": {
+      "type": "generations",
+      "generations": 8.0
+    },
+    "character_name": "Aelindra Ashveil",
+    "directions_type": "8-directions",
+    "generation_mode": "v3",
+    "directions_count": 8,
+    "character_description": "Aelindra Ashveil, Tendkeeper druid hero. Dark brown skin, Black features, thick grey locs. Wooden antler crown with amber gem, green leaf cloak, bark armor, gnarled staff. Heavy chibi high-detail pixel art RTS hero, Valdris idiom, Warcrest rimwalker."
+  }
+}
