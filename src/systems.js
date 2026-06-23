@@ -435,6 +435,33 @@
     return H.rate * H.mineCycleSec;
   }
 
+  // ---- Distance-based harvest rate ----------------------------------------
+  // Returns harvest ore-per-second, reduced for mines far from the home core.
+  function getHarvestRate(worker, mine, s) {
+    var H    = RTS.Config.harvest;
+    var base = H.rate;
+
+    // Find the worker's home deposit building to measure distance from
+    var dep = resolveReturnDeposit(s, worker);
+    if (!dep || !mine) return base;
+
+    var MA     = RTS.Config.mineAmounts;
+    var minR   = MA ? (MA.minMineRadius || 380) : 380;
+    var dx     = mine.x - dep.x, dy = mine.y - dep.y;
+    var d      = Math.sqrt(dx * dx + dy * dy);
+    var excess  = Math.max(0, d - minR);
+    var penalty = Math.min(0.25, (excess / 100) * 0.04);
+    return base * (1 - penalty);
+  }
+
+  // Returns the mineProximityBonus from the building spec the worker deposits to.
+  function getDepositBonus(worker, s) {
+    var dep = resolveReturnDeposit(s, worker);
+    if (!dep) return 0;
+    var spec = RTS.Buildings[dep.type];
+    return (spec && spec.mineProximityBonus) || 0;
+  }
+
   function resourcePct(node) {
     if (!node || !node.max) return 0;
     return Math.max(0, Math.min(1, node.amount / node.max));
@@ -570,7 +597,12 @@
 
   function completeMineCycle(s, u, node) {
     var H = RTS.Config.harvest;
-    var chunk = Math.min(mineChunkSize(), node.amount, H.capacity - u.harvest.carry);
+    // Apply distance penalty and deposit proximity bonus to harvest yield
+    var harvestRate  = getHarvestRate(u, node, s);
+    var depositBonus = getDepositBonus(u, s);
+    var effectiveRate = harvestRate * (1 + depositBonus);
+    var baseChunk = effectiveRate * H.mineCycleSec;
+    var chunk = Math.min(baseChunk, node.amount, H.capacity - u.harvest.carry);
     if (chunk <= 0) return false;
     node.amount -= chunk;
     u.harvest.carry += chunk;
@@ -1091,6 +1123,9 @@
         e.livestock.forEach(function (a) { a.dead = true; });
         RTS.recalcSupply(s, e.team);
       }
+      if (e.hexCoreId != null && e.hexSlotIndex != null && RTS.HexBase && RTS.HexBase.freeSlot) {
+        RTS.HexBase.freeSlot(e.hexCoreId, e.hexSlotIndex);
+      }
       if (RTS.Particles) RTS.Particles.clearBuildingFires(s, e.id);
       var boomY = e.y - e.h * 0.22;
       var boomSize = Math.max(e.w, e.h) * 0.75;
@@ -1460,6 +1495,8 @@
     bestNodeForWorker: bestNodeForWorker,
     scoreNodeForWorker: scoreNodeForWorker,
     mineChunkSize: mineChunkSize,
+    getHarvestRate: getHarvestRate,
+    getDepositBonus: getDepositBonus,
     assignReturnDeposit: assignDepositTarget,
     resolveReturnDeposit: resolveReturnDeposit,
   };
