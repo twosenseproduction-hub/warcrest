@@ -24,6 +24,16 @@
       facing: 0,
       _idlePhase: (id * 1.618) % 6.2832,
     };
+    // Apply intentional per-faction stat overrides on top of the base spec.
+    var ovr = RTS.unitOverride && RTS.unitOverride(u.faction, role);
+    if (ovr) {
+      if (ovr.hp != null)     { u.hp = ovr.hp; u.maxHp = ovr.hp; }
+      if (ovr.speed != null)  u.speed = ovr.speed;
+      if (ovr.dmg != null)    u.dmg = ovr.dmg;
+      if (ovr.range != null)  u.range = ovr.range;
+      if (ovr.rof != null)    u.rof = ovr.rof;
+      if (ovr.ranged != null) u.ranged = !!ovr.ranged;
+    }
     s.entities.units.push(u);
     if (RTS.UnitAI) RTS.UnitAI.initUnitAIState(u);
     var rc = (RTS.Config.combat && RTS.Config.combat.roles && RTS.Config.combat.roles[role]) ||

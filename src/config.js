@@ -303,6 +303,22 @@
 
   };
 
+  // ---- Per-faction unit stat overrides -------------------------------------
+  // Spawning resolves stats from the shared role base (RTS.Units[role]); the
+  // faction-specific entries above are descriptive. Deliberate per-faction
+  // tuning that should actually take effect in combat lives here and is
+  // applied on top of the base spec in RTS.makeUnit.
+  RTS.UnitOverrides = {
+    rimwalker: {
+      // Bramble Warden: long thorny reach — fires from just under Archer range (145).
+      lancer: { range: 140, ranged: true },
+    },
+  };
+  RTS.unitOverride = function (factionId, role) {
+    var f = RTS.UnitOverrides[factionId];
+    return (f && f[role]) || null;
+  };
+
   // ---- Buildings -----------------------------------------------------------
   RTS.Buildings = {
     core: {
