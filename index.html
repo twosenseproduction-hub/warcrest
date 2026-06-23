@@ -14,6 +14,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="styles/main.css?v=20260623b" />
+<link rel="stylesheet" href="styles/wc-hud.css?v=20260623c" />
 <style>
   /* ── Main menu WC3 enhancements ── */
   .menu-btn-row {
@@ -86,6 +87,30 @@
   <!-- ===================== HUD — mobile MOBA pattern: minimal chrome + context deck ===================== -->
   <div id="hud" class="hidden">
     <header id="topbar">
+      <!-- resources (left) -->
+      <div class="hub-stats-row">
+        <div class="hs-cell halcite">
+          <img class="ic-ts" src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_03.png" alt="" />
+          <span id="res-halcite" class="val">0</span>
+        </div>
+        <div class="hs-cell supply">
+          <img class="ic-ts" src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_06.png" alt="" />
+          <span id="res-supply" class="val">0/0</span>
+        </div>
+        <div class="hs-cell wave">
+          <img class="ic-ts" src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_08.png" alt="" />
+          <span id="wave-timer" class="val">--</span>
+        </div>
+        <div class="hs-cell time">
+          <img class="ic-ts" src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_10.png" alt="" />
+          <span id="timer" class="val timer">0:00</span>
+        </div>
+      </div>
+      <!-- center crest -->
+      <div class="tb-crest" aria-hidden="true">
+        <img class="tb-crest-img" src="assets/ui/wc/crest.svg?v=20260623" alt="" />
+      </div>
+      <!-- menu buttons (right) -->
       <div class="tb-right">
         <button class="tb-icon ts-round-btn" id="btn-rail-base" aria-label="Home"><img src="assets/tiny-swords/Buildings/Blue%20Buildings/Castle.png" alt="" class="ic-building" /></button>
         <button class="tb-icon ts-round-btn" id="btn-pause" aria-label="Pause"><img src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_10.png" alt="" /></button>
@@ -112,40 +137,12 @@
     <div id="toast"></div>
 
     <footer id="command-deck">
-      <!-- 4-stat resource row -->
-      <div class="hub-stats-row">
-        <div class="hs-cell halcite">
-          <img class="ic-ts" src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_03.png" alt="" />
-          <span id="res-halcite" class="val">0</span>
-        </div>
-        <div class="hs-cell supply">
-          <img class="ic-ts" src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_06.png" alt="" />
-          <span id="res-supply" class="val">0/0</span>
-        </div>
-        <div class="hs-cell wave">
-          <img class="ic-ts" src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_08.png" alt="" />
-          <span id="wave-timer" class="val">--</span>
-        </div>
-        <div class="hs-cell time">
-          <img class="ic-ts" src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_10.png" alt="" />
-          <span id="timer" class="val timer">0:00</span>
-        </div>
-      </div>
-      <!-- 3-column strip -->
       <div id="bottom-hub" class="bottom-hub">
-        <div id="hub-minimap" class="hub-minimap">
-          <canvas id="minimap"></canvas>
-        </div>
-        <!-- center: selection info stacked above command grid -->
-        <div class="hub-center-col">
-          <div id="selpanel" class="hub-center"></div>
+        <!-- LEFT: command console (contextual commands + combat actions) -->
+        <div class="deck-left wc-frame">
           <div id="command-card" class="hub-cmd">
             <div id="cmd-grid" class="cmd-grid" role="group" aria-label="Commands"></div>
           </div>
-        </div>
-        <!-- right: hero portrait + 3×2 action grid (A1-A3 / I1-I3) -->
-        <div id="hub-right" class="hub-right">
-          <div id="hub-hero" class="hub-hero"></div>
           <div id="hub-action-grid" class="hub-action-grid" aria-label="Combat controls">
             <button type="button" id="btn-combat-stop" class="act-slot ts-round-btn red" aria-label="Stop"><img src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_09.png" alt="" /></button>
             <button type="button" id="btn-combat-mode" class="act-slot ts-round-btn red" aria-label="Mode"><img src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_07.png" alt="" /></button>
@@ -153,6 +150,17 @@
             <button type="button" id="btn-hero-i1" class="act-slot act-slot-ability ts-round-btn" aria-label="Ability 1" disabled></button>
             <button type="button" id="btn-hero-i2" class="act-slot act-slot-empty ts-round-btn" aria-label="" disabled></button>
             <button type="button" id="btn-hero-i3" class="act-slot act-slot-empty ts-round-btn" aria-label="" disabled></button>
+          </div>
+        </div>
+        <!-- CENTER: selection portrait + info -->
+        <div class="deck-center wc-parch">
+          <div id="hub-hero" class="hub-hero"></div>
+          <div id="selpanel" class="hub-center"></div>
+        </div>
+        <!-- RIGHT: minimap -->
+        <div id="hub-right" class="deck-right">
+          <div id="hub-minimap" class="hub-minimap wc-frame">
+            <canvas id="minimap"></canvas>
           </div>
         </div>
       </div>

@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 110 104" width="110" height="104">
+  <defs>
+    <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f9e3a0"/>
+      <stop offset="0.45" stop-color="#d8a942"/>
+      <stop offset="0.6" stop-color="#a9781f"/>
+      <stop offset="1" stop-color="#6c4c15"/>
+    </linearGradient>
+    <linearGradient id="cnavy" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a4a86"/>
+      <stop offset="1" stop-color="#16294d"/>
+    </linearGradient>
+    <linearGradient id="cblade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#eef3f8"/>
+      <stop offset="1" stop-color="#9fb0c2"/>
+    </linearGradient>
+  </defs>
+  <!-- flanking flourishes -->
+  <g fill="url(#cg)" stroke="#0b0804" stroke-width="1.1">
+    <path d="M28,20 Q6,18 4,40 Q16,32 26,40 Q22,28 28,20 Z"/>
+    <path d="M82,20 Q104,18 106,40 Q94,32 84,40 Q88,28 82,20 Z"/>
+  </g>
+  <!-- shield: gold rim -->
+  <path d="M19,12 L91,12 L91,48 Q91,77 55,96 Q19,77 19,48 Z"
+        fill="url(#cg)" stroke="#0b0804" stroke-width="2"/>
+  <!-- inner highlight rim -->
+  <path d="M22,15 L88,15 L88,47 Q88,74 55,91 Q22,74 22,47 Z"
+        fill="none" stroke="#ffeec0" stroke-width="0.8" opacity="0.7"/>
+  <!-- navy field -->
+  <path d="M26,18 L84,18 L84,47 Q84,71 55,86 Q26,71 26,47 Z"
+        fill="url(#cnavy)" stroke="#0b0804" stroke-width="1.4"/>
+  <!-- sword -->
+  <g stroke="#0b0804" stroke-width="1">
+    <polygon points="55,24 58,30 58,60 55,66 52,60 52,30" fill="url(#cblade)"/>
+    <rect x="44" y="59" width="22" height="4.4" rx="1.6" fill="url(#cg)"/>
+    <rect x="52.6" y="63" width="4.8" height="11" rx="1.4" fill="url(#cg)"/>
+    <circle cx="55" cy="76.5" r="3.4" fill="url(#cg)"/>
+  </g>
+  <!-- top center gem -->
+  <circle cx="55" cy="12" r="4.6" fill="url(#cg)" stroke="#0b0804" stroke-width="1.4"/>
+  <circle cx="53.6" cy="10.6" r="1.5" fill="#fff" opacity="0.85"/>
+</svg>

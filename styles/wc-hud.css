@@ -1,0 +1,182 @@
+/* ============================================================================
+ * Warcrest — wc-hud.css
+ * In-game HUD restyle: ornate Warcraft-style console.
+ *   Top bar  : resources (left) · crest (center) · menu (right)
+ *   Bottom   : command grid (left) · selection (center) · minimap (right)
+ * Loaded AFTER main.css — id selectors win over the older .class layout rules.
+ * JS binds by id; only containers/visuals change here, never the ids.
+ * ==========================================================================*/
+
+/* Shared ornate gold frame (dark stone interior) */
+.wc-frame {
+  border: 12px solid transparent;
+  border-image: url("../assets/ui/wc/frame.svg") 30 fill / 12px / 0 stretch;
+  border-radius: 0;
+  background: transparent;
+}
+/* Gold frame with parchment interior (no fill so element background shows) */
+.wc-parch {
+  border: 12px solid transparent;
+  border-image: url("../assets/ui/wc/frame.svg") 30 / 12px / 0 stretch;
+  border-radius: 0;
+  background: var(--ts-paper-card) center/100% 100% no-repeat, #d8c298;
+}
+
+/* ── Top bar ──────────────────────────────────────────────────────────────*/
+#topbar {
+  position: absolute;
+  top: env(safe-area-inset-top); left: 0; right: 0;
+  height: 42px; padding: 0 max(8px, env(safe-area-inset-right)) 0 max(8px, env(safe-area-inset-left));
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: linear-gradient(180deg, #1d1409 0%, #0f0a05 100%);
+  border-bottom: 2px solid #0b0804;
+  box-shadow: inset 0 -3px 0 #6c4c15, inset 0 1px 0 rgba(255,230,160,.15), 0 3px 10px rgba(0,0,0,.5);
+  z-index: 22; pointer-events: none;
+}
+#topbar > * { pointer-events: auto; }
+
+/* resources (left cluster) */
+#topbar .hub-stats-row {
+  display: flex; gap: 5px; align-items: center;
+  grid-template-columns: none;
+  padding: 0; margin: 0; border: none; flex: 0 1 auto;
+}
+#topbar .hs-cell {
+  background: linear-gradient(180deg, #2b2114, #15100a);
+  border: 1px solid #0b0804;
+  box-shadow: inset 0 0 0 1px #6c4c15, inset 0 1px 0 rgba(255,230,160,.22);
+  border-radius: 5px; padding: 3px 5px; gap: 3px;
+}
+#topbar .hs-cell .ic-ts { width: 13px; height: 13px; }
+#topbar .hs-cell .val { font-size: 11px; text-shadow: 0 1px 1px #000; }
+/* On narrow phones the elapsed-time cell collides with the centered crest;
+   it is the least critical readout, so hide it until there's room (>=520px). */
+#topbar .hs-cell.time { display: none; }
+
+/* center crest — hangs slightly below the bar */
+.tb-crest {
+  position: absolute; left: 50%; top: 1px; transform: translateX(-50%);
+  pointer-events: none; z-index: 23;
+}
+.tb-crest-img {
+  width: 52px; height: auto; display: block;
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,.65));
+}
+
+/* menu buttons (right) */
+#topbar .tb-right { display: flex; align-items: center; gap: 5px; margin: 0; }
+#topbar .tb-icon { width: 34px; height: 34px; }
+
+/* ── Objective box (event-log → maroon quest panel, upper-left) ───────────*/
+#event-log {
+  top: calc(50px + env(safe-area-inset-top));
+  left: max(8px, env(safe-area-inset-left));
+  max-width: min(66%, 270px);
+}
+#event-log .evt {
+  border: 10px solid transparent;
+  border-image: url("../assets/ui/wc/frame-red.svg") 30 fill / 10px / 0 stretch;
+  background: none;
+  color: #f3d9a4; font-size: 10px; font-weight: 600; line-height: 1.25;
+  padding: 4px 8px; white-space: normal; overflow: visible;
+  text-shadow: 0 1px 1px #000; backdrop-filter: none;
+}
+#event-log .evt.good { color: #bfe6a0; }
+#event-log .evt.warn { color: #ffd98a; }
+#event-log .evt.bad  { color: #f3a98a; }
+
+/* ── Quick-select rail (army / pawns) — anchor to left edge mid-screen ─────
+   These buttons have no positioning of their own and otherwise pile up at
+   the top-left corner (0,0). Stack them as a small left-edge rail. */
+#btn-rail-army, #btn-rail-pawns {
+  position: absolute;
+  left: max(8px, env(safe-area-inset-left));
+  z-index: 23;
+}
+#btn-rail-army  { top: 46%; }
+#btn-rail-pawns { top: calc(46% + 60px); }
+
+/* ── Bottom console ───────────────────────────────────────────────────────*/
+#command-deck {
+  background: linear-gradient(180deg, #1b1309 0%, #0e0904 100%);
+  border-top: 2px solid #0b0804;
+  box-shadow: inset 0 3px 0 #6c4c15, inset 0 4px 0 rgba(255,230,160,.10), 0 -4px 16px rgba(0,0,0,.55);
+  padding: 6px max(8px, env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  padding-top: 6px;
+}
+
+/* 3-zone grid: command (auto) · selection (fill) · minimap (auto) */
+#bottom-hub {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 6px;
+  min-height: 0;
+  --cmd-slot: 40px;
+  --act-slot: 40px;
+}
+
+/* LEFT — command console (cmd-grid stacked over combat actions) */
+.deck-left {
+  display: flex; flex-direction: column; gap: 5px;
+  padding: 7px; align-items: center; justify-content: center;
+  align-self: stretch;
+}
+.deck-left .hub-cmd { align-self: center; }
+.deck-left .cmd-grid,
+.deck-left .hub-action-grid {
+  grid-template-columns: repeat(3, var(--cmd-slot));
+  gap: 4px;
+}
+.deck-left .hub-action-grid {
+  grid-template-rows: repeat(2, var(--act-slot));
+}
+.deck-left .act-slot { width: var(--act-slot); height: var(--act-slot); }
+
+/* CENTER — selection portrait + info on parchment */
+.deck-center {
+  display: flex; align-items: stretch; gap: 7px;
+  padding: 7px 10px; min-width: 0;
+}
+.deck-center .hub-hero {
+  width: 52px; height: 52px; flex: 0 0 52px; align-self: center;
+  border: 7px solid transparent;
+  border-image: url("../assets/ui/wc/frame.svg") 30 fill / 7px / 0 stretch;
+  border-radius: 0; background: #160f07;
+}
+.deck-center .hub-hero:empty { display: none; }
+.deck-center #selpanel {
+  flex: 1 1 auto; min-width: 0; align-self: center;
+  background: none; border: none;
+}
+/* dark text so labels read on the parchment */
+.deck-center .hub-title { color: #2f2210; text-shadow: 0 1px 0 rgba(255,245,215,.4); }
+.deck-center .hub-subtype,
+.deck-center .hub-status { color: #6a4d27; }
+.deck-center .passive-tag {
+  color: #4a3414; background: rgba(108,76,21,.18);
+  border: 1px solid rgba(108,76,21,.4);
+}
+.deck-center .hub-zone-c { min-width: 0; }
+
+/* RIGHT — minimap in ornate frame */
+.deck-right { align-self: stretch; display: flex; align-items: center; }
+#hub-minimap {
+  width: 86px; height: 86px; align-self: center;
+  border: 8px solid transparent;
+  border-image: url("../assets/ui/wc/frame.svg") 30 fill / 8px / 0 stretch;
+  border-radius: 0; background: #0a0e14;
+  box-shadow: 0 2px 8px rgba(0,0,0,.5);
+  overflow: hidden;
+}
+#hub-minimap canvas { width: 100%; height: 100%; display: block; }
+
+/* keep slightly larger frames on wider screens */
+@media (min-width: 520px) {
+  #bottom-hub { --cmd-slot: 46px; --act-slot: 46px; gap: 8px; }
+  #hub-minimap { width: 104px; height: 104px; }
+  .deck-center .hub-hero { width: 60px; height: 60px; flex: 0 0 60px; }
+  .tb-crest-img { width: 60px; }
+  #topbar { height: 46px; }
+  #topbar .hs-cell.time { display: flex; }
+}
