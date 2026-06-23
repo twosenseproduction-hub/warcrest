@@ -484,39 +484,29 @@
         return;
       }
 
-      var trainable = RTS.Config.getTrainableUnits ? RTS.Config.getTrainableUnits(fid, b.type) : [];
-      if (trainable.length) {
-        var trainHtml = trainable.slice(0, 5).map(function (role) {
-          var cost = RTS.Config.unitCost ? RTS.Config.unitCost(role, fid) : 0;
-          var atCap = s.res.player.supplyUsed >= s.res.player.supplyCap;
-          var disabled = atCap || s.res.player.halcite < cost;
-          var icon = (UI().unitAvatarUrl ? UI().unitAvatarUrl(fid, role) : null) || UI().iconUrl(role) || '';
-          var queueCount = b.queue ? b.queue.filter(function (j) { return j.role === role; }).length : 0;
-          return '<button class="cmd-slot' + (disabled ? ' disabled' : '') + '"' +
-            ' data-act="train" data-role="' + role + '" data-bid="' + b.id + '">' +
-            (icon ? '<img class="slot-icon" src="' + icon + '" alt="" />' : '') +
-            '<span class="slot-cost">' + cost + '</span>' +
-            (queueCount ? '<span class="hub-train-badge">' + queueCount + '</span>' : '') +
-            '</button>';
-        }).join('');
-        var queueHtml = renderBuildingQueue(s, b);
-        if (queueHtml) p.classList.add('has-queue');
-        p.innerHTML = '<div class="hub-train-panel"><div class="hub-train-row">' + trainHtml + '</div>' + queueHtml + '</div>';
-      } else {
-        if (prof.passiveTags.length) p.classList.add('has-tags');
-        p.innerHTML =
-          '<div class="hub-zone-a">' +
-            '<div class="hub-portrait unit-portrait-fill">' + UI().buildingPortraitHtml(b.faction, portraitKey) + '</div>' +
-            bar(b.hp, b.maxHp) +
-          '</div>' +
-          '<div class="hub-zone-b"></div>' +
-          '<div class="hub-zone-c">' +
-            '<div class="hub-title">' + RTS.nameFor(b.faction, b.type) + '</div>' +
-            '<div class="hub-subtype">' + prof.subtype + '</div>' +
-            renderPassiveTags(prof.passiveTags) +
-            '<div class="hub-status">Hold ground \u2192 rally</div>' +
-          '</div>';
-      }
+      // Built building \u2014 the MIDDLE zone shows info + the production queue
+      // only. The buildable units live in the command card (left zone).
+      var queueHtml = renderBuildingQueue(s, b);
+      if (queueHtml) p.classList.add('has-queue');
+      if (prof.passiveTags.length) p.classList.add('has-tags');
+      var qLen = b.queue ? b.queue.length : 0;
+      var canTrain = RTS.Config.getTrainableUnits &&
+        RTS.Config.getTrainableUnits(fid, b.type).length > 0;
+      var statusLine = qLen
+        ? ('Training ' + qLen + (qLen > 1 ? ' units' : ' unit') + '\u2026')
+        : (canTrain ? 'Ready to train' : 'Hold ground \u2192 rally');
+      p.innerHTML =
+        '<div class="hub-zone-a">' +
+          '<div class="hub-portrait unit-portrait-fill">' + UI().buildingPortraitHtml(b.faction, portraitKey) + '</div>' +
+          bar(b.hp, b.maxHp) +
+        '</div>' +
+        '<div class="hub-zone-b">' + (queueHtml || '') + '</div>' +
+        '<div class="hub-zone-c">' +
+          '<div class="hub-title">' + RTS.nameFor(b.faction, b.type) + '</div>' +
+          '<div class="hub-subtype">' + prof.subtype + '</div>' +
+          renderPassiveTags(prof.passiveTags) +
+          '<div class="hub-status">' + statusLine + '</div>' +
+        '</div>';
       return;
     }
 
@@ -681,21 +671,38 @@
 
   function buildBuildingCommands(s, b, model) {
     if (!b.built) return model;
+    var fid = s.playerFaction || 'aurex';
 
-    // Training is shown in the centre (YELLOW) panel; command card = management.
-    model['r1c1'] = slot('sell', UI().iconUrl('sell') || '', {
-      slotId: 'r1c1', label: 'Sell', bid: b.id,
+    // ── Buildable units (top rows) — what this building produces. ──
+    var trainable = RTS.Config.getTrainableUnits ? RTS.Config.getTrainableUnits(fid, b.type) : [];
+    var trainSlots = ['r1c1', 'r1c2', 'r1c3', 'r1c4', 'r2c1', 'r2c2', 'r2c3', 'r2c4'];
+    trainable.slice(0, trainSlots.length).forEach(function (role, i) {
+      var cost = RTS.Config.unitCost ? RTS.Config.unitCost(role, fid) : 0;
+      var atCap = s.res.player.supplyUsed >= s.res.player.supplyCap;
+      var icon = (UI().unitAvatarUrl ? UI().unitAvatarUrl(fid, role) : null) || UI().iconUrl(role) || '';
+      model[trainSlots[i]] = slot('train', icon, {
+        slotId: trainSlots[i], label: RTS.nameFor(fid, role), role: role, bid: b.id,
+        cost: cost, disabled: atCap || s.res.player.halcite < cost,
+      });
+    });
+
+    // ── Management (bottom row) ──
+    // "Cancel" subtracts the most recent unit from the production queue
+    // (it does NOT sell the building).
+    var hasQueue = b.queue && b.queue.length > 0;
+    model['r3c1'] = slot('cancel-train', UI().iconUrl('cancel') || '', {
+      slotId: 'r3c1', label: 'Cancel last from queue', bid: b.id, disabled: !hasQueue,
     });
     if (RTS.Config.canUpgrade && RTS.Config.canUpgrade(b)) {
       var upCost = RTS.Config.upgradeCost ? RTS.Config.upgradeCost(b) : 0;
-      model['r1c2'] = slot('upgrade', UI().iconUrl('upgrade') || '', {
-        slotId: 'r1c2', label: 'Upgrade', bid: b.id, cost: upCost,
+      model['r3c2'] = slot('upgrade', UI().iconUrl('upgrade') || '', {
+        slotId: 'r3c2', label: 'Upgrade', bid: b.id, cost: upCost,
         disabled: s.res.player.halcite < upCost,
       });
     }
     if (b.type === 'barracks' || b.type === 'keep') {
-      model['r1c3'] = slot('toggle-automine', UI().iconUrl('automine') || '', {
-        slotId: 'r1c3', label: 'Auto-mine', bid: b.id, autocast: !!b.autoMine,
+      model['r3c3'] = slot('toggle-automine', UI().iconUrl('automine') || '', {
+        slotId: 'r3c3', label: 'Auto-mine', bid: b.id, autocast: !!b.autoMine,
       });
     }
 
@@ -867,6 +874,13 @@
       RTS.trainUnit && RTS.trainUnit(s, data.bid, data.role);
     } else if (act === 'sell' && data.bid) {
       RTS.sellBuilding && RTS.sellBuilding(s, data.bid);
+    } else if (act === 'cancel-train' && data.bid) {
+      var cb = (s.entities.buildings || []).find(function (x) { return x.id === data.bid; });
+      if (cb && cb.queue && cb.queue.length && RTS.cancelTrainQueueItem) {
+        RTS.cancelTrainQueueItem(s, data.bid, cb.queue.length - 1);
+      } else {
+        RTS.Audio.play('deny');
+      }
     } else if (act === 'upgrade' && data.bid) {
       RTS.upgradeBuilding && RTS.upgradeBuilding(s, data.bid);
     } else if (act === 'toggle-automine' && data.bid) {
