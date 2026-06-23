@@ -44,15 +44,15 @@
   };
 
   /* Draw size targets — width-led, height follows sprite aspect in assets.js */
-  /* Scale tier 4 (was 3): all values ×4/3 for larger building presence. */
+  /* Scale tier 5: all values ×5/3 from original (×4/3 then ×1.25) for ~2.5–3× unit size. */
   var BUILDING_DRAW = {
-    core: { w: 340, h: 256 },
-    outpost: { w: 172, h: 172 },
-    conduit: { w: 236, h: 192 },
-    foundry: { w: 212, h: 172 },
-    forge: { w: 236, h: 192 },
-    chiefs_hall: { w: 236, h: 192 },
-    turret: { w: 96, h: 128 },
+    core: { w: 426, h: 320 },
+    outpost: { w: 216, h: 216 },
+    conduit: { w: 296, h: 240 },
+    foundry: { w: 266, h: 216 },
+    forge: { w: 296, h: 240 },
+    chiefs_hall: { w: 296, h: 240 },
+    turret: { w: 120, h: 160 },
   };
 
   /*

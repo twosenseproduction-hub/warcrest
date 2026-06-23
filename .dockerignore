@@ -5,3 +5,11 @@ CLAUDE_STANDALONE_PROMPT.md
 README.md
 .git
 .DS_Store
+# Editor source files — not needed at runtime
+*.aseprite
+*.ase
+*.psd
+tools/
+docs/
+scripts/
+.cursor/
