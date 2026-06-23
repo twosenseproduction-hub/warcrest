@@ -93,7 +93,7 @@
   }
 
   var IC_FRAME_H = 36;
-  var IC_SCALE   = 2.0;   /* 36px frame rendered at ~100px — matches Tiny Swords visual size */
+  var IC_SCALE   = 3.5;   /* 36px frame rendered at ~100px — matches Tiny Swords visual size */
 
   /* New 64×64px strips — swordman / archer / sword_horse / blade / rider / wizard */
   function u64Clips(hasRun, hasDeath) {
@@ -108,7 +108,7 @@
     };
   }
   var IC64_FRAME_H = 64;
-  var IC64_SCALE   = 1.1;
+  var IC64_SCALE   = 2.0;
 
   var IRON_CROWN_ROLE_DEF = {
     pawn:    { folder: 'units/iron_crown',              frameH: IC_FRAME_H,   scale: IC_SCALE,          clips: icPawnClips('worker') },
@@ -135,7 +135,7 @@
   }
 
   var RW_FRAME_H = 36;
-  var RW_SCALE   = 2.0;
+  var RW_SCALE   = 3.5;
 
   /* Rider has a separate glaive-effect overlay strip (row 4 of source sheet,
    * saved as glaive_effect.png).  No dedicated death strip — falls back to walk. */

@@ -16,7 +16,7 @@
     world: { w: 3072, h: 1920 },
     camera: {
       minZoom: 0.55, maxZoom: 2.0,
-      default: isPhone ? 1.08 : (isMobile ? 1.02 : 0.92),
+      default: isPhone ? 1.08 : (isMobile ? 1.02 : 0.7),
       panInertia: 0.86,
     },
     touch: {

@@ -44,14 +44,15 @@
   };
 
   /* Draw size targets — width-led, height follows sprite aspect in assets.js */
+  /* Scale tier 4 (was 3): all values ×4/3 for larger building presence. */
   var BUILDING_DRAW = {
-    core: { w: 256, h: 192 },
-    outpost: { w: 128, h: 128 },
-    conduit: { w: 176, h: 144 },
-    foundry: { w: 160, h: 128 },
-    forge: { w: 176, h: 144 },
-    chiefs_hall: { w: 176, h: 144 },
-    turret: { w: 72, h: 96 },
+    core: { w: 340, h: 256 },
+    outpost: { w: 172, h: 172 },
+    conduit: { w: 236, h: 192 },
+    foundry: { w: 212, h: 172 },
+    forge: { w: 236, h: 192 },
+    chiefs_hall: { w: 236, h: 192 },
+    turret: { w: 96, h: 128 },
   };
 
   /*
@@ -100,7 +101,7 @@
    * ~30% transparent headroom (footRatio ~0.70), so visible bodies read ~35–45% of
    * Barracks (128px) until this multiplier is applied.
    */
-  var GLOBAL_UNIT_SCALE = 0.85;
+  var GLOBAL_UNIT_SCALE = 1.6;
   var UNIT_VISUAL_SCALE =
     (REF.charH / (UNIT.pawn * HEIGHT_MUL)) * GLOBAL_UNIT_SCALE;
   var LANCER_VISUAL_MUL = 1.12;
