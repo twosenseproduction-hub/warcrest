@@ -496,7 +496,9 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 .build-panel {
   position: absolute;
   left: max(8px, env(safe-area-inset-left));
-  bottom: calc(88px + env(safe-area-inset-bottom));
+  /* Position above the command deck (stats row ~28px + bottom-hub ~--deck-expanded-h + 56px buffer).
+     The deck is always full height; the old 88px value fell inside it, hiding buttons. */
+  bottom: calc(var(--deck-expanded-h) + 84px + env(safe-area-inset-bottom));
   z-index: 24;
   min-width: 200px;
   max-width: min(280px, calc(100vw - 24px));
@@ -508,9 +510,6 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 }
 .build-panel.hidden {
   opacity: 0; pointer-events: none; transform: translateY(8px) scale(0.96);
-}
-#hud:has(#command-deck.expanded) .build-panel:not(.hidden) {
-  bottom: calc(var(--deck-expanded-h) + 84px + env(safe-area-inset-bottom));
 }
 .build-panel-head {
   font: bold 12px Fredoka, system-ui;
@@ -567,10 +566,8 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 @media (min-width: 520px) {
   #minimap-chip { width: 84px; height: 84px; }
   .map-tool-btn { width: 52px; height: 52px; }
-  .build-panel { bottom: calc(100px + env(safe-area-inset-bottom)); }
-  #hud:has(#command-deck.expanded) .build-panel:not(.hidden) {
-    bottom: calc(var(--deck-expanded-h) + 96px + env(safe-area-inset-bottom));
-  }
+  /* On wider screens, cmd-grid rows are taller (52px each), so clear more space. */
+  .build-panel { bottom: calc(var(--deck-expanded-h) + 96px + env(safe-area-inset-bottom)); }
 }
 
 /* ============================================================================
@@ -1354,6 +1351,9 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 @media (orientation: landscape) and (max-height: 480px) {
   :root { --deck-expanded-h: 100px; --unit-btn: 44px; --cmd-slot: var(--unit-btn); --cmd-btn: 40px; --combat-btn: 40px; --combat-primary: 46px; }
   #minimap-chip { width: 56px; height: 56px; }
+  /* In landscape, --deck-expanded-h drops to 100px; use a tighter offset so the panel
+     doesn't push into the shrunken game viewport. Still clears the full deck. */
+  .build-panel { bottom: calc(var(--deck-expanded-h) + 60px + env(safe-area-inset-bottom)); }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -137,10 +137,25 @@
   var RW_FRAME_H = 36;
   var RW_SCALE   = 2.0;
 
+  /* Rider has a separate glaive-effect overlay strip (row 4 of source sheet,
+   * saved as glaive_effect.png).  No dedicated death strip — falls back to walk. */
+  function riderClips() {
+    return {
+      idle:          { file: 'idle.png',          count: 6, speed: 2.2 },
+      walk:          { file: 'walk.png',           count: 6, speed: 9 },
+      guard:         { file: 'idle.png',           count: 6, speed: 2.0 },
+      walk_carry:    { file: 'run.png',            count: 6, speed: 9 },
+      attack:        { file: 'attack.png',         count: 6, fps: 12, impactFrame: 3 },
+      attack2:       { file: 'attack.png',         count: 6, fps: 12, impactFrame: 3 },
+      glaive_effect: { file: 'glaive_effect.png',  count: 6, fps: 12 },
+      death:         { file: 'walk.png',           count: 6, speed: 7 },
+    };
+  }
+
   var RIMWALKER_COMBAT_ROLE_DEF = {
     warrior: { folder: 'units/rimwalker/blade',   frameH: IC64_FRAME_H, scale: IC64_SCALE,        clips: u64Clips(false, true) },
     archer:  { folder: 'units/rimwalker/archer',  frameH: IC64_FRAME_H, scale: IC64_SCALE,        clips: u64Clips(true,  false) },
-    lancer:  { folder: 'units/rimwalker/rider',   frameH: IC64_FRAME_H, scale: IC64_SCALE * 1.12, clips: u64Clips(true,  true) },
+    lancer:  { folder: 'units/rimwalker/rider',   frameH: IC64_FRAME_H, scale: IC64_SCALE * 1.12, clips: riderClips() },
     monk:    { folder: 'units/rimwalker/wizard',  frameH: IC64_FRAME_H, scale: IC64_SCALE,        clips: u64Clips(true,  true) },
   };
 
@@ -774,6 +789,36 @@
       ctx.restore();
     },
 
+    drawGlaiveEffect: function (ctx, rider, s) {
+      if (!this.attackActive(rider)) return;
+      var sheet = sheets[this.sheetKey(rider)];
+      if (!sheet || !sheet.clips.glaive_effect) return;
+      var clip = sheet.clips.glaive_effect;
+      var fi = this.currentAttackFrame(rider);
+      if (fi < 0) return;
+      var r = unitDrawRadius(rider);
+      var footY = this.unitFootY(rider, s);
+      var drawH = unitDrawHeight(r, rider, sheet);
+      var fw = clip.frameW || sheet.frameW;
+      var drawW = (fw / sheet.frameH) * drawH;
+      var footRatio = RTS.SizeRef && RTS.SizeRef.unitFootRatio
+        ? RTS.SizeRef.unitFootRatio(rider.role, sheet.frameH)
+        : 0.94;
+      var drawY = footY - drawH * footRatio;
+      var sx = fi * fw;
+      var flip = Math.cos(rider.facing) < -0.12 ? -1 : 1;
+      ctx.save();
+      ctx.globalAlpha = 0.92;
+      if (flip < 0) {
+        ctx.translate(rider.x, 0);
+        ctx.scale(-1, 1);
+        ctx.translate(-rider.x, 0);
+      }
+      ctx.drawImage(clip.img, sx, 0, fw, sheet.frameH,
+        rider.x - drawW / 2, drawY, drawW, drawH);
+      ctx.restore();
+    },
+
     drawUnit: function (ctx, u, f, s) {
       var Art = RTS.Art;
       var sheet = sheets[this.sheetKey(u)];
@@ -853,6 +898,10 @@
       if (u.role === 'monk' && this.attackActive(u) && u.attackTargetId) {
         var ally = RTS.getById(s, u.attackTargetId);
         this.drawHealEffect(ctx, u, ally, s);
+      }
+
+      if (u.role === 'lancer' && this.attackActive(u)) {
+        this.drawGlaiveEffect(ctx, u, s);
       }
 
       Art.drawUnitOverlays(ctx, u, f, s, r, Art.minionPalette(f, u.team), vb, true);
