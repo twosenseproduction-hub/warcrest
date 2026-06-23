@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="styles/main.css?v=20260623b" />
-<link rel="stylesheet" href="styles/wc-hud.css?v=20260623e" />
+<link rel="stylesheet" href="styles/wc-hud.css?v=20260623g" />
 <style>
   /* ── Main menu WC3 enhancements ── */
   .menu-btn-row {
@@ -117,6 +117,13 @@
       </div>
     </header>
 
+    <!-- Minimap — floating, top-right -->
+    <div id="hub-right" class="minimap-float">
+      <div id="hub-minimap" class="hub-minimap wc-frame">
+        <canvas id="minimap"></canvas>
+      </div>
+    </div>
+
     <div id="map-tools">
       <button type="button" id="btn-build-hammer" class="map-tool-btn ts-round-btn" aria-label="Build structures" aria-expanded="false">
         <img src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_01.png" alt="" />
@@ -156,16 +163,10 @@
             <button type="button" id="btn-hero-i3" class="act-slot act-slot-empty ts-round-btn" aria-label="" disabled></button>
           </div>
         </div>
-        <!-- CENTER: selection portrait + info -->
+        <!-- CENTER: selection portrait + info — expands to fill freed minimap space -->
         <div class="deck-center wc-parch">
           <div id="hub-hero" class="hub-hero"></div>
           <div id="selpanel" class="hub-center"></div>
-        </div>
-        <!-- RIGHT: minimap -->
-        <div id="hub-right" class="deck-right">
-          <div id="hub-minimap" class="hub-minimap wc-frame">
-            <canvas id="minimap"></canvas>
-          </div>
         </div>
       </div>
     </footer>
@@ -365,7 +366,7 @@
 <script src="./phaser.js"></script>
 
 <!-- RTS game logic — same load order as original (game.js last) -->
-<script src="src/config.js?v=20260623f"></script>
+<script src="src/config.js?v=20260623h"></script>
 <script src="src/heroes.js"></script>
 <script src="src/size-ref.js?v=20260622b"></script>
 <script src="src/state.js"></script>
@@ -388,10 +389,10 @@
 <script src="src/ai.js"></script>
 <script src="src/radial-menu.js"></script>
 <script src="src/building-menu.js"></script>
-<script src="src/input.js?v=20260623e"></script>
+<script src="src/input.js?v=20260623h"></script>
 <script src="src/render.js?v=20260622d"></script>
 <script src="src/ui.js?v=20260623e"></script>
-<script src="src/hud.js?v=20260623g"></script>
+<script src="src/hud.js?v=20260623i"></script>
 <script src="src/game.js?v=20260622a"></script>
 
 <!-- Phaser bootstrap — after window.RTS is populated -->

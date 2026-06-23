@@ -16,7 +16,10 @@
     world: { w: 3072, h: 1920 },
     camera: {
       minZoom: 0.55, maxZoom: 2.0,
-      default: isPhone ? 1.08 : (isMobile ? 1.02 : 0.7),
+      // Fixed RTS perspective (matches the reference). Zoom is locked so it
+      // stays put across devices; set lock:false to re-enable pinch/wheel zoom.
+      default: 0.7,
+      lock: true,
       panInertia: 0.86,
     },
     touch: {

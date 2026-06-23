@@ -66,6 +66,7 @@
       }
     },
     zoomAt: function (s, factor, cssX, cssY) {
+      if (RTS.Config.camera && RTS.Config.camera.lock) return;
       var c = s.camera;
       var before = RTS.Cam.screenToWorld(s, cssX, cssY);
       c.zoom = Math.max(RTS.Config.camera.minZoom, Math.min(RTS.Config.camera.maxZoom, c.zoom * factor));
@@ -906,6 +907,7 @@
         };
       }
       function doPinch(s, fp, pz) {
+        if (RTS.Config.camera && RTS.Config.camera.lock) return;
         var d = fp.d;
         var cx = fp.cx, cy = fp.cy;
         var targetZoom = Math.max(RTS.Config.camera.minZoom,

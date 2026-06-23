@@ -495,17 +495,15 @@
       var statusLine = qLen
         ? ('Training ' + qLen + (qLen > 1 ? ' units' : ' unit') + '\u2026')
         : (canTrain ? 'Ready to train' : 'Hold ground \u2192 rally');
+      // Centered stack: portrait + title on top, queue underneath (no side bleed).
+      p.classList.add('is-building');
       p.innerHTML =
-        '<div class="hub-zone-a">' +
+        '<div class="hub-bld">' +
           '<div class="hub-portrait unit-portrait-fill">' + UI().buildingPortraitHtml(b.faction, portraitKey) + '</div>' +
-          bar(b.hp, b.maxHp) +
-        '</div>' +
-        '<div class="hub-zone-b">' + (queueHtml || '') + '</div>' +
-        '<div class="hub-zone-c">' +
           '<div class="hub-title">' + RTS.nameFor(b.faction, b.type) + '</div>' +
-          '<div class="hub-subtype">' + prof.subtype + '</div>' +
-          renderPassiveTags(prof.passiveTags) +
           '<div class="hub-status">' + statusLine + '</div>' +
+          bar(b.hp, b.maxHp) +
+          (queueHtml ? '<div class="hub-bld-queue">' + queueHtml + '</div>' : '') +
         '</div>';
       return;
     }
