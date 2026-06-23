@@ -225,6 +225,37 @@
     return true;
   };
 
+  // Type-select bar: Worker | Melee | Ranged | Caster.
+  RTS.CATEGORY_ROLES = {
+    worker: ['pawn'],
+    melee:  ['lancer', 'warrior'],
+    ranged: ['archer'],
+    caster: ['monk', 'hero'],
+  };
+  RTS.unitsOfCategory = function (s, cat) {
+    var roles = RTS.CATEGORY_ROLES[cat] || [];
+    return s.entities.units.filter(function (u) {
+      return u.team === RTS.TEAM.PLAYER && !u.dead &&
+        (roles.indexOf(u.role) >= 0 || (cat === 'caster' && u.heroId));
+    });
+  };
+  RTS.selectByCategory = function (s, cat) {
+    RTS.clearMacroGroups && RTS.clearMacroGroups(s);
+    if (s.ui) s.ui.selectionFilter = 'all';
+    var matches = RTS.unitsOfCategory(s, cat);
+    if (!matches.length) {
+      if (RTS.toast) RTS.toast(s, 'No ' + cat + ' units');
+      if (RTS.Audio) RTS.Audio.play('deny');
+      return false;
+    }
+    s.selectedIds = matches.map(function (u) { return u.id; });
+    if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
+    RTS.refreshMode(s);
+    RTS.HUD.sync(s);
+    if (RTS.Audio) RTS.Audio.play('ready');
+    return true;
+  };
+
   RTS.nearestWorker = function (s, x, y) {
     var best = null, bd = Infinity;
     s.entities.units.forEach(function (u) {
@@ -438,6 +469,7 @@
     var n = units.length, idx = 0;
     var mode = attackMove ? 'attackMove' : 'move';
     units.forEach(function (u) {
+      u.patrol = null;
       var off = spread(idx++, n);
       var tx = x + off.x, ty = y + off.y;
       applyUnitCommand(u, mode, { pos: { x: tx, y: ty }, guardOrigin: { x: u.x, y: u.y } });
@@ -447,10 +479,25 @@
     else RTS.Audio.play('move');
   };
 
+  // Patrol: loop between the unit's current spot and the tapped point,
+  // attack-moving each leg so the unit engages foes along the route.
+  RTS.orderPatrol = function (s, units, x, y) {
+    var n = units.length, idx = 0;
+    units.forEach(function (u) {
+      var off = spread(idx++, n);
+      var tx = x + off.x, ty = y + off.y;
+      applyUnitCommand(u, 'attackMove', { pos: { x: tx, y: ty }, guardOrigin: { x: u.x, y: u.y } });
+      u.patrol = { ax: u.x, ay: u.y, bx: tx, by: ty, toB: true };
+      if (RTS.Pathfind) RTS.Pathfind.clearNav(u);
+    });
+    RTS.Audio.play('attack');
+  };
+
   RTS.orderAttack = function (s, units, targetId) {
     var target = RTS.getById(s, targetId);
     if (!target || !RTS.canBeAttacked(target)) return;
     units.forEach(function (u) {
+      u.patrol = null;
       applyUnitCommand(u, 'attackTarget', { targetId: targetId, guardOrigin: { x: u.x, y: u.y } });
       if (RTS.Pathfind) RTS.Pathfind.clearNav(u);
     });
@@ -459,6 +506,7 @@
 
   RTS.orderStop = function (s, units) {
     units.forEach(function (u) {
+      u.patrol = null;
       applyUnitCommand(u, 'idle');
       if (RTS.Pathfind) RTS.Pathfind.clearNav(u);
       u.vx = 0; u.vy = 0;

@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="styles/main.css?v=20260623b" />
-<link rel="stylesheet" href="styles/wc-hud.css?v=20260623c" />
+<link rel="stylesheet" href="styles/wc-hud.css?v=20260623e" />
 <style>
   /* ── Main menu WC3 enhancements ── */
   .menu-btn-row {
@@ -127,8 +127,6 @@
       <div id="build-panel-grid" class="build-panel-grid"></div>
     </div>
 
-    <button type="button" class="map-tool-btn ts-round-btn hidden" id="btn-rail-army" aria-label="Select army"><img src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_05.png" alt="" /></button>
-    <button type="button" class="map-tool-btn ts-round-btn hidden" id="btn-rail-pawns" aria-label="Select pawns"><span class="pawn-select-portrait" aria-hidden="true"></span></button>
 
     <div id="event-log"></div>
     <div id="gesture-hint" class="hidden"></div>
@@ -138,8 +136,14 @@
 
     <footer id="command-deck">
       <div id="bottom-hub" class="bottom-hub">
-        <!-- LEFT: command console (contextual commands + combat actions) -->
+        <!-- LEFT: type-select bar (red) + command card (blue) -->
         <div class="deck-left wc-frame">
+          <div id="type-select" class="type-select" role="group" aria-label="Select units by type">
+            <button class="ts-chip" data-cat="worker" data-role="pawn" aria-label="Select all workers"><span class="ts-ico unit-portrait-fill"></span><span class="ts-tag">WRK</span><span class="ts-count"></span></button>
+            <button class="ts-chip" data-cat="melee" data-role="lancer" aria-label="Select all melee"><span class="ts-ico unit-portrait-fill"></span><span class="ts-tag">MEL</span><span class="ts-count"></span></button>
+            <button class="ts-chip" data-cat="ranged" data-role="archer" aria-label="Select all ranged"><span class="ts-ico unit-portrait-fill"></span><span class="ts-tag">RNG</span><span class="ts-count"></span></button>
+            <button class="ts-chip" data-cat="caster" data-role="monk" aria-label="Select all casters"><span class="ts-ico unit-portrait-fill"></span><span class="ts-tag">CAS</span><span class="ts-count"></span></button>
+          </div>
           <div id="command-card" class="hub-cmd">
             <div id="cmd-grid" class="cmd-grid" role="group" aria-label="Commands"></div>
           </div>
@@ -369,7 +373,7 @@
 <script src="src/sapphire-mapgen.js"></script>
 <script src="src/terraform-zones.js"></script>
 <script src="src/map.js?v=20260622a"></script>
-<script src="src/commands.js?v=20260620"></script>
+<script src="src/commands.js?v=20260623e"></script>
 <script src="src/audio.js"></script>
 <script src="src/art.js?v=20260622c"></script>
 <script src="src/terrain.js"></script>
@@ -380,14 +384,14 @@
 <script src="src/sprites.js?v=20260623b"></script>
 <script src="src/pathfind.js"></script>
 <script src="src/unit-ai.js?v=20260620"></script>
-<script src="src/systems.js?v=20260620"></script>
+<script src="src/systems.js?v=20260623e"></script>
 <script src="src/ai.js"></script>
 <script src="src/radial-menu.js"></script>
 <script src="src/building-menu.js"></script>
-<script src="src/input.js?v=20260620e"></script>
+<script src="src/input.js?v=20260623e"></script>
 <script src="src/render.js?v=20260622d"></script>
-<script src="src/ui.js"></script>
-<script src="src/hud.js?v=20260620e"></script>
+<script src="src/ui.js?v=20260623e"></script>
+<script src="src/hud.js?v=20260623e"></script>
 <script src="src/game.js?v=20260622a"></script>
 
 <!-- Phaser bootstrap — after window.RTS is populated -->

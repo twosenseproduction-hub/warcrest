@@ -7,9 +7,12 @@
   'use strict';
   var D = {}; var getState;
 
+  // WC3-style command card: 4 columns x 3 rows. Bottom row (r3) holds the
+  // movement/combat commands; upper rows hold abilities / build / management.
   var CMD_SLOTS = [
-    'primary1', 'primary2', 'primary3',
-    'secondary1', 'secondary2', 'secondary3',
+    'r1c1', 'r1c2', 'r1c3', 'r1c4',
+    'r2c1', 'r2c2', 'r2c3', 'r2c4',
+    'r3c1', 'r3c2', 'r3c3', 'r3c4',
   ];
 
   var SQUAD_CHIPS = [
@@ -66,11 +69,17 @@
       });
 
       ['cmd-grid', 'selpanel', 'squad-chips', 'squad-block', 'hub-action-grid', 'topbar', 'command-deck',
-       'bottom-hub', 'map-tools', 'build-panel', 'btn-build-hammer', 'hub-minimap'].forEach(function (id) {
+       'bottom-hub', 'map-tools', 'build-panel', 'btn-build-hammer', 'hub-minimap', 'type-select'].forEach(function (id) {
         var el = document.getElementById(id);
         if (!el) return;
         el.addEventListener('pointerdown', markUi, true);
         el.addEventListener('touchstart', markUi, true);
+      });
+
+      wireDelegatedTap($('type-select'), '[data-cat]', function (e, btn) {
+        if (btn.classList.contains('disabled')) { RTS.Audio.play('deny'); return; }
+        var st = getState();
+        if (st) RTS.selectByCategory(st, btn.dataset.cat);
       });
       D['btn-pause'] && D['btn-pause'].addEventListener('click', function () { RTS.Game.togglePause(); });
 
@@ -191,6 +200,7 @@
       renderSquadBlock(s);
       renderCenterPanel(s);
       renderCommandCard(s);
+      renderTypeSelect(s);
       syncCombatModeIcon(s);
     },
 
@@ -588,6 +598,7 @@
       cooldown: opts.cooldown || 0,
       autocast: !!opts.autocast,
       targeting: !!opts.targeting,
+      passive: !!opts.passive,
       bid: opts.bid,
       uid: opts.uid,
       cost: opts.cost,
@@ -609,7 +620,7 @@
         html += '<button class="cmd-slot slot-hidden" data-slot="' + sid + '" disabled aria-hidden="true"></button>';
         return;
       }
-      var cls = 'cmd-slot' + (sl.disabled ? ' disabled' : '') + (sl.targeting ? ' targeting' : '') + (sl.autocast ? ' autocast' : '');
+      var cls = 'cmd-slot' + (sl.disabled ? ' disabled' : '') + (sl.targeting ? ' targeting' : '') + (sl.autocast ? ' autocast' : '') + (sl.passive ? ' passive' : '');
       var cdStyle = sl.cooldown > 0 ? ' style="--cd:' + sl.cooldown + '"' : '';
       var costHtml = sl.cost ? '<span class="slot-cost">' + sl.cost + '</span>' : '';
       var iconHtml = sl.icon ? '<img class="slot-icon" src="' + sl.icon + '" alt="" />' : '';
@@ -624,6 +635,34 @@
         '</button>';
     });
     grid.innerHTML = html;
+  }
+
+  // Type-select bar (Worker | Melee | Ranged | Caster): live counts + active state.
+  function renderTypeSelect(s) {
+    var bar = $('type-select'); if (!bar) return;
+    var selected = RTS.activeSelectedUnits ? RTS.activeSelectedUnits(s) : [];
+    var chips = bar.querySelectorAll('[data-cat]');
+    var fid = s.playerFaction || 'aurex';
+    Array.prototype.forEach.call(chips, function (chip) {
+      var cat = chip.dataset.cat;
+      var roles = (RTS.CATEGORY_ROLES && RTS.CATEGORY_ROLES[cat]) || [];
+      // Populate the representative unit portrait once per faction.
+      if (chip._iconFid !== fid) {
+        var ico = chip.querySelector('.ts-ico');
+        if (ico && UI().avatarPortraitHtml) {
+          ico.innerHTML = UI().avatarPortraitHtml(fid, chip.dataset.role, 18);
+          chip._iconFid = fid;
+        }
+      }
+      var count = RTS.unitsOfCategory ? RTS.unitsOfCategory(s, cat).length : 0;
+      chip.classList.toggle('disabled', count === 0);
+      var badge = chip.querySelector('.ts-count');
+      if (badge) badge.textContent = count ? count : '';
+      var active = count > 0 && selected.length > 0 && selected.every(function (u) {
+        return roles.indexOf(u.role) >= 0 || (cat === 'caster' && u.heroId);
+      });
+      chip.classList.toggle('active', active);
+    });
   }
 
   function buildCommandModel(s, prof) {
@@ -643,20 +682,20 @@
   function buildBuildingCommands(s, b, model) {
     if (!b.built) return model;
 
-    // Training is shown in the centre panel; command card has management actions only
-    model['primary1'] = slot('sell', UI().iconUrl('sell') || '', {
-      slotId: 'primary1', label: 'Sell', bid: b.id,
+    // Training is shown in the centre (YELLOW) panel; command card = management.
+    model['r1c1'] = slot('sell', UI().iconUrl('sell') || '', {
+      slotId: 'r1c1', label: 'Sell', bid: b.id,
     });
     if (RTS.Config.canUpgrade && RTS.Config.canUpgrade(b)) {
       var upCost = RTS.Config.upgradeCost ? RTS.Config.upgradeCost(b) : 0;
-      model['primary2'] = slot('upgrade', UI().iconUrl('upgrade') || '', {
-        slotId: 'primary2', label: 'Upgrade', bid: b.id, cost: upCost,
+      model['r1c2'] = slot('upgrade', UI().iconUrl('upgrade') || '', {
+        slotId: 'r1c2', label: 'Upgrade', bid: b.id, cost: upCost,
         disabled: s.res.player.halcite < upCost,
       });
     }
     if (b.type === 'barracks' || b.type === 'keep') {
-      model['primary3'] = slot('toggle-automine', UI().iconUrl('automine') || '', {
-        slotId: 'primary3', label: 'Auto-mine', bid: b.id, autocast: !!b.autoMine,
+      model['r1c3'] = slot('toggle-automine', UI().iconUrl('automine') || '', {
+        slotId: 'r1c3', label: 'Auto-mine', bid: b.id, autocast: !!b.autoMine,
       });
     }
 
@@ -667,35 +706,44 @@
     var units = prof.units || [];
     if (!units.length) return model;
 
-    // Move / Attack-move / Stop
-    model['primary1'] = slot('move', UI().iconUrl('move') || '', { slotId: 'primary1', label: 'Move' });
-    model['primary2'] = slot('attack-move', UI().iconUrl('attack') || '', {
-      slotId: 'primary2', label: 'Attack-move', targeting: !!s.attackMoveArmed,
-    });
-    model['primary3'] = slot('stop', UI().iconUrl('stop') || '', { slotId: 'primary3', label: 'Stop' });
-
-    // Hero ability in secondary1 if applicable
+    // ── Abilities / passive (top row) ──
+    // Hero kit: passive (always-on) + up to 3 actives, locked by level.
     if (units.length === 1 && units[0].heroId && RTS.getHero) {
       var h = RTS.getHero(units[0].heroId);
-      if (h && h.ability) {
-        var cd = h.abilityCooldown || 0;
-        model['secondary1'] = slot('hero-ability', UI().iconUrl(h.ability) || '', {
-          slotId: 'secondary1',
-          label: h.ability,
-          uid: units[0].id,
-          cooldown: cd > 0 ? (cd / (RTS.Config.heroAbilityCooldown || 10)) : 0,
-          disabled: cd > 0,
+      if (h) {
+        var lvl = units[0].level || 1;
+        if (h.passive) {
+          model['r1c1'] = slot('hero-passive', UI().iconUrl('ability') || '', {
+            slotId: 'r1c1', label: h.passive.name + ' — passive',
+            passive: true, disabled: true,
+          });
+        }
+        var aSlots = ['r1c2', 'r1c3', 'r1c4'];
+        (h.abilities || []).slice(0, 3).forEach(function (ab, i) {
+          var locked = (ab.unlockLevel || 1) > lvl;
+          model[aSlots[i]] = slot('hero-ability', UI().iconUrl('ability') || '', {
+            slotId: aSlots[i], label: ab.name, uid: units[0].id,
+            disabled: locked, cost: locked ? ('L' + (ab.unlockLevel || 1)) : 0,
+          });
         });
       }
     }
-
     // Pawn build shortcut
-    var hasPawn = units.some(function (u) { return u.role === 'pawn'; });
-    if (hasPawn) {
-      model['secondary2'] = slot('open-build', UI().iconUrl('build') || '', {
-        slotId: 'secondary2', label: 'Build',
+    if (units.some(function (u) { return u.role === 'pawn'; })) {
+      model['r1c1'] = slot('open-build', UI().iconUrl('build') || '', {
+        slotId: 'r1c1', label: 'Build',
       });
     }
+
+    // ── Movement / combat commands (bottom row, WC3 convention) ──
+    model['r3c1'] = slot('move', UI().iconUrl('move') || '', { slotId: 'r3c1', label: 'Move' });
+    model['r3c2'] = slot('patrol', UI().iconUrl('patrol') || UI().iconUrl('move') || '', {
+      slotId: 'r3c2', label: 'Patrol', targeting: !!s.patrolArmed,
+    });
+    model['r3c3'] = slot('attack-move', UI().iconUrl('attack') || '', {
+      slotId: 'r3c3', label: 'Attack-move', targeting: !!s.attackMoveArmed,
+    });
+    model['r3c4'] = slot('stop', UI().iconUrl('stop') || '', { slotId: 'r3c4', label: 'Stop' });
 
     return model;
   }
@@ -836,10 +884,19 @@
       }
     } else if (act === 'attack-move') {
       s.attackMoveArmed = !s.attackMoveArmed;
+      if (s.attackMoveArmed) s.patrolArmed = false;
+      RTS.refreshMode && RTS.refreshMode(s);
+    } else if (act === 'patrol') {
+      s.patrolArmed = !s.patrolArmed;
+      if (s.patrolArmed) {
+        s.attackMoveArmed = false;
+        RTS.toast && RTS.toast(s, 'Tap ground to patrol');
+      }
       RTS.refreshMode && RTS.refreshMode(s);
     } else if (act === 'stop') {
       RTS.orderStop && RTS.orderStop(s, RTS.activeSelectedUnits(s));
       s.attackMoveArmed = false;
+      s.patrolArmed = false;
       RTS.refreshMode && RTS.refreshMode(s);
     } else if (act === 'hero-ability' && data.uid) {
       RTS.triggerHeroAbility && RTS.triggerHeroAbility(s, data.uid);

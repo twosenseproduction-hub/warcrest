@@ -287,7 +287,7 @@
       }
     }
     if (combat.length && (!hit || hit.kind === 'resource')) {
-      return { type: 'moveCombat', x: wx, y: wy, attackMove: s.attackMoveArmed, units: combat };
+      return { type: 'moveCombat', x: wx, y: wy, attackMove: s.attackMoveArmed, patrol: !!s.patrolArmed, units: combat };
     }
     if (workers.length && !combat.length && (!hit || hit.kind === 'resource')) {
       return { type: 'moveWorkers', x: wx, y: wy, units: workers };
@@ -352,10 +352,18 @@
         haptic(12);
         break;
       case 'moveCombat':
-        RTS.orderMove(s, intent.units, intent.x, intent.y, intent.attackMove);
-        flash(s, intent.x, intent.y, intent.attackMove ? '#ff9a3c' : RTS.Factions[s.playerFaction].primary);
-        if (intent.units.some(function (u) { return u.role === 'hero'; })) {
-          RTS.toast(s, 'Move order');
+        if (intent.patrol) {
+          RTS.orderPatrol(s, intent.units, intent.x, intent.y);
+          flash(s, intent.x, intent.y, '#5ad1ff');
+          s.patrolArmed = false;
+          RTS.refreshMode && RTS.refreshMode(s);
+          RTS.HUD.sync(s);
+        } else {
+          RTS.orderMove(s, intent.units, intent.x, intent.y, intent.attackMove);
+          flash(s, intent.x, intent.y, intent.attackMove ? '#ff9a3c' : RTS.Factions[s.playerFaction].primary);
+          if (intent.units.some(function (u) { return u.role === 'hero'; })) {
+            RTS.toast(s, 'Move order');
+          }
         }
         haptic(8);
         break;

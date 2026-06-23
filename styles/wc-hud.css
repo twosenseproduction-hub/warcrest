@@ -112,26 +112,84 @@
   align-items: stretch;
   gap: 6px;
   min-height: 0;
-  --cmd-slot: 40px;
-  --act-slot: 40px;
+  --cmd-slot: 33px;
+  --act-slot: 33px;
 }
 
-/* LEFT — command console (cmd-grid stacked over combat actions) */
+/* LEFT — type-select bar (red) over the WC3 command card (blue) */
 .deck-left {
   display: flex; flex-direction: column; gap: 5px;
-  padding: 7px; align-items: center; justify-content: center;
+  padding: 7px; align-items: center; justify-content: flex-start;
   align-self: stretch;
 }
-.deck-left .hub-cmd { align-self: center; }
-.deck-left .cmd-grid,
-.deck-left .hub-action-grid {
-  grid-template-columns: repeat(3, var(--cmd-slot));
+
+/* RED — select-all-by-type bar */
+.type-select {
+  display: grid;
+  grid-template-columns: repeat(4, var(--cmd-slot));
   gap: 4px;
+  width: 100%;
 }
-.deck-left .hub-action-grid {
-  grid-template-rows: repeat(2, var(--act-slot));
+.ts-chip {
+  position: relative;
+  height: calc(var(--cmd-slot) * 0.82);
+  display: flex; align-items: center; justify-content: center;
+  padding: 0; cursor: pointer;
+  border: 1px solid #0b0804; border-radius: 4px;
+  background: linear-gradient(180deg, #3a2c18, #1d150b);
+  box-shadow: inset 0 0 0 1px #6c4c15, inset 0 1px 0 rgba(255,230,160,.18);
+  overflow: visible;
 }
-.deck-left .act-slot { width: var(--act-slot); height: var(--act-slot); }
+.ts-chip:active { transform: scale(0.94); }
+.ts-chip.active {
+  background: linear-gradient(180deg, #6a5320, #2e2210);
+  box-shadow: inset 0 0 0 1px #f0c64a, 0 0 8px rgba(240,198,74,.5);
+}
+.ts-chip.disabled { opacity: 0.4; pointer-events: none; filter: grayscale(0.5); }
+.ts-chip .ts-ico { width: 76%; height: 76%; display: flex; align-items: center; justify-content: center; }
+.ts-chip .ts-ico .ts-avatar-portrait,
+.ts-chip .ts-ico img { width: 100% !important; height: 100% !important; object-fit: contain; image-rendering: pixelated; }
+.ts-chip .ts-tag {
+  position: absolute; bottom: -1px; left: 0; right: 0;
+  font: 700 7px Fredoka, system-ui; letter-spacing: .04em;
+  color: rgba(255,236,190,.92); text-shadow: 0 1px 1px #000; text-align: center;
+  pointer-events: none;
+}
+.ts-chip .ts-count {
+  position: absolute; top: -4px; right: -4px;
+  min-width: 13px; height: 13px; padding: 0 2px;
+  font: 700 9px Fredoka, system-ui; line-height: 13px; text-align: center;
+  color: #1a1208; background: #f0c64a; border: 1px solid #0b0804; border-radius: 7px;
+  pointer-events: none;
+}
+.ts-chip.disabled .ts-count { display: none; }
+
+/* BLUE — WC3 command card: 4 columns x up to 3 rows */
+.deck-left .hub-cmd { align-self: center; width: 100%; }
+.deck-left .cmd-grid {
+  grid-template-columns: repeat(4, var(--cmd-slot));
+  grid-template-rows: repeat(3, var(--cmd-slot));
+  gap: 4px;
+  justify-content: center;
+}
+/* combat cluster is now folded into the command card — retire it */
+.deck-left .hub-action-grid { display: none; }
+
+/* command-card slot states */
+.deck-left .cmd-slot { position: relative; }
+.deck-left .cmd-slot.targeting {
+  box-shadow: 0 0 9px 2px rgba(255,210,90,.75), inset 0 0 0 2px #f0c64a;
+  filter: brightness(1.12);
+}
+.deck-left .cmd-slot.passive {
+  box-shadow: inset 0 0 0 2px rgba(102,187,106,.7);
+}
+.deck-left .cmd-slot.passive::after {
+  content: "P";
+  position: absolute; bottom: 0; right: 2px;
+  font: 700 8px Fredoka, system-ui; color: #9be39b; text-shadow: 0 1px 1px #000;
+  pointer-events: none;
+}
 
 /* CENTER — selection portrait + info on parchment */
 .deck-center {

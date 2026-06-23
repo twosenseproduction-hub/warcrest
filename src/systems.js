@@ -283,7 +283,16 @@
       navMove(s, u, u.moveTo.x, u.moveTo.y, dt, 6);
       if (dist(u.x, u.y, u.moveTo.x, u.moveTo.y) < 10) {
         u.moveTo = null;
-        if (RTS.UnitAI && u.commandMode === 'attackMove' && u.commandTargetPos) {
+        if (u.patrol) {
+          // Reached an endpoint — turn around and attack-move to the other.
+          u.patrol.toB = !u.patrol.toB;
+          var px = u.patrol.toB ? u.patrol.bx : u.patrol.ax;
+          var py = u.patrol.toB ? u.patrol.by : u.patrol.ay;
+          u.commandMode = 'attackMove';
+          u.attackMove = true;
+          u.commandTargetPos = { x: px, y: py };
+          u.moveTo = { x: px, y: py };
+        } else if (RTS.UnitAI && u.commandMode === 'attackMove' && u.commandTargetPos) {
           u.moveTo = { x: u.commandTargetPos.x, y: u.commandTargetPos.y };
         } else if (u.commandMode === 'move') {
           u.commandMode = 'idle';
