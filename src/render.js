@@ -166,11 +166,6 @@
       s.entities.resources.forEach(function (n) { if (n.amount > 0) Art().drawResource(ctx, n); });
       drawSelectionBack(s, ctx);
 
-      // Hex slot indicators (after terrain, before units)
-      if (RTS.HexBase && RTS.HexBase.renderSlotIndicators) {
-        RTS.HexBase.renderSlotIndicators(ctx, s.camera);
-      }
-
       s.entities.buildings.forEach(function (b) { Art().drawBuilding(ctx, b, RTS.Factions[b.faction], s); });
       if (Art().drawLivestock) Art().drawLivestock(ctx, s);
 
@@ -196,9 +191,6 @@
       } else {
         s.entities.units.forEach(function (u) { Art().drawUnit(ctx, u, factionForUnit(u, s), s); });
       }
-
-      // Worker home→mine dotted lines (selected workers only)
-      drawWorkerMineLines(s, ctx);
 
       drawProjectiles(s, ctx);
       drawEffects(s, ctx);
@@ -241,47 +233,6 @@
       this.drawScreenFx(s, ctx, { width: W, height: H, dpr: this.dpr });
     },
   };
-
-  // Draw dotted line from worker's homeCore deposit → assigned mine node
-  // Only drawn for selected workers that are currently harvesting.
-  function drawWorkerMineLines(s, ctx) {
-    if (!s.selectedIds.length) return;
-    s.selectedIds.forEach(function (id) {
-      var u = RTS.getById(s, id);
-      if (!u || u.dead || u.role !== 'pawn') return;
-      if (!u.harvest || !u.harvest.nodeId) return;
-      var node = RTS.getById(s, u.harvest.nodeId);
-      if (!node) return;
-      // Find the deposit building (homeCore)
-      var dep = null;
-      var depId = (u.harvest.depositOwnerId) || (u.harvest.depositId);
-      if (depId) dep = RTS.getById(s, depId);
-      if (!dep) {
-        var deps = RTS.deposits ? RTS.deposits(s, u.team) : [];
-        var best = null, bd = Infinity;
-        deps.forEach(function (b) {
-          var dx = u.x - b.x, dy = u.y - b.y;
-          var d = Math.sqrt(dx * dx + dy * dy);
-          if (d < bd) { bd = d; best = b; }
-        });
-        dep = best;
-      }
-      if (!dep) return;
-      var faction = RTS.Factions && RTS.Factions[u.faction || s.playerFaction];
-      var color   = faction ? faction.secondary : '#aaaaaa';
-      ctx.save();
-      ctx.globalAlpha = 0.15;
-      ctx.strokeStyle = color;
-      ctx.lineWidth   = 1.5;
-      ctx.setLineDash([6, 6]);
-      ctx.beginPath();
-      ctx.moveTo(dep.x, dep.y);
-      ctx.lineTo(node.x, node.y);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.restore();
-    });
-  }
 
   function drawProjectiles(s, ctx) {
     s.entities.projectiles.forEach(function (p) { Art().drawProjectile(ctx, p); });

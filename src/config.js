@@ -16,7 +16,7 @@
     world: { w: 3072, h: 1920 },
     camera: {
       minZoom: 0.55, maxZoom: 2.0,
-      default: isPhone ? 1.08 : (isMobile ? 1.02 : 0.6),
+      default: isPhone ? 1.08 : (isMobile ? 1.02 : 0.7),
       panInertia: 0.86,
     },
     touch: {
@@ -513,92 +513,5 @@
     }
     return [];
   };
-
-})(window.RTS = window.RTS || {});
-
-/* ============================================================================
- * Hex Base System — config additions (appended 20260623)
- * BaseLayout, TechTree, canBuild, getSlotWorld, outpost extensions.
- * ==========================================================================*/
-(function (RTS) {
-  'use strict';
-
-  // ---- Base layout blueprints --------------------------------------------
-  RTS.BaseLayout = {
-    main: {
-      slotRadius:       210,
-      angles:           [0, 60, 120, 180, 240, 300],
-      turretRadius:     290,
-      turretAngles:     [30, 150, 210, 330],
-      allowedBuildings: ['conduit', 'foundry', 'forge', 'chiefs_hall'],
-    },
-    auxiliary: {
-      slotRadius:       155,
-      angles:           [60, 180, 300],
-      turretRadius:     215,
-      turretAngles:     [0, 240],
-      allowedBuildings: ['conduit', 'foundry'],
-    },
-  };
-
-  // ---- Extend mineAmounts with hex-base mine band constants --------------
-  RTS.Config.mineAmounts.minMineRadius = 380;
-  RTS.Config.mineAmounts.maxMineRadius = 620;
-  RTS.Config.mineAmounts.auxMinRadius  = 240;
-  RTS.Config.mineAmounts.auxMaxRadius  = 420;
-
-  // ---- Tech-tree prerequisite graph ---------------------------------------
-  RTS.TechTree = {
-    foundry:     [],
-    conduit:     [],
-    forge:       ['foundry'],
-    chiefs_hall: ['foundry'],
-    turret:      [],
-  };
-
-  // ---- canBuild — check prereqs against completed team buildings ---------
-  RTS.Config.canBuild = function (type, teamBuildings) {
-    var prereqs = RTS.TechTree ? (RTS.TechTree[type] || []) : [];
-    var i, j, req, met, b;
-    for (i = 0; i < prereqs.length; i++) {
-      req = prereqs[i];
-      met = false;
-      for (j = 0; j < teamBuildings.length; j++) {
-        b = teamBuildings[j];
-        if (!b.dead && b.built && b.type === req) { met = true; break; }
-      }
-      if (!met) return false;
-    }
-    return true;
-  };
-
-  // ---- getSlotWorld — world position for a building or turret slot ------
-  RTS.Config.getSlotWorld = function (coreX, coreY, layoutType, slotIndex) {
-    var layout = (RTS.BaseLayout && RTS.BaseLayout[layoutType]) ||
-                 (RTS.BaseLayout && RTS.BaseLayout.main) || null;
-    if (!layout) return { x: coreX, y: coreY };
-    var buildingCount = layout.angles.length;
-    var anglesDeg, radius;
-    if (slotIndex < buildingCount) {
-      anglesDeg = layout.angles[slotIndex];
-      radius    = layout.slotRadius;
-    } else {
-      var ti = slotIndex - buildingCount;
-      if (ti >= layout.turretAngles.length) return { x: coreX, y: coreY };
-      anglesDeg = layout.turretAngles[ti];
-      radius    = layout.turretRadius;
-    }
-    var rad = anglesDeg * Math.PI / 180;
-    return {
-      x: coreX + Math.cos(rad) * radius,
-      y: coreY + Math.sin(rad) * radius,
-    };
-  };
-
-  // ---- Extend outpost entry with hex-base fields -------------------------
-  if (RTS.Buildings && RTS.Buildings.outpost) {
-    RTS.Buildings.outpost.baseLayout        = 'auxiliary';
-    RTS.Buildings.outpost.mineProximityBonus = 0.12;
-  }
 
 })(window.RTS = window.RTS || {});

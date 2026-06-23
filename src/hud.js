@@ -39,24 +39,6 @@
     var sp = s.res.player;
     D['res-supply'].textContent = sp.supplyUsed + '/' + sp.supplyCap;
     D['res-supply'].className = sp.supplyUsed >= sp.supplyCap ? 'val warn' : 'val';
-    // Income-per-second display
-    syncIncomeRate(s);
-  }
-
-  function syncIncomeRate(s) {
-    var el = D['income-rate'];
-    if (!el) return;
-    var miners = s.entities.units.filter(function (u) {
-      return !u.dead && u.team === RTS.TEAM.PLAYER && u.role === 'pawn' &&
-             u.harvest && u.harvest.phase === 'mining';
-    });
-    if (!miners.length) { el.textContent = ''; return; }
-    var H       = RTS.Config.harvest;
-    var ips     = Math.round(miners.length * H.rate);
-    var faction = RTS.Factions && RTS.Factions[s.playerFaction];
-    var color   = faction ? faction.accent : '#FFD54F';
-    el.style.color   = color;
-    el.textContent = '~' + ips + ' \u26CF/s';
   }
 
   function syncRailBaseIcon(s) {
@@ -82,18 +64,6 @@
        'hub-minimap', 'hub-right', 'hub-hero', 'hub-action-grid', 'minimap'].forEach(function (id) {
         D[id] = $(id);
       });
-      // Inject income-rate span adjacent to the halcite counter
-      var halciteEl = D['res-halcite'];
-      if (halciteEl && !$('income-rate')) {
-        var rateSpan = document.createElement('span');
-        rateSpan.id        = 'income-rate';
-        rateSpan.className = 'val income-rate';
-        rateSpan.style.cssText = 'font-size:0.72em;margin-left:4px;opacity:0.82;';
-        halciteEl.parentNode.appendChild(rateSpan);
-        D['income-rate'] = rateSpan;
-      } else {
-        D['income-rate'] = $('income-rate');
-      }
 
       ['cmd-grid', 'selpanel', 'squad-chips', 'squad-block', 'hub-action-grid', 'topbar', 'command-deck',
        'bottom-hub', 'map-tools', 'build-panel', 'btn-build-hammer', 'hub-minimap'].forEach(function (id) {
@@ -883,79 +853,6 @@
   }
 
   RTS.HUD.performAction = handleAction;
-
-  // ---- Mobile hex slot build-menu bottom sheet ----------------------------
-  // Call from input.js when a hex slot indicator is tapped on mobile.
-  RTS.HUD.openSlotMenu = function (s, slot, coreId) {
-    var isMobile = RTS.Config.isMobile || ('ontouchstart' in window);
-    if (!isMobile) return false;
-
-    var layout     = (RTS.BaseLayout && slot) ?
-      (RTS.BaseLayout[
-        (RTS.getById ? (RTS.getById(s, coreId) || {}) : {}).baseLayout || 'main'
-      ] || RTS.BaseLayout.main) : null;
-    var allowed    = (layout && layout.allowedBuildings) || ['conduit', 'foundry'];
-    if (slot && slot.isTurretSlot) allowed = ['turret'];
-
-    var fid = s.playerFaction || 'aurex';
-    var el = $('slot-build-sheet');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'slot-build-sheet';
-      el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;' +
-        'background:rgba(26,18,8,0.95);padding:12px 16px 20px;' +
-        'border-top:2px solid rgba(255,213,79,0.3);z-index:9999;' +
-        'display:none;';
-      document.body.appendChild(el);
-      el.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
-    }
-
-    var html = '<div style="font-size:13px;color:#bbb;margin-bottom:8px;">Choose structure</div>';
-    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
-    allowed.forEach(function (btype) {
-      var cost     = RTS.Config.buildCost ? RTS.Config.buildCost(btype) : 0;
-      var canAfford = s.res.player.halcite >= cost;
-      var icon     = RTS.UI && RTS.UI.buildingUrl ? RTS.UI.buildingUrl(fid, btype) : '';
-      var label    = RTS.nameFor ? RTS.nameFor(fid, btype) : btype;
-      html += '<button data-act="place" data-btype="' + btype + '" ' +
-        'data-slot-core="' + coreId + '" data-slot-idx="' + (slot ? slot.index : '') + '" ' +
-        (canAfford ? '' : 'disabled ') +
-        'style="flex:1;min-width:72px;padding:8px 4px;background:rgba(255,255,255,0.08);' +
-        'border:1px solid rgba(255,255,255,0.15);border-radius:6px;cursor:pointer;color:#fff;font-size:12px;">' +
-        (icon ? '<img src="' + icon + '" style="width:36px;height:36px;display:block;margin:0 auto 4px;" alt="" />' : '') +
-        label + '<br><span style="color:#ffd54f;font-size:11px;">' + cost + '</span>' +
-        '</button>';
-    });
-    html += '</div>';
-    html += '<button id="slot-sheet-close" style="margin-top:8px;width:100%;padding:6px;' +
-      'background:transparent;border:1px solid rgba(255,255,255,0.2);color:#aaa;border-radius:4px;cursor:pointer;">Cancel</button>';
-
-    el.innerHTML = html;
-    el.style.display = 'block';
-
-    el.querySelector('#slot-sheet-close').addEventListener('click', function () {
-      RTS.HUD.closeSlotMenu();
-    }, { once: true });
-
-    el.querySelectorAll('[data-act="place"]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var btype = btn.dataset.btype;
-        if (btype && !btn.disabled) {
-          RTS.beginPlacement && RTS.beginPlacement(s, btype);
-          s.ui.buildPanelOpen = false;
-        }
-        RTS.HUD.closeSlotMenu();
-        RTS.HUD.sync(s);
-      }, { once: true });
-    });
-
-    return true;
-  };
-
-  RTS.HUD.closeSlotMenu = function () {
-    var el = $('slot-build-sheet');
-    if (el) el.style.display = 'none';
-  };
 
   function fmtTime(t) {
     var m = Math.floor(t / 60), sec = Math.floor(t % 60);

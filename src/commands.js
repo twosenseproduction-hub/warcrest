@@ -947,10 +947,6 @@
 
     releaseBuildersFromBuilding(s, b);
 
-    if (b.hexCoreId != null && b.hexSlotIndex != null && RTS.HexBase && RTS.HexBase.freeSlot) {
-      RTS.HexBase.freeSlot(b.hexCoreId, b.hexSlotIndex);
-    }
-
     s.entities.projectiles = s.entities.projectiles.filter(function (p) {
       return p.targetId !== b.id;
     });
@@ -1106,77 +1102,7 @@
     return near;
   };
 
-  // ---- Hex slot helpers ---------------------------------------------------
-  function nearestCoreForTeam(s, team, x, y) {
-    var best = null, bd = Infinity;
-    s.entities.buildings.forEach(function (b) {
-      if (b.dead || b.team !== team) return;
-      if (b.type !== 'core' && b.type !== 'outpost') return;
-      var d = dist(x, y, b.x, b.y);
-      if (d < bd) { bd = d; best = b; }
-    });
-    return best;
-  }
-
-  function finishHexPlacement(s, type, b, coreId, slotIndex) {
-    b.hexSlotIndex = slotIndex;
-    b.hexCoreId    = coreId;
-    if (RTS.HexBase && RTS.HexBase.occupySlot) {
-      RTS.HexBase.occupySlot(coreId, slotIndex, b.id);
-    }
-  }
-
   RTS.placeBuilding = function (s, type, x, y) {
-    // ---- Hex slot intercept for non-outpost buildings --------------------
-    if (type !== 'outpost') {
-      var nearCore = nearestCoreForTeam(s, RTS.TEAM.PLAYER, x, y);
-      var hexSnap  = null;
-      if (nearCore && RTS.HexBase && RTS.HexBase._slots[nearCore.id]) {
-        hexSnap = RTS.HexBase.snapToBuildSlot(x, y, nearCore.id, type);
-      }
-      if (!hexSnap) {
-        RTS.toast(s, 'No valid slot');
-        RTS.Audio.play('deny');
-        return false;
-      }
-      // Check tech-tree prerequisites
-      var teamBuildings = s.entities.buildings.filter(function (b) {
-        return !b.dead && b.team === RTS.TEAM.PLAYER;
-      });
-      if (RTS.Config.canBuild && !RTS.Config.canBuild(type, teamBuildings)) {
-        var prereqs = (RTS.TechTree && RTS.TechTree[type]) || [];
-        var prereqName = prereqs.length
-          ? RTS.nameFor(s.playerFaction, prereqs[0])
-          : type;
-        RTS.toast(s, 'Requires ' + prereqName);
-        RTS.Audio.play('deny');
-        return false;
-      }
-      // Check resources
-      if (!RTS.canAfford(s, RTS.TEAM.PLAYER, RTS.Buildings[type].cost)) {
-        RTS.toast(s, 'Not enough ' + RTS.resourceLabel(s.playerFaction));
-        RTS.Audio.play('deny');
-        return false;
-      }
-      // Place at snapped slot position
-      s.res.player.halcite -= RTS.Buildings[type].cost;
-      var hb = RTS.makeBuilding(
-        s, type, RTS.TEAM.PLAYER, hexSnap.x, hexSnap.y, s.playerFaction, false
-      );
-      if (RTS.Pathfind) RTS.Pathfind.markDirty(s);
-      RTS.markBuildingFootprint(s, hb, true);
-      finishHexPlacement(s, type, hb, nearCore.id, hexSnap.slotIndex);
-      if (!RTS.enqueueBuild(s, hb, [])) {
-        RTS.toast(s, 'No Pawn available to build');
-      }
-      RTS.log(s, RTS.nameFor(s.playerFaction, type) + ' under construction', 'good');
-      RTS.Audio.play('build');
-      s.pending.building = null;
-      s.inputMode = 'select';
-      RTS.HUD.sync(s);
-      return true;
-    }
-    // ---- Original placement logic (outpost uses existing validation) -----
     var snapped = RTS.snapToGrid(x, y);
     x = snapped.x;
     y = snapped.y;
@@ -1238,9 +1164,6 @@
     if (!b || b.type === 'core') return;
     var spec = RTS.Buildings[b.type];
     if (spec && spec.cost > 0) s.res.player.halcite += Math.floor(spec.cost * 0.5);
-    if (b.hexCoreId != null && b.hexSlotIndex != null && RTS.HexBase && RTS.HexBase.freeSlot) {
-      RTS.HexBase.freeSlot(b.hexCoreId, b.hexSlotIndex);
-    }
     b.dead = true;
     RTS.clearSelection(s);
     if (RTS.Audio) RTS.Audio.play('click');
