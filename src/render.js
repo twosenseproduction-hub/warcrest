@@ -160,7 +160,10 @@
       if (s.mapId !== 'fairy_clearing') {
         Art().drawTerrain(s, ctx);
       }
-      if (RTS._phaserTerrainActive && RTS.Assets && RTS.Assets.drawDecor) {
+      // Always draw the map decor (rocks/trees/foliage). This was gated behind
+      // _phaserTerrainActive, but the canvas world layer is the active renderer
+      // here, so decor was being placed (237 items) yet never drawn.
+      if (RTS.Assets && RTS.Assets.drawDecor) {
         RTS.Assets.drawDecor(s, ctx);
       }
       s.entities.resources.forEach(function (n) { if (n.amount > 0) Art().drawResource(ctx, n); });
