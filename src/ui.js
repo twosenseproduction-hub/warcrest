@@ -256,9 +256,10 @@
       }
       return enemyStripPortraitHtml(role, px);
     }
-    var url = unitAvatarUrl(factionId, role);
-    if (!url) return '';
-    return '<img class="ts-avatar-portrait" src="' + url + '" alt="" />';
+    // Iron Crown / Rimwalker portraits come from multi-frame idle sprite-strips.
+    // Crop to a single frame via stripPortraitHtml instead of squishing the
+    // whole strip into a flat <img>.
+    return stripPortraitHtml(factionId, role, px);
   }
 
   function avatarPortraitHtml(factionId, role, px) {
