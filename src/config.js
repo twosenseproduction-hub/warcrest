@@ -15,10 +15,11 @@
     isPhone:  isPhone,
     world: { w: 3072, h: 1920 },
     camera: {
-      minZoom: 0.55, maxZoom: 2.0,
-      // Fixed RTS perspective (matches the reference). Zoom is locked so it
-      // stays put across devices; set lock:false to re-enable pinch/wheel zoom.
-      default: 0.7,
+      // Default at the "second zoom-out distance" from the 0.8 close view
+      // (0.8 -> ~0.62 -> ~0.5), matching StarCraft/Warcraft's wider tactical
+      // altitude. Locked (no pinch/wheel). Trade-off: smaller units (~30px taps).
+      minZoom: 0.5, maxZoom: 0.5,
+      default: 0.5,
       lock: true,
       panInertia: 0.86,
     },
