@@ -457,7 +457,9 @@
       else if (combat.length) mode = 'attackmove';
     }
 
-    if (!mode) return;
+    // On bare ground with no contextual action, the long-press still engages so
+    // that a follow-up drag can draw a selection box.
+    if (!mode) { if (onBare) mode = 'select'; else return; }
 
     var ms = (RTS.Config.touch && RTS.Config.touch.longPressMs) || 460;
     showLongPressRing(cssX, cssY);
@@ -469,43 +471,47 @@
     s.ui.longPressTimer = setTimeout(function () {
       var p = s.ui.pointer;
       if (!p || p.moved) return;
-      p.longPressFired = true;
-      var anchor = s.ui.longPressAnchor;
-      if (!anchor) return;
+      // Ring filled: a drag now draws a selection box; releasing without a drag
+      // commits the contextual action (attack-move / rally / build).
+      p.lpReady = true;
+      haptic(12);
+    }, ms);
+  }
 
-      if (anchor.mode === 'rally') {
-        var rallyBlds = productionBuildingsSelected(s);
-        if (rallyBlds.length && RTS.setRallyPoint(s, rallyBlds, anchor.wx, anchor.wy)) {
-          if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
-          flash(s, anchor.wx, anchor.wy, '#ffc107');
-          RTS.toast(s, 'Rally point set');
-          RTS.Audio.play('click');
+  // Commit the contextual long-press action — called on release when the ring
+  // filled but the player did NOT drag a selection box.
+  function commitLongPress(s, anchor) {
+    if (!anchor) return;
+    if (anchor.mode === 'rally') {
+      var rallyBlds = productionBuildingsSelected(s);
+      if (rallyBlds.length && RTS.setRallyPoint(s, rallyBlds, anchor.wx, anchor.wy)) {
+        if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
+        flash(s, anchor.wx, anchor.wy, '#ffc107');
+        RTS.toast(s, 'Rally point set');
+        RTS.Audio.play('click');
+        haptic(14);
+      }
+    } else if (anchor.mode === 'attackmove') {
+      var fighters = RTS.activeCombatUnits(s);
+      if (fighters.length) {
+        RTS.orderMove(s, fighters, anchor.wx, anchor.wy, true);
+        flash(s, anchor.wx, anchor.wy, '#ff9a3c');
+        RTS.log(s, 'Attack-move ordered', 'info');
+        RTS.toast(s, 'Attack-move');
+        haptic(18);
+      }
+    } else if (anchor.mode === 'build') {
+      var site = anchor.hitId ? RTS.getById(s, anchor.hitId) : null;
+      if (site && !site.built && !site.dead) {
+        var pawns = RTS.activeWorkers(s);
+        if (RTS.orderBuild(s, site, pawns)) {
+          flash(s, site.x, site.y, '#69f0ae');
+          RTS.toast(s, 'Pawn sent to build');
           haptic(14);
         }
-      } else if (anchor.mode === 'attackmove') {
-        var fighters = RTS.activeCombatUnits(s);
-        if (fighters.length) {
-          RTS.orderMove(s, fighters, anchor.wx, anchor.wy, true);
-          flash(s, anchor.wx, anchor.wy, '#ff9a3c');
-          RTS.log(s, 'Attack-move ordered', 'info');
-          RTS.toast(s, 'Attack-move');
-          haptic(18);
-        }
-      } else if (anchor.mode === 'build') {
-        var site = anchor.hitId ? RTS.getById(s, anchor.hitId) : null;
-        if (site && !site.built && !site.dead) {
-          var pawns = RTS.activeWorkers(s);
-          if (RTS.orderBuild(s, site, pawns)) {
-            flash(s, site.x, site.y, '#69f0ae');
-            RTS.toast(s, 'Pawn sent to build');
-            haptic(14);
-          }
-        }
       }
-
-      hideLongPressRing();
-      clearLongPress(s);
-    }, ms);
+    }
+    // mode 'select' → no contextual action (box select handled on drag).
   }
   function clearLongPress(s) {
     if (s.ui.longPressTimer) clearTimeout(s.ui.longPressTimer);
@@ -599,7 +605,7 @@
         s.ui.pointer = {
           cssX: cssX, cssY: cssY, startX: cssX, startY: cssY,
           wx: w.x, wy: w.y, moved: false, panning: false, boxing: false,
-          longPressFired: false, menuHoldFired: false, secondTap: secondTap,
+          longPressFired: false, lpReady: false, menuHoldFired: false, secondTap: secondTap,
           armyDouble: armyDouble, buildingDouble: buildingDouble, pawnDouble: pawnDouble,
           onEmpty: onEmpty, useBox: onEmpty && boxArmed, shift: !!shift,
           hitId: hit ? hit.id : null, hit: hit, menuHoldTimer: null,
@@ -647,8 +653,18 @@
         }
         p.moved = true;
         clearPendingTap();
-        clearLongPress(s);
         clearMenuHold(p);
+
+        // Long-press completed (ring filled) → dragging draws a selection box.
+        if (p.lpReady) {
+          p.boxing = true;
+          hideLongPressRing();
+          s.selectionBox = { x1: p.wx, y1: p.wy, x2: w.x, y2: w.y };
+          p.cssX = cssX; p.cssY = cssY;
+          return;
+        }
+
+        clearLongPress(s);
 
         if (s.inputMode === 'place-building') { p.cssX = cssX; p.cssY = cssY; return; }
 
@@ -681,6 +697,7 @@
           lastTap = { t: 0, x: 0, y: 0, empty: false, hitId: null };
           return;
         }
+        var lpAnchorUp = s.ui.longPressAnchor;
         clearLongPress(s);
         // Placement: always commit on release (dragging only moves the ghost).
         if (s.inputMode === 'place-building' && s.pending.building) {
@@ -701,6 +718,11 @@
           return;
         }
         s.selectionBox = null;
+        // Long-press held to completion, released without a box drag → contextual action.
+        if (p.lpReady) {
+          commitLongPress(s, lpAnchorUp);
+          return;
+        }
         var w = RTS.Cam.screenToWorld(s, cssX, cssY);
         var hitUp = hitTest(s, w.x, w.y);
         ensureHeroTestSelection(s);
