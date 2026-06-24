@@ -693,8 +693,13 @@
     });
     if (RTS.Config.canUpgrade && RTS.Config.canUpgrade(b)) {
       var upCost = RTS.Config.upgradeCost ? RTS.Config.upgradeCost(b) : 0;
+      var upLabel = 'Upgrade';
+      if (b.type === 'core') {
+        var cspec = RTS.Buildings.core;
+        upLabel = 'Build ' + ((cspec.tierName && cspec.tierName[(b.level || 1)]) || 'Keep');
+      }
       model['r3c2'] = slot('upgrade', UI().iconUrl('upgrade') || '', {
-        slotId: 'r3c2', label: 'Upgrade', bid: b.id, cost: upCost,
+        slotId: 'r3c2', label: upLabel, bid: b.id, cost: upCost,
         disabled: s.res.player.halcite < upCost,
       });
     }

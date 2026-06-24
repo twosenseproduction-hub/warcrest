@@ -610,9 +610,25 @@
       return true;
     }
 
-    var spec = RTS.trainSpec ? RTS.trainSpec(role) : RTS.Units[role];
+    var spec = RTS.trainSpec ? RTS.trainSpec(role, building.faction) : RTS.Units[role];
     if (!building.built) { if (team === RTS.TEAM.PLAYER) RTS.toast(s, 'Building not finished'); return false; }
     if (!spec) { if (team === RTS.TEAM.PLAYER) RTS.toast(s, 'Cannot train that unit'); return false; }
+
+    if (building.upgrading) {
+      if (team === RTS.TEAM.PLAYER) { RTS.toast(s, 'Busy upgrading'); RTS.Audio.play('deny'); }
+      return false;
+    }
+
+    // ---- Tech-tree gate: tier-2 units need an upgraded Town Hall (Keep) -----
+    var needTier = spec.tier || 1;
+    if (needTier > 1 && RTS.Config.teamTier && RTS.Config.teamTier(s, team) < needTier) {
+      if (team === RTS.TEAM.PLAYER) {
+        RTS.toast(s, RTS.nameFor(building.faction, role) + ' needs a Keep — upgrade your Town Hall');
+        RTS.log(s, 'Tier locked — upgrade the Town Hall to a Keep', 'warn');
+        RTS.Audio.play('deny');
+      }
+      return false;
+    }
 
     if (RTS.isHeroRole && RTS.isHeroRole(role)) {
       if (RTS.hasLivingHero && RTS.hasLivingHero(s, team, role)) {
@@ -642,7 +658,7 @@
     s.res[team].halcite -= cost;
     var trainTime = (RTS.isHeroRole && RTS.isHeroRole(role) && spec.trainTime != null)
       ? spec.trainTime
-      : baseTrain(role);
+      : baseTrain(role, building.faction);
     building.queue.push({ role: role, remaining: trainTime, total: trainTime });
     if (!building.train) building.train = building.queue[0];
     if (team === RTS.TEAM.PLAYER) {
@@ -652,18 +668,22 @@
     return true;
   };
 
-  function baseTrain(role) {
+  function baseTrain(role, factionId) {
     if (RTS.isHeroRole && RTS.isHeroRole(role)) {
       var hero = RTS.getHero(role);
       if (hero && hero.trainTime != null) return hero.trainTime;
     }
+    // Explicit per-faction trainTime override wins if present.
+    var spec = RTS.resolveUnitSpec && RTS.resolveUnitSpec(role, factionId);
+    if (spec && spec.trainTime != null) return spec.trainTime;
+    // WC3-ish baseline: basic units ~20s, elite/casters ~28-30s, workers ~14s.
     switch (role) {
-      case 'pawn': return 7;
-      case 'lancer': return 8;
-      case 'archer': return 9;
-      case 'monk': return 12;
-      case 'warrior': return 16;
-      default: return 10;
+      case 'pawn': return 14;
+      case 'archer': return 20;
+      case 'warrior': return 22;
+      case 'lancer': return 30;
+      case 'monk': return 28;
+      default: return 20;
     }
   }
   RTS.baseTrain = baseTrain;
@@ -1030,7 +1050,7 @@
     if (job.role === '_livestock') {
       refund = RTS.Config.livestock.trainCost;
     } else {
-      var spec = RTS.trainSpec ? RTS.trainSpec(job.role) : RTS.Units[job.role];
+      var spec = RTS.trainSpec ? RTS.trainSpec(job.role, b.faction) : RTS.Units[job.role];
       if (!spec) return false;
       refund = spec.trainCost != null ? spec.trainCost : spec.cost;
     }
@@ -1222,15 +1242,41 @@
     var b = (s.entities.buildings || []).find(function (x) { return x.id === buildingId; });
     if (!b || !b.built) return;
     if (!RTS.Config.canUpgrade || !RTS.Config.canUpgrade(b)) return;
+    var team = b.team;
+    var isPlayer = team === RTS.TEAM.PLAYER;
     var cost = RTS.Config.upgradeCost ? RTS.Config.upgradeCost(b) : 0;
-    if (!RTS.canAfford(s, RTS.TEAM.PLAYER, cost)) {
-      RTS.toast(s, 'Not enough ' + RTS.resourceLabel(s.playerFaction));
-      if (RTS.Audio) RTS.Audio.play('deny');
+    if (!RTS.canAfford(s, team, cost)) {
+      if (isPlayer) {
+        RTS.toast(s, 'Not enough ' + RTS.resourceLabel(b.faction));
+        if (RTS.Audio) RTS.Audio.play('deny');
+      }
       return;
     }
-    s.res.player.halcite -= cost;
+    s.res[team].halcite -= cost;
+
+    /* Town Hall tier research is timed — it ticks down in the systems loop and
+       blocks production until it completes (see applyBuildingUpgrade). */
+    var spec = RTS.Buildings[b.type];
+    if (b.type === 'core') {
+      var lv = (b.level || 1) - 1;
+      var time = (spec.upgradeTime && spec.upgradeTime[lv]) || 45;
+      b.upgrading = { remaining: time, total: time };
+      if (isPlayer) {
+        RTS.toast(s, 'Upgrading to ' + ((spec.tierName && spec.tierName[lv + 1]) || 'Keep') + '…');
+        if (RTS.Audio) RTS.Audio.play('click');
+        if (RTS.HUD) RTS.HUD.sync(s);
+      }
+      return;
+    }
+
+    /* Other upgrades (e.g. Rimwalker Briar Fold) apply instantly. */
+    RTS.applyBuildingUpgrade(s, b);
+  };
+
+  /* Commit a level-up — shared by instant upgrades and completed timed research. */
+  RTS.applyBuildingUpgrade = function (s, b) {
     b.level = (b.level || 1) + 1;
-    /* Restore HP proportionally at new level */
+    b.upgrading = null;
     var spec = RTS.Buildings[b.type];
     if (spec && spec.upgradeHp) {
       var newMax = spec.upgradeHp[b.level - 2] || spec.hp;
@@ -1238,10 +1284,14 @@
       b.hp = Math.min(b.hp + Math.floor(newMax * 0.25), newMax);
     }
     RTS.recalcSupply(s, b.team);
-    var lvName = ['', '', 'II', 'III'][b.level] || ('Lv' + b.level);
-    RTS.log(s, RTS.nameFor(s.playerFaction, b.type) + ' upgraded to ' + lvName, 'good');
-    if (RTS.Audio) RTS.Audio.play('ready');
-    if (RTS.HUD) RTS.HUD.sync(s);
+    if (b.team === RTS.TEAM.PLAYER) {
+      var label = (b.type === 'core' && spec.tierName)
+        ? (spec.tierName[b.level - 1] || 'Keep')
+        : (['', '', 'II', 'III'][b.level] || ('Lv' + b.level));
+      RTS.log(s, RTS.nameFor(s.playerFaction, b.type) + ' → ' + label, 'good');
+      if (RTS.Audio) RTS.Audio.play('ready');
+      if (RTS.HUD) RTS.HUD.sync(s);
+    }
   };
 
 })(window.RTS = window.RTS || {});

@@ -53,7 +53,7 @@
     },
 
     harvest: {
-      rate:                 8,
+      rate:                 6,
       capacity:             6,
       reach:                42,
       depositReach:         165,
@@ -204,119 +204,104 @@
   // Each unit entry carries its base stats plus a `traits` array describing
   // any passive behaviours the systems layer should activate.
   // =========================================================================
+  // The base entries below are the IRON CROWN (aurex / Human) roster and act as
+  // the shared role template. Other factions reskin these roles through
+  // RTS.UnitOverrides (stats) and Factions[fid].names (display names).
+  //
+  //   tier — Town Hall level required to train this unit. tier 2 units stay
+  //          locked until the Citadel Keep is upgraded to a Keep (see Buildings).
   RTS.Units = {
 
-    // ---- Iron Crown units --------------------------------------------------
-
     pawn: {
-      role: 'pawn', label: 'Pawn', glyph: 'circle', faction: 'aurex',
-      hp: 55, speed: 100, dmg: 5, range: 22, rof: 1.0,
-      cost: 40, supply: 1, build: 0, canHarvest: true, canBuild: true,
+      role: 'pawn', label: 'Peasant', glyph: 'circle', faction: 'aurex',
+      hp: 60, speed: 100, dmg: 5, range: 22, rof: 1.0, tier: 1,
+      cost: 45, supply: 1, build: 0, canHarvest: true, canBuild: true,
       traits: [],
       desc: 'Harvests Ironstone and raises structures.',
     },
 
-    lancer: {
-      role: 'lancer', label: 'Lancer', glyph: 'diamond', faction: 'aurex',
-      hp: 60, speed: 178, dmg: 12, range: 48, rof: 0.55,
-      cost: 50, supply: 1, build: 0,
-      traits: ['formation_bonus', 'building_bane'],
-      buildingDmgBonus: 0.25,
-      desc: 'Fast melee skirmisher. +25% damage vs buildings.',
-    },
-
-    archer: {
-      role: 'archer', label: 'Archer', glyph: 'tri', faction: 'aurex',
-      hp: 70, speed: 110, dmg: 11, range: 145, rof: 0.62,
-      cost: 65, supply: 1, build: 0, ranged: true,
-      traits: ['formation_bonus', 'archer_focus'],
-      desc: "Ranged backbone. Sniper's Focus: each consecutive hit on the same target " +
-            'stacks +8% damage (up to +40%). Switching targets resets the stack.',
-    },
-
-    monk: {
-      role: 'monk', label: 'Monk', glyph: 'cross', faction: 'aurex',
-      hp: 85, speed: 105, dmg: 0, range: 115, rof: 0.7, heal: 12,
-      cost: 95, supply: 2, build: 0, healer: true,
-      traits: ['formation_bonus', 'monk_aura'],
-      desc: 'Heals nearby allies. Reduces incoming damage to allies within 130px by 10%.',
-    },
-
+    // Footman — sturdy basic infantry, the Crown's frontline shield.
     warrior: {
-      role: 'warrior', label: 'Warrior', glyph: 'hex', faction: 'aurex',
-      hp: 260, speed: 58, dmg: 32, range: 48, rof: 0.85,
-      cost: 130, supply: 3, build: 0,
+      role: 'warrior', label: 'Footman', glyph: 'hex', faction: 'aurex',
+      hp: 200, speed: 82, dmg: 18, range: 48, rof: 1.0, tier: 1,
+      cost: 110, supply: 2, build: 0,
       traits: ['formation_bonus', 'taunt'],
       tauntRadius: 90,
-      desc: 'Armored frontline. Draws nearby enemy attacks toward himself.',
+      desc: 'Armored frontline. Cheap, durable, holds the line.',
     },
 
-    // ---- Rimwalker units ---------------------------------------------------
-
-    rim_pawn: {
-      role: 'pawn', label: 'Grove Hand', glyph: 'circle', faction: 'rimwalker',
-      hp: 60, speed: 95, dmg: 6, range: 22, rof: 0.9,
-      cost: 45, supply: 1, build: 0, canHarvest: true, canBuild: true,
-      traits: [],
-      desc: 'Harvests Ironstone and raises structures. Slightly tougher than a Pawn, but slower.',
+    // Crossbowman — basic ranged backbone.
+    archer: {
+      role: 'archer', label: 'Crossbowman', glyph: 'tri', faction: 'aurex',
+      hp: 80, speed: 95, dmg: 16, range: 150, rof: 0.78, tier: 1,
+      cost: 120, supply: 2, build: 0, ranged: true,
+      traits: ['formation_bonus', 'archer_focus'],
+      desc: 'Ranged backbone. Slow, heavy bolts that punish massed enemies.',
     },
 
-    // ---- Raider Horde units ------------------------------------------------
-
-    gnome: {
-      role: 'pawn', label: 'Gnome', glyph: 'circle', faction: 'cinder',
-      hp: 45, speed: 115, dmg: 4, range: 22, rof: 1.0,
-      cost: 30, supply: 1, build: 0, canHarvest: true, canBuild: true,
-      traits: ['blood_frenzy'],
-      desc: 'Harvests Ironstone and raises structures. Cheaper but squishier than a Pawn.',
+    // Knight — mounted heavy cavalry. Tier 2: needs a Keep.
+    lancer: {
+      role: 'lancer', label: 'Knight', glyph: 'diamond', faction: 'aurex',
+      hp: 200, speed: 150, dmg: 26, range: 50, rof: 0.9, tier: 2,
+      cost: 170, supply: 3, build: 0,
+      traits: ['formation_bonus', 'building_bane'],
+      buildingDmgBonus: 0.3,
+      desc: 'Mounted heavy cavalry. Fast, tough, shatters buildings. Requires a Keep.',
     },
 
-    spear_goblin: {
-      role: 'lancer', label: 'Spear Goblin', glyph: 'diamond', faction: 'cinder',
-      hp: 44, speed: 200, dmg: 10, range: 55, rof: 0.55,
-      cost: 35, supply: 1, build: 0,
-      traits: ['blood_frenzy'],
-      desc: 'Fastest unit in Verath. Glass cannon — hits first, dies fast.',
-    },
-
-    gnoll: {
-      role: 'archer', label: 'Gnoll', glyph: 'tri', faction: 'cinder',
-      hp: 58, speed: 125, dmg: 13, range: 120, rof: 0.62,
-      cost: 55, supply: 1, build: 0, ranged: true,
-      traits: ['blood_frenzy', 'gnoll_poison'],
-      desc: 'Ranged attacker. Each hit applies poison — 3 dmg/sec for 4s.',
-    },
-
-    hex_shaman: {
-      role: 'monk', label: 'Hex Shaman', glyph: 'cross', faction: 'cinder',
-      hp: 70, speed: 100, dmg: 6, range: 125, rof: 0.7,
-      cost: 80, supply: 2, build: 0, ranged: true,
-      traits: ['blood_frenzy', 'hex_slow'],
-      hexSlowPct: 0.15,
-      hexSlowDuration: 2.0,
-      desc: 'Ranged attacker. Slows enemies on hit by 15% for 2s.',
-    },
-
-    troll: {
-      role: 'warrior', label: 'Troll', glyph: 'hex', faction: 'cinder',
-      hp: 210, speed: 68, dmg: 28, range: 50, rof: 0.85,
-      cost: 105, supply: 3, build: 0,
-      traits: ['blood_frenzy', 'trollblood'],
-      desc: 'Regenerates 12hp/sec when not taking damage. Pull back to recover.',
+    // Priest — healer / support caster. Tier 2: needs a Keep.
+    monk: {
+      role: 'monk', label: 'Priest', glyph: 'cross', faction: 'aurex',
+      hp: 95, speed: 100, dmg: 0, range: 120, rof: 0.7, heal: 14, tier: 2,
+      cost: 135, supply: 2, build: 0, healer: true,
+      traits: ['formation_bonus', 'monk_aura'],
+      desc: 'Heals nearby allies and softens incoming damage. Requires a Keep.',
     },
 
   };
 
   // ---- Per-faction unit stat overrides -------------------------------------
-  // Spawning resolves stats from the shared role base (RTS.Units[role]); the
-  // faction-specific entries above are descriptive. Deliberate per-faction
-  // tuning that should actually take effect in combat lives here and is
-  // applied on top of the base spec in RTS.makeUnit.
+  // Spawning resolves a unit's effective spec from the shared role base
+  // (RTS.Units[role]) merged with the faction override below. This is the ONLY
+  // place per-faction stats take effect — see RTS.resolveUnitSpec / makeUnit.
   RTS.UnitOverrides = {
+
+    // ---- Rimwalkers (Night-Elf style: faster, more fragile, ranged-leaning).
     rimwalker: {
-      // Bramble Warden: long thorny reach — fires from just under Archer range (145).
-      lancer: { range: 140, ranged: true },
+      pawn:    { hp: 55, speed: 108, dmg: 5, cost: 45, supply: 1 },
+      // Treant-kin frontline — a touch lighter and faster than a Footman.
+      warrior: { hp: 175, speed: 90, dmg: 16, cost: 105, supply: 2 },
+      // Bark Archer — standard elven archer: mobile, fragile.
+      archer:  { hp: 70, speed: 112, dmg: 14, range: 150, rof: 0.7, ranged: true, cost: 115, supply: 2 },
+      // Huntress — fast mounted glaive thrower (ranged skirmisher cavalry).
+      lancer:  { hp: 150, speed: 178, dmg: 18, range: 140, rof: 0.85, ranged: true, cost: 160, supply: 3 },
+      // Sapling Mystic — ranged healer/caster.
+      monk:    { hp: 85, speed: 110, dmg: 6, range: 125, rof: 0.7, heal: 12, ranged: true, cost: 130, supply: 2 },
     },
+
+    // ---- Raider Horde (cheap, fast, squishy — left at its intended numbers).
+    cinder: {
+      pawn:    { hp: 45, speed: 115, dmg: 4, cost: 30, supply: 1 },
+      // Troll — regen tank.
+      warrior: { hp: 210, speed: 68, dmg: 28, range: 50, rof: 0.85, cost: 105, supply: 3 },
+      // Gnoll — poison ranged.
+      archer:  { hp: 58, speed: 125, dmg: 13, range: 120, rof: 0.62, ranged: true, cost: 55, supply: 1 },
+      // Spear Goblin — glass-cannon skirmisher.
+      lancer:  { hp: 44, speed: 200, dmg: 10, range: 55, rof: 0.55, cost: 45, supply: 1 },
+      // Hex Shaman — slowing ranged caster.
+      monk:    { hp: 70, speed: 100, dmg: 6, range: 125, rof: 0.7, ranged: true, cost: 80, supply: 2 },
+    },
+  };
+
+  // resolveUnitSpec — effective per-faction spec (base role merged with override).
+  // Returns the shared base unchanged when the faction has no override for the role.
+  RTS.resolveUnitSpec = function (role, factionId) {
+    var base = RTS.Units[role];
+    if (!base) return null;
+    var f = factionId && RTS.UnitOverrides[factionId];
+    var ovr = f && f[role];
+    if (!ovr) return base;
+    return Object.assign({}, base, ovr);
   };
   RTS.unitOverride = function (factionId, role) {
     var f = RTS.UnitOverrides[factionId];
@@ -329,16 +314,22 @@
       type: 'core', label: 'Citadel Keep', w: 256, h: 192,
       hp: 1600, cost: 0, build: 0, deposit: true,
       trains: ['pawn'], desc: 'Main base. Trains workers, banks Ironstone.',
+      /* Town Hall tech tiers — upgrading to a Keep (lvl 2) unlocks tier-2 units. */
+      tierByLevel:  [1, 2],
+      tierName:     ['Citadel Keep', 'Keep'],
+      upgradeCosts: [220],   /* cost to research lvl1 -> lvl2 */
+      upgradeTime:  [60],    /* seconds to research lvl1 -> lvl2 */
+      upgradeHp:    [2000],  /* maxHp once upgraded */
     },
     outpost: {
       type: 'outpost', label: 'Forward Bastion', w: 128, h: 128,
-      hp: 1400, cost: 320, build: 42, deposit: true, expansion: true,
+      hp: 1400, cost: 320, build: 55, deposit: true, expansion: true,
       trains: ['pawn'],
       desc: 'Expansion base. Build beside an Ironstone field.',
     },
     conduit: {
       type: 'conduit', label: 'Sheep Pen', w: 192, h: 192,
-      hp: 420, cost: 65, build: 10, isPasture: true,
+      hp: 420, cost: 65, build: 16, isPasture: true,
       trains: ['_livestock'],
       desc: 'Raise livestock to increase supply cap.',
       /* Rimwalker Briar Fold: 3 levels each granting more population */
@@ -348,25 +339,25 @@
     },
     foundry: {
       type: 'foundry', label: 'Barracks', w: 192, h: 128,
-      hp: 760, cost: 120, build: 18,
-      trains: ['lancer', 'archer', 'monk'],
-      desc: 'Produces Lancers, Archers, and Monks.',
+      hp: 760, cost: 120, build: 32,
+      trains: ['warrior', 'archer'],
+      desc: 'Trains your basic infantry and ranged units.',
     },
     forge: {
       type: 'forge', label: 'War Forge', w: 192, h: 192,
-      hp: 980, cost: 175, build: 26,
-      trains: ['warrior'],
-      desc: 'Produces Warriors.',
+      hp: 980, cost: 175, build: 48,
+      trains: ['lancer', 'monk'],
+      desc: 'Trains elite cavalry and support casters. Needs a Keep for tier-2 units.',
     },
     chiefs_hall: {
       type: 'chiefs_hall', label: "Chief's Hall", w: 192, h: 192,
-      hp: 980, cost: 175, build: 26,
+      hp: 980, cost: 175, build: 48,
       trains: ['grollusk'],
       desc: 'Trains your Horde champion.',
     },
     turret: {
       type: 'turret', label: 'Arrow Tower', w: 64, h: 128,
-      hp: 520, cost: 100, build: 14,
+      hp: 520, cost: 100, build: 22,
       defense: true, dmg: 20, range: 178, rof: 0.7, ranged: true,
       desc: 'Automated defense tower.',
     },
@@ -403,8 +394,8 @@
       names: {
         core: 'Citadel Keep', conduit: 'Sheep Pen', foundry: 'Barracks',
         forge: 'War Forge', chiefs_hall: "Chief's Hall", turret: 'Arrow Tower', outpost: 'Forward Bastion',
-        pawn: 'Pawn', lancer: 'Lancer', archer: 'Archer',
-        monk: 'Monk', warrior: 'Warrior',
+        pawn: 'Peasant', lancer: 'Knight', archer: 'Crossbowman',
+        monk: 'Priest', warrior: 'Footman',
       },
     },
 
@@ -454,7 +445,7 @@
         turret:      'Canopy Spire',
         outpost:     'Grove Cache',
         pawn:        'Grove Hand',
-        lancer:      'Bramble Warden',
+        lancer:      'Huntress',
         archer:      'Bark Archer',
         monk:        'Sapling Mystic',
         warrior:     'Thornguard',
@@ -486,14 +477,7 @@
 
   RTS.Config.unitCost = function (role, fid) {
     if (role === '_livestock') return RTS.Config.livestock ? RTS.Config.livestock.trainCost : 0;
-    if (fid) {
-      var keys = Object.keys(RTS.Units);
-      for (var i = 0; i < keys.length; i++) {
-        var u = RTS.Units[keys[i]];
-        if (u.role === role && u.faction === fid) return u.trainCost != null ? u.trainCost : u.cost;
-      }
-    }
-    var spec = RTS.Units[role];
+    var spec = RTS.resolveUnitSpec ? RTS.resolveUnitSpec(role, fid) : RTS.Units[role];
     return spec ? (spec.trainCost != null ? spec.trainCost : spec.cost) : 0;
   };
 
@@ -504,6 +488,13 @@
 
   RTS.Config.canUpgrade = function (b) {
     if (!b || !b.built) return false;
+    if (b.upgrading) return false;   /* already researching */
+    /* Citadel Keep (core) upgrades to a Keep — unlocks tier-2 units */
+    if (b.type === 'core') {
+      var cspec = RTS.Buildings.core;
+      var maxCore = cspec.tierByLevel ? cspec.tierByLevel.length : 1;
+      return (b.level || 1) < maxCore;
+    }
     /* Briar Fold (Rimwalker conduit) upgrades through 3 levels */
     if (b.type === 'conduit' && b.faction === 'rimwalker') {
       var spec = RTS.Buildings.conduit;
@@ -514,24 +505,38 @@
   };
 
   RTS.Config.upgradeCost = function (b) {
+    var lv = (b.level || 1) - 1; /* 0-indexed into upgradeCosts */
+    if (b.type === 'core') {
+      var cspec = RTS.Buildings.core;
+      return cspec.upgradeCosts ? (cspec.upgradeCosts[lv] || 0) : 0;
+    }
     if (b.type === 'conduit') {
       var spec = RTS.Buildings.conduit;
-      var lv = (b.level || 1) - 1; /* 0-indexed into upgradeCosts */
       return spec.upgradeCosts ? (spec.upgradeCosts[lv] || 0) : 0;
     }
     return 0;
   };
 
+  /* Effective Town Hall tier for a team = highest core level it controls. */
+  RTS.Config.teamTier = function (s, team) {
+    var tier = 1;
+    var blds = s && s.entities && s.entities.buildings;
+    if (!blds) return tier;
+    for (var i = 0; i < blds.length; i++) {
+      var b = blds[i];
+      if (b.team !== team || b.dead || b.type !== 'core' || !b.built) continue;
+      var spec = RTS.Buildings.core;
+      var lvl = b.level || 1;
+      var t = (spec.tierByLevel && spec.tierByLevel[lvl - 1]) || lvl;
+      if (t > tier) tier = t;
+    }
+    return tier;
+  };
+
   RTS.Config.passiveTags = function (entity) {
     if (!entity || !entity.role) return [];
-    var keys = Object.keys(RTS.Units);
-    for (var i = 0; i < keys.length; i++) {
-      var u = RTS.Units[keys[i]];
-      if (u.role === entity.role && u.faction === entity.faction) {
-        return (u.traits || []).map(function (t) { return t.replace(/_/g, ' '); });
-      }
-    }
-    return [];
+    var spec = RTS.resolveUnitSpec ? RTS.resolveUnitSpec(entity.role, entity.faction) : RTS.Units[entity.role];
+    return spec && spec.traits ? spec.traits.map(function (t) { return t.replace(/_/g, ' '); }) : [];
   };
 
 })(window.RTS = window.RTS || {});

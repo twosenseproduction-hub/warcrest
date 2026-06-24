@@ -143,7 +143,7 @@
         used += hero && hero.supply != null ? hero.supply : 0;
         return;
       }
-      var spec = RTS.Units[u.role];
+      var spec = (RTS.resolveUnitSpec && RTS.resolveUnitSpec(u.role, u.faction)) || RTS.Units[u.role];
       used += spec && spec.supply != null ? spec.supply : 1;
     });
     var cap = RTS.Config.startSupplyCap;

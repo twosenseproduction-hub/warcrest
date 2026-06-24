@@ -808,6 +808,16 @@
       return;
     }
 
+    // Town Hall tier research — ticks while active and blocks production.
+    if (b.upgrading) {
+      b.upgrading.remaining -= dt;
+      if (b.upgrading.remaining <= 0 && RTS.applyBuildingUpgrade) {
+        RTS.applyBuildingUpgrade(s, b);
+      }
+      b.train = null;
+      return;
+    }
+
     // Defensive structures fire
     var spec = RTS.Buildings[b.type];
     if (spec.defense) {

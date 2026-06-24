@@ -546,8 +546,8 @@
     var rallyDx = meta.rallyDx != null ? meta.rallyDx : 130;
     var rallyDy = meta.rallyDy != null ? meta.rallyDy : 90;
 
-    spawnBase(s, RTS.TEAM.PLAYER, px, py, pf, false, { rallyDx: rallyDx, rallyDy: rallyDy });
-    spawnBase(s, RTS.TEAM.ENEMY, ex, ey, ef, true, { rallyDx: -rallyDx, rallyDy: rallyDy });
+    spawnBase(s, RTS.TEAM.PLAYER, px, py, pf, false, { rallyDx: rallyDx, rallyDy: rallyDy, workers: 5 });
+    spawnBase(s, RTS.TEAM.ENEMY, ex, ey, ef, true, { rallyDx: -rallyDx, rallyDy: rallyDy, workers: 5 });
 
     mg.gold.forEach(function (g) { mine(s, g.x, g.y, isHomeGoldOnMap(mg, g)); });
 
@@ -642,8 +642,8 @@
     var pf = s.playerFaction, ef = s.enemyFaction;
     var midY = h * 0.5;
 
-    spawnBase(s, RTS.TEAM.PLAYER, 280, midY, pf, false, { rallyDx: 120, rallyDy: 0 });
-    spawnBase(s, RTS.TEAM.ENEMY, w - 280, midY, ef, true, { rallyDx: -120, rallyDy: 0 });
+    spawnBase(s, RTS.TEAM.PLAYER, 280, midY, pf, false, { rallyDx: 120, rallyDy: 0, workers: 5 });
+    spawnBase(s, RTS.TEAM.ENEMY, w - 280, midY, ef, true, { rallyDx: -120, rallyDy: 0, workers: 5 });
 
     var playerSpawn = { x: 280, y: midY };
     var enemySpawn = { x: w - 280, y: midY };
@@ -690,8 +690,8 @@
     var midX = w * 0.5;
     var py = h - 280, ey = 280;
 
-    spawnBase(s, RTS.TEAM.PLAYER, midX, py, pf, false, { rallyDx: 0, rallyDy: -120 });
-    spawnBase(s, RTS.TEAM.ENEMY, midX, ey, ef, true, { rallyDx: 0, rallyDy: 120 });
+    spawnBase(s, RTS.TEAM.PLAYER, midX, py, pf, false, { rallyDx: 0, rallyDy: -120, workers: 5 });
+    spawnBase(s, RTS.TEAM.ENEMY, midX, ey, ef, true, { rallyDx: 0, rallyDy: 120, workers: 5 });
 
     var playerSpawn = { x: midX, y: py };
     var enemySpawn = { x: midX, y: ey };
@@ -739,8 +739,8 @@
     var px = 320, py = 320;
     var ex = w - 320, ey = h - 320;
 
-    spawnBase(s, RTS.TEAM.PLAYER, px, py, pf, false, { rallyDx: 110, rallyDy: 110 });
-    spawnBase(s, RTS.TEAM.ENEMY, ex, ey, ef, true, { rallyDx: -110, rallyDy: -110 });
+    spawnBase(s, RTS.TEAM.PLAYER, px, py, pf, false, { rallyDx: 110, rallyDy: 110, workers: 5 });
+    spawnBase(s, RTS.TEAM.ENEMY, ex, ey, ef, true, { rallyDx: -110, rallyDy: -110, workers: 5 });
 
     var bases = [{ x: px, y: py }, { x: ex, y: ey }];
     // Starting mines pushed outward ~100px further from core on each side

@@ -433,8 +433,10 @@
   // Helpers
   RTS.getHero = function (id) { return RTS.Heroes[id] || null; };
   RTS.isHeroRole = function (role) { return !!RTS.getHero(role); };
-  RTS.trainSpec = function (role) {
-    return RTS.getHero(role) || RTS.Units[role] || null;
+  RTS.trainSpec = function (role, factionId) {
+    return RTS.getHero(role) ||
+      (RTS.resolveUnitSpec && RTS.resolveUnitSpec(role, factionId)) ||
+      RTS.Units[role] || null;
   };
   RTS.hasLivingHero = function (s, team, heroId) {
     return s.entities.units.some(function (u) {

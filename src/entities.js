@@ -6,11 +6,13 @@
   'use strict';
 
   RTS.makeUnit = function (s, role, team, x, y, factionId) {
-    var spec = RTS.Units[role];
+    var faction = factionId || (team === RTS.TEAM.PLAYER ? s.playerFaction : s.enemyFaction);
+    // Effective spec = shared role base merged with this faction's overrides.
+    var spec = (RTS.resolveUnitSpec && RTS.resolveUnitSpec(role, faction)) || RTS.Units[role];
     var id = RTS.nextId();
     var u = {
       id: id, kind: 'unit', role: role, team: team,
-      faction: factionId || (team === RTS.TEAM.PLAYER ? s.playerFaction : s.enemyFaction),
+      faction: faction,
       x: x, y: y, vx: 0, vy: 0,
       hp: spec.hp, maxHp: spec.hp,
       speed: spec.speed, dmg: spec.dmg, range: spec.range, rof: spec.rof,
@@ -24,16 +26,6 @@
       facing: 0,
       _idlePhase: (id * 1.618) % 6.2832,
     };
-    // Apply intentional per-faction stat overrides on top of the base spec.
-    var ovr = RTS.unitOverride && RTS.unitOverride(u.faction, role);
-    if (ovr) {
-      if (ovr.hp != null)     { u.hp = ovr.hp; u.maxHp = ovr.hp; }
-      if (ovr.speed != null)  u.speed = ovr.speed;
-      if (ovr.dmg != null)    u.dmg = ovr.dmg;
-      if (ovr.range != null)  u.range = ovr.range;
-      if (ovr.rof != null)    u.rof = ovr.rof;
-      if (ovr.ranged != null) u.ranged = !!ovr.ranged;
-    }
     s.entities.units.push(u);
     if (RTS.UnitAI) RTS.UnitAI.initUnitAIState(u);
     var rc = (RTS.Config.combat && RTS.Config.combat.roles && RTS.Config.combat.roles[role]) ||

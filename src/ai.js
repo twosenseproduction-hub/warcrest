@@ -568,8 +568,19 @@
       tryAiBuild(s, 'foundry');
     }
 
+    // Tech up to a Keep (tier 2) so elite units (Knight/Priest) unlock.
+    if (enemyBuilding(s, 'foundry') && core.type === 'core' &&
+        (core.level || 1) < 2 && !core.upgrading &&
+        s.timers.gameTime > 60 &&
+        RTS.Config.upgradeCost &&
+        RTS.canAfford(s, TEAM.ENEMY, RTS.Config.upgradeCost(core))) {
+      RTS.upgradeBuilding(s, core.id);
+    }
+
+    // War Forge — worth building once we have (or are getting) a Keep.
     if (enemyBuilding(s, 'foundry') && !enemyBuildingAny(s, 'forge') &&
-        s.timers.gameTime > 45 &&
+        ((core.level || 1) >= 2 || core.upgrading) &&
+        s.timers.gameTime > 60 &&
         RTS.canAfford(s, TEAM.ENEMY, RTS.Buildings.forge.cost)) {
       tryAiBuild(s, 'forge');
     }
@@ -629,21 +640,21 @@
 
     var foundry = enemyBuilding(s, 'foundry');
     var forge = enemyBuilding(s, 'forge');
+    var tier2 = RTS.Config.teamTier ? RTS.Config.teamTier(s, TEAM.ENEMY) >= 2 : false;
     var pick = s.ai.composition++ % 8;
     var role, bldg;
-    if (forge && s.timers.gameTime > 50 && pick === 7) {
-      role = 'warrior';
+    // Elite tier-2 units from the War Forge once the Keep is up.
+    if (forge && !forge.upgrading && tier2 && (pick === 6 || pick === 7)) {
       bldg = forge;
+      role = pick === 7 ? 'lancer' : 'monk';   // Knight / Priest
     } else if (foundry) {
       bldg = foundry;
-      if (pick < 4) role = 'lancer';
-      else if (pick < 6) role = 'archer';
-      else role = 'monk';
+      role = pick < 5 ? 'warrior' : 'archer';   // Footman / Crossbowman
     } else {
       return;
     }
 
-    if (bldg && bldg.queue.length < 2) RTS.train(s, bldg, role);
+    if (bldg && !bldg.upgrading && bldg.queue.length < 2) RTS.train(s, bldg, role);
   }
 
 })(window.RTS = window.RTS || {});
