@@ -185,6 +185,7 @@
     muzzleFlash:          0.09,
     corpseFade:           1.2,
     maxEffects:           60,
+    regenDelay:           5,    // Blood Vigor: seconds out of combat before HP regen kicks in
 
     matchSoftCapMin: 14,
     reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
@@ -221,41 +222,43 @@
     },
 
     // Footman — sturdy basic infantry, the Crown's frontline shield.
+    // Iron Discipline: armor soaks 30% of incoming damage, so its real
+    // staying power far exceeds its raw HP — the anvil the Crown wins on.
     warrior: {
       role: 'warrior', label: 'Footman', glyph: 'hex', faction: 'aurex',
-      hp: 200, speed: 82, dmg: 18, range: 48, rof: 1.0, tier: 1,
-      cost: 110, supply: 2, build: 0,
-      traits: ['formation_bonus', 'taunt'],
+      hp: 200, speed: 85, dmg: 18, range: 48, rof: 1.0, tier: 1,
+      cost: 110, supply: 2, build: 0, armor: 0.30,
+      traits: ['armor', 'taunt'],
       tauntRadius: 90,
-      desc: 'Armored frontline. Cheap, durable, holds the line.',
+      desc: 'Armored frontline. Armor soaks 30% of damage — holds the line.',
     },
 
-    // Crossbowman — basic ranged backbone.
+    // Crossbowman — serviceable ranged backbone, but not the Crown's edge.
     archer: {
       role: 'archer', label: 'Crossbowman', glyph: 'tri', faction: 'aurex',
-      hp: 80, speed: 95, dmg: 16, range: 150, rof: 0.78, tier: 1,
+      hp: 80, speed: 95, dmg: 16, range: 150, rof: 0.85, tier: 1,
       cost: 120, supply: 2, build: 0, ranged: true,
-      traits: ['formation_bonus', 'archer_focus'],
-      desc: 'Ranged backbone. Slow, heavy bolts that punish massed enemies.',
+      traits: ['archer_focus'],
+      desc: 'Ranged support. Slow, heavy bolts — solid, but the Crown wins in melee.',
     },
 
     // Knight — mounted heavy cavalry. Tier 2: needs a Keep.
     lancer: {
       role: 'lancer', label: 'Knight', glyph: 'diamond', faction: 'aurex',
-      hp: 200, speed: 150, dmg: 26, range: 50, rof: 0.9, tier: 2,
-      cost: 170, supply: 3, build: 0,
-      traits: ['formation_bonus', 'building_bane'],
+      hp: 220, speed: 150, dmg: 26, range: 50, rof: 0.9, tier: 2,
+      cost: 170, supply: 3, build: 0, armor: 0.25,
+      traits: ['armor', 'building_bane'],
       buildingDmgBonus: 0.3,
-      desc: 'Mounted heavy cavalry. Fast, tough, shatters buildings. Requires a Keep.',
+      desc: 'Mounted heavy cavalry. Armored, shatters buildings. Requires a Keep.',
     },
 
-    // Priest — healer / support caster. Tier 2: needs a Keep.
+    // Priest — premier healer / support caster. Tier 2: needs a Keep.
     monk: {
       role: 'monk', label: 'Priest', glyph: 'cross', faction: 'aurex',
       hp: 95, speed: 100, dmg: 0, range: 120, rof: 0.7, heal: 14, tier: 2,
       cost: 135, supply: 2, build: 0, healer: true,
-      traits: ['formation_bonus', 'monk_aura'],
-      desc: 'Heals nearby allies and softens incoming damage. Requires a Keep.',
+      traits: ['monk_aura'],
+      desc: 'The strongest healer in the Reach. Sustains a Crown push. Requires a Keep.',
     },
 
   };
@@ -266,30 +269,34 @@
   // place per-faction stats take effect — see RTS.resolveUnitSpec / makeUnit.
   RTS.UnitOverrides = {
 
-    // ---- Rimwalkers (Night-Elf style: faster, more fragile, ranged-leaning).
+    // ---- Rimwalkers (Night-Elf style: ranged-heavy, fast, fragile, evasive).
+    // Wild Grace: combat units have a chance to evade a hit entirely. Their
+    // power budget is reach + speed + dodge — caught in melee, they crumble.
     rimwalker: {
-      pawn:    { hp: 55, speed: 108, dmg: 5, cost: 45, supply: 1 },
-      // Treant-kin frontline — a touch lighter and faster than a Footman.
-      warrior: { hp: 175, speed: 90, dmg: 16, cost: 105, supply: 2 },
-      // Bark Archer — standard elven archer: mobile, fragile.
-      archer:  { hp: 70, speed: 112, dmg: 14, range: 150, rof: 0.7, ranged: true, cost: 115, supply: 2 },
-      // Huntress — fast mounted glaive thrower (ranged skirmisher cavalry).
-      lancer:  { hp: 150, speed: 178, dmg: 18, range: 140, rof: 0.85, ranged: true, cost: 160, supply: 3 },
-      // Sapling Mystic — ranged healer/caster.
-      monk:    { hp: 85, speed: 110, dmg: 6, range: 125, rof: 0.7, heal: 12, ranged: true, cost: 130, supply: 2 },
+      pawn:    { hp: 55, speed: 110, dmg: 5, cost: 45, supply: 1 },
+      // Thornguard — stopgap melee only. Evasive but weak; the grove avoids brawling.
+      warrior: { hp: 150, speed: 95, dmg: 15, range: 48, rof: 1.0, armor: 0, evade: 0.20, cost: 110, supply: 2 },
+      // Bark Archer — the backbone: long reach, fast loose, cheap, slippery.
+      archer:  { hp: 70, speed: 115, dmg: 16, range: 168, rof: 0.62, ranged: true, evade: 0.25, cost: 115, supply: 2 },
+      // Huntress — fast ranged glaive skirmisher (mobile cavalry).
+      lancer:  { hp: 150, speed: 188, dmg: 18, range: 150, rof: 0.8, ranged: true, armor: 0, evade: 0.22, cost: 165, supply: 3 },
+      // Sapling Mystic — ranged healer/caster, also evasive.
+      monk:    { hp: 85, speed: 112, dmg: 6, range: 132, rof: 0.7, heal: 12, ranged: true, evade: 0.20, cost: 130, supply: 2 },
     },
 
-    // ---- Raider Horde (cheap, fast, squishy — left at its intended numbers).
+    // ---- Raider Horde (brute attrition: cheap, high-HP melee that regens).
+    // Blood Vigor: units regenerate HP a few seconds after leaving combat, so
+    // cheap masses heal back up between fights. Weak ranged; folds to burst.
     cinder: {
-      pawn:    { hp: 45, speed: 115, dmg: 4, cost: 30, supply: 1 },
-      // Troll — regen tank.
-      warrior: { hp: 210, speed: 68, dmg: 28, range: 50, rof: 0.85, cost: 105, supply: 3 },
-      // Gnoll — poison ranged.
-      archer:  { hp: 58, speed: 125, dmg: 13, range: 120, rof: 0.62, ranged: true, cost: 55, supply: 1 },
-      // Spear Goblin — glass-cannon skirmisher.
-      lancer:  { hp: 44, speed: 200, dmg: 10, range: 55, rof: 0.55, cost: 45, supply: 1 },
-      // Hex Shaman — slowing ranged caster.
-      monk:    { hp: 70, speed: 100, dmg: 6, range: 125, rof: 0.7, ranged: true, cost: 80, supply: 2 },
+      pawn:    { hp: 50, speed: 115, dmg: 4, cost: 30, supply: 1, regen: 2 },
+      // Grunt — the brute: huge HP, slow, regenerates. The Horde's hammer.
+      warrior: { hp: 240, speed: 78, dmg: 26, range: 50, rof: 0.95, armor: 0, regen: 6, cost: 115, supply: 3 },
+      // Gnoll — cheap, weak ranged harasser; regens between skirmishes.
+      archer:  { hp: 70, speed: 118, dmg: 13, range: 130, rof: 0.7, ranged: true, regen: 3, cost: 70, supply: 2 },
+      // Spear Goblin — fast glass-cannon raider.
+      lancer:  { hp: 60, speed: 195, dmg: 14, range: 55, rof: 0.55, armor: 0, regen: 2, cost: 55, supply: 1 },
+      // Hex Shaman — minor ranged healer (Humans out-heal them by far).
+      monk:    { hp: 75, speed: 100, dmg: 6, range: 125, rof: 0.7, heal: 8, ranged: true, regen: 3, cost: 80, supply: 2 },
     },
   };
 
@@ -392,14 +399,14 @@
       name: 'Iron Crown',
       tagline: 'Steel · Banners · Order',
       blurb: 'A disciplined medieval kingdom — armored knights, robed monks, and stone ' +
-             'keeps under royal blue banners. Wins by holding ground and sustaining. ' +
-             'Formation Bonus: 3+ Crown units attacking the same target deal +15% damage.',
+             'keeps under royal blue banners. Close-combat specialists who hold ground and out-sustain. ' +
+             'Iron Discipline: melee units have armor, soaking a flat share of all damage.',
       primary:    '#1565C0',
       secondary:  '#CFD8DC',
       dark:       '#0D47A1',
       accent:     '#FFD54F',
       shapeStyle: 'angular',
-      passiveTrait: 'formation_bonus',
+      passiveTrait: 'iron_discipline',
       units: ['pawn', 'lancer', 'archer', 'monk', 'warrior'],
       names: {
         core: 'Citadel Keep', conduit: 'Sheep Pen', foundry: 'Barracks',
@@ -414,14 +421,14 @@
       name: 'Raider Horde',
       tagline: 'Bone · Fire · Chaos',
       blurb: 'A chaotic coalition of gnomes, goblins, gnolls, and trolls. ' +
-             'Cheaper units, faster workers, and dirty tricks. ' +
-             'Blood Frenzy: when a Horde unit dies, nearby allies gain +12% attack speed for 4s.',
+             'Cheap, high-HP bruisers who win wars of attrition. ' +
+             'Blood Vigor: units regenerate health a few seconds after leaving combat.',
       primary:    '#558B2F',
       secondary:  '#5D4037',
       dark:       '#33691E',
       accent:     '#F5F5DC',
       shapeStyle: 'angular',
-      passiveTrait: 'blood_frenzy',
+      passiveTrait: 'blood_vigor',
       units: ['gnome', 'spear_goblin', 'gnoll', 'hex_shaman', 'troll'],
       names: {
         core: 'Warren Maw', conduit: 'Pig Sty', foundry: 'War Pit',
@@ -435,15 +442,15 @@
       id: 'rimwalker',
       name: 'Rimwalkers',
       tagline: 'Root · Grove · Thorncraft',
-      blurb: 'Ancient forest wardens who grow their fortifications from living wood and stone. ' +
-             'Swift workers, nature-attuned warriors, and buildings that rise from the earth. ' +
-             'Grove Bond: Rimwalker units near a friendly building gain +10% move speed.',
+      blurb: 'Ancient forest wardens who strike from the trees and vanish. ' +
+             'Long-ranged, swift, and fragile — masters of hit-and-run who avoid the brawl. ' +
+             'Wild Grace: combat units are evasive, with a chance to dodge any incoming hit.',
       primary:    '#2E7D32',
       secondary:  '#A5D6A7',
       dark:       '#1B5E20',
       accent:     '#FFE082',
       shapeStyle: 'organic',
-      passiveTrait: 'grove_bond',
+      passiveTrait: 'wild_grace',
       resource:   'Thornstone',
       units: ['pawn', 'lancer', 'archer', 'monk', 'warrior'],
       names: {

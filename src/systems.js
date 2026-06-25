@@ -215,6 +215,11 @@
   function updateUnit(s, u, dt) {
     if (u.dead) return;
     u.cooldown = Math.max(0, u.cooldown - dt);
+    // Blood Vigor (Raider Horde) — regenerate HP once out of combat for a beat.
+    if (u.regen > 0 && u.hp < u.maxHp &&
+        (s.timers.gameTime - (u._lastCombatAt != null ? u._lastCombatAt : -999)) > RTS.Config.regenDelay) {
+      u.hp = Math.min(u.maxHp, u.hp + u.regen * dt);
+    }
     u.muzzleFlash = Math.max(0, u.muzzleFlash - dt);
     u.spawnFlash = Math.max(0, u.spawnFlash - dt);
     u._idlePhase = (u._idlePhase || 0) + dt;
@@ -332,6 +337,7 @@
   }
 
   function fire(s, u, target) {
+    u._lastCombatAt = s.timers.gameTime || 0;   // attacking pauses Blood Vigor regen
     if (RTS.Sprites && RTS.Sprites.ready) {
       RTS.Sprites.startAttack(u, target);
       if (u.ranged) {
@@ -1062,6 +1068,16 @@
   }
 
   function applyDamage(s, target, amount, attacker, impact) {
+    // Wild Grace (Rimwalker) — a dodged hit deals nothing; mark it for feedback.
+    if (target.kind === 'unit' && target.evade > 0 && !target.dead && Math.random() < target.evade) {
+      target._lastCombatAt = s.timers.gameTime || 0;
+      if (RTS.spawnFloat) RTS.spawnFloat(s, target.x, target.y - (target.radius || 12), 'dodge', '#9be8ff');
+      return;
+    }
+    // Iron Discipline (Iron Crown) — armored units soak a flat share of damage.
+    if (target.kind === 'unit' && target.armor > 0) amount *= (1 - target.armor);
+    // Blood Vigor (Raider Horde) — taking damage pauses out-of-combat regen.
+    if (target.kind === 'unit') target._lastCombatAt = s.timers.gameTime || 0;
     if (target.kind === 'unit' && target.heroId === 'valdris' && RTS.getHero) {
       var heroDef = RTS.getHero('valdris');
       if (heroDef && heroDef.passive) {

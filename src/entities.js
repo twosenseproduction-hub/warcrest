@@ -17,6 +17,9 @@
       hp: spec.hp, maxHp: spec.hp,
       speed: spec.speed, dmg: spec.dmg, range: spec.range, rof: spec.rof,
       ranged: !!spec.ranged, splash: spec.splash || 0, heal: spec.heal || 0,
+      // racial passives: Iron Discipline (armor), Wild Grace (evade), Blood Vigor (regen)
+      armor: spec.armor || 0, evade: spec.evade || 0, regen: spec.regen || 0,
+      _lastCombatAt: -999,
       radius: RTS.SizeRef.pxRadius(role),
       cooldown: 0, target: null, moveTo: null, attackMove: false,
       harvest: null,            // {nodeId, phase, carry, slotIndex, cycleT, depositId, depositOwnerId}
