@@ -40,25 +40,26 @@
       var h = u.harvest;
       if (h && h.phase === 'mining') { var mn = [13, 14, 15]; return mn[Math.floor(t * 7) % mn.length]; }  // pickaxe swing
       if (h && h.carry > 0) { var c = [9, 10, 11, 12]; return c[Math.floor(t * 7) % c.length]; }            // hauling load
-      if (moving) { var pw = [5, 6, 7, 8]; return pw[Math.floor(t * 7) % pw.length]; }
+      if (moving) { var pw = [2, 3, 4]; return pw[Math.floor(t * 7) % pw.length]; }
       var pi = [0, 1]; return pi[Math.floor(t * 2.2) % pi.length];
     }
 
-    // Only play the attack pose when actually in range to strike — not while
-    // walking toward a target with a weapon on cooldown.
-    var attacking = !moving && (u.muzzleFlash > 0 || (u.inAttackRange && u.cooldown > 0 && u.target));
-    if (attacking) {
-      // per-role attack: caster staff, ranged bow, melee sword
-      var atk = u.role === 'monk' ? [19, 20, 21] : (u.ranged ? [16, 17, 18] : [13, 14, 15]);
-      return atk[Math.floor(t * 9) % atk.length];
-    }
-    if (moving) { var w = [5, 6, 7, 8]; return w[Math.floor(t * 7) % w.length]; }
+    // Combat units: idle + walk only. The pack's per-role attack columns don't
+    // line up reliably (archers showed swords, everyone "swung" while moving), so
+    // we skip attack frames — combat reads through projectiles + hit sparks.
+    if (moving) { var w = [2, 3, 4]; return w[Math.floor(t * 7) % w.length]; }
     var idle = [0, 1]; return idle[Math.floor(t * 2.2) % idle.length];
   }
 
+  // Class tint for the foot ring — quick visual read of role on the battlefield.
+  var ROLE_RING = {
+    pawn: '#cdb892', warrior: '#e5533d', lancer: '#ff9a3c',
+    archer: '#46c98a', monk: '#8a7bff',
+  };
+
   RTS.PunyUnits = {
     enabled: true,       // Puny Characters are the default unit art
-    scale: 2.4,          // 32px frame → ~77px on screen; tune to taste
+    scale: 2.85,         // 32px frame → ~91px on screen
     draw: function (ctx, u, f, s) {
       if (!this.enabled || u.isHero) return false;
       if (u.dead) return false;                 // let the default death effect play
@@ -73,6 +74,18 @@
       var dy = (u.y + r * 0.55) - dh;           // character's feet sit near u.y
 
       if (RTS.Art && RTS.Art.drawShadow) RTS.Art.drawShadow(ctx, u.x, u.y + r * 0.5, r * 0.85, 0.3);
+      // Class-colour foot ring — quick read of role at a glance.
+      var ring = ROLE_RING[u.role];
+      if (ring) {
+        ctx.save();
+        ctx.globalAlpha = 0.85;
+        ctx.strokeStyle = ring;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.ellipse(u.x, u.y + r * 0.5, r * 0.95, r * 0.5, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
       ctx.save();
       ctx.imageSmoothingEnabled = false;
       if (u.spawnFlash > 0) ctx.globalAlpha = 0.6 + 0.4 * (1 - u.spawnFlash / 0.3);
