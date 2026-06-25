@@ -52,7 +52,8 @@ GREEN  = ((26,70,34),(58,120,60),(120,176,98))         # elf roof
 GREY   = ((68,72,80),(146,152,160),(224,228,234))      # human stone walls
 SLATE  = ((52,58,70),(100,112,132),(168,180,200))      # human roof
 BONE   = ((96,86,66),(186,176,150),(240,236,216))      # orc walls
-BONER  = ((110,92,64),(168,144,104),(214,196,158))     # orc roof (tan-bone)
+BONER  = ((110,92,64),(168,144,104),(214,196,158))     # (old tan roof, unused)
+ORCROOF= ((110,28,22),(176,46,36),(222,92,70))         # orc roof: red thatch
 
 def reskin(img, faction):
     px = img.load(); H = img.height
@@ -69,8 +70,8 @@ def reskin(img, faction):
             elif faction == 'elf':                         # WOOD walls + green roof
                 if stone: c = ramp3(*WOOD, t)
                 elif warm: c = ramp3(*GREEN, t) if y < 0.45*H else ramp3(*WOOD, t)
-            elif faction == 'orc':                         # BONE
-                c = ramp3(*BONE, t) if stone else (ramp3(*BONER, t) if warm else None)
+            elif faction == 'orc':                         # BONE walls + RED roof
+                c = ramp3(*BONE, t) if stone else (ramp3(*ORCROOF, t) if warm else None)
             if c: px[x, y] = (c[0], c[1], c[2], a)
     return img
 
