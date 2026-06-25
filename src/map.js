@@ -449,6 +449,9 @@
   function finishMap(s, meta) {
     meta.w = meta.w || W();
     meta.h = meta.h || H();
+    // Sync the active world bounds to THIS map so the camera clamp + minimap use
+    // the real map size (was a fixed 3072x1920, which cut off larger maps).
+    if (RTS.Config && RTS.Config.world) { RTS.Config.world.w = meta.w; RTS.Config.world.h = meta.h; }
     if (meta.terrainDef && RTS.Terrain) {
       meta.terrainGrid = RTS.Terrain.buildGrid(meta.w, meta.h, meta.terrainDef);
       var avoid = meta.avoidDecor || [];

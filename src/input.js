@@ -24,12 +24,29 @@
       var cv = RTS.canvas;
       return { w: cv.clientWidth / s.camera.zoom, h: cv.clientHeight / s.camera.zoom };
     },
+    // HUD overlays (top bar + bottom command deck) cover the canvas edges.
+    // Cache their heights, recomputed only when the window size changes.
+    _insets: function () {
+      var key = window.innerWidth + 'x' + window.innerHeight;
+      if (this._insetKey !== key || !this._insetVal) {
+        this._insetKey = key;
+        function h(id) { var e = document.getElementById(id); return e && e.offsetHeight ? e.offsetHeight : 0; }
+        this._insetVal = { top: h('topbar'), bottom: h('command-deck') };
+      }
+      return this._insetVal;
+    },
     clamp: function (s) {
       var c = s.camera, cv = RTS.canvas;
       var vw = cv.clientWidth / c.zoom, vh = cv.clientHeight / c.zoom;
       var W = RTS.Config.world.w, H = RTS.Config.world.h;
       if (vw >= W) c.x = (W - vw) / 2; else c.x = Math.max(0, Math.min(W - vw, c.x));
-      if (vh >= H) c.y = (H - vh) / 2; else c.y = Math.max(0, Math.min(H - vh, c.y));
+      // Let the map scroll past the canvas edges by the HUD overlay heights so the
+      // map's top can clear the top bar and its bottom can rise above the deck.
+      var ins = RTS.Cam._insets();
+      var topPad = ins.top / c.zoom, botPad = ins.bottom / c.zoom;
+      var lo = -topPad, hi = (H - vh) + botPad;
+      if (hi < lo) c.y = (H - vh) / 2;           // map shorter than the visible band
+      else c.y = Math.max(lo, Math.min(hi, c.y));
     },
     centerOn: function (s, wx, wy) {
       var cv = RTS.canvas;
