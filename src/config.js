@@ -277,12 +277,12 @@
       pawn:    { hp: 55, speed: 110, dmg: 5, cost: 45, supply: 1 },
       // Thornguard — stopgap melee only. Evasive but weak; the grove avoids brawling.
       warrior: { hp: 150, speed: 95, dmg: 15, range: 48, rof: 1.0, armor: 0, evade: 0.20, cost: 110, supply: 2 },
-      // Bark Archer — the backbone: long reach, fast loose, cheap, slippery.
-      archer:  { hp: 70, speed: 115, dmg: 16, range: 168, rof: 0.62, ranged: true, evade: 0.25, cost: 115, supply: 2 },
+      // Bark Archer — the backbone: long reach, fast loose, cheap, slippery. Searing Arrows toggle.
+      archer:  { hp: 70, speed: 115, dmg: 16, range: 168, rof: 0.62, ranged: true, evade: 0.25, cost: 115, supply: 2, abilities: ['searing_arrows'] },
       // Huntress — fast ranged glaive skirmisher (mobile cavalry).
       lancer:  { hp: 150, speed: 188, dmg: 18, range: 150, rof: 0.8, ranged: true, armor: 0, evade: 0.22, cost: 165, supply: 3 },
-      // Sapling Mystic — ranged healer/caster, also evasive.
-      monk:    { hp: 85, speed: 112, dmg: 6, range: 132, rof: 0.7, heal: 12, ranged: true, evade: 0.20, cost: 130, supply: 2 },
+      // Sapling Mystic — ranged healer/caster, also evasive. Autocasts Rejuvenation.
+      monk:    { hp: 85, speed: 112, dmg: 6, range: 132, rof: 0.7, heal: 12, ranged: true, evade: 0.20, cost: 130, supply: 2, mana: 110, manaRegen: 8, abilities: ['rejuvenation'] },
     },
 
     // ---- Raider Horde (brute attrition: cheap, high-HP melee that regens).
@@ -292,12 +292,12 @@
       pawn:    { hp: 50, speed: 115, dmg: 4, cost: 30, supply: 1, regen: 2 },
       // Grunt — the brute: huge HP, slow, regenerates. The Horde's hammer.
       warrior: { hp: 240, speed: 78, dmg: 26, range: 50, rof: 0.95, armor: 0, regen: 6, cost: 115, supply: 3 },
-      // Gnoll — cheap, weak ranged harasser; regens between skirmishes.
-      archer:  { hp: 70, speed: 118, dmg: 13, range: 130, rof: 0.7, ranged: true, regen: 3, cost: 70, supply: 2 },
+      // Gnoll — cheap, weak ranged harasser; regens between skirmishes. Berserk toggle.
+      archer:  { hp: 70, speed: 118, dmg: 13, range: 130, rof: 0.7, ranged: true, regen: 3, cost: 70, supply: 2, abilities: ['berserk'] },
       // Spear Goblin — fast glass-cannon raider.
       lancer:  { hp: 60, speed: 195, dmg: 14, range: 55, rof: 0.55, armor: 0, regen: 2, cost: 55, supply: 1 },
-      // Hex Shaman — minor ranged healer (Humans out-heal them by far).
-      monk:    { hp: 75, speed: 100, dmg: 6, range: 125, rof: 0.7, heal: 8, ranged: true, regen: 3, cost: 80, supply: 2 },
+      // Hex Shaman — minor ranged healer (Humans out-heal them by far). Autocasts Bloodlust.
+      monk:    { hp: 75, speed: 100, dmg: 6, range: 125, rof: 0.7, heal: 8, ranged: true, regen: 3, cost: 80, supply: 2, mana: 100, manaRegen: 7, abilities: ['bloodlust'] },
     },
   };
 

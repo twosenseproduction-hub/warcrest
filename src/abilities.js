@@ -24,6 +24,46 @@
       vfxColor: '#ffd27a',
       desc: 'Blesses an ally: +20% damage and +15% armor for 18s.',
     },
+
+    // Hex Shaman (cinder) — buffs an ally's attack speed.
+    bloodlust: {
+      id: 'bloodlust', name: 'Bloodlust', role: 'monk', faction: 'cinder',
+      icon: 'assets/units/abilities/bloodlust.png',
+      manaCost: 25, cooldown: 1.0, autocastDefault: true, cast: 'ally', range: 200,
+      buff: { id: 'bloodlust', rofMul: 0.40, duration: 15, color: '#ff5a3c' },
+      vfxColor: '#ff5a3c',
+      desc: 'Frenzies an ally: +40% attack speed for 15s.',
+    },
+
+    // Sapling Mystic (rimwalker) — heal-over-time on an ally.
+    rejuvenation: {
+      id: 'rejuvenation', name: 'Rejuvenation', role: 'monk', faction: 'rimwalker',
+      icon: 'assets/units/abilities/rejuvenation.png',
+      manaCost: 30, cooldown: 1.0, autocastDefault: true, cast: 'ally', range: 220,
+      buff: { id: 'rejuvenation', healPerSec: 8, duration: 12, color: '#9bff8a' },
+      vfxColor: '#9bff8a',
+      desc: 'Wraps an ally in renewing growth: heals 8 hp/s for 12s.',
+    },
+
+    // Bark Archer (rimwalker) — self toggle: arrows burn for bonus damage.
+    searing_arrows: {
+      id: 'searing_arrows', name: 'Searing Arrows', role: 'archer', faction: 'rimwalker',
+      icon: 'assets/units/abilities/searing_arrows.png',
+      manaCost: 0, cooldown: 2.0, autocastDefault: true, cast: 'self', castWhen: 'inCombat',
+      buff: { id: 'searing_arrows', dmgMul: 0.35, duration: 3, color: '#ff7a2a' },
+      vfxColor: '#ff7a2a',
+      desc: 'While fighting, arrows ignite — +35% damage.',
+    },
+
+    // Gnoll (cinder) — self toggle: berserk, more attack speed but takes more damage.
+    berserk: {
+      id: 'berserk', name: 'Berserk', role: 'archer', faction: 'cinder',
+      icon: 'assets/units/abilities/berserk.png',
+      manaCost: 0, cooldown: 2.0, autocastDefault: true, cast: 'self', castWhen: 'inCombat',
+      buff: { id: 'berserk', rofMul: 0.50, dmgTakenMul: 0.35, duration: 3, color: '#ff3030' },
+      vfxColor: '#ff3030',
+      desc: 'While fighting, goes berserk: +50% attack speed, but takes +35% damage.',
+    },
   };
 
   // abilities available to a unit (empty for heroes — they use the hero kit).
@@ -44,9 +84,13 @@
   RTS.hasBuff = hasBuff;
 
   function recompute(u) {
-    var dm = 0, aa = 0;
-    (u.buffs || []).forEach(function (b) { dm += b.dmgMul || 0; aa += b.armorAdd || 0; });
-    u.buffDmgMul = dm; u.buffArmorAdd = aa;
+    var dm = 0, aa = 0, rm = 0, dt = 0, hps = 0;
+    (u.buffs || []).forEach(function (b) {
+      dm += b.dmgMul || 0; aa += b.armorAdd || 0; rm += b.rofMul || 0;
+      dt += b.dmgTakenMul || 0; hps += b.healPerSec || 0;
+    });
+    u.buffDmgMul = dm; u.buffArmorAdd = aa; u.buffRofMul = rm;
+    u.buffDmgTakenMul = dt; u.buffHealPerSec = hps;
   }
   RTS.recomputeBuffs = recompute;
 
@@ -56,7 +100,8 @@
     var ex = target.buffs.find(function (b) { return b.id === buff.id; });
     if (ex) { ex.until = now + buff.duration; }
     else target.buffs.push({ id: buff.id, until: now + buff.duration,
-      dmgMul: buff.dmgMul || 0, armorAdd: buff.armorAdd || 0, color: buff.color });
+      dmgMul: buff.dmgMul || 0, armorAdd: buff.armorAdd || 0, rofMul: buff.rofMul || 0,
+      dmgTakenMul: buff.dmgTakenMul || 0, healPerSec: buff.healPerSec || 0, color: buff.color });
     recompute(target);
   }
 
@@ -75,6 +120,9 @@
   RTS.effectiveArmor = function (u) {
     return Math.min(0.85, (u && u.armor || 0) + (u && u.buffArmorAdd || 0));
   };
+  // higher rofMul = faster attacks (smaller cooldown). dmgTakenMul amplifies incoming hits.
+  RTS.effectiveRof = function (u) { return u.rof / (1 + (u && u.buffRofMul || 0)); };
+  RTS.incomingMul = function (u) { return 1 + (u && u.buffDmgTakenMul || 0); };
 
   // ── casting ─────────────────────────────────────────────────────────────
   function findAllyTarget(s, u, ab) {
@@ -99,6 +147,7 @@
     if ((u._abilityCd[abId] || 0) > now) return false;
     if ((u.mana || 0) < ab.manaCost) return false;
     if (ab.cast === 'ally') { target = target || findAllyTarget(s, u, ab); if (!target) return false; }
+    else if (ab.cast === 'self') { target = u; if (ab.buff && hasBuff(u, ab.buff.id)) return false; }
     u.mana = Math.max(0, (u.mana || 0) - ab.manaCost);
     u._abilityCd[abId] = now + ab.cooldown;
     if (ab.buff && target) applyBuff(s, target, ab.buff);
@@ -113,7 +162,10 @@
     var ids = u.abilities;
     if (!ids || !ids.length) return;
     for (var i = 0; i < ids.length; i++) {
-      if (RTS.autocastOn(u, ids[i])) RTS.castAbility(s, u, ids[i]);
+      var ab = RTS.Abilities[ids[i]];
+      if (!ab || !RTS.autocastOn(u, ids[i])) continue;
+      if (ab.castWhen === 'inCombat' && !u.target) continue;   // self combat-toggles only fire while fighting
+      RTS.castAbility(s, u, ids[i]);
     }
   };
 

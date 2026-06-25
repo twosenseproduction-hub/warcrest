@@ -220,9 +220,10 @@
         (s.timers.gameTime - (u._lastCombatAt != null ? u._lastCombatAt : -999)) > RTS.Config.regenDelay) {
       u.hp = Math.min(u.maxHp, u.hp + u.regen * dt);
     }
-    // Caster mana regen, buff expiry, and autocast abilities.
+    // Caster mana regen, buff expiry, heal-over-time, and autocast abilities.
     if (u.manaRegen > 0 && u.mana < u.maxMana) u.mana = Math.min(u.maxMana, u.mana + u.manaRegen * dt);
     if (RTS.tickBuffs) RTS.tickBuffs(s, u);
+    if (u.buffHealPerSec > 0 && u.hp < u.maxHp) u.hp = Math.min(u.maxHp, u.hp + u.buffHealPerSec * dt);
     if (RTS.tickAutocast && u.abilities && u.abilities.length) RTS.tickAutocast(s, u);
     u.muzzleFlash = Math.max(0, u.muzzleFlash - dt);
     u.spawnFlash = Math.max(0, u.spawnFlash - dt);
@@ -248,7 +249,7 @@
             u.vx = 0; u.vy = 0;
             u.facing = Math.atan2(ratk.aimY - u.y, ratk.aimX - u.x);
             if (u.cooldown <= 0 && u.dmg > 0) {
-              u.cooldown = u.rof;
+              u.cooldown = RTS.effectiveRof ? RTS.effectiveRof(u) : u.rof;
               fire(s, u, rt);
             }
           } else {
@@ -282,7 +283,7 @@
         u.vx = 0; u.vy = 0;
         u.facing = Math.atan2(atk.aimY - u.y, atk.aimX - u.x);
         if (u.cooldown <= 0 && u.dmg > 0) {
-          u.cooldown = u.rof;
+          u.cooldown = RTS.effectiveRof ? RTS.effectiveRof(u) : u.rof;
           fire(s, u, target);
         }
       } else {
@@ -437,7 +438,7 @@
       u.inAttackRange = true;
       u.facing = Math.atan2(best.y - u.y, best.x - u.x);
       if (u.cooldown <= 0) {
-        u.cooldown = u.rof;
+        u.cooldown = RTS.effectiveRof ? RTS.effectiveRof(u) : u.rof;
         if (RTS.Sprites && RTS.Sprites.ready) {
           RTS.Sprites.startAttack(u, best);
           u._pendingHeal = { targetId: best.id, amount: u.heal, released: false };
@@ -1083,6 +1084,7 @@
     if (target.kind === 'unit') {
       var arm = RTS.effectiveArmor ? RTS.effectiveArmor(target) : (target.armor || 0);
       if (arm > 0) amount *= (1 - arm);
+      if (RTS.incomingMul) amount *= RTS.incomingMul(target);   // Berserk etc. vulnerability
     }
     // Blood Vigor (Raider Horde) — taking damage pauses out-of-combat regen.
     if (target.kind === 'unit') target._lastCombatAt = s.timers.gameTime || 0;
