@@ -34,14 +34,22 @@
 
   function frame(u, t) {
     var moving = (u.vx * u.vx + u.vy * u.vy) > 6 || (u.moveTo && !u._builderOnSite);
-    var carrying = u.role === 'pawn' && u.harvest && u.harvest.carry > 0;
+
+    // Pawns never brandish weapons — their animation follows the harvest cycle.
+    if (u.role === 'pawn') {
+      var h = u.harvest;
+      if (h && h.phase === 'mining') { var mn = [13, 14, 15]; return mn[Math.floor(t * 7) % mn.length]; }  // pickaxe swing
+      if (h && h.carry > 0) { var c = [9, 10, 11, 12]; return c[Math.floor(t * 7) % c.length]; }            // hauling load
+      if (moving) { var pw = [5, 6, 7, 8]; return pw[Math.floor(t * 7) % pw.length]; }
+      var pi = [0, 1]; return pi[Math.floor(t * 2.2) % pi.length];
+    }
+
     var attacking = u.muzzleFlash > 0 || (u.cooldown > 0 && u.target);
     if (attacking) {
       // per-role attack: caster staff, ranged bow, melee sword
       var atk = u.role === 'monk' ? [19, 20, 21] : (u.ranged ? [16, 17, 18] : [13, 14, 15]);
       return atk[Math.floor(t * 9) % atk.length];
     }
-    if (carrying) { var c = [9, 10, 11, 12]; return c[Math.floor(t * 7) % c.length]; }   // carry-walk
     if (moving) { var w = [5, 6, 7, 8]; return w[Math.floor(t * 7) % w.length]; }
     var idle = [0, 1]; return idle[Math.floor(t * 2.2) % idle.length];
   }

@@ -47,7 +47,17 @@
       // Scene.update/postrender (seen on some CANVAS + Scale.NONE setups).
       RTS.Game._step = loop;
       (function rafDrive() {
-        RTS.Game._step(performance.now());
+        // Never let a single frame's exception kill the rAF chain (hard freeze).
+        // Log it, surface it once so it can be reported, and keep the loop alive.
+        try {
+          RTS.Game._step(performance.now());
+        } catch (e) {
+          if (window.console) console.error('[loop] frame error:', e);
+          if (!RTS.Game._loopErrShown) {
+            RTS.Game._loopErrShown = true;
+            try { RTS.toast && RTS.toast(state, 'Render error: ' + (e && e.message || e)); } catch (_) {}
+          }
+        }
         requestAnimationFrame(rafDrive);
       })();
     },
