@@ -47,13 +47,12 @@ def _L(r, g, b): return 0.299*r+0.587*g+0.114*b
 def _sat(r, g, b):
     mx, mn = max(r, g, b), min(r, g, b); return 0 if mx == 0 else (mx-mn)/mx
 
-WOOD   = ((58,36,18),(120,80,42),(182,134,82))
-GREEN  = ((26,70,34),(58,120,60),(120,176,98))        # green roof
-GREENW = ((34,58,30),(86,132,66),(168,204,140))       # mossy-green stone walls (Orc)
-REDW   = ((70,30,26),(150,74,60),(224,158,140))       # red stone walls (Human)
-RED    = ((90,22,20),(168,46,40),(226,96,76))         # red roof (Human)
-BLUEW  = ((40,52,78),(118,138,176),(214,226,244))     # blue stone
-BLUER  = ((26,52,120),(60,120,200),(150,195,240))     # blue roof (Night Elf)
+WOOD   = ((58,36,18),(120,80,42),(182,134,82))        # elf walls
+GREEN  = ((26,70,34),(58,120,60),(120,176,98))         # elf roof
+GREY   = ((68,72,80),(146,152,160),(224,228,234))      # human stone walls
+SLATE  = ((52,58,70),(100,112,132),(168,180,200))      # human roof
+BONE   = ((96,86,66),(186,176,150),(240,236,216))      # orc walls
+BONER  = ((110,92,64),(168,144,104),(214,196,158))     # orc roof (tan-bone)
 
 def reskin(img, faction):
     px = img.load(); H = img.height
@@ -65,13 +64,13 @@ def reskin(img, faction):
             stone = s < 0.32 and L > 16
             warm = s >= 0.32 and r >= g and r >= b
             c = None
-            if faction == 'human':                       # RED kingdom
-                c = ramp3(*REDW, t) if stone else (ramp3(*RED, t) if warm else None)
-            elif faction == 'elf':                        # NIGHT ELF: wood walls + BLUE roof
+            if faction == 'human':                        # STONE
+                c = ramp3(*GREY, t) if stone else (ramp3(*SLATE, t) if warm else None)
+            elif faction == 'elf':                         # WOOD walls + green roof
                 if stone: c = ramp3(*WOOD, t)
-                elif warm: c = ramp3(*BLUER, t) if y < 0.45*H else ramp3(*WOOD, t)
-            elif faction == 'orc':                        # GREEN
-                c = ramp3(*GREENW, t) if stone else (ramp3(*GREEN, t) if warm else None)
+                elif warm: c = ramp3(*GREEN, t) if y < 0.45*H else ramp3(*WOOD, t)
+            elif faction == 'orc':                         # BONE
+                c = ramp3(*BONE, t) if stone else (ramp3(*BONER, t) if warm else None)
             if c: px[x, y] = (c[0], c[1], c[2], a)
     return img
 
@@ -82,7 +81,7 @@ def accents(img, faction, kind):
     # single-building sprites. The material recolor + barrels carry most identity.
     d = ImageDraw.Draw(img); W, H = img.width, img.height
     if faction == 'human' and kind in ('keep', 'barracks'):
-        pole, bl, hi = (60,52,44), (190,52,46), (236,118,96)   # red banner
+        pole, bl, hi = (60,52,44), (45,118,210), (110,175,240)   # royal blue banner
         for bx in ([2, W-4] if W >= 24 else [W//2-1]):
             for y in range(0, 5): _P(d, bx, y, pole)
             for y, w in [(1,3),(2,2)]:

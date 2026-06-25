@@ -20,3 +20,7 @@ Each `<faction>/<role>.png` is a pre-made character sheet (29 cols x 8 rows of
 
 Frame columns: idle 0-1 · walk 5-8 · sword 13-15 · bow 16-18 · staff 19-21 ·
 throw 22-24 · hurt/death 25-27.
+
+The **rimwalker (Night Elf)** sheets are the pack's pale Elf sheets with the
+skin pixels remapped to the pack's `Layer 0 - Skins/NightElf1` palette
+(human tan → night-elf purple/lavender), so the units read as night elves.
