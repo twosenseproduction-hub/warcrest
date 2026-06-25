@@ -47,7 +47,7 @@
   }
 
   RTS.PunyUnits = {
-    enabled: false,
+    enabled: true,       // Puny Characters are the default unit art
     scale: 2.4,          // 32px frame → ~77px on screen; tune to taste
     draw: function (ctx, u, f, s) {
       if (!this.enabled || u.isHero) return false;
