@@ -220,6 +220,10 @@
         (s.timers.gameTime - (u._lastCombatAt != null ? u._lastCombatAt : -999)) > RTS.Config.regenDelay) {
       u.hp = Math.min(u.maxHp, u.hp + u.regen * dt);
     }
+    // Caster mana regen, buff expiry, and autocast abilities.
+    if (u.manaRegen > 0 && u.mana < u.maxMana) u.mana = Math.min(u.maxMana, u.mana + u.manaRegen * dt);
+    if (RTS.tickBuffs) RTS.tickBuffs(s, u);
+    if (RTS.tickAutocast && u.abilities && u.abilities.length) RTS.tickAutocast(s, u);
     u.muzzleFlash = Math.max(0, u.muzzleFlash - dt);
     u.spawnFlash = Math.max(0, u.spawnFlash - dt);
     u._idlePhase = (u._idlePhase || 0) + dt;
@@ -338,26 +342,27 @@
 
   function fire(s, u, target) {
     u._lastCombatAt = s.timers.gameTime || 0;   // attacking pauses Blood Vigor regen
+    var dmg = RTS.outgoingDamage ? RTS.outgoingDamage(u, u.dmg) : u.dmg;   // folds in Inner Fire etc.
     if (RTS.Sprites && RTS.Sprites.ready) {
       RTS.Sprites.startAttack(u, target);
       if (u.ranged) {
         u._pendingShot = {
           targetId: target.id,
-          dmg: u.dmg,
+          dmg: dmg,
           splash: u.splash,
           faction: u.faction,
           role: u.role,
           released: false,
         };
       } else {
-        u._pendingMelee = { targetId: target.id, dmg: u.dmg, released: false };
+        u._pendingMelee = { targetId: target.id, dmg: dmg, released: false };
       }
       RTS.Audio.play(u.ranged ? 'shot' : 'melee');
       return;
     }
     u.muzzleFlash = RTS.Config.muzzleFlash;
     if (u.ranged) {
-      RTS.makeProjectile(s, u, target, u.dmg, {
+      RTS.makeProjectile(s, u, target, dmg, {
         splash: u.splash,
         color: u.heroId === 'grollusk' ? '#4cff6b' : RTS.Factions[u.faction].accent,
         faction: u.faction,
@@ -366,7 +371,7 @@
       });
       RTS.Audio.play(u.ranged ? 'shot' : 'melee');
     } else {
-      applyDamage(s, target, u.dmg, u);
+      applyDamage(s, target, dmg, u);
       RTS.Audio.play('melee');
     }
   }
@@ -1074,8 +1079,11 @@
       if (RTS.spawnFloat) RTS.spawnFloat(s, target.x, target.y - (target.radius || 12), 'dodge', '#9be8ff');
       return;
     }
-    // Iron Discipline (Iron Crown) — armored units soak a flat share of damage.
-    if (target.kind === 'unit' && target.armor > 0) amount *= (1 - target.armor);
+    // Iron Discipline (armor) + Inner Fire (buff armor) — soak a flat share.
+    if (target.kind === 'unit') {
+      var arm = RTS.effectiveArmor ? RTS.effectiveArmor(target) : (target.armor || 0);
+      if (arm > 0) amount *= (1 - arm);
+    }
     // Blood Vigor (Raider Horde) — taking damage pauses out-of-combat regen.
     if (target.kind === 'unit') target._lastCombatAt = s.timers.gameTime || 0;
     if (target.kind === 'unit' && target.heroId === 'valdris' && RTS.getHero) {

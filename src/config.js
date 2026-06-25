@@ -257,8 +257,9 @@
       role: 'monk', label: 'Priest', glyph: 'cross', faction: 'aurex',
       hp: 95, speed: 100, dmg: 0, range: 120, rof: 0.7, heal: 14, tier: 2,
       cost: 135, supply: 2, build: 0, healer: true,
-      traits: ['monk_aura'],
-      desc: 'The strongest healer in the Reach. Sustains a Crown push. Requires a Keep.',
+      mana: 120, manaRegen: 8, abilities: ['inner_fire'],
+      traits: ['monk_aura', 'inner_fire'],
+      desc: 'The strongest healer in the Reach. Autocasts Inner Fire (+dmg/+armor). Requires a Keep.',
     },
 
   };

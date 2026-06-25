@@ -591,6 +591,7 @@
       uid: opts.uid,
       cost: opts.cost,
       role: opts.role,
+      abId: opts.abId,
     };
   }
 
@@ -615,6 +616,7 @@
       html += '<button class="' + cls + '" data-slot="' + sid + '" data-act="' + (sl.act || '') + '"' +
         (sl.bid ? ' data-bid="' + sl.bid + '"' : '') +
         (sl.uid ? ' data-uid="' + sl.uid + '"' : '') +
+        (sl.abId ? ' data-abid="' + sl.abId + '"' : '') +
         (sl.role ? ' data-role="' + sl.role + '"' : '') +
         cdStyle +
         (sl.disabled ? ' disabled' : '') +
@@ -748,6 +750,24 @@
           });
         });
       }
+    }
+    // Regular-unit abilities (autocast toggles) — top row, after any hero kit.
+    if (units.length === 1 && !units[0].heroId && RTS.abilityList) {
+      var au = units[0];
+      var abs = RTS.abilityList(au);
+      var abSlots = ['r1c1', 'r1c2', 'r1c3'];
+      abs.slice(0, 3).forEach(function (ab, i) {
+        var ready = (au.mana || 0) >= ab.manaCost;
+        var cdLeft = au._abilityCd && au._abilityCd[ab.id]
+          ? Math.max(0, au._abilityCd[ab.id] - (s.timers.gameTime || 0)) : 0;
+        model[abSlots[i]] = slot('unit-ability', ab.icon || '', {
+          slotId: abSlots[i], label: ab.name + (ab.autocastDefault ? ' (autocast)' : ''),
+          uid: au.id, abId: ab.id,
+          autocast: RTS.autocastOn(au, ab.id),
+          cooldown: cdLeft > 0 ? cdLeft / ab.cooldown : 0,
+          disabled: !ready && cdLeft <= 0,
+        });
+      });
     }
     // Pawn build shortcut
     if (units.some(function (u) { return u.role === 'pawn'; })) {
@@ -930,6 +950,9 @@
       RTS.refreshMode && RTS.refreshMode(s);
     } else if (act === 'hero-ability' && data.uid) {
       RTS.triggerHeroAbility && RTS.triggerHeroAbility(s, data.uid);
+    } else if (act === 'unit-ability' && data.uid && data.abid) {
+      RTS.toggleAutocast && RTS.toggleAutocast(s, +data.uid, data.abid);
+
     } else if (act === 'open-build') {
       s.ui.buildPanelOpen = true;
     } else if (act === 'place' && data.btype) {

@@ -20,6 +20,11 @@
       // racial passives: Iron Discipline (armor), Wild Grace (evade), Blood Vigor (regen)
       armor: spec.armor || 0, evade: spec.evade || 0, regen: spec.regen || 0,
       _lastCombatAt: -999,
+      // abilities + caster mana + active buffs
+      mana: spec.mana || 0, maxMana: spec.mana || 0, manaRegen: spec.manaRegen || 0,
+      abilities: spec.abilities ? spec.abilities.slice() : [],
+      autocast: {}, _abilityCd: {},
+      buffs: [], buffDmgMul: 0, buffArmorAdd: 0,
       radius: RTS.SizeRef.pxRadius(role),
       cooldown: 0, target: null, moveTo: null, attackMove: false,
       harvest: null,            // {nodeId, phase, carry, slotIndex, cycleT, depositId, depositOwnerId}
