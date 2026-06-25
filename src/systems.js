@@ -1351,6 +1351,11 @@
     u.x += u.vx * dt;
     u.y += u.vy * dt;
 
+    // Face the direction of travel while moving (combat code overrides facing toward its target).
+    if ((u.vx * u.vx + u.vy * u.vy) > 4 && !u.inAttackRange) {
+      u.facing = Math.atan2(u.vy, u.vx);
+    }
+
     if (RTS.Particles && RTS.Particles.ready && grid && RTS.Terrain) {
       var nowWater = RTS.Terrain.isWater(grid, u.x, u.y);
       if (nowWater && !wasWater) RTS.Particles.spawnWaterSplash(s, u.x, u.y);

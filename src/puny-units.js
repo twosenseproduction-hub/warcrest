@@ -44,7 +44,9 @@
       var pi = [0, 1]; return pi[Math.floor(t * 2.2) % pi.length];
     }
 
-    var attacking = u.muzzleFlash > 0 || (u.cooldown > 0 && u.target);
+    // Only play the attack pose when actually in range to strike — not while
+    // walking toward a target with a weapon on cooldown.
+    var attacking = !moving && (u.muzzleFlash > 0 || (u.inAttackRange && u.cooldown > 0 && u.target));
     if (attacking) {
       // per-role attack: caster staff, ranged bow, melee sword
       var atk = u.role === 'monk' ? [19, 20, 21] : (u.ranged ? [16, 17, 18] : [13, 14, 15]);

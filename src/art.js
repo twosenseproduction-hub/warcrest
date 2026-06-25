@@ -1136,7 +1136,8 @@
       var mx = u.x + Math.cos(u.facing) * (r + 8);
       var my = (vb ? vb.bodyCy : u.y) + Math.sin(u.facing) * (r + 8);
       var ma = u.muzzleFlash / RTS.Config.muzzleFlash;
-      ctx.fillStyle = hexA(pal.glow, ma * 0.9);
+      var glowCol = (pal && pal.glow) || (f && f.accent) || '#ffe08a';
+      ctx.fillStyle = hexA(glowCol, ma * 0.9);
       pCircle(ctx, mx, my, 7 + ma * 4);
       ctx.fill();
       ctx.fillStyle = hexA('#ffffff', ma);
@@ -1145,7 +1146,9 @@
     }
     if (u.hp < u.maxHp || s.settings.showHealthAlways) {
       var barW = vb ? Math.max(34, vb.drawW * 0.85) : Math.max(34, r * 2.8);
-      drawHealthBar(ctx, u.x, topY, barW, u.hp / u.maxHp, pal.trim, false, false);
+      // pal is absent when called from the Puny/hero sprite renderers — fall back to faction colour.
+      var barCol = (pal && pal.trim) || (f && f.primary) || '#cfd8dc';
+      drawHealthBar(ctx, u.x, topY, barW, u.hp / u.maxHp, barCol, false, false);
     }
   }
   RTS.Art.drawUnitOverlays = drawUnitOverlays;
