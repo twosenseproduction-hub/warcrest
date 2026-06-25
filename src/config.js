@@ -294,10 +294,10 @@
       warrior: { hp: 240, speed: 78, dmg: 26, range: 50, rof: 0.95, armor: 0, regen: 6, cost: 115, supply: 3 },
       // Gnoll — cheap, weak ranged harasser; regens between skirmishes. Berserk toggle.
       archer:  { hp: 70, speed: 118, dmg: 13, range: 130, rof: 0.7, ranged: true, regen: 3, cost: 70, supply: 2, abilities: ['berserk'] },
-      // Spear Goblin — fast glass-cannon raider.
-      lancer:  { hp: 60, speed: 195, dmg: 14, range: 55, rof: 0.55, armor: 0, regen: 2, cost: 55, supply: 1 },
+      // Spear Goblin — fast glass-cannon raider. Ensnare nets a fleeing target.
+      lancer:  { hp: 60, speed: 195, dmg: 14, range: 55, rof: 0.55, armor: 0, regen: 2, cost: 55, supply: 1, abilities: ['ensnare'] },
       // Hex Shaman — minor ranged healer (Humans out-heal them by far). Autocasts Bloodlust.
-      monk:    { hp: 75, speed: 100, dmg: 6, range: 125, rof: 0.7, heal: 8, ranged: true, regen: 3, cost: 80, supply: 2, mana: 100, manaRegen: 7, abilities: ['bloodlust'] },
+      monk:    { hp: 75, speed: 100, dmg: 6, range: 125, rof: 0.7, heal: 8, ranged: true, regen: 3, cost: 80, supply: 2, mana: 100, manaRegen: 7, abilities: ['bloodlust', 'hex'] },
     },
   };
 

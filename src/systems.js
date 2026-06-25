@@ -282,14 +282,16 @@
         u.inAttackRange = true;
         u.vx = 0; u.vy = 0;
         u.facing = Math.atan2(atk.aimY - u.y, atk.aimX - u.x);
-        if (u.cooldown <= 0 && u.dmg > 0) {
+        if (u.cooldown <= 0 && u.dmg > 0 && !u.buffDisabled) {   // Hex disables attacks
           u.cooldown = RTS.effectiveRof ? RTS.effectiveRof(u) : u.rof;
           fire(s, u, target);
         }
+      } else if (u.buffRooted) {                                  // Ensnare: cannot close distance
+        u.vx = 0; u.vy = 0;
       } else {
         navMove(s, u, atk.tx, atk.ty, dt, atk.stop, { chasing: true });
       }
-    } else if (u.moveTo) {
+    } else if (u.moveTo && !u.buffRooted) {
       navMove(s, u, u.moveTo.x, u.moveTo.y, dt, 6);
       if (dist(u.x, u.y, u.moveTo.x, u.moveTo.y) < 10) {
         u.moveTo = null;

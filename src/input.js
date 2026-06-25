@@ -255,6 +255,18 @@
     var combat = ctx.combat;
     var workers = ctx.workers;
 
+    // Armed ability target cursor — next tap casts on the chosen foe/point.
+    if (s.pendingAbility) {
+      var pa = s.pendingAbility;
+      if (pa.cast === 'enemy') {
+        if (hit && hit.team === TEAM.ENEMY && RTS.canBeAttacked(hit)) {
+          return { type: 'castAbility', uid: pa.uid, abId: pa.abId, targetId: hit.id, x: wx, y: wy };
+        }
+        return { type: 'noop' };   // mis-tap keeps the cursor armed
+      }
+      return { type: 'castAbility', uid: pa.uid, abId: pa.abId, x: wx, y: wy };  // point-cast
+    }
+
     if (s.pendingOrder === 'move' &&
         (!hit || hit.kind === 'resource' || isBareGround(hit))) {
       if (!combat.length) {
@@ -352,6 +364,17 @@
         RTS.log(s, 'Engaging target', 'info');
         haptic(12);
         break;
+      case 'castAbility': {
+        var caster = RTS.getById(s, intent.uid);
+        var tgt = intent.targetId ? RTS.getById(s, intent.targetId) : { x: intent.x, y: intent.y };
+        var ok = caster && RTS.castAbility && RTS.castAbility(s, caster, intent.abId, tgt);
+        s.pendingAbility = null;
+        if (ok) { flash(s, intent.x, intent.y, '#c79bff'); haptic(10); }
+        else { RTS.Audio.play('deny'); }
+        RTS.refreshMode && RTS.refreshMode(s);
+        RTS.HUD.sync(s);
+        break;
+      }
       case 'moveCombat':
         if (intent.patrol) {
           RTS.orderPatrol(s, intent.units, intent.x, intent.y);
@@ -541,6 +564,7 @@
   // ---- Init / event wiring -------------------------------------------------
   RTS.Input = {
     ensureHeroTestSelection: ensureHeroTestSelection,
+    tapWorld: function (s, wx, wy, additive) { return tapWorld(s, wx, wy, additive); },
     init: function (canvas, getState) {
       var DRAG = (RTS.Config.touch && RTS.Config.touch.dragPx) || 12;
       var UIBLOCK = (RTS.Config.touch && RTS.Config.touch.uiBlockMs) || 320;

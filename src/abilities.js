@@ -64,6 +64,26 @@
       vfxColor: '#ff3030',
       desc: 'While fighting, goes berserk: +50% attack speed, but takes +35% damage.',
     },
+
+    // Spear Goblin (cinder) — target an enemy: nets it in place (rooted).
+    ensnare: {
+      id: 'ensnare', name: 'Ensnare', role: 'lancer', faction: 'cinder',
+      icon: 'assets/units/abilities/ensnare.png',
+      manaCost: 0, cooldown: 10, cast: 'enemy', range: 210,
+      buff: { id: 'ensnare', rooted: true, duration: 5, color: '#caa15a' },
+      vfxColor: '#caa15a',
+      desc: 'Nets a target enemy — it cannot move for 5s.',
+    },
+
+    // Hex Shaman (cinder) — target an enemy: hexes it, cannot attack.
+    hex: {
+      id: 'hex', name: 'Hex', role: 'monk', faction: 'cinder',
+      icon: 'assets/units/abilities/hex.png',
+      manaCost: 35, cooldown: 14, cast: 'enemy', range: 190,
+      buff: { id: 'hex', disabled: true, duration: 6, color: '#b05ad0' },
+      vfxColor: '#b05ad0',
+      desc: 'Hexes a target enemy — it cannot attack for 6s.',
+    },
   };
 
   // abilities available to a unit (empty for heroes — they use the hero kit).
@@ -84,13 +104,15 @@
   RTS.hasBuff = hasBuff;
 
   function recompute(u) {
-    var dm = 0, aa = 0, rm = 0, dt = 0, hps = 0;
+    var dm = 0, aa = 0, rm = 0, dt = 0, hps = 0, rooted = false, disabled = false;
     (u.buffs || []).forEach(function (b) {
       dm += b.dmgMul || 0; aa += b.armorAdd || 0; rm += b.rofMul || 0;
       dt += b.dmgTakenMul || 0; hps += b.healPerSec || 0;
+      if (b.rooted) rooted = true; if (b.disabled) disabled = true;
     });
     u.buffDmgMul = dm; u.buffArmorAdd = aa; u.buffRofMul = rm;
     u.buffDmgTakenMul = dt; u.buffHealPerSec = hps;
+    u.buffRooted = rooted; u.buffDisabled = disabled;
   }
   RTS.recomputeBuffs = recompute;
 
@@ -101,7 +123,8 @@
     if (ex) { ex.until = now + buff.duration; }
     else target.buffs.push({ id: buff.id, until: now + buff.duration,
       dmgMul: buff.dmgMul || 0, armorAdd: buff.armorAdd || 0, rofMul: buff.rofMul || 0,
-      dmgTakenMul: buff.dmgTakenMul || 0, healPerSec: buff.healPerSec || 0, color: buff.color });
+      dmgTakenMul: buff.dmgTakenMul || 0, healPerSec: buff.healPerSec || 0,
+      rooted: !!buff.rooted, disabled: !!buff.disabled, color: buff.color });
     recompute(target);
   }
 
@@ -148,6 +171,10 @@
     if ((u.mana || 0) < ab.manaCost) return false;
     if (ab.cast === 'ally') { target = target || findAllyTarget(s, u, ab); if (!target) return false; }
     else if (ab.cast === 'self') { target = u; if (ab.buff && hasBuff(u, ab.buff.id)) return false; }
+    else if (ab.cast === 'enemy') {
+      if (!target || target.dead || target.team === u.team) return false;   // manual flow supplies the foe
+      if (Math.hypot(target.x - u.x, target.y - u.y) > ab.range * 1.25) return false;
+    }
     u.mana = Math.max(0, (u.mana || 0) - ab.manaCost);
     u._abilityCd[abId] = now + ab.cooldown;
     if (ab.buff && target) applyBuff(s, target, ab.buff);

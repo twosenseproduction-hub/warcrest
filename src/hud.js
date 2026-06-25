@@ -760,10 +760,14 @@
         var ready = (au.mana || 0) >= ab.manaCost;
         var cdLeft = au._abilityCd && au._abilityCd[ab.id]
           ? Math.max(0, au._abilityCd[ab.id] - (s.timers.gameTime || 0)) : 0;
+        var manual = ab.cast === 'enemy' || ab.cast === 'point';
+        var armed = manual && s.pendingAbility && s.pendingAbility.uid === au.id && s.pendingAbility.abId === ab.id;
         model[abSlots[i]] = slot('unit-ability', ab.icon || '', {
-          slotId: abSlots[i], label: ab.name + (ab.autocastDefault ? ' (autocast)' : ''),
+          slotId: abSlots[i],
+          label: ab.name + (manual ? '' : (ab.autocastDefault ? ' (autocast)' : '')),
           uid: au.id, abId: ab.id,
-          autocast: RTS.autocastOn(au, ab.id),
+          autocast: manual ? false : RTS.autocastOn(au, ab.id),
+          targeting: !!armed,
           cooldown: cdLeft > 0 ? cdLeft / ab.cooldown : 0,
           disabled: !ready && cdLeft <= 0,
         });
@@ -951,7 +955,20 @@
     } else if (act === 'hero-ability' && data.uid) {
       RTS.triggerHeroAbility && RTS.triggerHeroAbility(s, data.uid);
     } else if (act === 'unit-ability' && data.uid && data.abid) {
-      RTS.toggleAutocast && RTS.toggleAutocast(s, +data.uid, data.abid);
+      var ab = RTS.Abilities && RTS.Abilities[data.abid];
+      if (ab && (ab.cast === 'enemy' || ab.cast === 'point')) {
+        // arm a target cursor; the next world tap casts it (see input.js)
+        if (s.pendingAbility && s.pendingAbility.abId === data.abid) {
+          s.pendingAbility = null;                     // tap again to cancel
+        } else {
+          s.pendingAbility = { uid: +data.uid, abId: data.abid, cast: ab.cast };
+          s.attackMoveArmed = false; s.patrolArmed = false;
+          RTS.toast && RTS.toast(s, 'Pick a target for ' + ab.name);
+        }
+        RTS.refreshMode && RTS.refreshMode(s);
+      } else {
+        RTS.toggleAutocast && RTS.toggleAutocast(s, +data.uid, data.abid);
+      }
 
     } else if (act === 'open-build') {
       s.ui.buildPanelOpen = true;
