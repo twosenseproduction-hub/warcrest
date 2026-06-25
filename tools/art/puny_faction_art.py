@@ -112,6 +112,41 @@ KIND = {'Keep':'keep','Barracks':'barracks','War Forge':'forge','Sheep Pen':'pen
 def make_building(faction, label, span):
     im = block(*span); reskin(im, faction); accents(im, faction, KIND[label]); return im
 
+# ---- Tower upgrade tree: base -> arrow / bombard --------------------------------
+def _tower_shell(cap_col):
+    """Stone tower: a well-cap roof (row 30) connected onto a stone shaft."""
+    im = Image.new('RGBA', (16, 30), (0, 0, 0, 0))
+    im.alpha_composite(tile(14, 27), (0, 14))
+    im.alpha_composite(tile(14, 27), (0, 16))
+    im.alpha_composite(tile(cap_col, 30), (0, 0))
+    return im
+
+def make_tower(faction, variant='base'):
+    if variant == 'base':
+        im = Image.new('RGBA', (16, 30), (0, 0, 0, 0))
+        im.alpha_composite(tile(14, 27), (0, 14)); im.alpha_composite(tile(14, 27), (0, 16))
+        im.alpha_composite(tile(14, 26), (0, 0))         # crenellated cap
+    elif variant == 'arrow':
+        im = _tower_shell(6)                              # peaked watchtower roof
+    elif variant == 'bombard':
+        im = _tower_shell(4)                              # flat gun-platform roof
+    else:
+        raise ValueError(variant)
+    reskin(im, faction)
+    d = ImageDraw.Draw(im)
+    if variant == 'arrow':                                # arrow slits (drawn after reskin)
+        for sx in (5, 8, 11):
+            for y in range(17, 23): _P(d, sx, y, (34, 32, 40))
+    elif variant == 'bombard':                            # iron cannon barrel (faction-neutral)
+        iron, hi, blk = (74, 76, 86), (120, 122, 134), (16, 16, 20)
+        for y in range(9, 17):
+            for x in range(6, 10): _P(d, x, y, iron)
+        for y in range(9, 17): _P(d, 6, y, hi)
+        for x in range(6, 10): _P(d, x, 12, (50, 52, 60))
+        for x in range(6, 10): _P(d, x, 16, blk)
+        _P(d, 7, 17, blk); _P(d, 8, 17, blk)
+    return im
+
 # ── outputs ────────────────────────────────────────────────────────────────────
 def build_sheet(out):
     Z = 6; cw, ch = 2*T*Z+24, 4*T*Z+30; lab = 64
