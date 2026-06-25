@@ -363,6 +363,16 @@
     },
   };
 
+  // Arrow Tower specialisations — a built turret can research into ONE of these.
+  RTS.TowerUpgrades = {
+    arrow:   { label: 'Arrow Tower', cost: 90,  time: 16, dmg: 24, range: 240, rof: 0.5,
+               splash: 0,  buildingDmgBonus: 0,
+               desc: 'Long-range single-target fire — strong against units.' },
+    bombard: { label: 'Bombard',     cost: 150, time: 24, dmg: 52, range: 150, rof: 1.5,
+               splash: 46, buildingDmgBonus: 0.5,
+               desc: 'Short-range splash shells — smash buildings and clustered foes.' },
+  };
+
   RTS.BuildMenu = ['conduit', 'foundry', 'forge', 'turret', 'outpost'];
 
   RTS.buildMenuFor = function (factionId) {

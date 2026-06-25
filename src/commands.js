@@ -1273,6 +1273,42 @@
     RTS.applyBuildingUpgrade(s, b);
   };
 
+  /* Start specialising a base Arrow Tower into an Arrow Tower or a Bombard. */
+  RTS.upgradeTower = function (s, buildingId, variant) {
+    var b = (s.entities.buildings || []).find(function (x) { return x.id === buildingId; });
+    if (!b || !b.built || b.type !== 'turret' || b.towerType || b.upgrading) return;
+    var def = RTS.TowerUpgrades && RTS.TowerUpgrades[variant];
+    if (!def) return;
+    var team = b.team, isPlayer = team === RTS.TEAM.PLAYER;
+    if (!RTS.canAfford(s, team, def.cost)) {
+      if (isPlayer) { RTS.toast(s, 'Not enough ' + RTS.resourceLabel(b.faction)); if (RTS.Audio) RTS.Audio.play('deny'); }
+      return;
+    }
+    s.res[team].halcite -= def.cost;
+    b.upgrading = { remaining: def.time, total: def.time, toTower: variant };
+    if (isPlayer) {
+      RTS.toast(s, 'Upgrading to ' + def.label + '…');
+      if (RTS.Audio) RTS.Audio.play('click');
+      if (RTS.HUD) RTS.HUD.sync(s);
+    }
+  };
+
+  /* Commit a completed tower specialisation — applies its combat stats + sprite. */
+  RTS.applyTowerUpgrade = function (s, b) {
+    var variant = b.upgrading && b.upgrading.toTower;
+    var def = RTS.TowerUpgrades && RTS.TowerUpgrades[variant];
+    b.upgrading = null;
+    if (!def) return;
+    b.towerType = variant;
+    b.dmg = def.dmg; b.range = def.range; b.rof = def.rof;
+    b.splash = def.splash || 0; b.buildingDmgBonus = def.buildingDmgBonus || 0;
+    if (b.team === RTS.TEAM.PLAYER) {
+      RTS.log(s, RTS.nameFor(s.playerFaction, 'turret') + ' → ' + def.label, 'good');
+      if (RTS.Audio) RTS.Audio.play('ready');
+      if (RTS.HUD) RTS.HUD.sync(s);
+    }
+  };
+
   /* Commit a level-up — shared by instant upgrades and completed timed research. */
   RTS.applyBuildingUpgrade = function (s, b) {
     b.level = (b.level || 1) + 1;

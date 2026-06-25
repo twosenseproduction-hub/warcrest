@@ -691,7 +691,18 @@
     model['r3c1'] = slot('cancel-train', UI().iconUrl('cancel') || '', {
       slotId: 'r3c1', label: 'Cancel last from queue', bid: b.id, disabled: !hasQueue,
     });
-    if (RTS.Config.canUpgrade && RTS.Config.canUpgrade(b)) {
+    // Base Arrow Tower can specialise into a long-range Arrow Tower or a Bombard.
+    if (b.type === 'turret' && !b.towerType && !b.upgrading && RTS.TowerUpgrades) {
+      var arrow = RTS.TowerUpgrades.arrow, bombard = RTS.TowerUpgrades.bombard;
+      model['r3c2'] = slot('upgrade-tower', UI().iconUrl('upgrade') || '', {
+        slotId: 'r3c2', label: arrow.label, bid: b.id, variant: 'arrow', cost: arrow.cost,
+        disabled: s.res.player.halcite < arrow.cost,
+      });
+      model['r3c3'] = slot('upgrade-tower', UI().iconUrl('upgrade') || '', {
+        slotId: 'r3c3', label: bombard.label, bid: b.id, variant: 'bombard', cost: bombard.cost,
+        disabled: s.res.player.halcite < bombard.cost,
+      });
+    } else if (RTS.Config.canUpgrade && RTS.Config.canUpgrade(b)) {
       var upCost = RTS.Config.upgradeCost ? RTS.Config.upgradeCost(b) : 0;
       var upLabel = 'Upgrade';
       if (b.type === 'core') {
@@ -886,6 +897,8 @@
       }
     } else if (act === 'upgrade' && data.bid) {
       RTS.upgradeBuilding && RTS.upgradeBuilding(s, data.bid);
+    } else if (act === 'upgrade-tower' && data.bid) {
+      RTS.upgradeTower && RTS.upgradeTower(s, data.bid, data.variant);
     } else if (act === 'toggle-automine' && data.bid) {
       RTS.toggleAutomine && RTS.toggleAutomine(s, data.bid);
     } else if (act === 'move') {

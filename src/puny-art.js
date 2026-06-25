@@ -13,6 +13,7 @@
 
   function imgFor(b) {
     var key = (b.faction || 'aurex') + '_' + b.type;
+    if (b.type === 'turret' && b.towerType) key += '_' + b.towerType;   // arrow / bombard
     var c = cache[key];
     if (c === undefined) { c = new Image(); c.src = DIR + key + '.png'; cache[key] = c; }
     return (c && c.complete && c.naturalWidth) ? c : null;

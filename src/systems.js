@@ -808,26 +808,31 @@
       return;
     }
 
-    // Town Hall tier research — ticks while active and blocks production.
+    // Tier / tower research — ticks while active and blocks the building's work.
     if (b.upgrading) {
       b.upgrading.remaining -= dt;
-      if (b.upgrading.remaining <= 0 && RTS.applyBuildingUpgrade) {
-        RTS.applyBuildingUpgrade(s, b);
+      if (b.upgrading.remaining <= 0) {
+        if (b.upgrading.toTower && RTS.applyTowerUpgrade) RTS.applyTowerUpgrade(s, b);
+        else if (RTS.applyBuildingUpgrade) RTS.applyBuildingUpgrade(s, b);
       }
       b.train = null;
       return;
     }
 
-    // Defensive structures fire
+    // Defensive structures fire (Arrow Tower / Bombard use their upgraded stats).
     var spec = RTS.Buildings[b.type];
     if (spec.defense) {
-      var foe = nearestEnemy(s, b.x, b.y, b.team, spec.range);
+      var fRange = b.range || spec.range, fRof = b.rof || spec.rof, fDmg = b.dmg || spec.dmg;
+      var foe = nearestEnemy(s, b.x, b.y, b.team, fRange);
       if (foe && b.cooldown <= 0) {
-        b.cooldown = spec.rof;
-        RTS.makeProjectile(s, b, foe, spec.dmg, {
+        b.cooldown = fRof;
+        var dmg = fDmg;
+        if (b.buildingDmgBonus && foe.kind === 'building') dmg = Math.round(dmg * (1 + b.buildingDmgBonus));
+        RTS.makeProjectile(s, b, foe, dmg, {
           color: RTS.Factions[b.faction].accent,
           faction: b.faction,
           fromTurret: true,
+          splash: b.splash || 0,
         });
         RTS.Audio.play('shot');
       }
