@@ -74,43 +74,37 @@ def reskin(img, faction):
 def _P(d, x, y, c): d.point((x, y), fill=c)
 
 def accents(img, faction, kind):
+    # Kept light + within the top rows so they're safe on the small (32-48px)
+    # single-building sprites. The material recolor + barrels carry most identity.
     d = ImageDraw.Draw(img); W, H = img.width, img.height
-    if faction == 'human' and kind in ('keep', 'barracks', 'tower'):
+    if faction == 'human' and kind in ('keep', 'barracks'):
         pole, bl, hi = (60,52,44), (45,118,210), (110,175,240)
-        for bx in ([3, W-5] if W >= 24 else [W//2-1]):
-            for y in range(0, 6): _P(d, bx, y, pole)
-            for y, w in [(1,4),(2,3),(3,2)]:
+        for bx in ([2, W-4] if W >= 24 else [W//2-1]):
+            for y in range(0, 5): _P(d, bx, y, pole)
+            for y, w in [(1,3),(2,2)]:
                 for x in range(bx+1, bx+1+w): _P(d, x, y, bl)
             _P(d, bx+1, 1, hi)
-        if kind == 'keep':
-            for (x, y) in [(W//2-1,23),(W//2,23),(W//2-1,24),(W//2,24)]: _P(d, x, y, (235,205,90))
     if faction == 'elf':
         vine, vhi = (54,120,60), (104,176,96)
-        for x in ([2,3,W-4,W-3] if W >= 24 else [1, W-2]):
-            for y in range(2, min(H, 12)):
-                if (x+y) % 2 == 0: _P(d, x, y, vine); _P(d, x, y+1, vhi)
-        img.alpha_composite(tile(0, 26).resize((9, 9), Image.NEAREST), (W//2-4, 1))
+        for x in ([1,2,W-3,W-2] if W >= 24 else [1, W-2]):
+            for y in range(2, min(H, 11)):
+                if (x+y) % 2 == 0: _P(d, x, y, vine); _P(d, x, min(H-1,y+1), vhi)
     if faction == 'orc':
-        bone, bdk, blk = (236,230,206), (150,138,110), (20,16,14)
-        for sx in range(1, W-1, 3):
-            _P(d, sx, 3, bdk)
-            for i, y in enumerate(range(2, -1, -1)): _P(d, sx, y, bone if i < 2 else bdk)
-        if kind in ('keep', 'barracks'):
-            cx = W//2
-            sk = [(cx-2,21),(cx-1,21),(cx,21),(cx+1,21),(cx-2,22),(cx-1,22),(cx,22),(cx+1,22),
-                  (cx-2,23),(cx,23),(cx-1,24),(cx,24)]
-            for (x, y) in sk: _P(d, x, y, bone)
-            for (x, y) in [(cx-2,22),(cx,22)]: _P(d, x, y, blk)
+        bone, bdk = (236,230,206), (150,138,110)
+        for sx in range(1, W-1, 3):       # bone spikes along the top
+            _P(d, sx, 2, bdk)
+            for i, y in enumerate(range(1, -1, -1)): _P(d, sx, y, bone if i < 1 else bdk)
     return img
 
-# building type -> (col,row,w,h) in the tileset's brown family + the engine type
+# building type -> (col,row,w,h) single-building spans (no vertical stacking) +
+# engine type. Barracks/Tower tiles confirmed against the pack by eye.
 BUILDINGS = [
-    ('Keep',      'core',    (12,26,2,4)),
-    ('Barracks',  'foundry', (8,26,2,4)),
-    ('War Forge', 'forge',   (7,26,1,4)),
-    ('Sheep Pen', 'conduit', (6,26,1,4)),
-    ('Arrow Twr', 'turret',  (10,26,1,4)),
-    ('Outpost',   'outpost', (4,26,1,4)),
+    ('Keep',      'core',    (12,26,2,2)),   # gatehouse, faction roof
+    ('Barracks',  'foundry', (10,26,2,2)),   # stone gate + barrels
+    ('War Forge', 'forge',   (9,26,1,2)),    # house (+ chimney)
+    ('Sheep Pen', 'conduit', (6,26,1,1)),    # small round hut
+    ('Arrow Twr', 'turret',  (14,26,1,2)),   # stone tower
+    ('Outpost',   'outpost', (4,26,1,2)),    # tent
 ]
 FACTIONS = [('human','HUMAN'),('elf','ELF'),('orc','ORC')]
 KIND = {'Keep':'keep','Barracks':'barracks','War Forge':'forge','Sheep Pen':'pen','Arrow Twr':'tower','Outpost':'outpost'}
