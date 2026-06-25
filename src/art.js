@@ -1151,6 +1151,7 @@
   RTS.Art.drawUnitOverlays = drawUnitOverlays;
 
   function drawUnit(ctx, u, f, s) {
+    if (RTS.PunyUnits && RTS.PunyUnits.enabled && RTS.PunyUnits.draw(ctx, u, f, s)) return;
     if (RTS.Sprites && RTS.Sprites.ready) {
       RTS.Sprites.drawUnit(ctx, u, f, s);
       return;
