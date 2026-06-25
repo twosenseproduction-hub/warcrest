@@ -127,12 +127,15 @@ def human():
         cv.alpha_composite(tile(0,5).resize((20,20),Image.NEAREST),(bx,by))
     return cv
 
-Z=7; g=(96,118,58)
-items=[('HUMAN — stone',human()),('ELF — tree',elf()),('ORC — bone',orc())]
-cellW=CW*Z+30
-out=Image.new('RGB',(cellW*3, CH*Z+44),g); dd=ImageDraw.Draw(out)
-for i,(name,im) in enumerate(items):
-    big=im.resize((im.width*Z,im.height*Z),Image.NEAREST)
-    out.paste(big,(i*cellW+15,36),big); dd.text((i*cellW+16,12),name,fill=(245,245,235))
-out.save(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),'docs/art/faction_keeps.png'))
-print('saved',out.size)
+KEEPS = {'human': human, 'elf': elf, 'orc': orc}   # importable builders
+
+if __name__ == '__main__':
+    Z=7; g=(96,118,58)
+    items=[('HUMAN — stone',human()),('ELF — tree',elf()),('ORC — bone',orc())]
+    cellW=CW*Z+30
+    out=Image.new('RGB',(cellW*3, CH*Z+44),g); dd=ImageDraw.Draw(out)
+    for i,(name,im) in enumerate(items):
+        big=im.resize((im.width*Z,im.height*Z),Image.NEAREST)
+        out.paste(big,(i*cellW+15,36),big); dd.text((i*cellW+16,12),name,fill=(245,245,235))
+    out.save(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),'docs/art/faction_keeps.png'))
+    print('saved',out.size)

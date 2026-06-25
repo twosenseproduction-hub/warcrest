@@ -429,6 +429,7 @@
    * ========================================================================*/
   function drawBuilding(ctx, b, f, s) {
     if (b.dead) return;
+    if (RTS.PunyArt && RTS.PunyArt.enabled && RTS.PunyArt.draw(ctx, b, s)) return;
     if (RTS.Assets && RTS.Assets.ready && RTS.Assets.drawBuilding(ctx, b, f, s)) return;
     var x = b.x, y = b.y;
     var built = b.built;
