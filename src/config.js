@@ -102,17 +102,17 @@
 
     // Combat feel
     combat: {
-      attentionIdle:        1.55,
-      attentionAttackMove:  2.0,
-      attentionChase:       2.1,
+      attentionIdle:        2.1,
+      attentionAttackMove:  2.7,
+      attentionChase:       2.8,
       meleeBuildingStandoff: 8,
       buildingAcquirePad:   12,
       roles: {
-        lancer:  { acquireMul: 1.8, chaseRange: 205 },
-        archer:  { acquireMul: 2.2, chaseRange: 240 },
-        monk:    { acquireMul: 1.5, chaseRange: 165 },
-        warrior: { acquireMul: 1.7, chaseRange: 190 },
-        default: { acquireMul: 1.5, chaseRange: 200 },
+        lancer:  { acquireMul: 2.4, chaseRange: 300 },
+        archer:  { acquireMul: 2.8, chaseRange: 340 },
+        monk:    { acquireMul: 2.0, chaseRange: 230 },
+        warrior: { acquireMul: 2.3, chaseRange: 290 },
+        default: { acquireMul: 2.0, chaseRange: 280 },
       },
       pawn: {
         retaliate:          true,

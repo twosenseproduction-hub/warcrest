@@ -38,7 +38,7 @@ export class PreloadScene extends Phaser.Scene {
     this.load.tilemapTiledJSON('sapphire', 'assets/maps/sapphire-shores.tmj');
     this.load.tilemapTiledJSON('turtle_cove', 'assets/maps/turtle-cove.tmj');
     this.load.tilemapTiledJSON('runic_clearing', 'assets/maps/runic-clearing.tmj');
-    this.load.tilemapTiledJSON('fairy_clearing', 'assets/maps/fairy-clearing.tmj');
+    this.load.tilemapTiledJSON('fairy_clearing', 'assets/maps/fairy-clearing.tmj?v=20260625b');
   }
 
   create() {
