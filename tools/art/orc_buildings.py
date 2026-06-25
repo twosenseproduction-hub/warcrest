@@ -82,8 +82,6 @@ def great_hall():
     thatch(d,cx,ky-10,24,26)
     horn(d,cx-17,ky-2,cx-21,ky-12,-1,2); horn(d,cx+17,ky-2,cx+21,ky-12,1,2)
     skull(d,cx,ky-6,True)
-    banner(d,cx-15,ky+16); banner(d,cx+13,ky+16)
-    totem(d,6,16,CH-3)
     return cv
 
 # ---- Barracks (foundry): wide weapon-lodge ----
@@ -93,9 +91,9 @@ def barracks():
     ky=CH-42
     thatch(d,cx,ky-6,26,18)
     skull(d,cx,ky-2,False)
-    # crossed weapons (axe/spear) over the door
-    for i in range(8): P(d,cx-6+i,ky+22-i,(150,150,158)); P(d,cx+6-i,ky+22-i,(150,150,158))
-    banner(d,cx-18,ky+10); banner(d,cx+16,ky+10)
+    # bone spikes along the eaves
+    for sx in (cx-20,cx-12,cx+12,cx+20):
+        for i in range(4): P(d,sx,ky-1-i, bone if i<3 else bdk)
     return cv
 
 # ---- War Forge (forge): hut + smoking chimney + ember glow ----
@@ -112,9 +110,7 @@ def war_forge():
         for ox in range(-r,r+1):
             for oy in range(-r,r+1):
                 if ox*ox+oy*oy<=r*r: P(d,sx+ox,sy+oy,(160-i*8,160-i*8,160-i*8))
-    # ember glow at the base
-    for x in range(cx-5,cx+6): P(d,x,CH-6,(255,140,30)); P(d,x,CH-5,(255,90,20))
-    skull(d,cx,ky,False); banner(d,cx-16,ky+8)
+    skull(d,cx,ky,False)
     return cv
 
 # ---- Burrow (conduit/pen): small low domed hut ----
@@ -134,7 +130,6 @@ def spire():
     thatch(d,cx,6,12,12)             # red awning top
     skull(d,cx,16,False)
     horn(d,cx-6,8,cx-9,2,-1,1); horn(d,cx+6,8,cx+9,2,1,1)
-    banner(d,cx+8,30,14)
     # bone ribs up the pole
     for y in range(34,CH-6,5):
         P(d,cx-7,y,bone); P(d,cx+7,y,bone)
