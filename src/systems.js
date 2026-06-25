@@ -289,9 +289,11 @@
       } else if (u.buffRooted) {                                  // Ensnare: cannot close distance
         u.vx = 0; u.vy = 0;
       } else {
+        u.facing = Math.atan2(target.y - u.y, target.x - u.x);    // face the foe we chase
         navMove(s, u, atk.tx, atk.ty, dt, atk.stop, { chasing: true });
       }
     } else if (u.moveTo && !u.buffRooted) {
+      u.facing = Math.atan2(u.moveTo.y - u.y, u.moveTo.x - u.x);   // face where we walk
       navMove(s, u, u.moveTo.x, u.moveTo.y, dt, 6);
       if (dist(u.x, u.y, u.moveTo.x, u.moveTo.y) < 10) {
         u.moveTo = null;
@@ -638,6 +640,7 @@
         u.harvest.cycleT = 0;
         u.facing = Math.atan2(node.y - u.y, node.x - u.x);
       } else {
+        u.facing = Math.atan2(target.y - u.y, target.x - u.x);   // face the node we walk toward
         navMove(s, u, target.x, target.y, dt, H.slotReach, { skipResourceId: node.id });
       }
       finishUnitMove(s, u, dt, false);
@@ -688,6 +691,7 @@
       }
 
       var approach = depositApproachPoint(u, dep, s);
+      u.facing = Math.atan2(dep.y - u.y, dep.x - u.x);   // face the deposit building on the way back
       navMove(s, u, approach.x, approach.y, dt, depositApproachStop(), { skipBuildingId: dep.id });
       finishUnitMove(s, u, dt, false);
       tryFinishDeposit(s, u, node);
@@ -762,6 +766,7 @@
     if (!builderOnSite(u, b)) {
       u._builderOnSite = false;
       u._workPhase = 0;
+      u.facing = Math.atan2(b.y - u.y, b.x - u.x);   // face the build site we walk toward
       navMove(s, u, b.x, b.y, dt, reach - 6, { skipBuildingId: b.id });
       finishUnitMove(s, u, dt, false);
     } else {
@@ -1350,11 +1355,6 @@
 
     u.x += u.vx * dt;
     u.y += u.vy * dt;
-
-    // Face the direction of travel while moving (combat code overrides facing toward its target).
-    if ((u.vx * u.vx + u.vy * u.vy) > 4 && !u.inAttackRange) {
-      u.facing = Math.atan2(u.vy, u.vx);
-    }
 
     if (RTS.Particles && RTS.Particles.ready && grid && RTS.Terrain) {
       var nowWater = RTS.Terrain.isWater(grid, u.x, u.y);

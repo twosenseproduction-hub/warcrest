@@ -35,9 +35,10 @@
   function frame(u, t) {
     var moving = (u.vx * u.vx + u.vy * u.vy) > 6 || (u.moveTo && !u._builderOnSite);
 
-    // Pawns never brandish weapons — their animation follows the harvest cycle.
+    // Pawns never brandish weapons — their animation follows the work/harvest cycle.
     if (u.role === 'pawn') {
       var h = u.harvest;
+      if (u.buildTask && u._builderOnSite) { var bh = [13, 14, 15]; return bh[Math.floor(t * 7) % bh.length]; }  // hammering at build site
       if (h && h.phase === 'mining') { var mn = [13, 14, 15]; return mn[Math.floor(t * 7) % mn.length]; }  // pickaxe swing
       if (h && h.carry > 0) { var c = [9, 10, 11, 12]; return c[Math.floor(t * 7) % c.length]; }            // hauling load
       if (moving) { var pw = [2, 3, 4]; return pw[Math.floor(t * 7) % pw.length]; }
