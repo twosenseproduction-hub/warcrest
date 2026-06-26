@@ -650,6 +650,15 @@
       win: 'Tideland Crossing is yours — the tides bow to your banner.',
       lose: 'Your hold has slipped beneath the tides.',
     });
+
+    // Neutral centre structures: merchant up top, mercenary camp at the bottom.
+    var cw = (RTS.Config.world && RTS.Config.world.w) || 3072;
+    var mt = RTS.makeBuilding(s, 'merchant', RTS.TEAM.NEUTRAL, cw / 2, 4 * 64 + 32, s.playerFaction, true);
+    var mb = RTS.makeBuilding(s, 'mercenary', RTS.TEAM.NEUTRAL, cw / 2, 22 * 64 + 32, s.playerFaction, true);
+    if (RTS.markBuildingFootprint) {
+      if (mt) RTS.markBuildingFootprint(s, mt, true);
+      if (mb) RTS.markBuildingFootprint(s, mb, true);
+    }
   }
 
   function buildRunicClearing(s) {

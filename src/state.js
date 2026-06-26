@@ -116,6 +116,7 @@
 
   RTS.buildingIsAttackable = function (b) {
     if (!b || b.dead || b.hp <= 0) return false;
+    if (b.team === RTS.TEAM.NEUTRAL) return false;   // neutral shops are invulnerable
     /* Real structure only — not a fresh scaffold waiting for a builder. */
     return b.built || b.progress > 0;
   };

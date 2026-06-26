@@ -369,6 +369,17 @@
       defense: true, dmg: 20, range: 178, rof: 0.7, ranged: true,
       desc: 'Automated defense tower.',
     },
+    // Neutral map structures (placed by maps, not built by players).
+    merchant: {
+      type: 'merchant', label: 'Merchant', w: 192, h: 160,
+      hp: 1000, cost: 0, build: 0, neutral: true,
+      desc: 'A travelling merchant — buy items here.',
+    },
+    mercenary: {
+      type: 'mercenary', label: 'Mercenary Camp', w: 192, h: 160,
+      hp: 1000, cost: 0, build: 0, neutral: true,
+      desc: 'Hire neutral mercenaries for coin.',
+    },
   };
 
   // Arrow Tower specialisations — a built turret can research into ONE of these.

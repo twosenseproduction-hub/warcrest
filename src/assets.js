@@ -323,7 +323,12 @@
     return BUILDING_TYPE_TO_INSET_KEY[b.type] || 'House1';
   }
 
+  var NEUTRAL_BUILDING_BASE = 'assets/buildings/neutral/';
+
   function buildingAsset(b) {
+    // Neutral map structures — faction-agnostic art.
+    if (b.type === 'merchant') return { base: NEUTRAL_BUILDING_BASE, rel: 'merchant.png', frames: 1 };
+    if (b.type === 'mercenary') return { base: NEUTRAL_BUILDING_BASE, rel: 'mercenary.png', frames: 1 };
     // Per-faction custom building set: <type>.png under the faction's base dir.
     var base = FACTION_BUILDING_BASE[b.faction];
     if (base && FACTION_BUILDING_TYPES.indexOf(b.type) >= 0) {
