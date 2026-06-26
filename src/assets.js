@@ -182,12 +182,9 @@
       'Terrain/Decorations/Bushes/Bushe3.png',
       'Terrain/Decorations/Bushes/Bushe4.png',
     ],
-    tree: [
-      'Terrain/Resources/Wood/Trees/Tree1.png',
-      'Terrain/Resources/Wood/Trees/Tree2.png',
-      'Terrain/Resources/Wood/Trees/Tree3.png',
-      'Terrain/Resources/Wood/Trees/Tree4.png',
-    ],
+    // Static nature-tileset trees (assets/decor/, via DECOR2_BASE) — replaced
+    // the animated 8-frame Tiny Swords trees that were the lag source.
+    tree: ['tree1.png', 'tree2.png', 'tree3.png'],
     rock: [
       'Terrain/Decorations/Rocks in the Water/Water Rocks_01.png',
       'Terrain/Decorations/Rocks in the Water/Water Rocks_02.png',
@@ -385,8 +382,14 @@
       paths.push({ base: KINGDOM_BASE, rel: p.replace('.png', '_Highlight.png') });
     });
     DECOR_SPRITES.bush.forEach(function (p) { paths.push({ base: KINGDOM_BASE, rel: p }); });
-    DECOR_SPRITES.tree.forEach(function (p) { paths.push({ base: KINGDOM_BASE, rel: p }); });
     DECOR_SPRITES.rock.forEach(function (p) { paths.push({ base: KINGDOM_BASE, rel: p }); });
+    // Static nature-tileset props (trees + ground detail) all live under
+    // DECOR2_BASE. imgSync is a pure cache lookup that never triggers a load,
+    // so every decor sprite the renderer may pick MUST be preloaded here or it
+    // silently never appears and the offscreen decor cache never goes ready.
+    ['tree', 'grass', 'flower', 'pebble'].forEach(function (kind) {
+      DECOR_SPRITES[kind].forEach(function (p) { paths.push({ base: DECOR2_BASE, rel: p }); });
+    });
     Object.keys(LIVESTOCK_CLIPS).forEach(function (species) {
       Object.keys(LIVESTOCK_CLIPS[species]).forEach(function (clipName) {
         paths.push({ base: LIVESTOCK_BASE, rel: species + '/' + LIVESTOCK_CLIPS[species][clipName].file });
@@ -449,31 +452,28 @@
     var rm = RTS.Config.reducedMotion;
     var list, idx, frameW, frameCount, frameH, targetH, footRatio, base;
 
-    // Static ground-detail props (no animation) — grass / flowers / pebbles.
-    if (d.kind === 'grass' || d.kind === 'flower' || d.kind === 'pebble') {
+    // Static ground-detail props (no animation) — grass / flowers / pebbles
+    // and the static nature-tileset trees (replaced the animated Tiny Swords
+    // trees that were the lag source). All draw from DECOR2_BASE as single
+    // images with no frame stepping.
+    if (d.kind === 'grass' || d.kind === 'flower' || d.kind === 'pebble' || d.kind === 'tree') {
       list = DECOR_SPRITES[d.kind];
       base = DECOR2_BASE;
       idx = h % list.length;
       targetH = RTS.SizeRef.decorDrawHeight(d.kind, idx);
-      footRatio = 0.6;
+      footRatio = d.kind === 'tree' ? 0.92 : 0.6;
       var gimg = imgSync(list[idx], base);
       if (!gimg) return;
       var grid0 = s && s.map && s.map.terrainGrid;
       var fy = grid0 && RTS.Terrain ? RTS.Terrain.groundY(grid0, d.x, d.y) : d.y;
       var gsc = targetH / Math.max(gimg.height, 1);
       var gw = gimg.width * gsc, gh = gimg.height * gsc;
+      if (d.kind === 'tree') RTS.Art.drawShadow(ctx, d.x, fy + gh * 0.06, d.r * 0.9, 0.25);
       ctx.drawImage(gimg, d.x - gw / 2, fy - gh * footRatio, gw, gh);
       return;
     }
 
-    if (d.kind === 'tree') {
-      list = DECOR_SPRITES.tree;
-      idx = h % list.length;
-      frameW = 192;
-      frameCount = 8;
-      targetH = RTS.SizeRef.decorDrawHeight('tree', idx);
-      footRatio = 0.9;
-    } else if (d.kind === 'rock' || ((theme === 'volcanic' || theme === 'amber') && d.kind !== 'bush')) {
+    if (d.kind === 'rock' || ((theme === 'volcanic' || theme === 'amber') && d.kind !== 'bush')) {
       list = DECOR_SPRITES.rock;
       idx = h % list.length;
       frameW = 128;
@@ -489,12 +489,12 @@
       targetH = RTS.SizeRef.decorDrawHeight('bush');
       footRatio = 0.78;
     } else if (h % 5 === 0) {
+      // Static nature-tileset tree (no frame stepping) — drawn from DECOR2_BASE.
       list = DECOR_SPRITES.tree;
+      base = DECOR2_BASE;
       idx = h % list.length;
-      frameW = 192;
-      frameCount = 8;
       targetH = RTS.SizeRef.decorDrawHeight('tree', idx);
-      footRatio = 0.9;
+      footRatio = 0.92;
     } else {
       list = DECOR_SPRITES.bush;
       idx = h % list.length;
@@ -504,7 +504,7 @@
       footRatio = 0.78;
     }
 
-    var img = imgSync(list[idx]);
+    var img = imgSync(list[idx], base);
     if (!img) return;
     var grid = s && s.map && s.map.terrainGrid;
     var footY = grid && RTS.Terrain ? RTS.Terrain.groundY(grid, d.x, d.y) : d.y;
@@ -527,7 +527,7 @@
     var w = img.width * sc;
     var ht = img.height * sc;
     RTS.Art.drawShadow(ctx, d.x, footY + ht * 0.08, d.r * 0.9, 0.25);
-    ctx.drawImage(img, d.x - w / 2, footY - ht * 0.85, w, ht);
+    ctx.drawImage(img, d.x - w / 2, footY - ht * (footRatio || 0.85), w, ht);
   }
 
   /* Draw ONLY the map decorations (trees / rocks / bushes), independent of the
@@ -540,12 +540,12 @@
     if (theme === 'grove') return !!(RTS.FairyForest && RTS.FairyForest.isReady());
     // DECOR_SPRITES holds path strings; resolve each via imgSync (lazy-loads).
     // Cache is only committed once every variant the decor can pick has loaded.
-    var ok = [DECOR_SPRITES.tree, DECOR_SPRITES.rock, DECOR_SPRITES.bush].every(function (L) {
+    var ok = [DECOR_SPRITES.rock, DECOR_SPRITES.bush].every(function (L) {
       return L && L.length && L.every(function (path) { return !!imgSync(path); });
     });
-    // ground-detail props live under DECOR2_BASE; require them too (these
-    // imgSync calls also trigger the lazy load).
-    var ok2 = [DECOR_SPRITES.grass, DECOR_SPRITES.flower, DECOR_SPRITES.pebble].every(function (L) {
+    // ground-detail props AND the static trees live under DECOR2_BASE; require
+    // them too (these imgSync calls also trigger the lazy load).
+    var ok2 = [DECOR_SPRITES.tree, DECOR_SPRITES.grass, DECOR_SPRITES.flower, DECOR_SPRITES.pebble].every(function (L) {
       return L && L.length && L.every(function (path) { return !!imgSync(path, DECOR2_BASE); });
     });
     return ok && ok2;
