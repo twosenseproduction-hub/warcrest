@@ -91,7 +91,7 @@
 
   RTS.PunyUnits = {
     enabled: true,       // Puny Characters are the default unit art
-    scale: 3.35,         // 32px frame → ~107px on screen
+    scale: 3.8,          // 32px frame → ~122px on screen
     draw: function (ctx, u, f, s) {
       if (!this.enabled || u.isHero) return false;
       if (u.dead) return false;                 // let the default death effect play
