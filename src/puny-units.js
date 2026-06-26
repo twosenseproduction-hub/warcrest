@@ -18,7 +18,7 @@
 (function (RTS) {
   'use strict';
   var DIR = 'assets/units/puny/';
-  var AV = '20260626';            // asset version — bump when a sheet changes to bust /assets cache
+  var AV = '20260626d';           // asset version — bump when a sheet changes to bust /assets cache
   var FW = 32, cache = {};
   var ROLES = { pawn: 1, warrior: 1, archer: 1, lancer: 1, monk: 1 };
 
