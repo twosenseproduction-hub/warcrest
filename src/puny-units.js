@@ -64,7 +64,7 @@
 
   function pick(seq, t, rate) { return seq[Math.floor(t * rate) % seq.length]; }
 
-  function frame(u, t) {
+  function frame(u, t, attacking) {
     var moving = (u.vx * u.vx + u.vy * u.vy) > 6 || (u.moveTo && !u._builderOnSite);
 
     // Pawns never fight — they carry only the recolored work tool (wand frames).
@@ -78,7 +78,7 @@
     }
 
     // Combat units: attack only when in range and not moving; otherwise walk/idle.
-    if (!moving && u.inAttackRange) return pick(attackCols(u.role), t, 9);
+    if (!moving && attacking) return pick(attackCols(u.role), t, 9);
     if (moving) return pick([2, 3, 4], t, 7);
     return pick([0, 1], t, 2.2);
   }
@@ -99,7 +99,12 @@
       if (!im) return false;
 
       var r = u.radius || 12;
-      var col = frame(u, s.timers.gameTime + (u._idlePhase || 0));
+      // Hold the attack pose briefly after leaving range so a unit hovering at
+      // the edge of its reach doesn't pop between swing and idle every frame.
+      var now = s.timers.gameTime;
+      if (u.inAttackRange) u._inRangeAt = now;
+      var attacking = (now - (u._inRangeAt == null ? -999 : u._inRangeAt)) < 0.22;
+      var col = frame(u, now + (u._idlePhase || 0), attacking);
       var row = sectorForFacing(u, (u.facing == null ? Math.PI / 2 : u.facing));
       var dw = FW * this.scale, dh = FW * this.scale;
       var dx = u.x - dw / 2;
