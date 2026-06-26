@@ -108,11 +108,11 @@
       meleeBuildingStandoff: 8,
       buildingAcquirePad:   12,
       roles: {
-        lancer:  { acquireMul: 2.4, chaseRange: 300 },
-        archer:  { acquireMul: 2.8, chaseRange: 340 },
-        monk:    { acquireMul: 2.0, chaseRange: 230 },
-        warrior: { acquireMul: 2.3, chaseRange: 290 },
-        default: { acquireMul: 2.0, chaseRange: 280 },
+        lancer:  { acquireMul: 3.0, chaseRange: 340 },
+        archer:  { acquireMul: 3.0, chaseRange: 360 },
+        monk:    { acquireMul: 2.2, chaseRange: 250 },
+        warrior: { acquireMul: 3.6, chaseRange: 380 },
+        default: { acquireMul: 2.6, chaseRange: 320 },
       },
       pawn: {
         retaliate:          true,

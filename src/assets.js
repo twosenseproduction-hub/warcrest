@@ -748,7 +748,7 @@
       capL: 49, capLW: 15, capR: 256, capRW: 15,
       midX: 128, midW: 64, texH: 64,
       fillY: 30, fillH: 3,
-      displayH: 8,
+      displayH: 12,
     },
     big: {
       base: 'UI Elements/UI Elements/Bars/BigBar_Base.png',

@@ -30,12 +30,27 @@
     return (c && c.complete && c.naturalWidth) ? c : null;
   }
 
-  // facing angle (0=E, +y down) → sheet row. Sheet rows run [S,SW,W,NW,N,NE,E,SE].
+  // facing angle (0=E, +y down) → sheet row. Verified from the bow frame:
+  // sheet rows run [S, SE, E, NE, N, NW, W, SW] (row0..row7).
   // sector index from angle: 0=E,1=SE,2=S,3=SW,4=W,5=NW,6=N,7=NE
-  var SECTOR_TO_ROW = [6, 7, 0, 1, 2, 3, 4, 5];
-  function rowForFacing(a) {
-    var TWO = Math.PI * 2;
-    var idx = Math.round((((a % TWO) + TWO) % TWO) / (Math.PI / 4)) % 8;
+  //   E→row2  SE→row1  S→row0  SW→row7  W→row6  NW→row5  N→row4  NE→row3
+  var SECTOR_TO_ROW = [2, 1, 0, 7, 6, 5, 4, 3];
+  // Quantise facing to one of 8 sectors, with a deadzone so a unit whose heading
+  // wiggles right at a sector boundary doesn't flip its sprite row every frame
+  // (that flicker read as "glitchy"). Keep the current sector until the heading
+  // moves clearly (>~30°) into the next one.
+  function sectorForFacing(u, a) {
+    var TWO = Math.PI * 2, SEC = Math.PI / 4;
+    var norm = (((a % TWO) + TWO) % TWO);
+    var idx = Math.round(norm / SEC) % 8;
+    var prev = u._faceIdx;
+    if (prev != null && prev !== idx) {
+      // distance (in radians) from heading to the centre of the previous sector
+      var d = Math.abs(norm - prev * SEC);
+      if (d > Math.PI) d = TWO - d;
+      if (d < SEC * 0.72) idx = prev;   // still within the deadzone — hold steady
+    }
+    u._faceIdx = idx;
     return SECTOR_TO_ROW[idx];
   }
 
@@ -76,7 +91,7 @@
 
   RTS.PunyUnits = {
     enabled: true,       // Puny Characters are the default unit art
-    scale: 2.85,         // 32px frame → ~91px on screen
+    scale: 3.35,         // 32px frame → ~107px on screen
     draw: function (ctx, u, f, s) {
       if (!this.enabled || u.isHero) return false;
       if (u.dead) return false;                 // let the default death effect play
@@ -85,7 +100,7 @@
 
       var r = u.radius || 12;
       var col = frame(u, s.timers.gameTime + (u._idlePhase || 0));
-      var row = rowForFacing(u.facing || Math.PI / 2);
+      var row = sectorForFacing(u, (u.facing == null ? Math.PI / 2 : u.facing));
       var dw = FW * this.scale, dh = FW * this.scale;
       var dx = u.x - dw / 2;
       var dy = (u.y + r * 0.55) - dh;           // character's feet sit near u.y

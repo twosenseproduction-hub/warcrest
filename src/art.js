@@ -1145,7 +1145,7 @@
       ctx.fill();
     }
     if (u.hp < u.maxHp || s.settings.showHealthAlways) {
-      var barW = vb ? Math.max(34, vb.drawW * 0.85) : Math.max(34, r * 2.8);
+      var barW = vb ? Math.max(46, vb.drawW * 0.95) : Math.max(46, r * 3.8);
       // pal is absent when called from the Puny/hero sprite renderers — fall back to faction colour.
       var barCol = (pal && pal.trim) || (f && f.primary) || '#cfd8dc';
       drawHealthBar(ctx, u.x, topY, barW, u.hp / u.maxHp, barCol, false, false);
