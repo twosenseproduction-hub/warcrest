@@ -39,10 +39,10 @@ export class PreloadScene extends Phaser.Scene {
     this.load.tilemapTiledJSON('turtle_cove', 'assets/maps/turtle-cove.tmj');
     this.load.tilemapTiledJSON('runic_clearing', 'assets/maps/runic-clearing.tmj');
     this.load.tilemapTiledJSON('fairy_clearing', 'assets/maps/fairy-clearing.tmj?v=20260625b');
-    this.load.tilemapTiledJSON('tideland_crossing', 'assets/maps/tideland-crossing.tmj?v=20260626a');
+    this.load.tilemapTiledJSON('tideland_crossing', 'assets/maps/tideland-crossing.tmj?v=20260626b');
     // Also as raw JSON so the map data parses even if Phaser's tilemap loader
     // rejects the generated .tmj — canvas terrain renders from it (like fairy).
-    this.load.json('tmjdata:tideland_crossing', 'assets/maps/tideland-crossing.tmj?v=20260626a');
+    this.load.json('tmjdata:tideland_crossing', 'assets/maps/tideland-crossing.tmj?v=20260626b');
   }
 
   create() {

@@ -73,6 +73,7 @@
        'btn-combat-stop', 'btn-combat-mode', 'btn-combat-atk',
        'btn-hero-i1', 'btn-hero-i2', 'btn-hero-i3',
        'btn-build-hammer', 'build-panel', 'build-panel-grid', 'map-tools', 'tb-crest',
+       'shop-panel', 'shop-grid', 'shop-head',
        'hub-minimap', 'hub-right', 'hub-hero', 'hub-action-grid', 'minimap'].forEach(function (id) {
         D[id] = $(id);
       });
@@ -134,12 +135,17 @@
         var s = getState();
         if (!s || s.scene !== 'playing') return;
         s.ui.buildPanelOpen = !s.ui.buildPanelOpen;
-        if (s.ui.buildPanelOpen && RTS.BuildingMenu) RTS.BuildingMenu.close(s);
+        if (s.ui.buildPanelOpen) { s.ui.shopOpen = null; if (RTS.BuildingMenu) RTS.BuildingMenu.close(s); }
         RTS.Audio.play('click');
         RTS.HUD.sync(s);
       });
 
       wireDelegatedTap(D['build-panel-grid'], '[data-act]', function (e, btn) {
+        if (btn.classList.contains('disabled')) { RTS.Audio.play('deny'); return; }
+        handleAction(getState(), btn.dataset);
+      });
+
+      wireDelegatedTap(D['shop-grid'], '[data-act]', function (e, btn) {
         if (btn.classList.contains('disabled')) { RTS.Audio.play('deny'); return; }
         handleAction(getState(), btn.dataset);
       });
@@ -206,6 +212,7 @@
       if (D['btn-rail-pawns']) D['btn-rail-pawns'].classList.toggle('hidden', quickRail);
 
       renderBuildPanel(s);
+      renderShopPanel(s);
       syncPawnSelectButtons(s);
       updateLayout(s);
       updateGestureHint(s);
@@ -865,6 +872,43 @@
     }).join('');
   }
 
+  function selectedHero(s) {
+    var units = RTS.activeSelectedUnits ? RTS.activeSelectedUnits(s) : [];
+    for (var i = 0; i < units.length; i++) if (units[i].heroId) return units[i];
+    return null;
+  }
+
+  function renderShopPanel(s) {
+    var panel = D['shop-panel'], grid = D['shop-grid'];
+    if (!panel || !grid) return;
+    var open = !!s.ui.shopOpen;
+    panel.classList.toggle('hidden', !open);
+    panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+    if (!open) { grid.innerHTML = ''; return; }
+
+    if (s.ui.shopOpen === 'mercenary') {
+      grid.innerHTML = '<div style="padding:10px;opacity:.8">Mercenaries — coming soon.</div>';
+      if (D['shop-head']) D['shop-head'].textContent = 'Mercenary Camp';
+      return;
+    }
+    var hero = selectedHero(s);
+    var slotsUsed = hero ? (hero.items || []).length : 0;
+    if (D['shop-head']) {
+      D['shop-head'].textContent = hero
+        ? ('Merchant — ' + RTS.nameFor(hero.faction, hero.heroId) + '  (' + slotsUsed + '/' + RTS.Items.MAX_SLOTS + ' slots)')
+        : 'Merchant — select a hero to equip';
+    }
+    var gold = s.res.player.halcite;
+    grid.innerHTML = (RTS.ItemShopOrder || []).map(function (id) {
+      var it = RTS.Items[id]; if (!it) return '';
+      var afford = hero && gold >= it.cost && slotsUsed < RTS.Items.MAX_SLOTS;
+      return '<button class="cmd-slot' + (afford ? '' : ' disabled') + '" data-act="buy-item" data-item="' + id + '" ' +
+        'title="' + it.name + ' — ' + it.desc + '">' +
+        '<img class="slot-icon" src="' + it.icon + '" alt="' + it.name + '" />' +
+        '<span class="slot-cost">' + it.cost + '</span></button>';
+    }).join('');
+  }
+
   // ---- Pawn select sync ----------------------------------------------------
   function syncPawnSelectButtons(s) {
     var btns = document.querySelectorAll('[data-act="select-pawns"]');
@@ -999,6 +1043,16 @@
     } else if (act === 'place' && data.btype) {
       RTS.beginPlacement && RTS.beginPlacement(s, data.btype);
       s.ui.buildPanelOpen = false;
+    } else if (act === 'buy-item' && data.item) {
+      var hero = selectedHero(s);
+      if (!hero) { RTS.toast(s, 'Select a hero first'); RTS.Audio.play('deny'); }
+      else {
+        var res = RTS.buyItemForHero(s, hero, data.item);
+        if (res.ok) { RTS.toast(s, 'Equipped ' + res.item.name); RTS.Audio.play('click'); }
+        else { RTS.toast(s, res.msg); RTS.Audio.play('deny'); }
+      }
+    } else if (act === 'close-shop') {
+      s.ui.shopOpen = null;
     }
     RTS.HUD.sync(s);
   }

@@ -651,10 +651,11 @@
       lose: 'Your hold has slipped beneath the tides.',
     });
 
-    // Neutral centre structures: merchant up top, mercenary camp at the bottom.
-    var cw = (RTS.Config.world && RTS.Config.world.w) || 3072;
-    var mt = RTS.makeBuilding(s, 'merchant', RTS.TEAM.NEUTRAL, cw / 2, 4 * 64 + 32, s.playerFaction, true);
-    var mb = RTS.makeBuilding(s, 'mercenary', RTS.TEAM.NEUTRAL, cw / 2, 22 * 64 + 32, s.playerFaction, true);
+    // Neutral centre structures: merchant up top, mercenary camp at the bottom
+    // (rows 5 / 29 on the 64x40 board — matches the generator's 'o' markers).
+    var cw = (RTS.Config.world && RTS.Config.world.w) || 4096;
+    var mt = RTS.makeBuilding(s, 'merchant', RTS.TEAM.NEUTRAL, cw / 2, 5 * 64 + 32, s.playerFaction, true);
+    var mb = RTS.makeBuilding(s, 'mercenary', RTS.TEAM.NEUTRAL, cw / 2, 29 * 64 + 32, s.playerFaction, true);
     if (RTS.markBuildingFootprint) {
       if (mt) RTS.markBuildingFootprint(s, mt, true);
       if (mb) RTS.markBuildingFootprint(s, mb, true);

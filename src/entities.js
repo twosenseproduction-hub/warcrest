@@ -97,6 +97,12 @@
     }
     u.guardOrigin = { x: x, y: y };
     u.commandMode = 'idle';
+    // Equipment: snapshot base stats so item bonuses can be (re)applied cleanly.
+    u.items = [];
+    u._baseStats = {
+      dmg: u.dmg, armor: u.armor || 0, maxHp: u.maxHp,
+      speed: u.speed, range: u.range, regen: u.regen || 0, rof: u.rof,
+    };
     return u;
   };
 

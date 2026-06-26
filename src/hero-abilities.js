@@ -148,8 +148,14 @@
 
   RTS.heroLevelUp = function (s, h) {
     h.level = (h.level || 1) + 1;
-    h.maxHp += 40; h.hp = Math.min(h.maxHp, h.hp + 40);
-    h.dmg += 2;
+    // Bump the base snapshot so equipped-item recompute keeps the level gains.
+    if (h._baseStats) {
+      h._baseStats.maxHp += 40; h._baseStats.dmg += 2;
+      h.hp = Math.min((h._baseStats.maxHp), h.hp + 40);
+      if (RTS.applyHeroItems) RTS.applyHeroItems(h);
+    } else {
+      h.maxHp += 40; h.hp = Math.min(h.maxHp, h.hp + 40); h.dmg += 2;
+    }
     // rising aura burst — stack two for fullness
     if (RTS.SkillVFX) {
       RTS.SkillVFX.spawn(s, 'levelup_aura', h.x, h.y - (h.radius || 16), { scale: 3.2, life: 0.9 });

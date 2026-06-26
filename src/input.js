@@ -299,6 +299,10 @@
     if (hit && hit.kind === 'resource' && workers.length) {
       return { type: 'harvest', nodeId: hit.id, workers: workers };
     }
+    if (hit && hit.kind === 'building' && hit.team === TEAM.NEUTRAL && hit.built && !additive &&
+        (hit.type === 'merchant' || hit.type === 'mercenary')) {
+      return { type: 'openShop', shopType: hit.type, buildingId: hit.id };
+    }
     if (hit && hit.kind === 'building' && hit.team === TEAM.PLAYER && hit.built && !additive) {
       return { type: 'selectBuilding', buildingId: hit.id };
     }
@@ -328,6 +332,15 @@
 
   function executeTapIntent(s, intent, additive) {
     switch (intent.type) {
+      case 'openShop':
+        s.ui.shopOpen = intent.shopType;
+        s.ui.buildPanelOpen = false;
+        RTS.Audio.play('click');
+        RTS.toast(s, intent.shopType === 'merchant'
+          ? 'Merchant — select a hero, then buy gear'
+          : 'Mercenary Camp (coming soon)');
+        RTS.HUD.sync(s);
+        break;
       case 'smartMine': {
         var nw = nearestWorker(s, intent.x, intent.y);
         if (!nw) return;
@@ -414,7 +427,10 @@
         haptic(8);
         break;
       case 'clearOrClose':
-        if (RTS.BuildingMenu && RTS.BuildingMenu.isOpen()) {
+        if (s.ui.shopOpen) {
+          s.ui.shopOpen = null;
+          RTS.HUD.sync(s);
+        } else if (RTS.BuildingMenu && RTS.BuildingMenu.isOpen()) {
           RTS.BuildingMenu.close(s);
           RTS.HUD.sync(s);
         } else {

@@ -54,6 +54,43 @@
 
   RTS.getItem = function (id) { return RTS.Items[id] || null; };
 
+  // Recompute a hero's stats from its snapshot base + equipped-item bonuses.
+  RTS.applyHeroItems = function (u) {
+    if (!u || !u._baseStats) return;
+    var base = u._baseStats, b = RTS.itemBonuses(u.items);
+    u.dmg = base.dmg + b.dmg;
+    u.armor = (base.armor || 0) + b.armor;
+    u.speed = base.speed + b.speed;
+    u.range = base.range + b.range;
+    u.regen = (base.regen || 0) + b.regen;
+    u.rof = base.rof / (1 + (b.atkSpeed || 0));
+    var oldMax = u.maxHp;
+    u.maxHp = base.maxHp + b.maxHp;
+    if (u.maxHp > oldMax) u.hp = Math.min(u.maxHp, (u.hp || u.maxHp) + (u.maxHp - oldMax));
+    else u.hp = Math.min(u.hp, u.maxHp);
+  };
+
+  // Buy an item and equip it on a hero (gold from the hero's team pool).
+  RTS.buyItemForHero = function (s, hero, itemId) {
+    var it = RTS.Items[itemId];
+    if (!it || !hero || !hero.heroId || hero.dead) return { ok: false, msg: 'No hero' };
+    hero.items = hero.items || [];
+    if (hero.items.length >= RTS.Items.MAX_SLOTS) return { ok: false, msg: 'No free slots' };
+    var res = s.res && s.res[hero.team];
+    if (!res || res.halcite < it.cost) return { ok: false, msg: 'Not enough Ironstone' };
+    res.halcite -= it.cost;
+    hero.items.push(itemId);
+    RTS.applyHeroItems(hero);
+    return { ok: true, item: it };
+  };
+
+  RTS.unequipHeroItem = function (s, hero, index) {
+    if (!hero || !hero.items || index < 0 || index >= hero.items.length) return false;
+    hero.items.splice(index, 1);
+    RTS.applyHeroItems(hero);
+    return true;
+  };
+
   // Sum the attribute bonuses from a hero's equipped item ids.
   RTS.itemBonuses = function (ids) {
     var b = { dmg: 0, armor: 0, maxHp: 0, regen: 0, speed: 0, range: 0, atkSpeed: 0 };
