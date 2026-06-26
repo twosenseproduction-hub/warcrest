@@ -189,6 +189,7 @@
     for (i = 0; i < s.entities.buildings.length; i++) updateBuilding(s, s.entities.buildings[i], dt);
     updateProjectiles(s, dt);
     updateEffects(s, dt);
+    if (RTS.tickThornwalls) RTS.tickThornwalls(s, dt);
     tickAutoMine(s, dt);
     if (!(s.map && s.map.sandbox)) RTS.AI.update(s, dt);
 
@@ -234,6 +235,9 @@
     }
 
     if (RTS.UnitAI) RTS.UnitAI.initUnitAIState(u);
+
+    // Hero channelled cast (e.g. The Ashfall) preempts normal AI while active.
+    if (u._channel && RTS.tickHeroChannel && RTS.tickHeroChannel(s, u, dt)) return;
 
     // Pawn retaliation (brief self-defense, then resume work)
     if (RTS.UnitAI && RTS.UnitAI.pawnRetaliateActive(u)) {
@@ -1142,6 +1146,7 @@
       }
       if (attacker && attacker.team === TEAM.PLAYER) s.stats.kills++;
       if (e.team === TEAM.PLAYER) s.stats.unitsLost++;
+      if (RTS.awardHeroXp) RTS.awardHeroXp(s, attacker, e);   // nearby heroes gain XP
       s.selectedIds = s.selectedIds.filter(function (id) { return id !== e.id; });
     } else {
       if (e.livestock) {
@@ -1215,6 +1220,11 @@
     s.entities.effects = s.entities.effects.filter(function (fx) {
       fx.life -= dt;
       if (fx.kind === 'ring' || fx.kind === 'boom') fx.r += 60 * dt;
+      if (fx.kind === 'nova') {
+        // grow from current r to maxR over the effect's lifetime
+        var prog = 1 - Math.max(0, fx.life / fx.max);
+        fx.r = 8 + (fx.maxR - 8) * prog;
+      }
       if (fx.kind === 'float') fx.y -= 22 * dt;
       return fx.life > 0;
     });

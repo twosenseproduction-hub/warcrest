@@ -259,6 +259,16 @@
         ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r, 0, Math.PI * 2); ctx.stroke();
         ctx.fillStyle = RTS.hexA(fx.color, a * 0.15);
         ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r * 0.6, 0, Math.PI * 2); ctx.fill();
+      } else if (fx.kind === 'skillfx') {
+        if (RTS.SkillVFX) RTS.SkillVFX.drawFx(ctx, fx);
+      } else if (fx.kind === 'nova') {
+        // expanding spell ring (radius grows in updateEffects)
+        ctx.fillStyle = RTS.hexA(fx.color, a * 0.18);
+        ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = RTS.hexA(fx.color, a * 0.9); ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r, 0, Math.PI * 2); ctx.stroke();
+        ctx.strokeStyle = RTS.hexA('#ffffff', a * 0.5); ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r, 0, Math.PI * 2); ctx.stroke();
       } else if (fx.kind === 'boom') {
         ctx.fillStyle = RTS.hexA(fx.color, a * 0.55);
         ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r, 0, Math.PI * 2); ctx.fill();

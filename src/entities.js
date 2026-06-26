@@ -65,6 +65,7 @@
       hitFlash: 0, muzzleFlash: 0, spawnFlash: 0.35, dead: false, corpse: 0,
       facing: 0,
       _idlePhase: (id * 1.618) % 6.2832,
+      level: 1, xp: 0,            // hero leveling — XP from nearby kills, see hero-abilities
       uiPassiveTags: hero.passive && hero.passive.name ? [hero.passive.name] : [],
       _heroArmorStacks: 0,
       _heroArmorDecay: 0,

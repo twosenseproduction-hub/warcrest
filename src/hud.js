@@ -95,13 +95,15 @@
         if (core) { RTS.Cam.panTo(s, core.x, core.y, true); RTS.Audio.play('click'); }
       });
 
-      wireRail('btn-hero-i1', function (s) {
-        var units = RTS.activeSelectedUnits ? RTS.activeSelectedUnits(s) : [];
-        if (units.length === 1 && units[0].heroId) {
-          RTS.triggerHeroAbility && RTS.triggerHeroAbility(s, units[0].id);
-          RTS.Audio.play('click');
-          RTS.HUD.sync(s);
-        }
+      ['btn-hero-i1', 'btn-hero-i2', 'btn-hero-i3'].forEach(function (bid, idx) {
+        wireRail(bid, function (s) {
+          var units = RTS.activeSelectedUnits ? RTS.activeSelectedUnits(s) : [];
+          if (units.length === 1 && units[0].heroId) {
+            var ok = RTS.triggerHeroAbility && RTS.triggerHeroAbility(s, units[0].id, idx);
+            RTS.Audio.play(ok ? 'click' : 'deny');
+            RTS.HUD.sync(s);
+          }
+        });
       });
 
       wireRail('btn-combat-stop', function (s) {
@@ -862,27 +864,39 @@
 
   // ---- Ability slot (I-row) sync -------------------------------------------
   function syncAbilitySlots(s) {
-    var i1 = D['btn-hero-i1'];
-    if (!i1) return;
+    var slotIds = ['btn-hero-i1', 'btn-hero-i2', 'btn-hero-i3'];
     var units = RTS.activeSelectedUnits ? RTS.activeSelectedUnits(s) : [];
-    var hero = units.length === 1 && units[0].heroId && RTS.getHero
-      ? RTS.getHero(units[0].heroId) : null;
-    if (hero && hero.ability && RTS.UI && RTS.UI.iconUrl) {
-      var cd = hero.abilityCooldown || 0;
-      var img = i1.querySelector('img') || document.createElement('img');
-      img.className = 'ic-ts'; img.alt = hero.ability;
-      img.src = RTS.UI.iconUrl(hero.ability) || '';
-      if (!i1.contains(img)) i1.appendChild(img);
-      i1.disabled = cd > 0;
-      i1.classList.toggle('act-slot-ability', cd > 0);
-      i1.classList.remove('act-slot-empty');
-      i1.setAttribute('aria-label', hero.ability);
-    } else {
-      i1.innerHTML = '';
-      i1.disabled = true;
-      i1.className = 'act-slot act-slot-empty ts-round-btn';
-      i1.setAttribute('aria-label', '');
-    }
+    var sel = units.length === 1 && units[0].heroId ? units[0] : null;
+    var hero = sel && RTS.getHero ? RTS.getHero(sel.heroId) : null;
+    var abilities = (hero && hero.abilities) ? hero.abilities : [];
+    var now = (s.timers && s.timers.gameTime) || 0;
+    slotIds.forEach(function (bid, i) {
+      var btn = D[bid];
+      if (!btn) return;
+      var ab = abilities[i];
+      if (sel && ab) {
+        var iconUrl = 'assets/heroes/' + hero.faction + '/' + hero.id + '/abilities/' + ab.id + '.png';
+        var img = btn.querySelector('img') || document.createElement('img');
+        img.className = 'ic-ts'; img.alt = ab.name; img.src = iconUrl;
+        if (!btn.contains(img)) btn.appendChild(img);
+        var cdLeft = (sel._abilityCd && sel._abilityCd[ab.id])
+          ? Math.max(0, sel._abilityCd[ab.id] - now) : 0;
+        var busy = !!sel._channel;
+        var locked = ab.unlockLevel && (sel.level || 1) < ab.unlockLevel;
+        btn.disabled = locked || cdLeft > 0 || busy;
+        btn.classList.toggle('act-slot-ability', cdLeft > 0);
+        btn.classList.toggle('act-slot-locked', !!locked);
+        btn.classList.remove('act-slot-empty');
+        btn.setAttribute('aria-label', locked
+          ? (ab.name + ' (locks until level ' + ab.unlockLevel + ')')
+          : (ab.name + (cdLeft > 0 ? (' (' + Math.ceil(cdLeft) + 's)') : '')));
+      } else {
+        btn.innerHTML = '';
+        btn.disabled = true;
+        btn.className = 'act-slot act-slot-empty ts-round-btn';
+        btn.setAttribute('aria-label', '');
+      }
+    });
   }
 
   // ---- Combat mode icon sync -----------------------------------------------

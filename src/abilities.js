@@ -128,6 +128,8 @@
     recompute(target);
   }
 
+  RTS.applyBuff = applyBuff;   // reused by hero-abilities (silence, root, etc.)
+
   // expire elapsed buffs; called once per unit per frame from systems.
   RTS.tickBuffs = function (s, u) {
     if (!u.buffs || !u.buffs.length) return;
