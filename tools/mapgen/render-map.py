@@ -122,16 +122,29 @@ def main():
             return WATER
         return heights[cx + cy * cols]
 
+    SHALLOW = (90, 184, 196)
+    def land_within(cx, cy, rad):
+        for dy in range(-rad, rad + 1):
+            for dx in range(-rad, rad + 1):
+                if not (dx == 0 and dy == 0) and at(cx + dx, cy + dy) >= FLAT:
+                    return True
+        return False
+
     # terrain
     for cy in range(rows):
         for cx in range(cols):
             h = heights[cx + cy * cols]
             x0, y0 = pad + cx * cell, pad + cy * cell
             color = COL[h]
-            # tint land tiles that touch water so the coastline reads
             if h >= FLAT and any(at(cx + dx, cy + dy) == WATER
                                  for dx, dy in ((0, -1), (1, 0), (0, 1), (-1, 0))):
                 color = tuple((a + b) // 2 for a, b in zip(color, SHORE))
+            elif h == WATER:
+                # shallow band: brightest touching land, fainter one ring out
+                if land_within(cx, cy, 1):
+                    color = tuple(int(a * 0.55 + b * 0.45) for a, b in zip(color, SHALLOW))
+                elif land_within(cx, cy, 2):
+                    color = tuple(int(a * 0.78 + b * 0.22) for a, b in zip(color, SHALLOW))
             d.rectangle([x0, y0, x0 + cell - 1, y0 + cell - 1], fill=color)
 
     # ground detail (grass/flowers/pebbles) — scatter on land, under the trees

@@ -254,6 +254,34 @@
       }
     }
 
+    /* Layer 1b — shallow water: lighter band on water tiles near land.
+     * Two rings: tiles touching land are brightest, the next ring fainter,
+     * so the coast reads as a wadeable shallows fading to deep water. */
+    var SHALLOW = '90,184,196';
+    for (cy = ty0; cy < ty1; cy++) {
+      for (cx = tx0; cx < tx1; cx++) {
+        if (grid.heights[idx(cols, cx, cy)] !== WATER) continue;
+        var touchesLand = false, nearLand = false, ddx, ddy;
+        for (ddy = -1; ddy <= 1 && !touchesLand; ddy++) {
+          for (ddx = -1; ddx <= 1; ddx++) {
+            if (!ddx && !ddy) continue;
+            if (isLand(heightAt(grid, cx + ddx, cy + ddy))) { touchesLand = true; break; }
+          }
+        }
+        if (!touchesLand) {
+          for (ddy = -2; ddy <= 2 && !nearLand; ddy++) {
+            for (ddx = -2; ddx <= 2; ddx++) {
+              if (isLand(heightAt(grid, cx + ddx, cy + ddy))) { nearLand = true; break; }
+            }
+          }
+        }
+        if (!touchesLand && !nearLand) continue;
+        dx = cx * TILE; dy = cy * TILE;
+        ctx.fillStyle = 'rgba(' + SHALLOW + ',' + (touchesLand ? 0.42 : 0.2) + ')';
+        ctx.fillRect(dx, dy, TILE, TILE);
+      }
+    }
+
     /* Layer 2 — foam under coastal land (offset up-left; not on water tiles) */
     if (foam) {
       for (cy = ty0; cy < ty1; cy++) {
