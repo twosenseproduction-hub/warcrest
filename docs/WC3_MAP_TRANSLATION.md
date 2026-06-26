@@ -61,11 +61,20 @@ Warcraft is a tilted 3D view; we are flat top-down. Rules:
   channels and joined by dirt (→ grass) land bridges.
 - **Gold mines:** 3 per side (6 total): a main by each start (top corner), a
   mid-edge mine, and a lower mine.
-- **Neutral buildings:** 3 down the center spine (top, middle, bottom) — map to
-  neutral markers `o` for now (future: item shop / mercenary camp).
-- **Forest:** heavy tree fringe around every landmass; a dense forested island
-  in the upper-center.
-- **Feel:** macro/naval-flavored — water everywhere forces fights over the land
-  bridges and the contested center.
+- **Neutral buildings:** 2 on the center seam — **top = merchant / item shop**,
+  **bottom = mercenary camp** (markers `o`; real buildings pending art+wiring).
+- **Forest:** sparse trees are wanted (not dense walls); keep a light fringe +
+  scattered. Add natural grass tufts, flowers, and rocks for ground detail.
+- **Auxiliary mines are creep-guarded** (WC3-style): the non-main mines have a
+  neutral hostile camp you must clear before expanding.
+- **Feel:** macro/naval — water forces fights over land bridges + contested center.
 
-> Rules learned while building this map will be appended here.
+### Rules learned (apply to every future map)
+- **Lone center features:** author the **full board** (`mirror: none`, reflect
+  in the generator) so a single on-axis building isn't doubled by the mirror.
+- **Building roles by position:** merchant/shop reads as a top-center neutral;
+  mercenary camp as bottom-center. Keep them single and centered.
+- **Water wants shallows:** coasts should read as shallow (lighter) water, not a
+  hard deep-blue edge — render a shallow band where water meets land.
+- **Ground detail:** sparse trees + scattered grass/flowers/rocks beats dense
+  forest walls for this art style.
