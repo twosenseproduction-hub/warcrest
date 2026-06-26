@@ -279,6 +279,10 @@
     }
     if (kind === 'bush') return REF.bushH;
     if (kind === 'rock') return REF.rockH;
+    // small ground-detail props (scaled vs the ~big unit/tree art)
+    if (kind === 'grass') return 38;
+    if (kind === 'flower') return 34;
+    if (kind === 'pebble') return 26;
     return REF.bushH;
   }
 
@@ -287,6 +291,7 @@
     if (kind === 'tree') return h * 0.22;
     if (kind === 'bush') return h * 0.42;
     if (kind === 'rock') return h * 0.48;
+    if (kind === 'grass' || kind === 'flower' || kind === 'pebble') return h * 0.3;
     return h * 0.35;
   }
 

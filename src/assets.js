@@ -193,7 +193,13 @@
       'Terrain/Decorations/Rocks in the Water/Water Rocks_02.png',
       'Terrain/Decorations/Rocks in the Water/Water Rocks_03.png',
     ],
+    // Ground-detail props sliced from the nature tileset (assets/decor/),
+    // static single images — see DECOR2_BASE.
+    grass:  ['grass1.png', 'grass2.png'],
+    flower: ['flower1.png', 'flower2.png'],
+    pebble: ['pebble1.png', 'pebble2.png', 'pebble3.png'],
   };
+  var DECOR2_BASE = 'assets/decor/';   // base for the static ground-detail props
 
   var ARROW = 'Units/Blue Units/Archer/Arrow.png';
   var GNOLL_BONE = 'Enemies/Gnoll/Gnoll_Bone.png';
@@ -436,7 +442,24 @@
     var h = hashId((d.x | 0) * 73856093 ^ (d.y | 0) * 19349663);
     var t = RTS._renderT || 0;
     var rm = RTS.Config.reducedMotion;
-    var list, idx, frameW, frameCount, frameH, targetH, footRatio;
+    var list, idx, frameW, frameCount, frameH, targetH, footRatio, base;
+
+    // Static ground-detail props (no animation) — grass / flowers / pebbles.
+    if (d.kind === 'grass' || d.kind === 'flower' || d.kind === 'pebble') {
+      list = DECOR_SPRITES[d.kind];
+      base = DECOR2_BASE;
+      idx = h % list.length;
+      targetH = RTS.SizeRef.decorDrawHeight(d.kind, idx);
+      footRatio = 0.6;
+      var gimg = imgSync(list[idx], base);
+      if (!gimg) return;
+      var grid0 = s && s.map && s.map.terrainGrid;
+      var fy = grid0 && RTS.Terrain ? RTS.Terrain.groundY(grid0, d.x, d.y) : d.y;
+      var gsc = targetH / Math.max(gimg.height, 1);
+      var gw = gimg.width * gsc, gh = gimg.height * gsc;
+      ctx.drawImage(gimg, d.x - gw / 2, fy - gh * footRatio, gw, gh);
+      return;
+    }
 
     if (d.kind === 'tree') {
       list = DECOR_SPRITES.tree;
@@ -512,10 +535,15 @@
     if (theme === 'grove') return !!(RTS.FairyForest && RTS.FairyForest.isReady());
     // DECOR_SPRITES holds path strings; resolve each via imgSync (lazy-loads).
     // Cache is only committed once every variant the decor can pick has loaded.
-    var lists = [DECOR_SPRITES.tree, DECOR_SPRITES.rock, DECOR_SPRITES.bush];
-    return lists.every(function (L) {
+    var ok = [DECOR_SPRITES.tree, DECOR_SPRITES.rock, DECOR_SPRITES.bush].every(function (L) {
       return L && L.length && L.every(function (path) { return !!imgSync(path); });
     });
+    // ground-detail props live under DECOR2_BASE; require them too (these
+    // imgSync calls also trigger the lazy load).
+    var ok2 = [DECOR_SPRITES.grass, DECOR_SPRITES.flower, DECOR_SPRITES.pebble].every(function (L) {
+      return L && L.length && L.every(function (path) { return !!imgSync(path, DECOR2_BASE); });
+    });
+    return ok && ok2;
   }
 
   var DECOR_CACHE_PAD = 256;   // vertical headroom so tall trees near y=0 aren't clipped

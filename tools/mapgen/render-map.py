@@ -50,6 +50,40 @@ def obj_layer(tmj, name):
     return []
 
 
+ROOT = os.getcwd()
+TREE_PATHS = ['assets/tiny-swords/Terrain/Resources/Wood/Trees/Tree%d.png' % i for i in (1, 2, 3, 4)]
+DETAIL_PATHS = {
+    'grass':  ['assets/decor/grass1.png', 'assets/decor/grass2.png'],
+    'flower': ['assets/decor/flower1.png', 'assets/decor/flower2.png'],
+    'pebble': ['assets/decor/pebble1.png', 'assets/decor/pebble2.png', 'assets/decor/pebble3.png'],
+}
+_sprite_cache = {}
+
+def load_sprite(path, frame_w=None):
+    if path in _sprite_cache:
+        return _sprite_cache[path]
+    full = os.path.join(ROOT, path)
+    img = None
+    if os.path.exists(full):
+        img = Image.open(full).convert('RGBA')
+        if frame_w and img.width > frame_w:          # animation strip → first frame
+            img = img.crop((0, 0, frame_w, img.height))
+        bb = img.getbbox()
+        if bb:
+            img = img.crop(bb)
+    _sprite_cache[path] = img
+    return img
+
+def paste_scaled(img, sprite, cx, cy, target_h, foot=0.92):
+    if not sprite:
+        return False
+    sc = target_h / sprite.height
+    w, h = max(1, int(sprite.width * sc)), max(1, int(sprite.height * sc))
+    s = sprite.resize((w, h), Image.NEAREST)
+    img.alpha_composite(s, (int(cx - w / 2), int(cy - h * foot)))
+    return True
+
+
 def reconstruct_heights(tmj, cols, rows):
     ground = tile_layer(tmj, 'ground')
     elevated = tile_layer(tmj, 'elevated')
@@ -80,7 +114,7 @@ def main():
 
     pad = 24
     W, H = cols * cell + pad * 2, rows * cell + pad * 2
-    img = Image.new('RGB', (W, H), (12, 18, 30))
+    img = Image.new('RGBA', (W, H), (12, 18, 30, 255))
     d = ImageDraw.Draw(img, 'RGBA')
 
     def at(cx, cy):
@@ -100,13 +134,48 @@ def main():
                 color = tuple((a + b) // 2 for a, b in zip(color, SHORE))
             d.rectangle([x0, y0, x0 + cell - 1, y0 + cell - 1], fill=color)
 
-    # forests
+    # ground detail (grass/flowers/pebbles) — scatter on land, under the trees
+    import random as _rnd
+    trees_img = [load_sprite(p, 192) for p in TREE_PATHS]
+    detail_img = {k: [load_sprite(p) for p in v] for k, v in DETAIL_PATHS.items()}
+    have_sprites = any(trees_img)
+    spawns = obj_layer(tmj, 'spawns')
+    avoid = [(o['x'] / tile, o['y'] / tile) for o in spawns]
+    if have_sprites and any(any(v) for v in detail_img.values()):
+        rng = _rnd.Random(7723)
+        placed = []
+        target = (cols * rows) // 14
+        tries = 0
+        while len(placed) < target and tries < target * 12:
+            tries += 1
+            tx, ty = rng.uniform(1.4, cols - 1.4), rng.uniform(1.4, rows - 1.4)
+            if at(int(tx), int(ty)) < FLAT:
+                continue
+            if any((tx - ax) ** 2 + (ty - ay) ** 2 < 2.0 for ax, ay in avoid):
+                continue
+            if any((tx - px) ** 2 + (ty - py) ** 2 < 0.55 for px, py in placed):
+                continue
+            roll = rng.random()
+            kind = 'grass' if roll < 0.5 else ('flower' if roll < 0.8 else 'pebble')
+            variants = [s for s in detail_img[kind] if s]
+            if not variants:
+                continue
+            sp = variants[rng.randrange(len(variants))]
+            paste_scaled(img, sp, pad + tx * cell, pad + ty * cell,
+                         cell * (0.7 if kind == 'pebble' else 1.0), foot=0.6)
+            placed.append((tx, ty))
+
+    # forests — real tree sprites (fallback to a green blob)
     for o in obj_layer(tmj, 'forest'):
         cx = int((o['x'] + o.get('width', 0) * 0.5) // tile)
         cy = int((o['y'] + o.get('height', 0) * 0.5) // tile)
-        x0, y0 = pad + cx * cell, pad + cy * cell
-        m = max(2, cell // 4)
-        d.ellipse([x0 + m, y0 + m, x0 + cell - m, y0 + cell - m], fill=FOREST)
+        px, py = pad + (cx + 0.5) * cell, pad + (cy + 1) * cell
+        h = ((cx * 73856093) ^ (cy * 19349663)) & 0x7fffffff
+        sp = trees_img[h % len(trees_img)] if have_sprites else None
+        if not paste_scaled(img, sp, px, py, cell * 2.6, foot=0.92):
+            x0, y0 = pad + cx * cell, pad + cy * cell
+            m = max(2, cell // 4)
+            d.ellipse([x0 + m, y0 + m, x0 + cell - m, y0 + cell - m], fill=FOREST)
 
     # grid every 5 tiles
     for cx in range(0, cols + 1, 5):

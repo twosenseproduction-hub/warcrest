@@ -66,6 +66,24 @@
     return out;
   }
 
+  // Natural ground detail — sparse grass tufts, flowers, and small pebbles on
+  // land. Pure decoration (no collision); rides the offscreen decor cache.
+  function groundDetail(grid, seed, count, worldW, worldH, avoid) {
+    var rnd = mulberry(seed), out = [], placed = [], T = RTS.Terrain, tries = 0;
+    while (out.length < count && tries < count * 10) {
+      tries++;
+      var x = 90 + rnd() * (worldW - 180), y = 90 + rnd() * (worldH - 180);
+      if (T && T.isWater && T.isWater(grid, x, y)) continue;
+      if (!clearOfPoints(x, y, avoid, 130)) continue;
+      if (!clearOfPoints(x, y, placed, 48)) continue;
+      var roll = rnd();
+      var kind = roll < 0.5 ? 'grass' : (roll < 0.8 ? 'flower' : 'pebble');
+      out.push({ x: x, y: y, r: RTS.SizeRef.decorWorldR(kind), kind: kind });
+      placed.push({ x: x, y: y });
+    }
+    return out;
+  }
+
   function clearOfPoints(x, y, spots, minDist) {
     if (!spots || !spots.length) return true;
     for (var i = 0; i < spots.length; i++) {
@@ -484,6 +502,13 @@
         meta.decor = (meta.decor || []).concat(
           forestWallTrees(meta.terrainGrid, meta.forestWallSeed || 8801));
       }
+      // sparse natural ground detail (grass/flowers/pebbles) on every non-grove map
+      if (meta.groundDetail !== false && meta.theme !== 'grove') {
+        var detailN = meta.detailCount != null
+          ? meta.detailCount : Math.round((meta.w * meta.h) / 90000);
+        meta.decor = (meta.decor || []).concat(
+          groundDetail(meta.terrainGrid, meta.detailSeed || 7723, detailN, meta.w, meta.h, avoid));
+      }
       initPathGrid(meta);
       markTreesOnPathGrid(meta);
     } else {
@@ -579,6 +604,8 @@
       lose: meta.lose,
     });
   }
+
+  RTS._buildAuthoredTMJ = buildFromAuthoredTMJ;   // exposed for headless map previews
 
   function buildRunicClearing(s) {
     buildFromAuthoredTMJ(s, {
