@@ -505,6 +505,46 @@
   /* Draw ONLY the map decorations (trees / rocks / bushes), independent of the
    * terrain tiles. Used when Phaser owns terrain rendering but the decoration
    * sprites still draw on the canvas overlay in render.frame. */
+  // Map decor (trees/rocks/foliage) is static, but redrawing ~90 large scaled
+  // sprites every frame was the dominant draw cost. Bake the whole decor layer
+  // into one offscreen canvas once, then blit just the visible region per frame.
+  function decorCacheReady(s, theme) {
+    if (theme === 'grove') return !!(RTS.FairyForest && RTS.FairyForest.isReady());
+    // DECOR_SPRITES holds path strings; resolve each via imgSync (lazy-loads).
+    // Cache is only committed once every variant the decor can pick has loaded.
+    var lists = [DECOR_SPRITES.tree, DECOR_SPRITES.rock, DECOR_SPRITES.bush];
+    return lists.every(function (L) {
+      return L && L.length && L.every(function (path) { return !!imgSync(path); });
+    });
+  }
+
+  var DECOR_CACHE_PAD = 256;   // vertical headroom so tall trees near y=0 aren't clipped
+
+  function ensureDecorCache(s, theme) {
+    if (s.map._decorCache) return s.map._decorCache;
+    if (s.map._decorCacheFail) return null;
+    if (!decorCacheReady(s, theme)) return null;
+    var W = RTS.Config.world.w, H = RTS.Config.world.h;
+    if (!W || !H || W * H > 16000000) { s.map._decorCacheFail = true; return null; }
+    var off, octx;
+    try {
+      off = document.createElement('canvas');
+      off.width = W; off.height = H + DECOR_CACHE_PAD;
+      octx = off.getContext('2d');
+    } catch (e) { s.map._decorCacheFail = true; return null; }
+    if (!octx) { s.map._decorCacheFail = true; return null; }
+    octx.imageSmoothingEnabled = false;
+    var savedT = RTS._renderT; RTS._renderT = 0;            // freeze decor animation
+    octx.save();
+    octx.translate(0, DECOR_CACHE_PAD);
+    s.map.decor.forEach(function (d) { drawDecorSprite(octx, d, theme, s); });
+    octx.restore();
+    RTS._renderT = savedT;
+    s.map._decorCache = off;
+    s.map._decorCacheOffY = DECOR_CACHE_PAD;
+    return off;
+  }
+
   function drawDecorLayer(s, ctx) {
     if (!ready || !s.map || !s.map.decor) return false;
     var theme = (s.map && s.map.theme) || 'grass';
@@ -513,6 +553,18 @@
     var vx = cam.x - 8, vy = cam.y - 8;
     vw += 16; vh += 16;
     var pad = 80;
+
+    var cache = ensureDecorCache(s, theme);
+    if (cache) {
+      var offY = s.map._decorCacheOffY || 0;
+      var bx = Math.max(0, vx - pad), by = Math.max(0, vy - pad);
+      var bw = Math.min(cache.width - bx, vw + pad * 2);
+      var bh = Math.min(cache.height - offY - by, vh + pad * 2);
+      if (bw > 0 && bh > 0) ctx.drawImage(cache, bx, by + offY, bw, bh, bx, by, bw, bh);
+      return true;
+    }
+
+    // Fallback (cache not ready / unavailable): draw culled decor live.
     s.map.decor.forEach(function (d) {
       if (d.x < vx - pad || d.x > vx + vw + pad || d.y < vy - pad || d.y > vy + vh + pad) return;
       drawDecorSprite(ctx, d, theme, s);
