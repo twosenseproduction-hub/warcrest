@@ -54,6 +54,15 @@
     if (img.getAttribute('src') !== url) img.setAttribute('src', url);
   }
 
+  // Top-centre emblem follows the player's faction.
+  function syncFactionCrest(s) {
+    var img = D['tb-crest'];
+    if (!img || !s) return;
+    var fid = s.playerFaction || 'aurex';
+    var url = 'assets/ui/crests/' + fid + '.png';
+    if (img.getAttribute('src') !== url) img.setAttribute('src', url);
+  }
+
   RTS.HUD = {
     init: function (getStateFn) {
       getState = getStateFn;
@@ -63,7 +72,7 @@
        'btn-rail-army', 'btn-rail-pawns', 'btn-rail-base',
        'btn-combat-stop', 'btn-combat-mode', 'btn-combat-atk',
        'btn-hero-i1', 'btn-hero-i2', 'btn-hero-i3',
-       'btn-build-hammer', 'build-panel', 'build-panel-grid', 'map-tools',
+       'btn-build-hammer', 'build-panel', 'build-panel-grid', 'map-tools', 'tb-crest',
        'hub-minimap', 'hub-right', 'hub-hero', 'hub-action-grid', 'minimap'].forEach(function (id) {
         D[id] = $(id);
       });
@@ -182,6 +191,7 @@
     sync: function (s) {
       syncResources(s);
       syncRailBaseIcon(s);
+      syncFactionCrest(s);
 
       if (D['btn-combat-atk']) D['btn-combat-atk'].classList.toggle('active', !!s.attackMoveArmed);
       syncAbilitySlots(s);
