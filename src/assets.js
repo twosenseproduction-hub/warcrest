@@ -56,32 +56,25 @@
     return null;
   }
 
+  // Each faction now has a full custom building set under its own base dir,
+  // named uniformly <type>.png (core/outpost/conduit/foundry/forge/turret).
+  var FACTION_BUILDING_BASE = {
+    aurex:     IRON_CROWN_BASE,
+    rimwalker: RIMWALKER_BASE,
+    cinder:    RAIDER_BASE,
+  };
+  var FACTION_BUILDING_TYPES = ['core', 'outpost', 'conduit', 'foundry', 'forge', 'turret'];
+
   function preloadFactionAssets(factionIds) {
     (factionIds || []).forEach(function (fid) {
-      if (fid === 'aurex') {
-        loadImg(SHEPHERDS_HUT, KINGDOM_CUSTOM_BASE);
-        loadImg('castle.png', IRON_CROWN_BASE);
-        loadImg('farm.png',   IRON_CROWN_BASE);
-        loadImg('keep.png',   IRON_CROWN_BASE);
-        loadImg('pavilion.png', IRON_CROWN_BASE);
+      var base = FACTION_BUILDING_BASE[fid];
+      if (base) {
+        FACTION_BUILDING_TYPES.forEach(function (t) { loadImg(t + '.png', base); });
       }
+      if (fid === 'aurex') loadImg(SHEPHERDS_HUT, KINGDOM_CUSTOM_BASE);
       if (fid === 'cinder') {
-        loadImg('Warren_Maw.png', RAIDER_BASE);
-        loadImg(PIG_STY, RAIDER_BASE);
-        loadImg(WAR_PIT, RAIDER_BASE);
-        loadImg(SKULL_DEN, RAIDER_BASE);
-        loadImg(CHIEFS_HALL, RAIDER_BASE);
-        loadImg(BONE_SPIRE, RAIDER_BASE);
+        loadImg(CHIEFS_HALL, RAIDER_BASE);   // Horde champion hall keeps its own art
         loadImg(GNOLL_BONE, ENEMY_BASE);
-      }
-      if (fid === 'rimwalker') {
-        loadImg('roothold.png',     RIMWALKER_BASE);
-        loadImg('briar_fold_1.png', RIMWALKER_BASE);
-        loadImg('briar_fold_2.png', RIMWALKER_BASE);
-        loadImg('briar_fold_3.png', RIMWALKER_BASE);
-        loadImg('warden_lodge.png', RIMWALKER_BASE);
-        loadImg('root_forge.png',   RIMWALKER_BASE);
-        loadImg('canopy_spire.png', RIMWALKER_BASE);
       }
     });
   }
@@ -325,51 +318,14 @@
   }
 
   function buildingAsset(b) {
-    if (b.type === 'core' && b.faction === 'cinder') {
-      return { base: RAIDER_BASE, rel: 'Warren_Maw.png', frames: 1 };
+    // Per-faction custom building set: <type>.png under the faction's base dir.
+    var base = FACTION_BUILDING_BASE[b.faction];
+    if (base && FACTION_BUILDING_TYPES.indexOf(b.type) >= 0) {
+      return { base: base, rel: b.type + '.png', frames: 1 };
     }
-    if (b.type === 'conduit' && b.faction === 'cinder') {
-      return { base: RAIDER_BASE, rel: PIG_STY, frames: 1 };
-    }
-    if (b.type === 'foundry' && b.faction === 'cinder') {
-      return { base: RAIDER_BASE, rel: WAR_PIT, frames: 1 };
-    }
-    if (b.type === 'forge' && b.faction === 'cinder') {
-      return { base: RAIDER_BASE, rel: SKULL_DEN, frames: 1 };
-    }
+    // Horde champion hall has no entry in the standard set — keep its own art.
     if (b.type === 'chiefs_hall' && b.faction === 'cinder') {
       return { base: RAIDER_BASE, rel: CHIEFS_HALL, frames: 1 };
-    }
-    if (b.type === 'turret' && b.faction === 'cinder') {
-      return { base: RAIDER_BASE, rel: BONE_SPIRE, frames: 1 };
-    }
-    if (b.type === 'core'    && b.faction === 'aurex') {
-      return { base: IRON_CROWN_BASE, rel: 'castle.png', frames: 1 };
-    }
-    if (b.type === 'conduit' && b.faction === 'aurex') {
-      return { base: IRON_CROWN_BASE, rel: 'farm.png', frames: 1 };
-    }
-    if (b.type === 'foundry' && b.faction === 'aurex') {
-      return { base: IRON_CROWN_BASE, rel: 'keep.png', frames: 1 };
-    }
-    if (b.type === 'forge' && b.faction === 'aurex') {
-      return { base: IRON_CROWN_BASE, rel: 'pavilion.png', frames: 1 };
-    }
-    if (b.faction === 'rimwalker') {
-      var rwFiles = {
-        core:    'roothold.png',
-        outpost: 'roothold.png',
-        foundry: 'warden_lodge.png',
-        forge:   'root_forge.png',
-        turret:  'canopy_spire.png',
-      };
-      if (b.type === 'conduit') {
-        var lv = (b.level && b.level > 1) ? b.level : 1;
-        return { base: RIMWALKER_BASE, rel: 'briar_fold_' + lv + '.png', frames: 1 };
-      }
-      if (rwFiles[b.type]) {
-        return { base: RIMWALKER_BASE, rel: rwFiles[b.type], frames: 1 };
-      }
     }
     var file = BUILDING_FILES[b.type] || BUILDING_FILES.foundry;
     return {
