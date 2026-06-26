@@ -69,10 +69,19 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    // Maps that render terrain on the 2D canvas overlay (RTS.Terrain) rather
+    // than Phaser tilemap layers. Their data still parses for CurrentMapgen.
+    const CANVAS_TERRAIN = { fairy_clearing: 1, tideland_crossing: 1 };
+
     try {
       const tmjEntry = this.cache.tilemap.get(key);
-      if (tmjEntry && tmjEntry.data && RTS.parseMapTMJ) {
-        const mg = RTS.parseMapTMJ(tmjEntry.data);
+      let data = tmjEntry && tmjEntry.data;
+      // Fall back to the raw JSON copy if Phaser didn't ingest the .tmj.
+      if (!data && this.cache.json && this.cache.json.exists('tmjdata:' + key)) {
+        data = this.cache.json.get('tmjdata:' + key);
+      }
+      if (data && RTS.parseMapTMJ) {
+        const mg = RTS.parseMapTMJ(data);
         if (mg) {
           RTS.CurrentMapgen = mg;
           if (key === 'sapphire') RTS.SapphireMapgen = mg;
@@ -84,8 +93,8 @@ export class GameScene extends Phaser.Scene {
       console.warn('[warcrest] TMJ parse failed for ' + key, e);
     }
 
-    // fairy_clearing uses the 2D canvas overlay for all terrain — skip Phaser tilemap rendering.
-    if (key === 'fairy_clearing') {
+    // Canvas-terrain maps skip Phaser tilemap rendering (the 2D overlay draws it).
+    if (CANVAS_TERRAIN[key]) {
       RTS._phaserTerrainActive = false;
       // Manually resize Phaser to device pixels (normally done by _syncPhaserScale which
       // needs _tilemapLayers; we skip that but still need the DPR-correct game size so

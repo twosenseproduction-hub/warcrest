@@ -1,6 +1,6 @@
 import { BootScene } from './scenes/BootScene.js';
-import { PreloadScene } from './scenes/PreloadScene.js';
-import { GameScene } from './scenes/GameScene.js?v=20260622b';
+import { PreloadScene } from './scenes/PreloadScene.js?v=20260626a';
+import { GameScene } from './scenes/GameScene.js?v=20260626a';
 
 const config = {
   type: Phaser.CANVAS,

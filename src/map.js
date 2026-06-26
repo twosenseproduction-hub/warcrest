@@ -635,6 +635,23 @@
 
   RTS._buildAuthoredTMJ = buildFromAuthoredTMJ;   // exposed for headless map previews
 
+  function buildTideland(s) {
+    // Ensure the map data is available even if the scene parse hasn't run.
+    if (!RTS.CurrentMapgen && RTS._mapJSON && RTS._mapJSON.tideland_crossing && RTS.parseMapTMJ) {
+      RTS.CurrentMapgen = RTS.parseMapTMJ(RTS._mapJSON.tideland_crossing);
+    }
+    buildFromAuthoredTMJ(s, {
+      id: 'tideland_crossing',
+      name: 'Tideland Crossing',
+      theme: 'grass',
+      rallyDx: 120,
+      rallyDy: 90,
+      intro: 'Tideland Crossing — island holds joined by land bridges. Clear the guarded mines to expand.',
+      win: 'Tideland Crossing is yours — the tides bow to your banner.',
+      lose: 'Your hold has slipped beneath the tides.',
+    });
+  }
+
   function buildRunicClearing(s) {
     buildFromAuthoredTMJ(s, {
       id: 'runic_clearing',
@@ -1379,10 +1396,17 @@
       blurb: 'A vast sacred clearing ringed by ancient trees. Stone circle, crumbled ruins, and five waiting goblins.',
       build: buildVerdantReach,
     },
+    tideland_crossing: {
+      id: 'tideland_crossing',
+      name: 'Tideland Crossing',
+      tagline: '1v1 · island holds & guarded mines',
+      blurb: 'Symmetric two-player isles joined by land bridges over shallow seas. Mains are safe; every expansion mine is guarded by a creep camp.',
+      build: buildTideland,
+    },
   };
 
   /* Visible in map select */
-  RTS.MapList = ['fairy_clearing'];
+  RTS.MapList = ['fairy_clearing', 'tideland_crossing'];
 
   RTS.buildMap = function (s, mapId) {
     mapId = mapId || s.mapId || 'fairy_clearing';
