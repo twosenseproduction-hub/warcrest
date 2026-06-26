@@ -59,7 +59,7 @@
     var img = D['tb-crest'];
     if (!img || !s) return;
     var fid = s.playerFaction || 'aurex';
-    var url = 'assets/ui/crests/' + fid + '.png';
+    var url = 'assets/ui/crests/' + fid + '.png?v=20260626b';
     if (img.getAttribute('src') !== url) img.setAttribute('src', url);
   }
 
