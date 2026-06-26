@@ -526,6 +526,26 @@
     RTS.makeResource(s, x, y, mineAmount(!!isStarting));
   }
 
+  // A small neutral camp guarding an expansion mine. Units cluster just off the
+  // mine, biased toward the map centre so they sit on the approach.
+  function spawnCreepCamp(s, gx, gy, faction) {
+    var W = (RTS.Config.world && RTS.Config.world.w) || 3072;
+    var H = (RTS.Config.world && RTS.Config.world.h) || 1920;
+    var toCx = (gx < W / 2) ? 1 : -1;          // push toward horizontal centre
+    var toCy = (gy < H / 2) ? 1 : -1;
+    var cx = gx + toCx * 70, cy = gy + toCy * 70;
+    var camp = { x: cx, y: cy };
+    var spots = [[-44, 0], [44, 0], [0, 40]];
+    var roles = ['warrior', 'warrior', 'archer'];
+    for (var i = 0; i < spots.length; i++) {
+      var x = cx + spots[i][0], y = cy + spots[i][1];
+      if (RTS.Terrain && RTS.Terrain.isWater && RTS.Terrain.isWater(s.map && s.map.terrainGrid, x, y)) {
+        x = gx; y = gy;   // fall back onto the mine tile (always land)
+      }
+      RTS.makeCreep(s, roles[i], x, y, faction || 'cinder', camp);
+    }
+  }
+
   function spawnBase(s, team, cx, cy, faction, isEnemy, opts) {
     opts = opts || {};
     var core = RTS.makeBuilding(s, 'core', team, cx, cy, faction, true);
@@ -603,6 +623,14 @@
       win: meta.win,
       lose: meta.lose,
     });
+
+    // After the terrain grid exists, guard each auxiliary (non-main) mine with
+    // a neutral creep camp — clear it to expand safely (WC3-style).
+    if (meta.creepCamps !== false && RTS.makeCreep) {
+      mg.gold.forEach(function (g) {
+        if (!isHomeGoldOnMap(mg, g)) spawnCreepCamp(s, g.x, g.y, meta.creepFaction);
+      });
+    }
   }
 
   RTS._buildAuthoredTMJ = buildFromAuthoredTMJ;   // exposed for headless map previews

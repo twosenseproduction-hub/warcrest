@@ -135,6 +135,7 @@
   };
 
   RTS.recalcSupply = function (s, team) {
+    if (!s.res || !s.res[team]) return;   // neutral creeps have no resource pool
     var used = 0;
     s.entities.units.forEach(function (u) {
       if (u.team !== team || u.dead) return;

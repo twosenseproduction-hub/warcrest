@@ -48,6 +48,22 @@
     return u;
   };
 
+  // Neutral creep — a hostile unit that guards a spot (e.g. an expansion mine).
+  // WC3-style: aggros anyone who comes near, leashes back to its camp, and
+  // grants hero XP when killed (the generic hostile-target logic handles combat).
+  RTS.makeCreep = function (s, role, x, y, faction, camp) {
+    var u = RTS.makeUnit(s, role, RTS.TEAM.NEUTRAL, x, y, faction || 'cinder');
+    if (!u) return null;
+    u.isCreep = true;
+    u.commandMode = 'guard';
+    u.guardOrigin = camp || { x: x, y: y };
+    u.chaseRange = 240;                       // tight leash to the camp
+    u.acquireRange = (u.range || 40) * 3.0;
+    u.maxHp = Math.round(u.maxHp * 1.35); u.hp = u.maxHp;   // a real speed bump
+    u.autoMine = false;
+    return u;
+  };
+
   RTS.makeHero = function (s, heroId, team, x, y, factionId) {
     var hero = RTS.getHero ? RTS.getHero(heroId) : null;
     if (!hero) return null;

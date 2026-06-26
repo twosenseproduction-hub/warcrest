@@ -177,18 +177,19 @@
   }
 
   function collectEnemies(s, u, maxR) {
-    var foeTeam = u.team === TEAM.PLAYER ? TEAM.ENEMY : TEAM.PLAYER;
+    // Any different team is hostile — this is what lets neutral creeps fight
+    // both sides, and both sides fight the creeps.
     var pad = (RTS.Config.combat && RTS.Config.combat.buildingAcquirePad) || 12;
     var list = [];
     var i;
     for (i = 0; i < s.entities.units.length; i++) {
       var eu = s.entities.units[i];
-      if (!RTS.canBeAttacked(eu) || eu.team !== foeTeam) continue;
+      if (!RTS.canBeAttacked(eu) || eu.team === u.team) continue;
       if (targetDist(s, u, eu) <= maxR) list.push(eu);
     }
     for (i = 0; i < s.entities.buildings.length; i++) {
       var b = s.entities.buildings[i];
-      if (b.dead || b.team !== foeTeam) continue;
+      if (b.dead || b.team === u.team || b.team === TEAM.NEUTRAL) continue;
       if (!canAttackBuilding(b)) continue;
       if (targetDist(s, u, b) <= maxR + pad) list.push(b);
     }

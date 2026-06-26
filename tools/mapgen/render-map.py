@@ -201,7 +201,11 @@ def main():
         d.text((2, y + 1), str(cy), fill=(150, 160, 175))
 
     # spawn / gold / neutral markers
-    for o in obj_layer(tmj, 'spawns'):
+    objs = obj_layer(tmj, 'spawns')
+    spawn_pts = [(o['x'] / tile, o['y'] / tile) for o in objs
+                 if o.get('type') in ('spawn_player', 'spawn_enemy')]
+    gold_pts = [(o['x'] / tile, o['y'] / tile) for o in objs if o.get('type') == 'gold_node']
+    for o in objs:
         t = o.get('type')
         col = MARK.get(t, (255, 255, 255))
         cx, cy = o['x'] / tile, o['y'] / tile
@@ -210,6 +214,17 @@ def main():
         d.ellipse([x - r, y - r, x + r, y + r], outline=col, width=max(2, cell // 5))
         label = {'spawn_player': 'P', 'spawn_enemy': 'E', 'gold_node': '$', 'neutral': 'o'}.get(t, '?')
         d.text((x - 3, y - 6), label, fill=col)
+
+    # creep-camp markers: every gold that isn't a main (≥4 tiles from a start) is
+    # guarded — mirrors the in-game spawnCreepCamp on auxiliary mines.
+    CREEP = (235, 90, 70)
+    for (gx, gy) in gold_pts:
+        if spawn_pts and min((gx - sx) ** 2 + (gy - sy) ** 2 for sx, sy in spawn_pts) ** 0.5 < 4:
+            continue
+        x, y = pad + gx * cell, pad + (gy + 1.6) * cell
+        r = cell * 0.7
+        d.ellipse([x - r, y - r, x + r, y + r], fill=CREEP + (210,), outline=(20, 10, 10, 255), width=2)
+        d.text((x - 3, y - 5), 'C', fill=(255, 240, 230))
 
     img.save(out_path)
     land = sum(1 for h in heights if h >= FLAT)
