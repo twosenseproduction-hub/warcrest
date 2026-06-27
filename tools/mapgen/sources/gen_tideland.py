@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
-"""Author the FULL board of Tideland Crossing — a classic WC2 2-player land map.
+"""Tideland Crossing — two-plateau "Echo Isle" map.
 
-Reference (the uploaded WC2 screenshot): a LAND-dominant continent inside a full
-ocean border, cut by narrow winding WATER CHANNELS into lobes joined by land
-bridges, blanketed in FOREST CLUMPS with open grass clearings, ~8 gold mines
-(corners / mid-edges / interior) and neutral structures near the centre. Red
-starts top-left, Blue top-right.
-
-Translated to Warcrest while honouring the recent asks:
-  * Land-dominant (build room), forest clumped (collidable) with clearings.
-  * A central channel still splits the top so you go DOWN and AROUND.
-  * Sparse-ish near the bases; denser forest as natural barriers elsewhere.
+Design (per the cliff tutorial + the WC2 reference):
+  * Each side is its own CLEAN, solid PLATEAU (high ground) in a top corner, so
+    the cliff faces render as a continuous tall escarpment — not a jagged edge.
+  * A single RAMP cuts each plateau's south edge — the only way up/down (cliffs
+    are solid in engine). Bases + home mines sit ON the plateau.
+  * The low ground below holds the shallows, the auxiliary mines, the forest
+    clumps and the neutral structures. The central water gulf splits the top so
+    the route between bases is DOWN a ramp, across the southern bridge, and up.
 
 Emits `mirror: none` (built symmetrically in Python).
 Regenerate:
@@ -18,12 +16,17 @@ Regenerate:
 """
 import math
 
-W, H = 74, 52          # tiles — 4736 x 3328 px
+W, H = 74, 52
 CX = W / 2.0
-MOAT = 2               # outer ocean border
-FOREST_COVER = 0.44    # value-noise threshold (lower => less forest)
+MOAT = 2
+FOREST_COVER = 0.42
 
-grid = [['.'] * W for _ in range(H)]   # start as grass continent
+PLATEAU_INNER = 27       # left plateau spans cols MOAT..PLATEAU_INNER
+PLATEAU_BOTTOM = 19      # clean south cliff line at this row
+RAMP_X = 18              # ramp centre column (clear of base + gulf)
+GULF_BOTTOM = 34         # central gulf reaches this row; land bridge below
+
+grid = [['.'] * W for _ in range(H)]   # grass continent
 
 
 def h2(ix, iy):
@@ -33,14 +36,11 @@ def h2(ix, iy):
 
 
 def vnoise(x, y, cell):
-    """Smooth value noise in [0,1] via bilinear interp of a hashed lattice."""
     gx, gy = x / cell, y / cell
     ix, iy = int(math.floor(gx)), int(math.floor(gy))
     fx, fy = gx - ix, gy - iy
-    sx = fx * fx * (3 - 2 * fx)
-    sy = fy * fy * (3 - 2 * fy)
-    a = h2(ix, iy);     b = h2(ix + 1, iy)
-    c = h2(ix, iy + 1); d = h2(ix + 1, iy + 1)
+    sx = fx * fx * (3 - 2 * fx); sy = fy * fy * (3 - 2 * fy)
+    a = h2(ix, iy); b = h2(ix + 1, iy); c = h2(ix, iy + 1); d = h2(ix + 1, iy + 1)
     return (a * (1 - sx) + b * sx) * (1 - sy) + (c * (1 - sx) + d * sx) * sy
 
 
@@ -55,104 +55,57 @@ def clear_box(x, y, rad, ch='.'):
             put(x + dx, y + dy, ch)
 
 
-# ── Water: meandering channels (rivers), mirrored for symmetry ──────────────
-def carve_river(x_of_y, y0, y1, half_of_y):
-    for y in range(y0, y1):
-        rx = x_of_y(y)
-        hw = half_of_y(y)
-        for x in range(W):
-            if abs((x + 0.5) - rx) <= hw:
-                grid[y][x] = '~'
+# ── Water: central gulf (top split) + outer ocean border ────────────────────
+for y in range(0, GULF_BOTTOM + 1):
+    t = y / float(GULF_BOTTOM)
+    half = max(1.8, 7.0 * (1.0 - t) ** 1.1)
+    rx = CX + 1.6 * math.sin(y * 0.3)
+    for x in range(W):
+        if abs((x + 0.5) - rx) <= half:
+            grid[y][x] = '~'
 
-
-# Central channel: splits the top, opens wide to the north sea (estuary) and
-# narrows inland, ending before the bottom so a land bridge remains.
-carve_river(
-    x_of_y=lambda y: CX + 2.4 * math.sin(y * 0.32),
-    y0=0, y1=38,
-    half_of_y=lambda y: max(1.6, 6.5 - y * 0.16),
-)
-
-# Two flank channels carve the continent into lobes (mirror-symmetric). Each
-# meanders and leaves bridge gaps where it dips to near-zero width.
-def flank_half(y):
-    # pinch to a land bridge around y≈20 and y≈40
-    base = 2.2 + 1.4 * math.sin(y * 0.5)
-    if 18 <= y <= 23 or 38 <= y <= 43:
-        base = 0.0
-    return max(0.0, base)
-
-
-carve_river(lambda y: 17 + 2.0 * math.sin(y * 0.28), 6, H, flank_half)
-carve_river(lambda y: (W - 1 - 17) - 2.0 * math.sin(y * 0.28), 6, H, flank_half)
-
-# A short horizontal channel across the lower middle for the lobed look,
-# with a central bridge gap.
-for x in range(W):
-    if abs((x + 0.5) - CX) <= 4:   # keep central bridge
-        continue
-    yy = 33 + int(round(1.5 * math.sin(x * 0.25)))
-    for dy in range(0, 3):
-        grid[min(H - 1, yy + dy)][x] = '~'
-
-# Outer ocean border (assert last so channels meet the sea cleanly).
 for y in range(H):
     for x in range(W):
         if x < MOAT or x >= W - MOAT or y < MOAT or y >= H - MOAT:
             grid[y][x] = '~'
 
-
-def is_land(x, y):
-    return 0 <= x < W and 0 <= y < H and grid[y][x] != '~'
-
-
-# Plateau / ramp params (the pass itself runs AFTER spawns are placed, below).
-PLATEAU_X = 28          # left plateau spans plain land with x < PLATEAU_X ...
-PLATEAU_Y = 22          # ... and y < PLATEAU_Y
-RAMP_X = 21             # ramp centre column (left side; clear of the base)
-
-
 # ── Spawns, gold, neutral structures ────────────────────────────────────────
-PB = (12, 9)
-EB = (W - 1 - 12, 9)
+PB = (11, 9)
+EB = (W - 1 - 11, 9)
 clear_box(PB[0], PB[1], 3)
 clear_box(EB[0], EB[1], 3)
 put(PB[0], PB[1], 'P')
 put(EB[0], EB[1], 'E')
 
-# 4 mines per side (8 total): main by base, an upper-flank, a mid-edge, a lower.
-gold = [(6, 8), (27, 11), (7, 30), (13, 45)]
+# 4 mines per side: 2 home (on the plateau), 2 auxiliary (low ground, creeped).
+gold = [(6, 7), (24, 12), (8, 30), (16, 44)]
 for (gx, gy) in gold:
     clear_box(gx, gy, 1)
     put(gx, gy, '$')
     put(W - 1 - gx, gy, '$')
 
-# Neutral structures near the centre seam: merchant mid, mercenaries at bottom.
-MERCHANT = (int(CX), 30)
-MERCENARY = (int(CX), H - 5)
+MERCHANT = (int(CX), 38)
+MERCENARY = (int(CX), H - 4)
 clear_box(MERCHANT[0], MERCHANT[1], 2)
 clear_box(MERCENARY[0], MERCENARY[1], 2)
 put(MERCHANT[0], MERCHANT[1], 'o')
 put(MERCENARY[0], MERCENARY[1], 'o')
 
-# ── Plateaus + ramps (after spawns, so bases keep their plateau) ─────────────
-# Raise each side's upper landmass to HIGH (only plain land/forest tiles, never
-# spawn or ramp glyphs). Bases/mines sitting in the raised area inherit HIGH in
-# the ascii compiler, so they end up cleanly ON the plateau.
-PLAIN = ('.', 'T')
+# ── Plateaus (clean solid blocks) + ramps ───────────────────────────────────
+KEEP = ('P', 'E', '$', 'o', '/')
 
 
 def raise_plateau():
-    for y in range(0, PLATEAU_Y):
-        for x in range(W):
-            if (x < PLATEAU_X or x >= W - PLATEAU_X) and grid[y][x] in PLAIN:
+    # Force each top-corner block to solid HIGH so the cliff line is clean.
+    for y in range(MOAT, PLATEAU_BOTTOM + 1):
+        for x in list(range(MOAT, PLATEAU_INNER + 1)) + \
+                 list(range(W - 1 - PLATEAU_INNER, W - MOAT)):
+            if grid[y][x] not in KEEP:
                 grid[y][x] = '^'
 
 
 def cut_ramp(cx):
-    # 3-wide flat ramp cutting from inside the plateau down into the lowland —
-    # the only passable break in the southern cliff wall.
-    for y in range(PLATEAU_Y - 3, PLATEAU_Y + 4):
+    for y in range(PLATEAU_BOTTOM - 3, PLATEAU_BOTTOM + 4):
         for x in range(cx - 1, cx + 2):
             if 0 <= x < W and grid[y][x] in ('^', '.', 'T'):
                 grid[y][x] = '/'
@@ -162,15 +115,11 @@ raise_plateau()
 cut_ramp(RAMP_X)
 cut_ramp(W - 1 - RAMP_X)
 
-# ── Forest clumps (value noise) with clearings ──────────────────────────────
+# ── Forest clumps on the low ground (never on plateau/ramp) ─────────────────
 keepouts = [PB, EB, MERCHANT, MERCENARY] + gold + [(W - 1 - x, y) for (x, y) in gold]
 
 
 def clearing(x, y):
-    # generous clearing around bases, smaller around mines/structures
-    for (kx, ky, rad) in [(PB[0], PB[1], 6), (EB[0], EB[1], 6)]:
-        if abs(x - kx) <= rad and abs(y - ky) <= rad:
-            return True
     for (kx, ky) in keepouts:
         if abs(x - kx) <= 3 and abs(y - ky) <= 3:
             return True
@@ -183,16 +132,14 @@ for y in range(H):
             continue
         if clearing(x, y):
             continue
-        if abs((x + 0.5) - CX) <= 3 and y >= 33:   # keep central bottom bridge open
+        if abs((x + 0.5) - CX) <= 3 and y >= GULF_BOTTOM:   # keep bottom bridge open
             continue
         n = vnoise(x, y, 7.0)
-        # clumps: forest where noise is low; a little jitter breaks hard edges
         if n + (h2(x, y) - 0.5) * 0.12 < FOREST_COVER:
             grid[y][x] = 'T'
 
 print("# Tideland Crossing — full board %dx%d (generated; mirror: none)." % (W, H))
-print("# WC2 land map: forested continent cut by winding water channels; the")
-print("# central channel splits the top, cross via the southern land bridge.")
+print("# Two clean plateaus (top corners) with ramps; central gulf splits the top.")
 print("# Regenerate: python3 tools/mapgen/sources/gen_tideland.py > tools/mapgen/sources/tideland-crossing.map")
 print("name: Tideland Crossing")
 print("tile: 64")
