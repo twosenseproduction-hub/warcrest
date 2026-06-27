@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Warcrest — procedural 3D character roster</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#0e1118;font-family:"Segoe UI",system-ui,sans-serif;}
+  #c{display:block;width:100%;height:100%;touch-action:none;}
+  .ctl{position:fixed;right:12px;top:12px;display:flex;flex-direction:column;gap:8px;}
+  .btn{background:rgba(22,20,16,.82);color:#fff;border:none;border-radius:13px;width:48px;height:48px;font-size:20px;
+    cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4);backdrop-filter:blur(5px);}
+  .btn:active{transform:scale(.93);}
+  .lbl{position:fixed;transform:translate(-50%,-100%);pointer-events:none;white-space:nowrap;
+    background:rgba(22,20,16,.82);color:#fff;font-weight:700;font-size:11px;padding:3px 9px;border-radius:999px;
+    box-shadow:0 3px 9px rgba(0,0,0,.4);backdrop-filter:blur(4px);}
+  .rowlbl{position:fixed;transform:translateY(-50%);pointer-events:none;white-space:nowrap;
+    color:#fff;font-weight:800;font-size:13px;text-shadow:0 2px 6px rgba(0,0,0,.6);display:flex;align-items:center;gap:7px;}
+  .rowlbl b{width:12px;height:12px;border-radius:50%;}
+  .title{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);color:#fff;font-size:12px;font-weight:700;
+    background:rgba(22,20,16,.7);padding:6px 14px;border-radius:999px;backdrop-filter:blur(5px);text-align:center;}
+  .hint{position:fixed;left:12px;bottom:46px;color:rgba(255,255,255,.5);font-size:11px;font-weight:700;}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ctl">
+  <button class="btn" id="bNight" title="Day/Night">🌙</button>
+  <button class="btn" id="bSpin" title="Turntable">🔄</button>
+  <button class="btn" id="bAnim" title="Idle / Walk">🚶</button>
+</div>
+<div class="rowlbl" id="R0"><b style="background:#3f63b8"></b>Iron Crown</div>
+<div class="rowlbl" id="R1"><b style="background:#8a9a4a"></b>Raider Horde</div>
+<div class="rowlbl" id="R2"><b style="background:#5a8f5a"></b>Rimwalkers</div>
+<div class="hint">drag to orbit · scroll to zoom</div>
+<div class="title">Warcrest — procedural 3D characters (geometry I author in code, no external assets)</div>
+
+<script src="./three.min.js"></script>
+<script>
+const C=document.getElementById('c');
+const renderer=new THREE.WebGLRenderer({canvas:C,antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputEncoding=THREE.sRGBEncoding;
+const scene=new THREE.Scene();
+const DAY={sky:0xd2e6ee,fog:0xcfe0d8,amb:0.5,sun:0xfff1d6,sunI:1.3,hemiS:0xe8ecdf,hemiG:0x46502f,hemiI:0.3};
+const NIGHT={sky:0x182137,fog:0x1b2540,amb:0.5,sun:0x9fb0e0,sunI:0.5,hemiS:0x2a3658,hemiG:0x10141f,hemiI:0.4};
+let mood=DAY, spin=true, walk=false;
+
+const camera=new THREE.PerspectiveCamera(40,innerWidth/innerHeight,0.5,400);
+let camDist=46,camYaw=Math.PI*0.5,camPitch=0.42;
+function placeCam(){const tx=0,ty=4.2,tz=0;camera.position.set(tx+camDist*Math.cos(camYaw)*Math.cos(camPitch),ty+camDist*Math.sin(camPitch),tz+camDist*Math.sin(camYaw)*Math.cos(camPitch));camera.lookAt(tx,ty,tz);}
+
+const amb=new THREE.AmbientLight(0xffffff,0.5); scene.add(amb);
+const hemi=new THREE.HemisphereLight(0xe8ecdf,0x46502f,0.3); scene.add(hemi);
+const sun=new THREE.DirectionalLight(0xfff1d6,1.3); sun.position.set(14,26,12); sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048); const sc=sun.shadow.camera; sc.left=-34;sc.right=34;sc.top=24;sc.bottom=-24;sc.near=1;sc.far=90; sun.shadow.bias=-0.0004;
+scene.add(sun); scene.add(sun.target);
+
+const M=(h,opts={})=>new THREE.MeshStandardMaterial(Object.assign({color:h,flatShading:true,roughness:1,metalness:0},opts));
+function box(w,h,d,mat,x,y,z){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x||0,y||0,z||0);m.castShadow=true;m.receiveShadow=true;return m;}
+function cyl(r1,r2,h,seg,mat){const m=new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,h,seg),mat);m.castShadow=true;return m;}
+function cone(r,h,seg,mat){const m=new THREE.Mesh(new THREE.ConeGeometry(r,h,seg),mat);m.castShadow=true;return m;}
+function sph(r,mat){const m=new THREE.Mesh(new THREE.IcosahedronGeometry(r,0),mat);m.castShadow=true;return m;}
+function torusHalf(r,t,mat){const m=new THREE.Mesh(new THREE.TorusGeometry(r,t,5,12,Math.PI),mat);m.castShadow=true;return m;}
+
+/* ---- per-race palette + proportions ----------------------------------- */
+const RACE={
+  crown:{ skin:0xe8b07a, cloth:0x3f63b8, cloth2:0x2f4f8e, metal:0xc2cad4, metalD:0x8b95a2, leather:0x6b4a2a, hair:0x6a4422, accent:0xe6c44a,
+          scale:1.0, hunch:0.0, armLen:1.0, headR:0.46, build:1.0 },
+  horde:{ skin:0x6f9a3e, cloth:0x7a3a24, cloth2:0x55281a, metal:0x9a8a5a, metalD:0x6e6038, leather:0x4e351d, hair:0x241a10, accent:0xcf5a2a,
+          scale:1.12, hunch:0.30, armLen:1.22, headR:0.5, build:1.35 },
+  elf:{   skin:0xe3c9a3, cloth:0x4f8a5a, cloth2:0x36633f, metal:0xd9b94a, metalD:0xb2922f, leather:0x5a4a32, hair:0xb8a050, accent:0xe8d27a,
+          scale:1.06, hunch:-0.04, armLen:1.0, headR:0.44, build:0.82 },
+};
+
+/* ============================================================================
+ * Parametric humanoid. Builds a body per race, then layers role gear.
+ * Returns a group with userData joints for animation.
+ * ========================================================================== */
+function humanoid(race, role){
+  const P=RACE[race];
+  const g=new THREE.Group();
+  const sk=M(P.skin), cloth=M(P.cloth), cloth2=M(P.cloth2), metal=M(P.metal,{metalness:.25,roughness:.55}),
+        metalD=M(P.metalD,{metalness:.2,roughness:.6}), leather=M(P.leather), hair=M(P.hair), accent=M(P.accent,{metalness:.3,roughness:.5});
+  const dark=M(0x2a241a), white=M(0xeee7cf);
+  const bw=P.build;                       // body-width multiplier
+
+  // ---- legs (hip pivot groups) ----
+  function leg(side){
+    const j=new THREE.Group(); j.position.set(0.34*bw*side,2.5,0);
+    const thigh=box(0.42*bw,1.1,0.46,role==='worker'?leather:cloth2,0,-0.55,0); j.add(thigh);
+    const shin=new THREE.Group(); shin.position.y=-1.05;
+    shin.add(box(0.36*bw,1.0,0.4,leather,0,-0.5,0));
+    shin.add(box(0.46*bw,0.3,0.66,dark,0,-1.0,0.12)); // foot
+    j.add(shin); j.userData={shin}; return j;
+  }
+  const legL=leg(-1), legR=leg(1); g.add(legL,legR);
+
+  // ---- pelvis + torso (slightly hunched for orcs) ----
+  const torsoPivot=new THREE.Group(); torsoPivot.position.y=2.5; torsoPivot.rotation.x=P.hunch; g.add(torsoPivot);
+  const torso=box(1.25*bw,1.5,0.7,role==='worker'?M(P.cloth):cloth,0,0.85,0); torsoPivot.add(torso);
+  // chest piece / tabard
+  if(role==='warrior'||role==='hero'){
+    torsoPivot.add(box(1.34*bw,1.0,0.78,metal,0,0.95,0));         // breastplate
+    torsoPivot.add(box(0.5,1.3,0.06,accent,0,0.7,0.42));          // tabard stripe
+  } else if(role==='archer'){
+    torsoPivot.add(box(1.2*bw,0.5,0.74,leather,0,1.25,0));        // chest strap
+    torsoPivot.add(box(0.16,1.4,0.16,leather,-0.35,0.9,0.3));     // quiver belt
+  }
+  // belt
+  torsoPivot.add(box(1.3*bw,0.24,0.74,leather,0,0.16,0));
+  torsoPivot.add(box(0.26,0.26,0.08,accent,0,0.16,0.4));         // buckle
+
+  // ---- shoulders / pauldrons ----
+  if(role==='warrior'||role==='hero'){
+    torsoPivot.add(box(0.62*bw,0.4,0.62,metalD,-0.78*bw,1.5,0));
+    torsoPivot.add(box(0.62*bw,0.4,0.62,metalD,0.78*bw,1.5,0));
+  }
+  if(race==='horde'){ // bone spaulders
+    torsoPivot.add(cone(0.34,0.6,6,white).translateX(-0.8*bw).translateY(1.6));
+    torsoPivot.add(cone(0.34,0.6,6,white).translateX(0.8*bw).translateY(1.6));
+  }
+
+  // ---- arms (shoulder pivot → upper, elbow → fore+hand) ----
+  function arm(side){
+    const j=new THREE.Group(); j.position.set(0.72*bw*side,1.95,0);
+    const upper=box(0.34,0.95*P.armLen,0.38,role==='warrior'||role==='hero'?metalD:M(P.cloth),0,-0.45,0); j.add(upper);
+    const fore=new THREE.Group(); fore.position.y=-0.9*P.armLen;
+    fore.add(box(0.3,0.8*P.armLen,0.32,sk,0,-0.4,0));
+    fore.add(box(0.34,0.3,0.36,leather,0,-0.78*P.armLen,0)); // glove/hand
+    j.add(fore); j.userData={fore}; return j;
+  }
+  const armL=arm(-1), armR=arm(1); torsoPivot.add(armL,armR);
+
+  // ---- neck + head ----
+  const headPivot=new THREE.Group(); headPivot.position.y=1.75; torsoPivot.add(headPivot);
+  headPivot.add(cyl(0.18,0.2,0.3,7,sk).translateY(-0.1));
+  const head=sph(P.headR,sk); head.scale.set(1,1.12,0.95); head.position.y=0.32; headPivot.add(head);
+  // face hint
+  headPivot.add(box(0.5,0.12,0.04,M(0x000000,{roughness:1}),0,0.34,P.headR*0.86).scale&&box(0.5,0.12,0.02,dark,0,0.34,P.headR*0.82));
+  if(race==='horde'){ // tusks
+    headPivot.add(box(0.07,0.16,0.07,white,-0.16,0.18,P.headR*0.7));
+    headPivot.add(box(0.07,0.16,0.07,white,0.16,0.18,P.headR*0.7));
+  }
+  if(race==='elf'){ // pointed ears
+    headPivot.add(cone(0.1,0.34,4,sk).translateX(-P.headR*0.92).translateY(0.34));
+    headPivot.add(cone(0.1,0.34,4,sk).translateX(P.headR*0.92).translateY(0.34));
+  }
+
+  // ---- headgear per role/race ----
+  if(role==='warrior'||role==='hero'){
+    if(race==='crown'){ const helm=sph(P.headR+0.05,metal); helm.scale.set(1,0.9,1); helm.position.y=0.42; headPivot.add(helm);
+      headPivot.add(box(0.1,0.5,0.1,metal,0,0.55,P.headR*0.7)); // nose guard / crest base
+      if(role==='hero') headPivot.add(cone(0.12,0.45,6,accent).translateY(0.95)); }
+    else if(race==='horde'){ headPivot.add(box(P.headR*1.9,0.3,P.headR*1.9,metalD,0,0.5,0));
+      headPivot.add(cone(0.16,0.5,5,metal).translateX(-0.3).translateY(0.78));
+      headPivot.add(cone(0.16,0.5,5,metal).translateX(0.3).translateY(0.78)); }
+    else { const helm=cone(P.headR+0.08,0.7,7,metal); helm.position.y=0.6; headPivot.add(helm);
+      headPivot.add(box(0.5,0.18,0.5,accent,0,0.42,0)); // circlet
+      if(role==='hero'){ headPivot.add(box(0.7,0.5,0.06,accent,0,0.55,-P.headR*0.7)); } } // crown fin
+  } else {
+    // hair / hood for workers + archers
+    if(role==='archer'){ const hood=cone(P.headR+0.12,0.7,7,cloth2); hood.position.y=0.5; headPivot.add(hood);
+      headPivot.add(box(P.headR*1.7,0.6,0.2,cloth2,0,0.2,-P.headR*0.7)); }
+    else { const cap=sph(P.headR+0.04,hair); cap.scale.set(1,0.7,1); cap.position.y=0.46; headPivot.add(cap);
+      if(race==='elf') headPivot.add(box(0.16,0.9,0.16,hair,0.2,0.0,-P.headR*0.7)); } // ponytail
+  }
+
+  // ---- cape for heroes ----
+  if(role==='hero'){
+    const cape=box(1.2*bw,2.0,0.1,M(race==='crown'?0x6a2030:race==='horde'?0x3a2418:0x2f5a3a),0,0.7,-0.42);
+    cape.rotation.x=0.12; torsoPivot.add(cape);
+  }
+
+  // ---- weapons / tools (held in right hand: armR.userData.fore) ----
+  const rfore=armR.userData.fore, lfore=armL.userData.fore;
+  function holdR(obj){obj.position.add(new THREE.Vector3(0,-0.95*P.armLen,0.05)); rfore.add(obj);}
+  function holdL(obj){obj.position.add(new THREE.Vector3(0,-0.95*P.armLen,0.05)); lfore.add(obj);}
+  if(role==='worker'){
+    // pickaxe / hoe
+    const tool=new THREE.Group(); tool.add(cyl(0.06,0.06,1.7,6,leather).translateY(-0.2));
+    tool.add(box(0.7,0.16,0.16,metalD,0,0.6,0)); holdR(tool); tool.rotation.z=0.5;
+    armR.rotation.x=-0.5;
+  } else if(role==='warrior'){
+    if(race==='horde'){ const axe=new THREE.Group(); axe.add(cyl(0.09,0.09,2.0,6,leather));
+      axe.add(box(0.2,0.8,0.95,metal,0,0.85,0.25)); holdR(axe); axe.rotation.z=0.35; }
+    else { const sword=new THREE.Group(); sword.add(box(0.12,1.7,0.12,metal,0,0.6,0));
+      sword.add(box(0.5,0.16,0.16,metalD,0,-0.2,0)); sword.add(box(0.16,0.4,0.16,leather,0,-0.5,0)); holdR(sword); sword.rotation.z=0.2; }
+    // shield in left
+    const shield=race==='crown'?box(0.12,1.1,0.8,cloth):box(0.12,1.0,0.9,leather); shield.position.set(-0.05,-0.4,0.2); lfore.add(shield);
+    if(race==='crown') lfore.add(box(0.14,0.5,0.4,accent,-0.02,-0.4,0.2));
+    armL.rotation.x=-0.4;
+  } else if(role==='archer'){
+    const bow=torusHalf(0.95,0.06,accent); bow.rotation.z=Math.PI/2; bow.position.set(0,-0.5,0.25); lfore.add(bow);
+    // bowstring
+    lfore.add(box(0.02,1.85,0.02,white,0,-0.5,0.25));
+    armL.rotation.x=-0.5; armR.rotation.x=-0.6;
+    // quiver on back
+    torsoPivot.add(cyl(0.16,0.16,0.9,7,leather).translateX(-0.4).translateY(1.2).translateZ(-0.35));
+    [0,0.1,-0.1].forEach(o=>torsoPivot.add(box(0.04,0.5,0.04,white,-0.4+o,1.8,-0.35)));
+  } else if(role==='hero'){
+    // distinctive hero weapon
+    if(race==='crown'){ const gs=new THREE.Group(); gs.add(box(0.16,2.2,0.16,metal,0,0.7,0)); gs.add(box(0.7,0.2,0.2,accent,0,-0.4,0)); gs.add(sph(0.16,accent).translateY(-0.7)); holdR(gs); gs.rotation.z=0.16; }
+    else if(race==='horde'){ const maul=new THREE.Group(); maul.add(cyl(0.1,0.1,2.2,6,leather)); maul.add(box(0.7,0.7,0.7,metal,0,1.0,0)); maul.add(box(0.9,0.25,0.25,metalD,0,1.0,0)); holdR(maul); maul.rotation.z=0.3; }
+    else { const staff=new THREE.Group(); staff.add(cyl(0.08,0.08,2.6,6,leather)); const orb=sph(0.3,M(P.accent,{emissive:P.accent,emissiveIntensity:0.6})); orb.position.y=1.4; staff.add(orb); holdR(staff); }
+  }
+
+  // racial idle posture
+  g.rotation.y=Math.PI; // face camera (-z toward viewer initially handled by layout)
+  g.userData={legL,legR,armL,armR,headPivot,torsoPivot,race,role,phase:Math.random()*6.28};
+  g.scale.setScalar(P.scale);
+  g.traverse(o=>{o.castShadow=true;});
+  return g;
+}
+
+/* ---- pedestals ---------------------------------------------------------- */
+function pedestal(x,z){const g=cyl(2.0,2.3,0.6,16,M(0x6f7d6a)); g.position.set(x,0.3,z); g.receiveShadow=true; scene.add(g);
+  const top=cyl(1.8,1.8,0.12,16,M(0x808e78)); top.position.set(x,0.66,z); top.receiveShadow=true; scene.add(top); return g;}
+
+// ground
+const ground=new THREE.Mesh(new THREE.CircleGeometry(80,40),M(0x83a85a)); ground.rotation.x=-Math.PI/2; ground.position.y=-0.02; ground.receiveShadow=true; scene.add(ground);
+
+/* ---- layout: 3 races (rows, z) × 4 roles (cols, x) --------------------- */
+const RACES=['crown','horde','elf'];
+const ROLES=['worker','warrior','archer','hero'];
+const ROLE_NAME={worker:'Worker',warrior:'Warrior',archer:'Archer',hero:'Hero'};
+const COLX=[-16.5,-5.5,5.5,16.5];
+const ROWZ=[-11,0,11];
+const chars=[];
+RACES.forEach((race,ri)=>{
+  ROLES.forEach((role,ci)=>{
+    pedestal(COLX[ci],ROWZ[ri]);
+    const h=humanoid(race,role); h.position.set(COLX[ci],0.72,ROWZ[ri]); scene.add(h);
+    chars.push({obj:h,x:COLX[ci],z:ROWZ[ri],name:ROLE_NAME[role],ri});
+  });
+});
+
+/* ---- DOM labels (per character + per row) ------------------------------ */
+const charLabels=chars.map(c=>{const el=document.createElement('div');el.className='lbl';el.textContent=c.name;document.body.appendChild(el);return {el,c};});
+const rowEls=[document.getElementById('R0'),document.getElementById('R1'),document.getElementById('R2')];
+function updateLabels(){
+  const v=new THREE.Vector3();
+  charLabels.forEach(L=>{v.set(L.c.x,7.6,L.c.z).project(camera);
+    L.el.style.left=(v.x*0.5+0.5)*innerWidth+'px';L.el.style.top=(-v.y*0.5+0.5)*innerHeight+'px';L.el.style.display=v.z<1?'block':'none';});
+  rowEls.forEach((el,ri)=>{v.set(-22,4.5,ROWZ[ri]).project(camera);
+    el.style.left=Math.max(10,(v.x*0.5+0.5)*innerWidth)+'px';el.style.top=(-v.y*0.5+0.5)*innerHeight+'px';el.style.display=v.z<1?'flex':'none';});
+}
+
+function applyMood(){scene.background=new THREE.Color(mood.sky);scene.fog=new THREE.Fog(mood.fog,60,160);
+  amb.intensity=mood.amb;sun.color.setHex(mood.sun);sun.intensity=mood.sunI;hemi.color.setHex(mood.hemiS);hemi.groundColor.setHex(mood.hemiG);hemi.intensity=mood.hemiI;}
+applyMood(); placeCam(); renderer.setSize(innerWidth,innerHeight);
+
+/* ---- controls ---------------------------------------------------------- */
+let drag=false,px=0,py=0;
+C.addEventListener('pointerdown',e=>{drag=true;px=e.clientX;py=e.clientY;});
+addEventListener('pointermove',e=>{if(!drag)return;camYaw-=(e.clientX-px)*0.008;camPitch=Math.max(0.12,Math.min(1.1,camPitch+(e.clientY-py)*0.006));px=e.clientX;py=e.clientY;placeCam();});
+addEventListener('pointerup',()=>drag=false);
+addEventListener('wheel',e=>{camDist=Math.max(24,Math.min(90,camDist+e.deltaY*0.04));placeCam();},{passive:true});
+document.getElementById('bNight').onclick=function(){mood=(mood===DAY)?NIGHT:DAY;this.textContent=mood===DAY?'🌙':'☀️';applyMood();};
+document.getElementById('bSpin').onclick=function(){spin=!spin;};
+document.getElementById('bAnim').onclick=function(){walk=!walk;this.textContent=walk?'🧍':'🚶';};
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);placeCam();});
+
+/* ---- animation --------------------------------------------------------- */
+let t=0;
+function frame(now){requestAnimationFrame(frame); t+=0.016;
+  chars.forEach(c=>{const u=c.obj.userData; const ph=u.phase;
+    if(walk){
+      const s=Math.sin(t*7+ph)*0.6;
+      u.legL.rotation.x=s; u.legR.rotation.x=-s;
+      u.legL.userData.shin.rotation.x=Math.max(0,-s*0.8); u.legR.userData.shin.rotation.x=Math.max(0,s*0.8);
+      if(u.role!=='archer'){ u.armL.rotation.x=-s*0.7; u.armR.rotation.x=s*0.7; }
+      u.torsoPivot.position.y=2.5+Math.abs(Math.sin(t*7+ph))*0.06; u.obj && 0;
+      c.obj.position.y=0.72+Math.abs(Math.sin(t*7+ph))*0.08;
+    } else {
+      // idle: breathing + subtle sway
+      const b=Math.sin(t*2+ph);
+      u.legL.rotation.x*=0.8; u.legR.rotation.x*=0.8; u.legL.userData.shin.rotation.x*=0.8; u.legR.userData.shin.rotation.x*=0.8;
+      u.torsoPivot.scale.y=1+b*0.02; u.headPivot.rotation.y=Math.sin(t*0.8+ph)*0.18;
+      c.obj.position.y=0.72+b*0.015;
+      if(u.role==='hero'){ if(!u._base) u._base=u.armR.rotation.x||0; }
+    }
+  });
+  if(spin&&!drag){camYaw+=0.0016*16.6;placeCam();}
+  updateLabels(); renderer.render(scene,camera);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
