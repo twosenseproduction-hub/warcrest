@@ -52,6 +52,7 @@
     foundry: { w: 266, h: 216 },
     forge: { w: 296, h: 240 },
     chiefs_hall: { w: 296, h: 240 },
+    ancestor_shrine: { w: 300, h: 270 },
     turret: { w: 120, h: 160 },
   };
 
@@ -68,6 +69,7 @@
     foundry: { wMul: 1.00, hMul: 1.00, padL: 1, padR: 1, padT: 0, padB: 2, xOffset: 0, yOffset: 0 },
     forge:   { wMul: 1.00, hMul: 1.00, padL: 0, padR: 0, padT: 0, padB: 2, xOffset: 0, yOffset: 0 },
     chiefs_hall: { wMul: 1.00, hMul: 1.00, padL: 0, padR: 0, padT: 0, padB: 2, xOffset: 0, yOffset: 0 },
+    ancestor_shrine: { wMul: 1.00, hMul: 1.00, padL: 0, padR: 0, padT: 0, padB: 2, xOffset: 0, yOffset: 0 },
     turret:  { wMul: 1.00, hMul: 1.00, padL: 1, padR: 1, padT: 0, padB: 2, xOffset: 0, yOffset: 0 },
     outpost: { wMul: 1.00, hMul: 1.00, padL: 0, padR: 0, padT: 0, padB: 2, xOffset: 0, yOffset: 0 },
   };

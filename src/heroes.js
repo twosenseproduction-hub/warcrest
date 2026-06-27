@@ -37,6 +37,8 @@
       range: 48,       // melee
       ranged: false,
       supply: 0,        // heroes do not cost supply
+      trainCost: 240,   // summoned at the Ancestor's Shrine
+      trainTime: 26,
 
       // Passive — always active
       passive: {
@@ -107,6 +109,8 @@
       range: 130,
       ranged: true,
       supply: 0,
+      trainCost: 220,
+      trainTime: 26,
 
       passive: {
         id: 'resonance_field',
@@ -175,6 +179,8 @@
       range: 112,
       ranged: true,
       supply: 0,
+      trainCost: 220,
+      trainTime: 24,
 
       passive: {
         id: 'chaos_tax',
@@ -310,6 +316,8 @@
       range: 52,        // melee
       ranged: false,
       supply: 0,
+      trainCost: 230,
+      trainTime: 26,
 
       // Passive — always active
       passive: {
@@ -384,6 +392,8 @@
       range: 160,
       ranged: false,
       supply: 0,
+      trainCost: 230,
+      trainTime: 28,
 
       passive: {
         id: 'ancient_root',

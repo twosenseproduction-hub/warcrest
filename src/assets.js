@@ -132,6 +132,7 @@
     Bone_Spire:   { l: 0.148, r: 0.120, t: 0.065, b: 0.038 },
     Skull_Den:    { l: 0.031, r: 0.031, t: 0.057, b: 0.044 },
     Chiefs_Hall:  { l: 0.014, r: 0.015, t: 0.028, b: 0.025 },
+    Ancestor_Shrine: { l: 0.035, r: 0.035, t: 0.000, b: 0.059 },
     ShepherdsHut: { l: 0.06, r: 0.06, t: 0.10, b: 0.05 },
     House3:   { l: 0.023, r: 0.023, t: 0.193, b: 0.104 },
     Tower:    { l: 0.031, r: 0.031, t: 0.180, b: 0.102 },
@@ -303,6 +304,7 @@
     if (b.type === 'foundry' && b.faction === 'cinder') return 'War_Pit';
     if (b.type === 'forge' && b.faction === 'cinder') return 'Skull_Den';
     if (b.type === 'chiefs_hall' && b.faction === 'cinder') return 'Chiefs_Hall';
+    if (b.type === 'ancestor_shrine') return 'Ancestor_Shrine';
     if (b.type === 'conduit' && b.faction === 'cinder') return 'PigSty';
     if (b.type === 'turret' && b.faction === 'cinder') return 'Bone_Spire';
     if (b.type === 'core'    && b.faction === 'aurex') return 'IronCrown_Castle';
@@ -321,11 +323,14 @@
   }
 
   var NEUTRAL_BUILDING_BASE = 'assets/buildings/neutral/';
+  var SHARED_BUILDING_BASE = 'assets/buildings/shared/';
 
   function buildingAsset(b) {
     // Neutral map structures — faction-agnostic art.
     if (b.type === 'merchant') return { base: NEUTRAL_BUILDING_BASE, rel: 'merchant.png', frames: 1 };
     if (b.type === 'mercenary') return { base: NEUTRAL_BUILDING_BASE, rel: 'mercenary.png', frames: 1 };
+    // Ancestor's Shrine — one shared hero-summoning structure for every faction.
+    if (b.type === 'ancestor_shrine') return { base: SHARED_BUILDING_BASE, rel: 'ancestor_shrine.png', frames: 1 };
     // Per-faction custom building set: <type>.png under the faction's base dir.
     var base = FACTION_BUILDING_BASE[b.faction];
     if (base && FACTION_BUILDING_TYPES.indexOf(b.type) >= 0) {

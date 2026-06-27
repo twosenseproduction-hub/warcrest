@@ -363,6 +363,14 @@
       trains: ['grollusk'],
       desc: 'Trains your Horde champion.',
     },
+    ancestor_shrine: {
+      type: 'ancestor_shrine', label: "Ancestor's Shrine", w: 192, h: 192,
+      hp: 1100, cost: 200, build: 55,
+      // All hero ids; the production menu filters to the builder's faction
+      // (see Config.getTrainableUnits). One of each hero may be alive at a time.
+      trains: ['valdris', 'seraphine', 'skrix', 'grollusk', 'thoryn', 'aelindra'],
+      desc: 'Summons your faction heroes. Only one of each may walk the field.',
+    },
     turret: {
       type: 'turret', label: 'Arrow Tower', w: 64, h: 128,
       hp: 520, cost: 100, build: 22,
@@ -392,16 +400,12 @@
                desc: 'Short-range splash shells — smash buildings and clustered foes.' },
   };
 
-  RTS.BuildMenu = ['conduit', 'foundry', 'forge', 'turret', 'outpost'];
+  RTS.BuildMenu = ['conduit', 'foundry', 'forge', 'ancestor_shrine', 'turret', 'outpost'];
 
   RTS.buildMenuFor = function (factionId) {
-    var menu = RTS.BuildMenu.slice();
-    if (factionId === 'cinder') {
-      var fi = menu.indexOf('forge');
-      if (fi >= 0) menu.splice(fi + 1, 0, 'chiefs_hall');
-      else menu.push('chiefs_hall');
-    }
-    return menu;
+    // Ancestor's Shrine is the universal hero-summoning building for every
+    // faction, so it lives in the shared BuildMenu above.
+    return RTS.BuildMenu.slice();
   };
 
   // ---- Factions ------------------------------------------------------------
@@ -422,7 +426,8 @@
       units: ['pawn', 'lancer', 'archer', 'monk', 'warrior'],
       names: {
         core: 'Citadel Keep', conduit: 'Sheep Pen', foundry: 'Barracks',
-        forge: 'War Forge', chiefs_hall: "Chief's Hall", turret: 'Arrow Tower', outpost: 'Forward Bastion',
+        forge: 'War Forge', chiefs_hall: "Chief's Hall", ancestor_shrine: 'Hall of Heroes',
+        turret: 'Arrow Tower', outpost: 'Forward Bastion',
         pawn: 'Peasant', lancer: 'Knight', archer: 'Crossbowman',
         monk: 'Priest', warrior: 'Footman',
       },
@@ -444,7 +449,8 @@
       units: ['gnome', 'spear_goblin', 'gnoll', 'hex_shaman', 'troll'],
       names: {
         core: 'Warren Maw', conduit: 'Pig Sty', foundry: 'War Pit',
-        forge: 'Skull Den', chiefs_hall: "Chief's Hall", turret: 'Bone Spire', outpost: 'Raider Camp',
+        forge: 'Skull Den', chiefs_hall: "Chief's Hall", ancestor_shrine: 'Ancestor Totem',
+        turret: 'Bone Spire', outpost: 'Raider Camp',
         pawn: 'Gnome', lancer: 'Spear Goblin', archer: 'Gnoll',
         monk: 'Hex Shaman', warrior: 'Troll',
       },
@@ -471,6 +477,7 @@
         foundry:     'Warden Lodge',
         forge:       'Root Forge',
         chiefs_hall: 'Elder Sanctum',
+        ancestor_shrine: 'Elder Sanctum',
         turret:      'Canopy Spire',
         outpost:     'Grove Cache',
         pawn:        'Grove Hand',
@@ -497,7 +504,16 @@
 
   RTS.Config.getTrainableUnits = function (fid, buildingType) {
     var spec = RTS.Buildings[buildingType];
-    return spec ? (spec.trains || []) : [];
+    if (!spec || !spec.trains) return [];
+    // Hero roles are faction-specific (e.g. the Ancestor's Shrine lists every
+    // hero) — only show the ones belonging to this faction.
+    return spec.trains.filter(function (role) {
+      if (RTS.isHeroRole && RTS.isHeroRole(role)) {
+        var h = RTS.getHero(role);
+        return !!h && h.faction === fid;
+      }
+      return true;
+    });
   };
 
   RTS.Config.getBuildables = function (fid) {
