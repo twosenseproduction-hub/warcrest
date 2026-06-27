@@ -119,6 +119,9 @@
       RTS.Audio.resume();
       lastT = performance.now();
 
+      // Enable the 3D engine on match start if the player persisted the choice.
+      if (RTS.Config.render3d && RTS.Render3D) RTS.Render3D.enable(state);
+
       var heroTestArena = state.mapId === 'aelindra_test' || state.mapId === 'aelindra_duel'
         || state.mapId === 'aelindra_grove' || state.mapId === 'verdant_reach'
         || !!(state.map && state.map.heroTestFocus);
@@ -257,6 +260,12 @@
       tf.checked = !!(RTS.Config && RTS.Config.tfLook);
       tf.addEventListener('change', function () { if (RTS.setTfLook) RTS.setTfLook(tf.checked); });
     }
+    // 3D engine toggle — reflects the persisted flag and swaps the renderer live.
+    var r3d = $('set-render3d');
+    if (r3d) {
+      r3d.checked = !!(RTS.Config && RTS.Config.render3d);
+      r3d.addEventListener('change', function () { if (RTS.setRender3D) RTS.setRender3D(r3d.checked); });
+    }
     // Collapsible macro unit-select (Thronefall look): toggle fans the chips
     // open; picking a type collapses it again.
     var selToggle = $('tf-sel-toggle');
@@ -296,7 +305,11 @@
     var inGame = state.scene === 'playing' || state.scene === 'paused'
       || state.scene === 'won' || state.scene === 'lost';
     if (inGame) {
-      if (RTS._phaserWorldLayer && RTS._phaserWorldLayer.refresh) {
+      // 3D engine takes over the world view when enabled; the 2D world canvas
+      // is hidden underneath. The HUD (DOM) + minimap still render normally.
+      if (RTS.Config.render3d && RTS.Render3D && RTS.Render3D.isEnabled()) {
+        RTS.Render3D.render(state);
+      } else if (RTS._phaserWorldLayer && RTS._phaserWorldLayer.refresh) {
         RTS._phaserWorldLayer.refresh(state);
       } else if (RTS.Render && RTS.Render.frame) {
         RTS.Render.frame(state);

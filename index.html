@@ -331,6 +331,8 @@
           <input type="checkbox" id="set-health" /></label>
         <label class="set-row"><span>Thronefall look <small style="opacity:.6">(beta)</small></span>
           <input type="checkbox" id="set-tflook" /></label>
+        <label class="set-row"><span>3D engine <small style="opacity:.6">(beta)</small></span>
+          <input type="checkbox" id="set-render3d" /></label>
       </div>
       <button id="btn-settings-back" class="big-btn">Back</button>
     </div>
@@ -383,9 +385,11 @@
 <!-- ===================== SCRIPTS ===================== -->
 <!-- Phaser first so window.Phaser is available -->
 <script src="./phaser.js"></script>
+<!-- Three.js (vendored r149) for the 3D engine renderer -->
+<script src="./vendor/three.min.js"></script>
 
 <!-- RTS game logic — same load order as original (game.js last) -->
-<script src="src/config.js?v=20260627h"></script>
+<script src="src/config.js?v=20260627i"></script>
 <script src="src/heroes.js?v=20260627a"></script>
 <script src="src/size-ref.js?v=20260627a"></script>
 <script src="src/state.js?v=20260627i"></script>
@@ -417,9 +421,10 @@
 <script src="src/building-menu.js?v=20260627a"></script>
 <script src="src/input.js?v=20260627i"></script>
 <script src="src/render.js?v=20260627i"></script>
+<script src="src/render3d.js?v=20260627a"></script>
 <script src="src/ui.js?v=20260627a"></script>
 <script src="src/hud.js?v=20260627i"></script>
-<script src="src/game.js?v=20260627j"></script>
+<script src="src/game.js?v=20260627k"></script>
 
 <!-- Phaser bootstrap — after window.RTS is populated -->
 <script type="module" src="./src/main.js?v=20260627g"></script>

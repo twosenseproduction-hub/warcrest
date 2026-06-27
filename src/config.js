@@ -195,6 +195,22 @@
     tfLook: (function () {
       try { return localStorage.getItem('wc_tflook') === '1'; } catch (e) { return false; }
     })(),
+    // 3D engine (beta): renders the LIVE game through a Three.js scene built from
+    // hand-authored low-poly geometry. The simulation is identical — only the
+    // view changes. Off by default; persisted; toggled in Settings.
+    render3d: (function () {
+      try { return localStorage.getItem('wc_render3d') === '1'; } catch (e) { return false; }
+    })(),
+  };
+
+  // Toggle the 3D engine. Flips the flag, persists it, and enables/disables the
+  // Render3D module (which hides the 2D canvas + installs the 3D camera math).
+  RTS.setRender3D = function (on) {
+    RTS.Config.render3d = !!on;
+    try { localStorage.setItem('wc_render3d', on ? '1' : '0'); } catch (e) {}
+    if (!RTS.Render3D) return;
+    var st = RTS.Game && RTS.Game.state;
+    if (on) RTS.Render3D.enable(st); else RTS.Render3D.disable();
   };
 
   // Toggle the Thronefall look: flips the flag, the <body> skin class, persists
