@@ -1467,7 +1467,25 @@
    * Shadow — soft radial blob (Wild Rift–style ground contact).
    * ========================================================================*/
   function drawShadow(ctx, x, y, r, alpha) {
-    /* shadows disabled */
+    /* Off by default; the Thronefall look turns on soft, long ground shadows
+     * offset toward one key light (down-right), flattened to the ground — the
+     * core of the flat-shaded illusion. Drawn under units, buildings, trees and
+     * resources via this one call site. */
+    if (!(RTS.Config && RTS.Config.tfLook) || !r) return;
+    alpha = (alpha != null ? alpha : 0.3);
+    var ox = r * 0.34, oy = r * 0.12;
+    ctx.save();
+    ctx.translate(x + ox, y + oy);
+    ctx.scale(1, 0.5);
+    var g = ctx.createRadialGradient(0, 0, r * 0.1, 0, 0, r);
+    g.addColorStop(0, 'rgba(22,18,12,' + alpha + ')');
+    g.addColorStop(0.55, 'rgba(22,18,12,' + (alpha * 0.8) + ')');
+    g.addColorStop(1, 'rgba(22,18,12,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
   }
 
   function drawAnimal(ctx, a, s) {

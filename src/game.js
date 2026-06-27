@@ -251,6 +251,12 @@
     if (health) { health.addEventListener('change', function () { state.settings.showHealthAlways = health.checked; }); }
     if (vol) { vol.addEventListener('input', function () {
       state.settings.sfxVolume = +vol.value; RTS.Audio.setVolume(+vol.value); }); }
+    // Thronefall look toggle — reflects the persisted flag and applies live.
+    var tf = $('set-tflook');
+    if (tf) {
+      tf.checked = !!(RTS.Config && RTS.Config.tfLook);
+      tf.addEventListener('change', function () { if (RTS.setTfLook) RTS.setTfLook(tf.checked); });
+    }
   }
 
   function prevSceneForSettings() {

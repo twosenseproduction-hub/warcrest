@@ -1,0 +1,114 @@
+/* ============================================================================
+ * Warcrest — thronefall.css   (BETA "Thronefall look" skin)
+ * A flat-shaded, golden-hour treatment layered OVER the existing pixel game.
+ * Everything here is gated by `body.tf-look`, so the default ornate console is
+ * untouched until the player flips the toggle in Settings. We only restyle the
+ * HUD chrome + add two field overlays — the sprites/canvas are never changed
+ * (soft ground shadows + the day grade come from the renderer + these layers).
+ * ========================================================================== */
+
+body.tf-look {
+  --tf-parch:#efe3c8;  --tf-parch-2:#e3d2ad;  --tf-parch-hi:#f6eed9;
+  --tf-ink:#2b2519;    --tf-ink-soft:#5c5238;
+  --tf-coin:#f0c14b;   --tf-coin-edge:#c8971f;
+  --tf-shadow:rgba(40,40,30,.28);  --tf-lip:rgba(120,96,40,.3);
+}
+
+/* ── Field overlays: warm day color-grade + focus vignette ─────────────────*/
+#tf-grade, #tf-vignette { display:none; }
+body.tf-look #tf-grade {
+  display:block; position:absolute; inset:0; z-index:1; pointer-events:none;
+  background:linear-gradient(180deg, rgba(255,216,150,.20), rgba(255,186,116,.12) 52%, rgba(110,84,52,.16));
+  mix-blend-mode:soft-light;
+}
+body.tf-look #tf-vignette {
+  display:block; position:absolute; inset:0; z-index:1; pointer-events:none;
+  background:radial-gradient(125% 82% at 50% 42%, transparent 54%, rgba(28,24,16,.36) 100%);
+}
+
+/* ── Top bar → floating parchment ──────────────────────────────────────────*/
+body.tf-look #topbar {
+  background:linear-gradient(180deg, var(--tf-parch), var(--tf-parch-2));
+  border-bottom:none;
+  box-shadow:0 3px 0 var(--tf-lip), 0 5px 14px var(--tf-shadow);
+}
+body.tf-look #topbar .hs-cell {
+  background:linear-gradient(180deg, var(--tf-parch-hi), #ecdcb8);
+  border:none; border-radius:999px; padding:3px 10px 3px 5px;
+  box-shadow:0 2px 0 var(--tf-lip), inset 0 1px 0 rgba(255,255,255,.5);
+}
+body.tf-look #topbar .hs-cell .val { color:var(--tf-ink); text-shadow:none; font-weight:800; }
+body.tf-look #topbar .hs-cell .ic-ts { width:15px; height:15px; }
+body.tf-look #topbar .tb-icon {
+  border-radius:13px; border:none; overflow:hidden;
+  background:linear-gradient(180deg, var(--tf-parch-hi), #ecdcb8);
+  box-shadow:0 2px 0 var(--tf-lip), 0 3px 8px var(--tf-shadow);
+}
+body.tf-look #topbar .tb-icon:active { transform:translateY(2px); }
+
+/* ── Shared ornate frame → flat parchment slab ─────────────────────────────*/
+body.tf-look .wc-frame,
+body.tf-look .wc-parch {
+  border:none !important; border-image:none !important;
+  background:linear-gradient(180deg, var(--tf-parch-hi), var(--tf-parch-2)) !important;
+  border-radius:16px !important;
+  box-shadow:0 3px 0 var(--tf-lip), 0 5px 12px var(--tf-shadow);
+}
+
+/* ── Bottom console → parchment ────────────────────────────────────────────*/
+body.tf-look #command-deck {
+  background:linear-gradient(180deg, var(--tf-parch), var(--tf-parch-2));
+  border-top:none;
+  box-shadow:0 -3px 0 var(--tf-lip), 0 -6px 18px var(--tf-shadow);
+}
+
+/* select-by-type chips → rounded parchment, coin highlight when active */
+body.tf-look .ts-chip {
+  border:none; border-radius:12px;
+  background:linear-gradient(180deg, var(--tf-parch-hi), var(--tf-parch-2));
+  box-shadow:0 2px 0 var(--tf-lip), inset 0 1px 0 rgba(255,255,255,.45);
+}
+body.tf-look .ts-chip.active {
+  background:linear-gradient(180deg, #fff3d4, #ecdcb8);
+  box-shadow:0 0 0 2px var(--tf-coin), 0 2px 0 var(--tf-lip);
+}
+body.tf-look .ts-chip .ts-tag { color:var(--tf-ink-soft); text-shadow:none; }
+body.tf-look .ts-chip .ts-count { background:var(--tf-ink); color:#fff; border:none; }
+
+/* command-card slots → softer rounded */
+body.tf-look .deck-left .cmd-slot,
+body.tf-look .cmd-grid > button { border-radius:11px; }
+
+/* selection panel text reads as ink on parchment (already dark; reinforce) */
+body.tf-look .deck-center .hub-title { color:var(--tf-ink); text-shadow:none; }
+body.tf-look .deck-center .hub-subtype,
+body.tf-look .deck-center .hub-status { color:var(--tf-ink-soft); }
+
+/* ── Minimap → soft rounded, no gold frame ─────────────────────────────────*/
+body.tf-look #hub-minimap {
+  border:4px solid var(--tf-parch) !important; border-image:none !important;
+  border-radius:16px; background:#0a0e14;
+  box-shadow:0 3px 0 var(--tf-lip), 0 6px 16px var(--tf-shadow);
+}
+
+/* ── Objective / event log → soft dark pills (drop the red frame) ──────────*/
+body.tf-look #event-log .evt {
+  border:none !important; border-image:none !important;
+  background:rgba(20,18,12,.46); color:#fff; border-radius:10px;
+  padding:5px 9px; text-shadow:none; backdrop-filter:blur(3px);
+}
+
+/* ── Build / Merchant panels → parchment sheets ────────────────────────────*/
+body.tf-look .build-panel {
+  background:linear-gradient(180deg, var(--tf-parch), var(--tf-parch-2)) !important;
+  border:none !important; border-image:none !important; border-radius:18px;
+  box-shadow:0 8px 26px rgba(40,40,30,.42);
+}
+body.tf-look .build-panel .build-panel-head,
+body.tf-look .build-panel #shop-head { color:var(--tf-ink); }
+body.tf-look .build-panel .cmd-slot { border-radius:13px; }
+
+/* tasteful press feedback shared across the skinned chrome */
+body.tf-look #topbar .hs-cell,
+body.tf-look .ts-chip,
+body.tf-look .tb-icon { transition:transform .12s cubic-bezier(.22,.9,.3,1); }

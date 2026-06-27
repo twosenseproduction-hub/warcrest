@@ -189,7 +189,31 @@
 
     matchSoftCapMin: 14,
     reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    // Thronefall look (beta): flat-shaded treatment over the existing pixel art
+    // — soft ground shadows + a warm day grade + a parchment/coin HUD skin.
+    // Off by default; persisted in localStorage; toggled in Settings.
+    tfLook: (function () {
+      try { return localStorage.getItem('wc_tflook') === '1'; } catch (e) { return false; }
+    })(),
   };
+
+  // Toggle the Thronefall look: flips the flag, the <body> skin class, persists
+  // the choice, and invalidates the baked decor cache so tree shadows re-bake.
+  RTS.setTfLook = function (on) {
+    RTS.Config.tfLook = !!on;
+    try { localStorage.setItem('wc_tflook', on ? '1' : '0'); } catch (e) {}
+    if (document && document.body) document.body.classList.toggle('tf-look', !!on);
+    var st = RTS.Game && RTS.Game.state;
+    if (st && st.map) { st.map._decorCache = null; st.map._decorCacheFail = false; }
+  };
+
+  // Apply the persisted look at startup (independent of when Settings binds).
+  (function applyTfLookOnLoad() {
+    if (!RTS.Config.tfLook) return;
+    var apply = function () { if (document.body) document.body.classList.add('tf-look'); };
+    if (document.body) apply();
+    else document.addEventListener('DOMContentLoaded', apply);
+  })();
 
   RTS.Resource      = { label: 'Ironstone' };
   RTS.resourceLabel = function (factionId) {
