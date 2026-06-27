@@ -657,10 +657,15 @@
     });
 
     // After the terrain grid exists, guard each auxiliary (non-main) mine with
-    // a neutral creep camp — clear it to expand safely (WC3-style).
+    // a neutral creep camp — clear it to expand safely (WC3-style). Never spawn
+    // a camp near a START base, even if that mine isn't the single closest one
+    // (a second home-adjacent mine would otherwise drop creeps onto the base).
     if (meta.creepCamps !== false && RTS.makeCreep) {
+      var SAFE = (meta.creepSafeRadius != null ? meta.creepSafeRadius : 9) * 64; // px
       mg.gold.forEach(function (g) {
-        if (!isHomeGoldOnMap(mg, g)) spawnCreepCamp(s, g.x, g.y, meta.creepFaction);
+        if (isHomeGoldOnMap(mg, g)) return;
+        if (dist(g.x, g.y, px, py) < SAFE || dist(g.x, g.y, ex, ey) < SAFE) return;
+        spawnCreepCamp(s, g.x, g.y, meta.creepFaction);
       });
     }
   }
