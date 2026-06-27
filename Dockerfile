@@ -7,5 +7,7 @@ COPY phaser.js /usr/share/nginx/html/
 COPY styles/ /usr/share/nginx/html/styles/
 COPY src/ /usr/share/nginx/html/src/
 COPY assets/ /usr/share/nginx/html/assets/
+COPY vendor/ /usr/share/nginx/html/vendor/
+COPY poc/ /usr/share/nginx/html/poc/
 
 EXPOSE 8080
