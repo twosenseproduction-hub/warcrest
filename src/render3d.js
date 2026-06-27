@@ -637,10 +637,24 @@
   /* ===========================================================================
    * Init
    * ========================================================================= */
+  var IS_MOBILE = /Mobi|Android|iPhone|iPad|iPod/i.test((typeof navigator !== 'undefined' && navigator.userAgent) || '');
+  // Surface a 3D failure to the player instead of silently dropping to 2D.
+  function warn3d(msg) {
+    try { if (RTS.toast && RTS.Game) RTS.toast(RTS.Game.state, msg); } catch (e) {}
+    try { console.warn('[Render3D] ' + msg); } catch (e) {}
+    try {
+      var el = document.getElementById('r3d-msg');
+      if (!el) { el = document.createElement('div'); el.id = 'r3d-msg';
+        el.style.cssText = 'position:fixed;left:50%;top:14%;transform:translateX(-50%);z-index:9999;background:rgba(40,20,16,.92);color:#ffd9b0;font:600 13px system-ui;padding:10px 16px;border-radius:10px;max-width:80%;text-align:center;pointer-events:none;';
+        document.body.appendChild(el); }
+      el.textContent = msg; el.style.display = 'block';
+      setTimeout(function () { if (el) el.style.display = 'none'; }, 5000);
+    } catch (e) {}
+  }
   function init() {
     if (R.inited) return true;
     THREE = window.THREE;
-    if (!THREE) return false;
+    if (!THREE) { warn3d('3D engine: graphics library failed to load.'); return false; }
     var cv = document.getElementById('game3d');
     if (!cv) {
       cv = document.createElement('canvas'); cv.id = 'game3d';
@@ -652,9 +666,14 @@
       hud.parentNode.insertBefore(cv, hud);
     }
     R.canvas = cv;
-    R.renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true });
-    R.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    R.renderer.shadowMap.enabled = true; R.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    try {
+      // gentler options on phones: antialias off (some mobile GPUs reject the
+      // context with it on), allow software fallback rather than failing hard.
+      R.renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: !IS_MOBILE, powerPreference: 'default', failIfMajorPerformanceCaveat: false });
+    } catch (e) { warn3d('3D engine: this device could not start WebGL. Staying in 2D.'); return false; }
+    if (!R.renderer || !R.renderer.getContext || !R.renderer.getContext()) { warn3d('3D engine: no WebGL context. Staying in 2D.'); return false; }
+    R.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, IS_MOBILE ? 1.5 : 2));
+    R.renderer.shadowMap.enabled = true; R.renderer.shadowMap.type = IS_MOBILE ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
     if ('outputEncoding' in R.renderer && THREE.sRGBEncoding) R.renderer.outputEncoding = THREE.sRGBEncoding;
     R.scene = new THREE.Scene();
     R.scene.background = new THREE.Color(0xbfd8e6);
@@ -663,7 +682,7 @@
     R.amb = new THREE.AmbientLight(0xfff3df, 0.42); R.scene.add(R.amb);
     R.hemi = new THREE.HemisphereLight(0xfdeecb, 0x4a5230, 0.2); R.scene.add(R.hemi);
     R.sun = new THREE.DirectionalLight(0xfff0cf, 1.6);
-    R.sun.castShadow = true; R.sun.shadow.mapSize.set(2048, 2048);
+    R.sun.castShadow = true; R.sun.shadow.mapSize.set(IS_MOBILE ? 1024 : 2048, IS_MOBILE ? 1024 : 2048);
     var sc = R.sun.shadow.camera; sc.near = 50; sc.far = 2600; sc.left = -900; sc.right = 900; sc.top = 900; sc.bottom = -900;
     R.sun.shadow.bias = -0.0006;
     R.scene.add(R.sun); R.scene.add(R.sun.target);
