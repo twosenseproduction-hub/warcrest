@@ -286,7 +286,7 @@
 
     // Thronefall preview: tapping an unused build plot opens the build menu
     // anchored to that plot. Small target, so it's an intentional tap.
-    if (RTS.Config.tfLook && s.map && s.map.buildPlots && !additive) {
+    if ((RTS.Config.tfLook || RTS.Config.render3d) && s.map && s.map.buildPlots && !additive) {
       for (var pi = 0; pi < s.map.buildPlots.length; pi++) {
         var bp = s.map.buildPlots[pi];
         if (bp.used) continue;

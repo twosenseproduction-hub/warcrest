@@ -96,101 +96,106 @@
    * Warm cream stone + red-brown roofs, crenellated battlements, clean low-poly
    * forms under strong directional light. A faction-colored banner keeps side
    * identity. Shared warm materials built once. */
-  var BP = null;
-  function buildingPalette() {
-    BP = {
-      cream: M(0xe7d8b4), creamD: M(0xcdba8e), stone: M(0xd8cba6), stoneD: M(0xb6a47e),
-      roof: M(0xb5503a), roofD: M(0x8c3b2b), wood: M(0x7a5436), woodD: M(0x573a24),
-      door: M(0x4a3220), gold: M(0xe4b53a),
-    };
+  // Per-race building palette — Thronefall architecture: terracotta wall BODIES
+  // with cream crenellated CAPS/tops. Each faction shifts the body+cap tint and
+  // flies a faction banner for side identity.
+  var RACETINT = {
+    crown: { body: 0xb5503a, bodyD: 0x8a3b2b, cap: 0xe9dcc0, capD: 0xcdba8e },   // terracotta + cream
+    horde: { body: 0x7d3528, bodyD: 0x551f17, cap: 0xccbd95, capD: 0xa8946a },   // oxblood + bone
+    elf:   { body: 0x3f7d6a, bodyD: 0x2b5849, cap: 0xe7e6cf, capD: 0xc4c4a8 },   // teal + pale
+  };
+  var BPR = {}, BP = null;
+  function bpFor(race) {
+    if (BPR[race]) return BPR[race];
+    var t = RACETINT[race] || RACETINT.crown;
+    BPR[race] = { body: M(t.body), bodyD: M(t.bodyD), cap: M(t.cap), capD: M(t.capD),
+      wood: M(0x7a5436), woodD: M(0x573a24), door: M(0x3f2a18), gold: M(0xe4b53a) };
+    return BPR[race];
   }
   function factionBanner(race) {
     return new THREE.MeshStandardMaterial({ color: (TFCOL[race] || TFCOL.crown).body, flatShading: true, roughness: 1 });
   }
-  // crenellated rim: ring of merlons around a square top of half-width hw at height y
+  // ring of merlons around a square top (half-width hw, height y)
   function crenellate(g, hw, y, mat) {
     var n = 4, step = (hw * 2) / n;
     for (var s = -hw; s <= hw + 0.01; s += step) {
-      [[s, hw], [s, -hw], [hw, s], [-hw, s]].forEach(function (p) {
-        g.add(box(step * 0.62, 0.5, step * 0.62, mat, p[0], y, p[1]));
-      });
+      [[s, hw], [s, -hw], [hw, s], [-hw, s]].forEach(function (p) { g.add(box(step * 0.6, 0.55, step * 0.6, mat, p[0], y, p[1])); });
     }
+  }
+  function sideStair(g, x, mat) { for (var i = 0; i < 6; i++) g.add(box(0.9, 0.34, 1.5, mat, x, 0.5 + i * 0.78, 0)); }
+  function tfTower(race) {
+    var g = new THREE.Group();
+    g.add(box(2.4, 5.0, 2.4, BP.body, 0, 2.5, 0));                 // terracotta shaft
+    g.add(box(3.3, 0.7, 3.3, BP.cap, 0, 5.15, 0));                 // corbeled cream cap (overhangs)
+    crenellate(g, 1.5, 5.7, BP.cap);
+    sideStair(g, 1.95, BP.capD);
+    g.add(box(0.7, 1.0, 0.18, BP.door, 0, 0.8, 1.22));
+    g.add(box(0.7, 0.45, 0.05, factionBanner(race), 0, 6.3, 0));
+    return g;
   }
   function tfKeep(race) {
     var g = new THREE.Group();
-    g.add(box(5.2, 4.2, 5.2, BP.cream, 0, 2.1, 0));            // main body
-    g.add(box(5.6, 0.4, 5.6, BP.creamD, 0, 4.1, 0));          // lip
-    crenellate(g, 2.6, 4.5, BP.cream);
-    // taller central turret with red roof + banner
-    g.add(box(2.6, 2.6, 2.6, BP.stone, 0, 5.4, 0));
-    var roof = cone(2.3, 2.0, 4, BP.roof); roof.rotation.y = Math.PI / 4; roof.position.y = 7.6; g.add(roof);
-    g.add(box(0.12, 1.6, 0.12, BP.woodD, 0, 8.8, 0));
-    var flag = box(1.0, 0.6, 0.06, factionBanner(race), 0.55, 8.7, 0); g.add(flag);
-    g.add(box(1.5, 2.0, 0.3, BP.door, 0, 1.0, 2.62));         // door
+    g.add(box(5.6, 3.4, 5.6, BP.body, 0, 1.7, 0));                 // base tier
+    g.add(box(6.0, 0.6, 6.0, BP.cap, 0, 3.55, 0)); crenellate(g, 2.9, 4.05, BP.cap);
+    g.add(box(3.2, 2.6, 3.2, BP.body, 0, 5.0, 0));                 // upper tier
+    g.add(box(3.6, 0.5, 3.6, BP.cap, 0, 6.3, 0)); crenellate(g, 1.7, 6.75, BP.cap);
+    g.add(box(0.14, 1.7, 0.14, BP.woodD, 0, 7.6, 0)); g.add(box(1.1, 0.6, 0.05, factionBanner(race), 0.6, 7.5, 0));
+    g.add(box(1.7, 2.1, 0.3, BP.door, 0, 1.05, 2.85));
+    sideStair(g, 3.3, BP.capD);
     return g;
   }
-  function tfTower(race) {
+  function tfHouse(race) {
     var g = new THREE.Group();
-    g.add(box(2.6, 5.0, 2.6, BP.cream, 0, 2.5, 0));
-    g.add(box(3.0, 0.4, 3.0, BP.creamD, 0, 4.9, 0));
-    crenellate(g, 1.4, 5.3, BP.cream);
-    g.add(box(0.7, 1.0, 0.15, BP.door, 0, 0.8, 1.32));
-    var flag = box(0.7, 0.4, 0.05, factionBanner(race), 0, 5.9, 0); g.add(flag);
-    return g;
-  }
-  function tfHall(race) {
-    var g = new THREE.Group();
-    g.add(box(5.0, 2.6, 4.0, BP.cream, 0, 1.3, 0));
-    var roof = cone(3.8, 2.2, 4, BP.roof); roof.rotation.y = Math.PI / 4; roof.scale.set(1, 1, 0.82); roof.position.y = 3.7; g.add(roof);
-    g.add(box(5.2, 0.3, 4.2, BP.roofD, 0, 2.55, 0));          // eave
-    g.add(box(1.3, 1.7, 0.3, BP.door, 0, 0.85, 2.05));
-    g.add(box(0.8, 0.8, 0.15, BP.woodD, -1.6, 1.6, 2.05)); g.add(box(0.8, 0.8, 0.15, BP.woodD, 1.6, 1.6, 2.05)); // windows
-    g.add(box(0.7, 0.4, 0.05, factionBanner(race), 2.0, 2.3, 2.1));
-    return g;
-  }
-  function tfWindmill(race) {
-    var g = new THREE.Group();
-    g.add(cyl(1.6, 2.0, 4.4, 9, BP.cream).translateY(2.2));
-    var cap = cone(1.9, 1.3, 9, BP.roof); cap.position.y = 5.0; g.add(cap);
-    var hub = new THREE.Group(); hub.position.set(0, 4.0, 2.0);
-    for (var i = 0; i < 4; i++) { var bl = box(0.5, 2.6, 0.12, BP.wood, 0, 1.3, 0); var blade = new THREE.Group(); blade.add(bl); blade.rotation.z = i * Math.PI / 2; hub.add(blade); }
-    g.add(hub);
-    g.add(box(1.2, 1.6, 0.3, BP.door, 0, 0.8, 1.9));
+    g.add(box(4.4, 2.2, 3.6, BP.body, 0, 1.1, 0));
+    g.add(box(4.8, 0.5, 4.0, BP.cap, 0, 2.25, 0));                 // cream flat top
+    g.add(box(1.2, 1.5, 0.3, BP.door, 0, 0.75, 1.85));
+    g.add(box(0.8, 0.8, 0.16, BP.cap, -1.4, 1.4, 1.85));
+    g.add(cyl(1.0, 1.0, 2.5, 9, BP.body).translateX(3.0).translateY(1.25));   // round silo
+    g.add(cyl(1.12, 1.12, 0.4, 9, BP.cap).translateX(3.0).translateY(2.55));
     return g;
   }
   function tfBarracks(race) {
     var g = new THREE.Group();
-    g.add(box(6.0, 2.4, 3.6, BP.cream, 0, 1.2, 0));
-    var roof = cone(4.2, 1.8, 4, BP.roof); roof.rotation.y = Math.PI / 4; roof.scale.set(1.3, 1, 0.7); roof.position.y = 3.3; g.add(roof);
-    g.add(box(6.2, 0.3, 3.8, BP.roofD, 0, 2.4, 0));
-    g.add(box(1.2, 1.6, 0.3, BP.door, 0, 0.8, 1.85));
-    g.add(box(0.7, 0.8, 0.15, BP.woodD, -1.9, 1.5, 1.85)); g.add(box(0.7, 0.8, 0.15, BP.woodD, 1.9, 1.5, 1.85));
-    g.add(box(0.12, 1.6, 0.12, BP.woodD, -2.7, 3.1, 0)); g.add(box(0.9, 0.5, 0.05, factionBanner(race), -2.25, 3.6, 0));
+    g.add(box(6.0, 2.3, 3.6, BP.body, 0, 1.15, 0));
+    g.add(box(6.4, 0.5, 4.0, BP.cap, 0, 2.35, 0));
+    g.add(box(1.2, 1.5, 0.3, BP.door, 0, 0.75, 1.85));
+    g.add(box(0.7, 0.8, 0.16, BP.cap, -1.9, 1.4, 1.85)); g.add(box(0.7, 0.8, 0.16, BP.cap, 1.9, 1.4, 1.85));
+    g.add(box(0.14, 1.7, 0.14, BP.woodD, -2.8, 3.2, 0)); g.add(box(0.95, 0.55, 0.05, factionBanner(race), -2.3, 3.7, 0));
+    return g;
+  }
+  function tfWindmill(race) {
+    var g = new THREE.Group();
+    g.add(cyl(1.5, 2.0, 4.4, 9, BP.body).translateY(2.2));
+    g.add(cyl(2.1, 2.1, 0.5, 9, BP.cap).translateY(4.55));
+    var capCone = cone(1.9, 1.2, 9, BP.cap); capCone.position.y = 5.35; g.add(capCone);
+    var hub = new THREE.Group(); hub.position.set(0, 4.0, 2.1);
+    for (var i = 0; i < 4; i++) { var blade = new THREE.Group(); blade.add(box(0.5, 2.6, 0.12, BP.wood, 0, 1.3, 0)); blade.rotation.z = i * Math.PI / 2; hub.add(blade); }
+    g.add(hub); g.add(box(1.2, 1.6, 0.3, BP.door, 0, 0.8, 1.9));
     return g;
   }
   function tfFarm() {
     var g = new THREE.Group();
-    g.add(box(4.8, 0.12, 5.2, BP.woodD, 0, 0.04, 0));        // plot border
-    for (var i = -3; i <= 3; i++) g.add(box(0.5, 0.16, 4.8, (i % 2 ? BP.wood : BP.creamD), i * 0.62, 0.12, 0)); // furrows
-    var hut = new THREE.Group(); hut.position.set(2.4, 0, -3.4);
-    hut.add(box(1.8, 1.4, 1.8, BP.cream, 0, 0.7, 0)); var r = cone(1.5, 1.0, 4, BP.roof); r.rotation.y = Math.PI / 4; r.position.y = 1.9; hut.add(r);
-    g.add(hut);
+    g.add(box(4.8, 0.12, 5.2, BP.bodyD, 0, 0.04, 0));
+    for (var i = -3; i <= 3; i++) g.add(box(0.5, 0.16, 4.8, (i % 2 ? BP.wood : BP.cap), i * 0.62, 0.12, 0));
+    var hut = new THREE.Group(); hut.position.set(2.5, 0, -3.4);
+    hut.add(box(1.8, 1.3, 1.8, BP.body, 0, 0.65, 0)); hut.add(box(2.0, 0.4, 2.0, BP.cap, 0, 1.45, 0)); g.add(hut);
     return g;
   }
   function tfForge() {
     var g = new THREE.Group();
-    g.add(box(4.4, 2.4, 4.0, BP.stone, 0, 1.2, 0));
-    var roof = cone(3.4, 1.6, 4, BP.roof); roof.rotation.y = Math.PI / 4; roof.position.y = 3.1; g.add(roof);
-    g.add(cyl(0.6, 0.7, 2.6, 7, BP.stoneD).translateX(1.4).translateY(3.0).translateZ(-1.0));
+    g.add(box(4.4, 2.3, 4.0, BP.body, 0, 1.15, 0));
+    g.add(box(4.8, 0.5, 4.4, BP.cap, 0, 2.35, 0));
+    g.add(cyl(0.6, 0.7, 2.8, 7, BP.bodyD).translateX(1.4).translateY(3.2).translateZ(-1.0));
     var ember = new THREE.Mesh(new THREE.IcosahedronGeometry(0.42, 0), new THREE.MeshStandardMaterial({ color: 0xff7a2a, emissive: 0xff5a1a, emissiveIntensity: 0.9, flatShading: true }));
-    ember.position.set(1.4, 4.4, -1.0); g.add(ember);
-    g.add(box(1.5, 1.7, 0.3, BP.door, 0, 0.85, 2.05));
+    ember.position.set(1.4, 4.7, -1.0); g.add(ember);
+    g.add(box(1.5, 1.6, 0.3, BP.door, 0, 0.8, 2.05));
     return g;
   }
   function tfWall() {
     var g = new THREE.Group();
-    g.add(box(5.2, 2.2, 1.5, BP.cream, 0, 1.1, 0));
-    for (var x = -2.1; x <= 2.11; x += 0.74) g.add(box(0.46, 0.55, 1.5, BP.cream, x, 2.4, 0));   // merlons along length
+    g.add(box(5.4, 2.0, 1.5, BP.body, 0, 1.0, 0));
+    g.add(box(5.6, 0.4, 1.7, BP.cap, 0, 2.1, 0));                  // cream cap
+    for (var x = -2.2; x <= 2.21; x += 0.73) g.add(box(0.46, 0.5, 1.6, BP.cap, x, 2.5, 0));   // merlons
     return g;
   }
   // inverted-hull toon outline (works with the core three build; no post-pass):
@@ -208,8 +213,8 @@
     });
   }
   function makeBuildingMesh(b) {
-    if (!BP) buildingPalette();
     var race = raceOf(b.faction);
+    BP = bpFor(race);
     var t = b.type || '';
     var g;
     if (/core|keep|castle|townhall|citadel|chiefs_hall/.test(t)) g = tfKeep(race);
@@ -219,7 +224,7 @@
     else if (/foundry|barrack/.test(t)) g = tfBarracks(race);
     else if (/conduit|sheep|farm|pen/.test(t)) g = tfFarm();
     else if (/windmill|mill|merchant|market/.test(t)) g = tfWindmill(race);
-    else g = tfHall(race);
+    else g = tfHouse(race);
     g.traverse(function (o) { o.castShadow = true; o.receiveShadow = true; });
     addOutline(g, 0.06);
     fitWidth(g, (b.w || 128) * 0.92);
@@ -826,19 +831,45 @@
   }
 
   // selection rings (re-created cheaply each frame into a single group)
-  var selGroup = null;
+  // selection rings + build-plot markers — pooled & pulsing (no per-frame alloc)
+  var selGroup = null, SEL_GEO = null, SEL_MAT = null, selPool = [], PLOT_GEO = null, PLOT_MAT = null, plotPool = [];
+  function flatRing(geo, mat) { var m = new THREE.Mesh(geo, mat); m.rotation.x = -Math.PI / 2; m.renderOrder = 3; return m; }
   function drawSelection(s) {
-    if (!selGroup) { selGroup = new THREE.Group(); R.scene.add(selGroup); }
-    while (selGroup.children.length) { var c = selGroup.children.pop(); if (c.geometry) c.geometry.dispose(); }
-    var ids = s.selectedIds || [];
-    ids.forEach(function (id) {
-      var slot = R.pool[id]; if (!slot) return;
-      var u = slot.obj;
-      var r = 26;
-      var ring = new THREE.Mesh(new THREE.RingGeometry(r * 0.8, r, 22), new THREE.MeshBasicMaterial({ color: 0x7ff0a0, transparent: true, opacity: 0.85, side: THREE.DoubleSide }));
-      ring.rotation.x = -Math.PI / 2; ring.position.set(u.position.x, u.position.y + 1.5, u.position.z);
-      selGroup.add(ring);
-    });
+    if (!selGroup) {
+      selGroup = new THREE.Group(); R.scene.add(selGroup);
+      SEL_GEO = new THREE.RingGeometry(0.78, 1, 26);
+      SEL_MAT = new THREE.MeshBasicMaterial({ color: 0x8fffb0, transparent: true, opacity: 0.92, side: THREE.DoubleSide, depthWrite: false });
+    }
+    var ids = s.selectedIds || [], t = performance.now() * 0.001, pulse = 1 + Math.sin(t * 5) * 0.07;
+    for (var i = 0; i < ids.length; i++) {
+      var slot = R.pool[ids[i]];
+      var m = selPool[i];
+      if (!slot) { if (m) m.visible = false; continue; }
+      if (!m) { m = flatRing(SEL_GEO, SEL_MAT); selGroup.add(m); selPool[i] = m; }
+      m.visible = true;
+      var r = (slot.kind === 'building') ? 38 : 17;
+      m.scale.set(r * pulse, r * pulse, 1);
+      m.position.set(slot.obj.position.x, slot.obj.position.y + 1.2, slot.obj.position.z);
+    }
+    for (var j = ids.length; j < selPool.length; j++) if (selPool[j]) selPool[j].visible = false;
+  }
+  // Thronefall fixed build plots: pulsing gold ground rings on unused spots
+  function drawBuildPlots(s) {
+    var plots = s.map && s.map.buildPlots;
+    if (!plots) { for (var k = 0; k < plotPool.length; k++) if (plotPool[k]) plotPool[k].visible = false; return; }
+    if (!PLOT_GEO) {
+      PLOT_GEO = new THREE.RingGeometry(0.66, 1, 22);
+      PLOT_MAT = new THREE.MeshBasicMaterial({ color: 0xf0d24b, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false });
+    }
+    var t = performance.now() * 0.001, pulse = 1 + Math.sin(t * 3) * 0.13;
+    for (var i = 0; i < plots.length; i++) {
+      var p = plots[i], m = plotPool[i];
+      if (!m) { m = flatRing(PLOT_GEO, PLOT_MAT); (selGroup || R.scene).add(m); plotPool[i] = m; }
+      if (p.used) { m.visible = false; continue; }
+      m.visible = true; m.scale.set(30 * pulse, 30 * pulse, 1);
+      m.position.set(p.x, groundYAt(s, p.x, p.y) + 1.0, p.y);
+    }
+    for (var j = plots.length; j < plotPool.length; j++) if (plotPool[j]) plotPool[j].visible = false;
   }
 
   function freeSlot(sl) {
@@ -925,6 +956,7 @@
     syncProjectiles(s);
     syncEffects(s);
     drawSelection(s);
+    drawBuildPlots(s);
     gc();
     R.renderer.render(R.scene, R.camera);
   }
