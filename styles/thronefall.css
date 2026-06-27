@@ -112,3 +112,29 @@ body.tf-look .build-panel .cmd-slot { border-radius:13px; }
 body.tf-look #topbar .hs-cell,
 body.tf-look .ts-chip,
 body.tf-look .tb-icon { transition:transform .12s cubic-bezier(.22,.9,.3,1); }
+
+/* ── REMOVE THE HUB ────────────────────────────────────────────────────────
+   The big bottom command deck + empty selection scroll dominate the screen
+   (especially in landscape). Dissolve the deck into floating, minimal controls
+   so the field fills the screen — the Thronefall direction. The default HUD
+   (look off) keeps its console untouched. */
+body.tf-look #command-deck {
+  background:transparent !important; box-shadow:none !important; border-top:none !important;
+  padding:0 10px calc(env(safe-area-inset-bottom) + 10px); pointer-events:none;
+}
+body.tf-look #command-deck > * { pointer-events:auto; }
+body.tf-look #bottom-hub,
+body.tf-look .deck-left {
+  background:transparent !important; box-shadow:none !important; border:none !important;
+  border-image:none !important; padding:0; gap:8px;
+}
+/* the giant empty selection scroll + the retired combat cluster — gone */
+body.tf-look .deck-center,
+body.tf-look #hub-action-grid { display:none !important; }
+/* keep the bottom-hub from stretching a phantom second column across the width */
+body.tf-look #bottom-hub { grid-template-columns:auto; justify-content:flex-start; }
+/* broken left quick-select rail blobs — hidden (the collapsible selector replaces them) */
+body.tf-look #btn-rail-army,
+body.tf-look #btn-rail-pawns { display:none !important; }
+/* float the type chips + command card as a compact bottom-left cluster */
+body.tf-look .deck-left { width:max-content; }
