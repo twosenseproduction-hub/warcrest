@@ -158,16 +158,70 @@
     g.add(box(1.2, 1.6, 0.3, BP.door, 0, 0.8, 1.9));
     return g;
   }
+  function tfBarracks(race) {
+    var g = new THREE.Group();
+    g.add(box(6.0, 2.4, 3.6, BP.cream, 0, 1.2, 0));
+    var roof = cone(4.2, 1.8, 4, BP.roof); roof.rotation.y = Math.PI / 4; roof.scale.set(1.3, 1, 0.7); roof.position.y = 3.3; g.add(roof);
+    g.add(box(6.2, 0.3, 3.8, BP.roofD, 0, 2.4, 0));
+    g.add(box(1.2, 1.6, 0.3, BP.door, 0, 0.8, 1.85));
+    g.add(box(0.7, 0.8, 0.15, BP.woodD, -1.9, 1.5, 1.85)); g.add(box(0.7, 0.8, 0.15, BP.woodD, 1.9, 1.5, 1.85));
+    g.add(box(0.12, 1.6, 0.12, BP.woodD, -2.7, 3.1, 0)); g.add(box(0.9, 0.5, 0.05, factionBanner(race), -2.25, 3.6, 0));
+    return g;
+  }
+  function tfFarm() {
+    var g = new THREE.Group();
+    g.add(box(4.8, 0.12, 5.2, BP.woodD, 0, 0.04, 0));        // plot border
+    for (var i = -3; i <= 3; i++) g.add(box(0.5, 0.16, 4.8, (i % 2 ? BP.wood : BP.creamD), i * 0.62, 0.12, 0)); // furrows
+    var hut = new THREE.Group(); hut.position.set(2.4, 0, -3.4);
+    hut.add(box(1.8, 1.4, 1.8, BP.cream, 0, 0.7, 0)); var r = cone(1.5, 1.0, 4, BP.roof); r.rotation.y = Math.PI / 4; r.position.y = 1.9; hut.add(r);
+    g.add(hut);
+    return g;
+  }
+  function tfForge() {
+    var g = new THREE.Group();
+    g.add(box(4.4, 2.4, 4.0, BP.stone, 0, 1.2, 0));
+    var roof = cone(3.4, 1.6, 4, BP.roof); roof.rotation.y = Math.PI / 4; roof.position.y = 3.1; g.add(roof);
+    g.add(cyl(0.6, 0.7, 2.6, 7, BP.stoneD).translateX(1.4).translateY(3.0).translateZ(-1.0));
+    var ember = new THREE.Mesh(new THREE.IcosahedronGeometry(0.42, 0), new THREE.MeshStandardMaterial({ color: 0xff7a2a, emissive: 0xff5a1a, emissiveIntensity: 0.9, flatShading: true }));
+    ember.position.set(1.4, 4.4, -1.0); g.add(ember);
+    g.add(box(1.5, 1.7, 0.3, BP.door, 0, 0.85, 2.05));
+    return g;
+  }
+  function tfWall() {
+    var g = new THREE.Group();
+    g.add(box(5.2, 2.2, 1.5, BP.cream, 0, 1.1, 0));
+    for (var x = -2.1; x <= 2.11; x += 0.74) g.add(box(0.46, 0.55, 1.5, BP.cream, x, 2.4, 0));   // merlons along length
+    return g;
+  }
+  // inverted-hull toon outline (works with the core three build; no post-pass):
+  // a back-faced black shell slightly larger than each mesh reads as a dark edge.
+  var OUTLINE_MAT = null;
+  function addOutline(group, k) {
+    if (!OUTLINE_MAT) OUTLINE_MAT = new THREE.MeshBasicMaterial({ color: 0x241d15, side: THREE.BackSide });
+    var meshes = [];
+    group.traverse(function (o) { if (o.isMesh && o.material !== OUTLINE_MAT) meshes.push(o); });
+    meshes.forEach(function (m) {
+      var h = new THREE.Mesh(m.geometry, OUTLINE_MAT);
+      h.position.copy(m.position); h.quaternion.copy(m.quaternion); h.scale.copy(m.scale).multiplyScalar(1 + k);
+      h.castShadow = false; h.receiveShadow = false; h.renderOrder = -1;
+      (m.parent || group).add(h);
+    });
+  }
   function makeBuildingMesh(b) {
     if (!BP) buildingPalette();
     var race = raceOf(b.faction);
     var t = b.type || '';
     var g;
-    if (/core|keep|castle|hall|townhall|citadel/.test(t)) g = tfKeep(race);
-    else if (/turret|tower|conduit/.test(t)) g = tfTower(race);
-    else if (/conduit|sheep|farm|mill|merchant/.test(t)) g = tfWindmill(race);
+    if (/core|keep|castle|townhall|citadel|chiefs_hall/.test(t)) g = tfKeep(race);
+    else if (/wall|gate|rampart/.test(t)) g = tfWall();
+    else if (/turret|tower/.test(t)) g = tfTower(race);
+    else if (/forge/.test(t)) g = tfForge();
+    else if (/foundry|barrack/.test(t)) g = tfBarracks(race);
+    else if (/conduit|sheep|farm|pen/.test(t)) g = tfFarm();
+    else if (/windmill|mill|merchant|market/.test(t)) g = tfWindmill(race);
     else g = tfHall(race);
     g.traverse(function (o) { o.castShadow = true; o.receiveShadow = true; });
+    addOutline(g, 0.06);
     fitWidth(g, (b.w || 128) * 0.92);
     return g;
   }
@@ -423,6 +477,7 @@
       g.add(box(0.14, 0.5, 0.14, M(0xe4b53a), 0, 2.0, 0));
     }
     g.traverse(function (o) { o.castShadow = true; });
+    addOutline(g, 0.12);
     return g;
   }
 
@@ -627,15 +682,15 @@
    * The 2D view shows world rect [cam.x, cam.y] sized (W/zoom, H/zoom). We aim
    * the 3D camera at the center of that rect and pull back proportional to it.
    * ========================================================================= */
-  var PITCH = 0.92;          // radians above horizon (lower = more oblique)
+  var PITCH = 0.84;          // radians above horizon — a Thronefall-ish 3/4 tilt
   function viewCenter(s) {
     var c = s.camera, vw = window.innerWidth, vh = window.innerHeight;
     return { x: c.x + (vw / c.zoom) / 2, z: c.y + (vh / c.zoom) / 2, span: vh / c.zoom };
   }
   function placeCamera(s) {
     var v = viewCenter(s);
-    var dist = v.span * 0.6 / Math.tan(R.camera.fov * Math.PI / 360);
-    var tgtY = 20;
+    var dist = v.span * 0.52 / Math.tan(R.camera.fov * Math.PI / 360);  // tighter framing
+    var tgtY = 18;
     R.camera.position.set(v.x, tgtY + dist * Math.sin(PITCH), v.z + dist * Math.cos(PITCH));
     R.camera.lookAt(v.x, tgtY, v.z);
     // park the sun + shadow frustum over the view center
