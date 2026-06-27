@@ -1,27 +1,32 @@
 #!/usr/bin/env python3
-"""Author the FULL board of Tideland Crossing.
+"""Author the FULL board of Tideland Crossing — a classic WC2 2-player island
+map, translated to Warcrest.
 
-Layout goal (player request):
-  * Big, OPEN buildable land — not a cramped archipelago.
-  * A central water GULF that opens to the north sea and splits the top of the
-    map in two, so the only way between the two bases is DOWN one side, across
-    a southern land bridge, and back UP — "go down and around".
-  * SPARSE trees (which are solid/collidable in-engine), scattered on land and
-    kept well clear of the bases, mines and the central corridor.
+Reference feel (docs/WC3_MAP_TRANSLATION.md capture sheet):
+  * Wide rectangle with a FULL water border.
+  * Grass landmasses split by water CHANNELS and joined by narrow LAND BRIDGES
+    — distinct islands, not one solid slab (that's what makes it read WC2).
+  * 2 players, horizontally symmetric: top-left vs top-right.
+  * A central water GULF opens to the north sea and splits the top, so the only
+    way across is DOWN one side, over the southern bridge, and back UP.
+  * 3 gold mines per side (main by the start, a mid mine, a lower mine).
+  * Neutral structures on the centre seam: merchant up top of the bridge,
+    mercenaries at the bottom.
+  * Sparse trees (collidable in-engine) + scattered ground detail.
 
-Emits a `mirror: none` .map (the board is built symmetrically in Python).
+Islands are still LARGE so there is real room to build. Emits `mirror: none`
+(the board is built symmetrically in Python).
 Regenerate:
   python3 tools/mapgen/sources/gen_tideland.py > tools/mapgen/sources/tideland-crossing.map
 """
 
-W, H = 72, 50          # tiles — 4608 x 3200 px. Roomy enough to actually build.
-CX = W // 2            # vertical centre line (the mirror seam)
-MOAT = 2               # water border thickness (island feel)
-GULF_BOTTOM = 32       # gulf reaches this row; everything below is land bridge
-GULF_TOP_HALF = 9.0    # gulf half-width (tiles) at the very top
+W, H = 72, 50          # tiles — 4608 x 3200 px
+CX = W // 2            # vertical centre line
+MOAT = 2               # outer water border thickness
 TREE_DENSITY = 0.06    # fraction of eligible land tiles that get a tree
 
-grid = [['.'] * W for _ in range(H)]
+# everything starts as sea; land is carved in as islands
+grid = [['~'] * W for _ in range(H)]
 
 
 def prng(x, y, salt=0):
@@ -29,25 +34,52 @@ def prng(x, y, salt=0):
     return ((h >> 4) & 0xffff) / 65535.0
 
 
-# ── Water: outer moat + central gulf ────────────────────────────────────────
+def island(cx, cy, rx, ry, jitter=0.10):
+    """Carve a grass island. Coastline is roughened with a little per-tile
+    noise so it reads blocky-organic like a WC2 coast (not a clean ellipse)."""
+    for y in range(H):
+        for x in range(W):
+            n = 1.0 + (prng(x, y, 31) - 0.5) * 2.0 * jitter
+            if ((x - cx) / (rx * n)) ** 2 + ((y - cy) / (ry * n)) ** 2 <= 1.0:
+                grid[y][x] = '.'
+
+
+def bridge(x0, x1, y0, y1):
+    for y in range(min(y0, y1), max(y0, y1) + 1):
+        for x in range(min(x0, x1), max(x0, x1) + 1):
+            if 0 <= x < W and 0 <= y < H:
+                grid[y][x] = '.'
+
+
+# ── Landmasses (author left, mirror to right) ───────────────────────────────
+# Home island (base + main mine) in the top corner; southern island (aux mines)
+# below it, joined by a land bridge across a water channel.
+HOME = [(14, 11, 11, 8.5), (13, 37, 12, 9.0)]   # (cx,cy,rx,ry) left-side islands
+for (cx, cy, rx, ry) in HOME:
+    island(cx, cy, rx, ry)
+    island(W - 1 - cx, cy, rx, ry)              # mirror to right side
+
+# Bridge home<->south on each flank (crosses the mid channel).
+bridge(7, 11, 18, 30)
+bridge(W - 1 - 11, W - 1 - 7, 18, 30)
+
+# Southern land bridge across the centre bottom — the ONLY link between the two
+# sides. Joins both southern islands beneath the gulf.
+bridge(23, W - 1 - 23, 36, H - 1)
+
+# ── Re-assert the sea: outer moat + clean central gulf ──────────────────────
 for y in range(H):
     for x in range(W):
-        # outer island moat
         if x < MOAT or x >= W - MOAT or y < MOAT or y >= H - MOAT:
             grid[y][x] = '~'
 
-# Central gulf — a funnel of water hugging the centre line, widest at the top,
-# tapering to nothing at GULF_BOTTOM. Open to the north sea (the top moat).
-for y in range(0, GULF_BOTTOM + 1):
-    t = y / float(GULF_BOTTOM)               # 0 at top -> 1 at gulf bottom
-    half = GULF_TOP_HALF * (1.0 - t) ** 1.15  # smooth taper
-    half = max(half, 0.0)
+# Central gulf: keep a clean water channel down the middle from the north sea to
+# the southern bridge, so the top is firmly split (carve out any land that the
+# island jitter pushed toward the seam).
+for y in range(0, 36):
     for x in range(W):
-        if abs((x + 0.5) - CX) <= half:
+        if abs((x + 0.5) - CX) <= 8.0:
             grid[y][x] = '~'
-
-def is_land(x, y):
-    return 0 <= x < W and 0 <= y < H and grid[y][x] != '~'
 
 
 def put(x, y, ch):
@@ -55,7 +87,6 @@ def put(x, y, ch):
 
 
 def clear_box(x, y, rad, ch='.'):
-    """Force a small land clearing (used around bases / structures)."""
     for dy in range(-rad, rad + 1):
         for dx in range(-rad, rad + 1):
             nx, ny = x + dx, y + dy
@@ -64,43 +95,30 @@ def clear_box(x, y, rad, ch='.'):
 
 
 # ── Spawns, gold, neutral structures ────────────────────────────────────────
-PB = (10, 9)                 # player base (top-left land)
-EB = (W - 1 - 10, 9)         # enemy base (top-right land), mirror of PB
-clear_box(PB[0], PB[1], 3)
-clear_box(EB[0], EB[1], 3)
+PB = (11, 9)
+EB = (W - 1 - 11, 9)
+clear_box(PB[0], PB[1], 2)
+clear_box(EB[0], EB[1], 2)
 put(PB[0], PB[1], 'P')
 put(EB[0], EB[1], 'E')
 
-# Home gold — two nodes flanking each base.
-home_gold = [(6, 7), (14, 6)]
-for (gx, gy) in home_gold:
+# 3 mines per side: main (by base), mid (home-island flank), lower (south island)
+gold = [(6, 8), (20, 16), (9, 41)]
+for (gx, gy) in gold:
     clear_box(gx, gy, 1)
     put(gx, gy, '$')
     put(W - 1 - gx, gy, '$')
 
-# Auxiliary (creep-guarded) mines — one mid-flank each side, one each on the
-# lower flanks along the "around" route.
-aux_gold = [(7, 24), (16, 38)]
-for (gx, gy) in aux_gold:
-    clear_box(gx, gy, 1)
-    put(gx, gy, '$')
-    put(W - 1 - gx, gy, '$')
-
-# Neutral centre structures sit on the southern land bridge — contested by both
-# sides on the "around" path. Merchant just south of the gulf, mercenaries at
-# the very bottom centre.
-MERCHANT = (CX, GULF_BOTTOM + 4)
-MERCENARY = (CX, H - 5)
+# Neutral centre structures on the southern bridge (contested by both sides).
+MERCHANT = (CX, 39)
+MERCENARY = (CX, H - 4)
 clear_box(MERCHANT[0], MERCHANT[1], 2)
 clear_box(MERCENARY[0], MERCENARY[1], 2)
 put(MERCHANT[0], MERCHANT[1], 'o')
 put(MERCENARY[0], MERCENARY[1], 'o')
 
 # ── Sparse, collidable forest ───────────────────────────────────────────────
-# Keep trees off: bases, gold, neutral structures, the central corridor seam,
-# and a margin around all of the above.
-keepouts = [PB, EB, MERCHANT, MERCENARY] + home_gold + aux_gold
-keepouts += [(W - 1 - x, y) for (x, y) in home_gold + aux_gold]
+keepouts = [PB, EB, MERCHANT, MERCENARY] + gold + [(W - 1 - x, y) for (x, y) in gold]
 
 
 def near_keepout(x, y, rad=4):
@@ -116,14 +134,14 @@ for y in range(H):
             continue
         if near_keepout(x, y):
             continue
-        # leave the central bridge corridor fairly clear so armies can pass
-        if abs((x + 0.5) - CX) <= 3 and y >= GULF_BOTTOM:
+        if abs((x + 0.5) - CX) <= 3 and y >= 36:   # keep the bottom bridge clear
             continue
         if prng(x, y, 7) < TREE_DENSITY:
             grid[y][x] = 'T'
 
 print("# Tideland Crossing — full board %dx%d (generated; mirror: none)." % (W, H))
-print("# Central gulf splits the top; cross via the southern land bridge.")
+print("# WC2 island map: home + southern islands per side, joined by bridges;")
+print("# central gulf splits the top, cross via the southern land bridge.")
 print("# Regenerate: python3 tools/mapgen/sources/gen_tideland.py > tools/mapgen/sources/tideland-crossing.map")
 print("name: Tideland Crossing")
 print("tile: 64")

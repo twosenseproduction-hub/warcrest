@@ -691,8 +691,8 @@
     // very bottom centre — rows 36 / 45 on the 72x50 board, matching the 'o'
     // markers in gen_tideland.py.
     var cw = (RTS.Config.world && RTS.Config.world.w) || 4608;
-    var mt = RTS.makeBuilding(s, 'merchant', RTS.TEAM.NEUTRAL, cw / 2, 36 * 64 + 32, s.playerFaction, true);
-    var mb = RTS.makeBuilding(s, 'mercenary', RTS.TEAM.NEUTRAL, cw / 2, 45 * 64 + 32, s.playerFaction, true);
+    var mt = RTS.makeBuilding(s, 'merchant', RTS.TEAM.NEUTRAL, cw / 2, 39 * 64 + 32, s.playerFaction, true);
+    var mb = RTS.makeBuilding(s, 'mercenary', RTS.TEAM.NEUTRAL, cw / 2, 46 * 64 + 32, s.playerFaction, true);
     if (RTS.markBuildingFootprint) {
       if (mt) RTS.markBuildingFootprint(s, mt, true);
       if (mb) RTS.markBuildingFootprint(s, mb, true);
