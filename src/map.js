@@ -484,6 +484,53 @@
     return m.treeBlocked[r * m.treeBlockedCols + c] === 1;
   };
 
+  /* Build cliff walls: a plateau (HIGH) is solid — the only way up or down is a
+   * ramp. We realise this on the path grid by blocking each LOW (flat) cell that
+   * sits at the foot of a cliff (4-adjacent to a HIGH cell), except ramp cells.
+   * That gives a 1-tile impassable wall around every plateau with ramp gaps. */
+  function markCliffsOnPathGrid(meta) {
+    var terrain = meta.terrainGrid;
+    if (!meta.pathGrid || !terrain || !terrain.heights || !RTS.Terrain) return;
+    var TILE = RTS.TILE || 64;
+    var cols = meta.pathGridCols, rows = meta.pathGridRows;
+    var grid = meta.pathGrid;
+    var HIGH = RTS.Terrain.HIGH;
+    var hcols = terrain.cols, hrows = terrain.rows, hgt = terrain.heights;
+    var ramp = terrain.ramp;
+    function hAt(c, r) {
+      if (c < 0 || r < 0 || c >= hcols || r >= hrows) return -1;
+      return hgt[c + r * hcols];
+    }
+    function isRamp(c, r) {
+      return ramp && c >= 0 && r >= 0 && c < hcols && r < hrows && ramp[c + r * hcols] === 1;
+    }
+    var cb = new Uint8Array(cols * rows);
+    meta.cliffBlocked = cb;
+    meta.cliffBlockedCols = cols;
+    meta.cliffBlockedRows = rows;
+    for (var r = 0; r < rows; r++) {
+      for (var c = 0; c < cols; c++) {
+        if (hAt(c, r) !== RTS.Terrain.FLAT) continue;  // walls live on flat ground
+        if (isRamp(c, r)) continue;                     // ramp = passable gap
+        if (hAt(c, r - 1) === HIGH || hAt(c, r + 1) === HIGH ||
+            hAt(c - 1, r) === HIGH || hAt(c + 1, r) === HIGH) {
+          grid[r][c] = 1;
+          cb[r * cols + c] = 1;
+        }
+      }
+    }
+  }
+
+  // True if the world point falls on a cliff-wall cell (solid plateau edge).
+  RTS.isCliffBlocked = function (s, x, y) {
+    var m = s && s.map;
+    if (!m || !m.cliffBlocked) return false;
+    var TILE = RTS.TILE || 64;
+    var c = Math.floor(x / TILE), r = Math.floor(y / TILE);
+    if (c < 0 || r < 0 || c >= m.cliffBlockedCols || r >= m.cliffBlockedRows) return false;
+    return m.cliffBlocked[r * m.cliffBlockedCols + c] === 1;
+  };
+
   function syncMapBuildingFootprints(s) {
     if (!s.map || !s.map.pathGrid) return;
     s.entities.buildings.forEach(function (b) {
@@ -500,6 +547,11 @@
     if (RTS.Config && RTS.Config.world) { RTS.Config.world.w = meta.w; RTS.Config.world.h = meta.h; }
     if (meta.terrainDef && RTS.Terrain) {
       meta.terrainGrid = RTS.Terrain.buildGrid(meta.w, meta.h, meta.terrainDef);
+      // Attach the ramp grid so cliff rendering + collision can see ramp gaps.
+      if (meta.ramp && meta.terrainGrid &&
+          meta.terrainGrid.cols * meta.terrainGrid.rows === meta.ramp.length) {
+        meta.terrainGrid.ramp = meta.ramp;
+      }
       var avoid = meta.avoidDecor || [];
       if (meta.coastalRing) {
         meta.decor = (meta.decor || []).concat(
@@ -539,9 +591,11 @@
       }
       initPathGrid(meta);
       markTreesOnPathGrid(meta);
+      markCliffsOnPathGrid(meta);
     } else {
       initPathGrid(meta);
       markTreesOnPathGrid(meta);
+      markCliffsOnPathGrid(meta);
     }
     s.map = meta;
     syncMapBuildingFootprints(s);
@@ -639,6 +693,7 @@
       decor: [],
       avoidDecor: decorAvoid,
       mapgenForest: true,
+      ramp: mg.ramp,   // ramp tiles (passable cliff gaps) from the .tmj
       // TerraformZones holds hardcoded corridor/forest-wall data authored for
       // one specific map; let an authored map opt out so its walls aren't
       // stamped onto an unrelated layout (Tideland sets this false).
@@ -650,6 +705,9 @@
         theme: meta.theme || 'grass',
         tileset: 'color1',
         terrainMask: { cols: mg.cols, rows: mg.rows, heights: mg.heights },
+        // TerraformZones rewrites heights from another map's authored data —
+        // let a map opt out so its own plateaus/cliffs survive intact.
+        applyTerraform: meta.applyTerraform,
       },
       intro: meta.intro,
       win: meta.win,
@@ -683,9 +741,11 @@
       theme: 'grass',
       rallyDx: 120,
       rallyDy: 90,
-      // Tideland authors its own sparse forest in gen_tideland.py — don't stamp
-      // the global TerraformZones forest walls (authored for another map) on top.
+      // Tideland authors its own sparse forest + plateaus in gen_tideland.py —
+      // don't let the global TerraformZones (authored for another map) stamp its
+      // forest walls OR rewrite our heights/cliffs.
       terraformForestWalls: false,
+      applyTerraform: false,
       intro: 'Tideland Crossing — island holds joined by land bridges. Clear the guarded mines to expand.',
       win: 'Tideland Crossing is yours — the tides bow to your banner.',
       lose: 'Your hold has slipped beneath the tides.',

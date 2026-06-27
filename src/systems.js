@@ -1515,9 +1515,39 @@
     u.vy = 0;
   }
 
+  // Cliffs are solid: a unit that ends a step inside a cliff-wall cell is snapped
+  // back to its last cliff-free position (same approach as water/trees). Units
+  // route over plateaus only via ramps, which aren't cliff-walled.
+  function resolveCliffCollision(s, u) {
+    if (!RTS.isCliffBlocked || !s.map || !s.map.cliffBlocked) return;
+    if (!RTS.isCliffBlocked(s, u.x, u.y)) {
+      u._lastCliffFreeX = u.x;
+      u._lastCliffFreeY = u.y;
+      return;
+    }
+    if (u._lastCliffFreeX != null && !RTS.isCliffBlocked(s, u._lastCliffFreeX, u._lastCliffFreeY)) {
+      u.x = u._lastCliffFreeX;
+      u.y = u._lastCliffFreeY;
+    } else {
+      var samples = 16, ring, i, ang, step, nx, ny;
+      for (ring = 1; ring <= 5; ring++) {
+        step = (u.radius || 10) + ring * 12;
+        for (i = 0; i < samples; i++) {
+          ang = (i / samples) * Math.PI * 2;
+          nx = u.x + Math.cos(ang) * step;
+          ny = u.y + Math.sin(ang) * step;
+          if (!RTS.isCliffBlocked(s, nx, ny)) { u.x = nx; u.y = ny; ring = 99; break; }
+        }
+      }
+    }
+    u.vx = 0;
+    u.vy = 0;
+  }
+
   function clampUnitTerrain(s, u) {
     resolveWaterCollision(s, u);
     resolveTreeCollision(s, u);
+    resolveCliffCollision(s, u);
     clampToWorld(u);
   }
 

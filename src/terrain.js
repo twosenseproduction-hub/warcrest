@@ -58,6 +58,19 @@
     return grid.heights[idx(grid.cols, cx, cy)];
   }
 
+  // A ramp tile is the passable break in a cliff wall — it bridges FLAT and
+  // HIGH. grid.ramp is an optional Uint8 grid attached by the map builder.
+  function isRamp(grid, cx, cy) {
+    if (!grid.ramp || !inBounds(grid.cols, grid.rows, cx, cy)) return false;
+    return grid.ramp[idx(grid.cols, cx, cy)] === 1;
+  }
+
+  // World-point elevation query (WATER / FLAT / HIGH). Used by cliff collision.
+  function levelAt(grid, wx, wy) {
+    if (!grid) return WATER;
+    return heightAt(grid, Math.floor(wx / TILE), Math.floor(wy / TILE));
+  }
+
   function sameLevel(grid, cx, cy, level) {
     return heightAt(grid, cx, cy) === level;
   }
@@ -338,19 +351,21 @@
         se = heightAt(grid, cx + 1, cy + 1);
         sw = heightAt(grid, cx - 1, cy + 1);
 
-        if (ss < HIGH) {
+        // Open the cliff wall over a ramp: skip the face toward a ramp tile so
+        // the descent reads as a passage rather than a sheer wall.
+        if (ss < HIGH && !isRamp(grid, cx, cy + 1)) {
           var c = (ss === WATER) ? CLIFF.SW : CLIFF.S;
           drawAtlasTile(ctx, atlas, c.col, c.row, dx, dy);
         }
-        if (n < HIGH) {
+        if (n < HIGH && !isRamp(grid, cx, cy - 1)) {
           c = (n === WATER) ? CLIFF.N : CLIFF.N;
           drawAtlasTile(ctx, atlas, c.col, c.row, dx, dy);
         }
-        if (e < HIGH && ne < HIGH && se < HIGH) {
+        if (e < HIGH && ne < HIGH && se < HIGH && !isRamp(grid, cx + 1, cy)) {
           c = (e === WATER) ? CLIFF.SE : CLIFF.E;
           drawAtlasTile(ctx, atlas, c.col, c.row, dx, dy);
         }
-        if (w < HIGH && nw < HIGH && sw < HIGH) {
+        if (w < HIGH && nw < HIGH && sw < HIGH && !isRamp(grid, cx - 1, cy)) {
           c = (w === WATER) ? CLIFF.SW : CLIFF.W;
           drawAtlasTile(ctx, atlas, c.col, c.row, dx, dy);
         }
@@ -389,6 +404,7 @@
     render: render,
     groundY: groundY,
     isWater: isWater,
+    levelAt: levelAt,
     themeTileset: function (theme) { return THEME_TILESET[theme] || 'color1'; },
     tilesetPath: function (key) { return TILESETS[key]; },
   };

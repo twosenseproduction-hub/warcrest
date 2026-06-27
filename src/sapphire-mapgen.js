@@ -186,6 +186,14 @@
       if (c >= 0 && r >= 0 && c < cols && r < rows) forest[c + r * cols] = 1;
     });
 
+    // Ramps — passable breaks in cliff walls (object layer, like forest).
+    var ramp = new Uint8Array(n);
+    objLayer('ramps').forEach(function (o) {
+      var c = Math.floor((o.x + (o.width || 0) * 0.5) / tile);
+      var r = Math.floor((o.y + (o.height || 0) * 0.5) / tile);
+      if (c >= 0 && r >= 0 && c < cols && r < rows) ramp[c + r * cols] = 1;
+    });
+
     function propAmount(o) {
       if (!o.properties) return null;
       for (var i = 0; i < o.properties.length; i++) {
@@ -214,6 +222,7 @@
       world: { w: cols * tile, h: rows * tile },
       heights: heights,
       forest: forest,
+      ramp: ramp,
       treeDensity: 0.72,
       treeSeed: 42,
       playerBase: playerBase,

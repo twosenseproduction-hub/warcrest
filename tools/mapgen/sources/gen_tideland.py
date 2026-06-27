@@ -106,6 +106,12 @@ def is_land(x, y):
     return 0 <= x < W and 0 <= y < H and grid[y][x] != '~'
 
 
+# Plateau / ramp params (the pass itself runs AFTER spawns are placed, below).
+PLATEAU_X = 28          # left plateau spans plain land with x < PLATEAU_X ...
+PLATEAU_Y = 22          # ... and y < PLATEAU_Y
+RAMP_X = 21             # ramp centre column (left side; clear of the base)
+
+
 # ── Spawns, gold, neutral structures ────────────────────────────────────────
 PB = (12, 9)
 EB = (W - 1 - 12, 9)
@@ -128,6 +134,33 @@ clear_box(MERCHANT[0], MERCHANT[1], 2)
 clear_box(MERCENARY[0], MERCENARY[1], 2)
 put(MERCHANT[0], MERCHANT[1], 'o')
 put(MERCENARY[0], MERCENARY[1], 'o')
+
+# ── Plateaus + ramps (after spawns, so bases keep their plateau) ─────────────
+# Raise each side's upper landmass to HIGH (only plain land/forest tiles, never
+# spawn or ramp glyphs). Bases/mines sitting in the raised area inherit HIGH in
+# the ascii compiler, so they end up cleanly ON the plateau.
+PLAIN = ('.', 'T')
+
+
+def raise_plateau():
+    for y in range(0, PLATEAU_Y):
+        for x in range(W):
+            if (x < PLATEAU_X or x >= W - PLATEAU_X) and grid[y][x] in PLAIN:
+                grid[y][x] = '^'
+
+
+def cut_ramp(cx):
+    # 3-wide flat ramp cutting from inside the plateau down into the lowland —
+    # the only passable break in the southern cliff wall.
+    for y in range(PLATEAU_Y - 3, PLATEAU_Y + 4):
+        for x in range(cx - 1, cx + 2):
+            if 0 <= x < W and grid[y][x] in ('^', '.', 'T'):
+                grid[y][x] = '/'
+
+
+raise_plateau()
+cut_ramp(RAMP_X)
+cut_ramp(W - 1 - RAMP_X)
 
 # ── Forest clumps (value noise) with clearings ──────────────────────────────
 keepouts = [PB, EB, MERCHANT, MERCENARY] + gold + [(W - 1 - x, y) for (x, y) in gold]
