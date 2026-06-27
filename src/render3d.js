@@ -986,6 +986,7 @@
     drawSelection(s);
     drawBuildPlots(s);
     drawFloats(s);
+    drawMarquee(s);
     gc();
     // screen shake: jolt the camera (render-only; placeCamera resets next frame,
     // so picking via screenToWorld is unaffected). Driven by s.screenShake.
@@ -1030,6 +1031,24 @@
     for (var j = used; j < floatPool.length; j++) floatPool[j].style.display = 'none';
   }
 
+  /* ---- drag-select marquee (the 2D renderer drew it; 3D needs its own) ----
+   * selectionBox is in world coords; projecting both corners back to screen
+   * round-trips to ~the cursor points, so the screen rectangle matches the drag. */
+  var marqueeEl = null;
+  function drawMarquee(s) {
+    if (!marqueeEl) {
+      marqueeEl = document.createElement('div'); marqueeEl.id = 'r3d-marquee';
+      marqueeEl.style.cssText = 'position:fixed;border:2px solid rgba(143,255,176,.9);background:rgba(143,255,176,.14);z-index:16;pointer-events:none;display:none;';
+      (document.getElementById('hud') || document.body).parentNode.insertBefore(marqueeEl, document.getElementById('hud'));
+    }
+    var b = s.selectionBox;
+    if (!b) { marqueeEl.style.display = 'none'; return; }
+    var a = RTS.Cam.worldToScreen(s, b.x1, b.y1), c = RTS.Cam.worldToScreen(s, b.x2, b.y2);
+    marqueeEl.style.display = 'block';
+    marqueeEl.style.left = Math.min(a.x, c.x) + 'px'; marqueeEl.style.top = Math.min(a.y, c.y) + 'px';
+    marqueeEl.style.width = Math.abs(a.x - c.x) + 'px'; marqueeEl.style.height = Math.abs(a.y - c.y) + 'px';
+  }
+
   function setNight(on) {
     R.night = on; if (!R.inited) return;
     if (on) { R.scene.background.setHex(0x18223c); R.scene.fog.color.setHex(0x1c2640); R.sun.color.setHex(0x9fb0e0); R.sun.intensity = 0.5; R.amb.intensity = 0.55; }
@@ -1053,6 +1072,7 @@
     document.body.classList.remove('r3d-on');
     if (R.canvas) R.canvas.style.display = 'none';
     if (floatBox) floatBox.style.display = 'none';
+    if (marqueeEl) marqueeEl.style.display = 'none';
     removeCamOverride();
   }
 
