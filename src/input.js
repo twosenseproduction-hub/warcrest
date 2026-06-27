@@ -284,6 +284,17 @@
       return { type: 'castAbility', uid: pa.uid, abId: pa.abId, x: wx, y: wy };  // point-cast
     }
 
+    // Thronefall preview: tapping an unused build plot opens the build menu
+    // anchored to that plot. Small target, so it's an intentional tap.
+    if (RTS.Config.tfLook && s.map && s.map.buildPlots && !additive) {
+      for (var pi = 0; pi < s.map.buildPlots.length; pi++) {
+        var bp = s.map.buildPlots[pi];
+        if (bp.used) continue;
+        var pdx = wx - bp.x, pdy = wy - bp.y;
+        if (pdx * pdx + pdy * pdy <= 46 * 46) return { type: 'buildPlot', plot: bp };
+      }
+    }
+
     if (s.pendingOrder === 'move' &&
         (!hit || hit.kind === 'resource' || isBareGround(hit))) {
       if (!combat.length) {
@@ -332,6 +343,14 @@
 
   function executeTapIntent(s, intent, additive) {
     switch (intent.type) {
+      case 'buildPlot':
+        s.ui.buildPlot = intent.plot;
+        s.ui.buildPanelOpen = true;
+        s.ui.shopOpen = null;
+        RTS.Audio.play('click');
+        RTS.toast(s, 'Choose a structure to raise here');
+        RTS.HUD.sync(s);
+        break;
       case 'openShop':
         s.ui.shopOpen = intent.shopType;
         s.ui.buildPanelOpen = false;

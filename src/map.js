@@ -762,6 +762,11 @@
       if (mt) RTS.markBuildingFootprint(s, mt, true);
       if (mb) RTS.markBuildingFootprint(s, mb, true);
     }
+
+    // Thronefall-style fixed BUILD PLOTS on the player's plateau — tap a plot to
+    // raise a structure there (only shown/active in the Thronefall preview).
+    s.map.buildPlots = [[17, 9], [21, 9], [24, 13], [8, 15], [16, 15], [13, 6]]
+      .map(function (t) { return { x: t[0] * 64 + 32, y: t[1] * 64 + 32, used: false }; });
   }
 
   function buildRunicClearing(s) {

@@ -135,6 +135,7 @@
         var s = getState();
         if (!s || s.scene !== 'playing') return;
         s.ui.buildPanelOpen = !s.ui.buildPanelOpen;
+        s.ui.buildPlot = null;   // the hammer is free-placement, not a fixed plot
         if (s.ui.buildPanelOpen) { s.ui.shopOpen = null; if (RTS.BuildingMenu) RTS.BuildingMenu.close(s); }
         RTS.Audio.play('click');
         RTS.HUD.sync(s);
@@ -1041,8 +1042,16 @@
     } else if (act === 'open-build') {
       s.ui.buildPanelOpen = true;
     } else if (act === 'place' && data.btype) {
-      RTS.beginPlacement && RTS.beginPlacement(s, data.btype);
-      s.ui.buildPanelOpen = false;
+      if (s.ui.buildPlot) {
+        // Thronefall fixed-plot build: construct straight onto the tapped plot.
+        var bp = s.ui.buildPlot;
+        if (RTS.placeBuilding && RTS.placeBuilding(s, data.btype, bp.x, bp.y)) bp.used = true;
+        s.ui.buildPlot = null;
+        s.ui.buildPanelOpen = false;
+      } else {
+        RTS.beginPlacement && RTS.beginPlacement(s, data.btype);
+        s.ui.buildPanelOpen = false;
+      }
     } else if (act === 'buy-item' && data.item) {
       var hero = selectedHero(s);
       if (!hero) { RTS.toast(s, 'Select a hero first'); RTS.Audio.play('deny'); }

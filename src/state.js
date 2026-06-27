@@ -61,6 +61,7 @@
         toast: null,
         buildingMenuHover: null,
         buildPanelOpen: false,
+        buildPlot: null,             // Thronefall preview: the build plot a structure is being raised on
         buildQueue: [],              // global FIFO of building ids waiting for a free pawn
         macroGroups: null,         // { role: [unitId, …] } while macro bar is active
         macroRole: null,           // active subgroup role, or null = full mixed pool
