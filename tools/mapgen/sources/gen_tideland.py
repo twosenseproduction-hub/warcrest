@@ -1,85 +1,129 @@
 #!/usr/bin/env python3
-"""Author the FULL board of Tideland Crossing from blob anchors, scaled to a
-roomier grid so there's space to build. Layout is defined in a 24x30 reference
-space and scaled up to HALF*2 x H. Emits a mirror: none .map."""
+"""Author the FULL board of Tideland Crossing.
 
-# Target board: 64x40 tiles (4096x2560 px) — was 48x30, too compact to build on.
-HALF, H = 32, 40
-FULL = HALF * 2
-REF_HALF, REF_H = 24, 30
-SX, SY = HALF / REF_HALF, H / REF_H      # scale ref coords -> target
+Layout goal (player request):
+  * Big, OPEN buildable land — not a cramped archipelago.
+  * A central water GULF that opens to the north sea and splits the top of the
+    map in two, so the only way between the two bases is DOWN one side, across
+    a southern land bridge, and back UP — "go down and around".
+  * SPARSE trees (which are solid/collidable in-engine), scattered on land and
+    kept well clear of the bases, mines and the central corridor.
 
-grid = [['~'] * FULL for _ in range(H)]
+Emits a `mirror: none` .map (the board is built symmetrically in Python).
+Regenerate:
+  python3 tools/mapgen/sources/gen_tideland.py > tools/mapgen/sources/tideland-crossing.map
+"""
 
-def E(cx, cy, rx, ry, ch, half_only=True):
-    cx, cy, rx, ry = cx * SX, cy * SY, rx * SX, ry * SY
-    xmax = HALF if half_only else FULL
-    for y in range(H):
-        for x in range(xmax):
-            if ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1.0:
-                grid[y][x] = ch
+W, H = 72, 50          # tiles — 4608 x 3200 px. Roomy enough to actually build.
+CX = W // 2            # vertical centre line (the mirror seam)
+MOAT = 2               # water border thickness (island feel)
+GULF_BOTTOM = 32       # gulf reaches this row; everything below is land bridge
+GULF_TOP_HALF = 9.0    # gulf half-width (tiles) at the very top
+TREE_DENSITY = 0.06    # fraction of eligible land tiles that get a tree
 
-# left-half landmasses (ref coords)
-E(10, 6, 7.5, 4.2, '.')
-E(4, 15, 5.0, 4.5, '.')
-E(9, 22, 7.0, 4.2, '.')
-E(21, 13, 4.5, 11.0, '.')
-E(8, 11, 3.0, 3.0, '.')
-E(13, 18, 3.5, 3.0, '.')
-E(16, 9, 4.0, 3.0, '.')
-E(15, 22, 4.0, 3.0, '.')
+grid = [['.'] * W for _ in range(H)]
 
-def water_adj(x, y):
-    for dx, dy in ((1,0),(-1,0),(0,1),(0,-1),(1,1),(-1,-1),(1,-1),(-1,1)):
-        nx, ny = x + dx, y + dy
-        if nx < 0 or ny < 0 or nx >= HALF or ny >= H or grid[ny][nx] == '~':
+
+def prng(x, y, salt=0):
+    h = (x * 73856093) ^ (y * 19349663) ^ (salt * 83492791)
+    return ((h >> 4) & 0xffff) / 65535.0
+
+
+# ── Water: outer moat + central gulf ────────────────────────────────────────
+for y in range(H):
+    for x in range(W):
+        # outer island moat
+        if x < MOAT or x >= W - MOAT or y < MOAT or y >= H - MOAT:
+            grid[y][x] = '~'
+
+# Central gulf — a funnel of water hugging the centre line, widest at the top,
+# tapering to nothing at GULF_BOTTOM. Open to the north sea (the top moat).
+for y in range(0, GULF_BOTTOM + 1):
+    t = y / float(GULF_BOTTOM)               # 0 at top -> 1 at gulf bottom
+    half = GULF_TOP_HALF * (1.0 - t) ** 1.15  # smooth taper
+    half = max(half, 0.0)
+    for x in range(W):
+        if abs((x + 0.5) - CX) <= half:
+            grid[y][x] = '~'
+
+def is_land(x, y):
+    return 0 <= x < W and 0 <= y < H and grid[y][x] != '~'
+
+
+def put(x, y, ch):
+    grid[y][x] = ch
+
+
+def clear_box(x, y, rad, ch='.'):
+    """Force a small land clearing (used around bases / structures)."""
+    for dy in range(-rad, rad + 1):
+        for dx in range(-rad, rad + 1):
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < W and 0 <= ny < H:
+                grid[ny][nx] = ch
+
+
+# ── Spawns, gold, neutral structures ────────────────────────────────────────
+PB = (10, 9)                 # player base (top-left land)
+EB = (W - 1 - 10, 9)         # enemy base (top-right land), mirror of PB
+clear_box(PB[0], PB[1], 3)
+clear_box(EB[0], EB[1], 3)
+put(PB[0], PB[1], 'P')
+put(EB[0], EB[1], 'E')
+
+# Home gold — two nodes flanking each base.
+home_gold = [(6, 7), (14, 6)]
+for (gx, gy) in home_gold:
+    clear_box(gx, gy, 1)
+    put(gx, gy, '$')
+    put(W - 1 - gx, gy, '$')
+
+# Auxiliary (creep-guarded) mines — one mid-flank each side, one each on the
+# lower flanks along the "around" route.
+aux_gold = [(7, 24), (16, 38)]
+for (gx, gy) in aux_gold:
+    clear_box(gx, gy, 1)
+    put(gx, gy, '$')
+    put(W - 1 - gx, gy, '$')
+
+# Neutral centre structures sit on the southern land bridge — contested by both
+# sides on the "around" path. Merchant just south of the gulf, mercenaries at
+# the very bottom centre.
+MERCHANT = (CX, GULF_BOTTOM + 4)
+MERCENARY = (CX, H - 5)
+clear_box(MERCHANT[0], MERCHANT[1], 2)
+clear_box(MERCENARY[0], MERCENARY[1], 2)
+put(MERCHANT[0], MERCHANT[1], 'o')
+put(MERCENARY[0], MERCENARY[1], 'o')
+
+# ── Sparse, collidable forest ───────────────────────────────────────────────
+# Keep trees off: bases, gold, neutral structures, the central corridor seam,
+# and a margin around all of the above.
+keepouts = [PB, EB, MERCHANT, MERCENARY] + home_gold + aux_gold
+keepouts += [(W - 1 - x, y) for (x, y) in home_gold + aux_gold]
+
+
+def near_keepout(x, y, rad=4):
+    for (kx, ky) in keepouts:
+        if abs(x - kx) <= rad and abs(y - ky) <= rad:
             return True
     return False
 
-def prng(x, y):
-    h = (x * 73856093) ^ (y * 19349663)
-    return ((h >> 3) & 0xffff) / 65535.0
 
 for y in range(H):
-    for x in range(HALF):
-        if grid[y][x] == '.' and water_adj(x, y) and prng(x, y) < 0.42:
+    for x in range(W):
+        if grid[y][x] != '.':
+            continue
+        if near_keepout(x, y):
+            continue
+        # leave the central bridge corridor fairly clear so armies can pass
+        if abs((x + 0.5) - CX) <= 3 and y >= GULF_BOTTOM:
+            continue
+        if prng(x, y, 7) < TREE_DENSITY:
             grid[y][x] = 'T'
-E(17, 8, 3.2, 2.4, 'T')
 
-# reflect to right half
-for y in range(H):
-    for x in range(HALF):
-        grid[y][FULL - 1 - x] = grid[y][x]
-
-def put(x, y, ch):
-    x = int(round(x * SX)); y = int(round(y * SY))
-    grid[y][x] = ch
-def putf(x, y, ch):   # full-board coords (already scaled)
-    grid[y][x] = ch
-
-# start + mirrored mines (ref left coords; reflect x in full board)
-def mirror_x(rx):
-    return FULL - 1 - int(round(rx * SX))
-
-py = int(round(6 * SY))
-putf(int(round(10 * SX)), py, 'P')
-putf(mirror_x(10), py, 'E')
-for (rx, ry) in [(8, 3), (3, 15), (8, 22)]:
-    gy = int(round(ry * SY))
-    putf(int(round(rx * SX)), gy, '$')
-    putf(mirror_x(rx), gy, '$')
-
-# single centre neutral markers (full-board centre column)
-cxc = FULL // 2
-for (cy, _name) in [(int(round(4 * SY)), 'merchant'), (int(round(22 * SY)), 'mercenary')]:
-    for dy in range(-1, 2):
-        for dx in range(-2, 2):
-            x, y = cxc + dx, cy + dy
-            if 0 <= x < FULL and 0 <= y < H and grid[y][x] == '~':
-                grid[y][x] = '.'
-    grid[cy][cxc] = 'o'
-
-print("# Tideland Crossing — full board %dx%d (generated; mirror: none)." % (FULL, H))
+print("# Tideland Crossing — full board %dx%d (generated; mirror: none)." % (W, H))
+print("# Central gulf splits the top; cross via the southern land bridge.")
 print("# Regenerate: python3 tools/mapgen/sources/gen_tideland.py > tools/mapgen/sources/tideland-crossing.map")
 print("name: Tideland Crossing")
 print("tile: 64")

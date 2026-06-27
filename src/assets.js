@@ -183,9 +183,12 @@
       'Terrain/Decorations/Bushes/Bushe3.png',
       'Terrain/Decorations/Bushes/Bushe4.png',
     ],
-    // Static nature-tileset trees (assets/decor/, via DECOR2_BASE) — replaced
-    // the animated 8-frame Tiny Swords trees that were the lag source.
-    tree: ['tree1.png', 'tree2.png', 'tree3.png'],
+    // Static trees: the FIRST FRAME of the high-res Tiny Swords tree sheets,
+    // pre-cropped to alpha bounds (assets/decor/). High-res so they downscale
+    // smoothly (the old hand-sliced 31x63 nature-tileset trees upscaled ~3x and
+    // looked choppy); static so there's no per-frame animation cost — the decor
+    // cache bakes them once.
+    tree: ['ts_tree1.png', 'ts_tree2.png', 'ts_tree3.png', 'ts_tree4.png'],
     rock: [
       'Terrain/Decorations/Rocks in the Water/Water Rocks_01.png',
       'Terrain/Decorations/Rocks in the Water/Water Rocks_02.png',

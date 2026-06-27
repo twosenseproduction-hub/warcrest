@@ -1484,8 +1484,40 @@
     u.y = Math.max(u.radius, Math.min(RTS.Config.world.h - u.radius, u.y));
   }
 
+  // Trees are solid: if a unit ends a step inside a tree-blocked cell, snap it
+  // back to its last tree-free position (same approach as water). Commanded
+  // units already A*-route around trees via the path grid; this catches direct
+  // moves, shoves and idle drift so trees can't be walked over.
+  function resolveTreeCollision(s, u) {
+    if (!RTS.isTreeBlocked || !s.map || !s.map.treeBlocked) return;
+    if (!RTS.isTreeBlocked(s, u.x, u.y)) {
+      u._lastFreeX = u.x;
+      u._lastFreeY = u.y;
+      return;
+    }
+    if (u._lastFreeX != null && !RTS.isTreeBlocked(s, u._lastFreeX, u._lastFreeY)) {
+      u.x = u._lastFreeX;
+      u.y = u._lastFreeY;
+    } else {
+      // No known free spot yet — nudge toward the nearest open cell.
+      var samples = 16, ring, i, ang, step, nx, ny;
+      for (ring = 1; ring <= 5; ring++) {
+        step = (u.radius || 10) + ring * 12;
+        for (i = 0; i < samples; i++) {
+          ang = (i / samples) * Math.PI * 2;
+          nx = u.x + Math.cos(ang) * step;
+          ny = u.y + Math.sin(ang) * step;
+          if (!RTS.isTreeBlocked(s, nx, ny)) { u.x = nx; u.y = ny; ring = 99; break; }
+        }
+      }
+    }
+    u.vx = 0;
+    u.vy = 0;
+  }
+
   function clampUnitTerrain(s, u) {
     resolveWaterCollision(s, u);
+    resolveTreeCollision(s, u);
     clampToWorld(u);
   }
 

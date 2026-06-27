@@ -432,11 +432,27 @@
     var cols = meta.pathGridCols;
     var rows = meta.pathGridRows;
     var grid = meta.pathGrid;
-    var BLOCK_RATIO = 0.55;
+    var BLOCK_RATIO = 0.6;
+
+    // Dedicated tree-only collision grid. The shared pathGrid mixes terrain,
+    // buildings and trees; this grid lets the movement integrator push units
+    // out of trees specifically (see RTS.isTreeBlocked / resolveTreeCollision)
+    // without fighting the building/water collision passes.
+    var tb = new Uint8Array(cols * rows);
+    meta.treeBlocked = tb;
+    meta.treeBlockedCols = cols;
+    meta.treeBlockedRows = rows;
 
     meta.decor.forEach(function (d) {
       if (d.kind !== 'tree' && d.kind !== 'grove_tree') return;
       if (d.forestWall) return; // terrain mask already covers these
+      // Always block the trunk's own cell so a tree is reliably solid even when
+      // its blocking circle is smaller than a tile.
+      var tc = Math.floor(d.x / TILE), tr = Math.floor(d.y / TILE);
+      if (tc >= 0 && tc < cols && tr >= 0 && tr < rows) {
+        grid[tr][tc] = 1;
+        tb[tr * cols + tc] = 1;
+      }
       var blockR = d.r * BLOCK_RATIO;
       // Clamp search to the bounding box of the blocking circle
       var cMinC = Math.max(0, Math.floor((d.x - blockR) / TILE));
@@ -450,11 +466,23 @@
           cy = r * TILE + TILE * 0.5;
           if (dist(cx, cy, d.x, d.y) < blockR) {
             grid[r][c] = 1;
+            tb[r * cols + c] = 1;
           }
         }
       }
     });
   }
+
+  // True if the world point falls on a tree-blocked cell. Used by the movement
+  // integrator so units treat trees as solid obstacles.
+  RTS.isTreeBlocked = function (s, x, y) {
+    var m = s && s.map;
+    if (!m || !m.treeBlocked) return false;
+    var TILE = RTS.TILE || 64;
+    var c = Math.floor(x / TILE), r = Math.floor(y / TILE);
+    if (c < 0 || r < 0 || c >= m.treeBlockedCols || r >= m.treeBlockedRows) return false;
+    return m.treeBlocked[r * m.treeBlockedCols + c] === 1;
+  };
 
   function syncMapBuildingFootprints(s) {
     if (!s.map || !s.map.pathGrid) return;
@@ -611,6 +639,10 @@
       decor: [],
       avoidDecor: decorAvoid,
       mapgenForest: true,
+      // TerraformZones holds hardcoded corridor/forest-wall data authored for
+      // one specific map; let an authored map opt out so its walls aren't
+      // stamped onto an unrelated layout (Tideland sets this false).
+      terraformForestWalls: meta.terraformForestWalls,
       shoreSeed: meta.shoreSeed != null ? meta.shoreSeed : 4207,
       waterRocks: meta.waterRocks !== false,
       rockSeed: meta.rockSeed != null ? meta.rockSeed : 9105,
@@ -646,16 +678,21 @@
       theme: 'grass',
       rallyDx: 120,
       rallyDy: 90,
+      // Tideland authors its own sparse forest in gen_tideland.py — don't stamp
+      // the global TerraformZones forest walls (authored for another map) on top.
+      terraformForestWalls: false,
       intro: 'Tideland Crossing — island holds joined by land bridges. Clear the guarded mines to expand.',
       win: 'Tideland Crossing is yours — the tides bow to your banner.',
       lose: 'Your hold has slipped beneath the tides.',
     });
 
-    // Neutral centre structures: merchant up top, mercenary camp at the bottom
-    // (rows 5 / 29 on the 64x40 board — matches the generator's 'o' markers).
-    var cw = (RTS.Config.world && RTS.Config.world.w) || 4096;
-    var mt = RTS.makeBuilding(s, 'merchant', RTS.TEAM.NEUTRAL, cw / 2, 5 * 64 + 32, s.playerFaction, true);
-    var mb = RTS.makeBuilding(s, 'mercenary', RTS.TEAM.NEUTRAL, cw / 2, 29 * 64 + 32, s.playerFaction, true);
+    // Neutral centre structures sit on the southern land bridge (the only route
+    // between the two sides): merchant just south of the gulf, mercenaries at the
+    // very bottom centre — rows 36 / 45 on the 72x50 board, matching the 'o'
+    // markers in gen_tideland.py.
+    var cw = (RTS.Config.world && RTS.Config.world.w) || 4608;
+    var mt = RTS.makeBuilding(s, 'merchant', RTS.TEAM.NEUTRAL, cw / 2, 36 * 64 + 32, s.playerFaction, true);
+    var mb = RTS.makeBuilding(s, 'mercenary', RTS.TEAM.NEUTRAL, cw / 2, 45 * 64 + 32, s.playerFaction, true);
     if (RTS.markBuildingFootprint) {
       if (mt) RTS.markBuildingFootprint(s, mt, true);
       if (mb) RTS.markBuildingFootprint(s, mb, true);
