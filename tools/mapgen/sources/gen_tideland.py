@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
-"""Tideland Crossing — two-plateau "Echo Isle" map.
+"""Tideland Crossing — twin-fortress plateau map ("Echo Isle").
 
-Design (per the cliff tutorial + the WC2 reference):
-  * Each side is its own CLEAN, solid PLATEAU (high ground) in a top corner, so
-    the cliff faces render as a continuous tall escarpment — not a jagged edge.
-  * A single RAMP cuts each plateau's south edge — the only way up/down (cliffs
-    are solid in engine). Bases + home mines sit ON the plateau.
-  * The low ground below holds the shallows, the auxiliary mines, the forest
-    clumps and the neutral structures. The central water gulf splits the top so
-    the route between bases is DOWN a ramp, across the southern bridge, and up.
+Design (player-tuned): each side is MOSTLY its own high-ground PLATEAU — a
+fortress. The only land between them is a low central VALLEY: a water gulf up
+top (open to the north sea) and a low crossing on the bottom. A SINGLE ramp cuts
+each plateau's inner cliff, so the one way to reach the enemy is: down your
+ramp, across the low crossing, up theirs. Cliffs are solid in engine; the ramp
+is the chokepoint. Bases + home mines sit on the plateau; contested mines and
+the neutral structures sit in the low valley.
 
 Emits `mirror: none` (built symmetrically in Python).
 Regenerate:
@@ -19,14 +18,14 @@ import math
 W, H = 74, 52
 CX = W / 2.0
 MOAT = 2
-FOREST_COVER = 0.42
+FOREST_COVER = 0.46
 
-PLATEAU_INNER = 27       # left plateau spans cols MOAT..PLATEAU_INNER
-PLATEAU_BOTTOM = 19      # clean south cliff line at this row
-RAMP_X = 18              # ramp centre column (clear of base + gulf)
-GULF_BOTTOM = 34         # central gulf reaches this row; land bridge below
+VALLEY_L = 30           # central low valley spans cols VALLEY_L..VALLEY_R
+VALLEY_R = 43
+GULF_BOTTOM = 27        # valley is water (gulf) above this row, low land below
+RAMP_ROW = 31           # ramp centre row (in the low crossing)
 
-grid = [['.'] * W for _ in range(H)]   # grass continent
+grid = [['^'] * W for _ in range(H)]   # start as solid plateau (high ground)
 
 
 def h2(ix, iy):
@@ -49,74 +48,80 @@ def put(x, y, ch):
         grid[y][x] = ch
 
 
-def clear_box(x, y, rad, ch='.'):
+def clear_box(x, y, rad, ch):
     for dy in range(-rad, rad + 1):
         for dx in range(-rad, rad + 1):
             put(x + dx, y + dy, ch)
 
 
-# ── Water: central gulf (top split) + outer ocean border ────────────────────
-for y in range(0, GULF_BOTTOM + 1):
-    t = y / float(GULF_BOTTOM)
-    half = max(1.8, 7.0 * (1.0 - t) ** 1.1)
-    rx = CX + 1.6 * math.sin(y * 0.3)
-    for x in range(W):
-        if abs((x + 0.5) - rx) <= half:
-            grid[y][x] = '~'
+# ── Central valley: gulf (water) on top, low land (.) on the bottom ─────────
+for y in range(H):
+    for x in range(VALLEY_L, VALLEY_R + 1):
+        # gulf meanders a touch for an organic shoreline
+        wob = 1.5 * math.sin(y * 0.3)
+        if VALLEY_L + 1 + wob <= x <= VALLEY_R - 1 - wob and y <= GULF_BOTTOM:
+            grid[y][x] = '~'      # gulf water
+        else:
+            grid[y][x] = '.'      # low crossing / valley floor
 
+# ── Outer ocean border ──────────────────────────────────────────────────────
 for y in range(H):
     for x in range(W):
         if x < MOAT or x >= W - MOAT or y < MOAT or y >= H - MOAT:
             grid[y][x] = '~'
 
-# ── Spawns, gold, neutral structures ────────────────────────────────────────
-PB = (11, 9)
-EB = (W - 1 - 11, 9)
-clear_box(PB[0], PB[1], 3)
-clear_box(EB[0], EB[1], 3)
-put(PB[0], PB[1], 'P')
-put(EB[0], EB[1], 'E')
 
-# 4 mines per side: 2 home (on the plateau), 2 auxiliary (low ground, creeped).
-gold = [(6, 7), (24, 12), (8, 30), (16, 44)]
-for (gx, gy) in gold:
-    clear_box(gx, gy, 1)
-    put(gx, gy, '$')
-    put(W - 1 - gx, gy, '$')
-
-MERCHANT = (int(CX), 38)
-MERCENARY = (int(CX), H - 4)
-clear_box(MERCHANT[0], MERCHANT[1], 2)
-clear_box(MERCENARY[0], MERCENARY[1], 2)
-put(MERCHANT[0], MERCHANT[1], 'o')
-put(MERCENARY[0], MERCENARY[1], 'o')
-
-# ── Plateaus (clean solid blocks) + ramps ───────────────────────────────────
-KEEP = ('P', 'E', '$', 'o', '/')
+def is_high(x, y):
+    return 0 <= x < W and 0 <= y < H and grid[y][x] == '^'
 
 
-def raise_plateau():
-    # Force each top-corner block to solid HIGH so the cliff line is clean.
-    for y in range(MOAT, PLATEAU_BOTTOM + 1):
-        for x in list(range(MOAT, PLATEAU_INNER + 1)) + \
-                 list(range(W - 1 - PLATEAU_INNER, W - MOAT)):
-            if grid[y][x] not in KEEP:
-                grid[y][x] = '^'
-
-
-def cut_ramp(cx):
-    for y in range(PLATEAU_BOTTOM - 3, PLATEAU_BOTTOM + 4):
-        for x in range(cx - 1, cx + 2):
-            if 0 <= x < W and grid[y][x] in ('^', '.', 'T'):
+# ── Ramp: cut the plateau's inner cliff into the low crossing ───────────────
+def cut_ramp_left():
+    # horizontal ramp corridor through the east edge of the LEFT plateau
+    for y in range(RAMP_ROW - 1, RAMP_ROW + 2):
+        for x in range(VALLEY_L - 3, VALLEY_L + 2):
+            if grid[y][x] in ('^', '.'):
                 grid[y][x] = '/'
 
 
-raise_plateau()
-cut_ramp(RAMP_X)
-cut_ramp(W - 1 - RAMP_X)
+def cut_ramp_right():
+    for y in range(RAMP_ROW - 1, RAMP_ROW + 2):
+        for x in range(VALLEY_R - 1, VALLEY_R + 4):
+            if grid[y][x] in ('^', '.'):
+                grid[y][x] = '/'
 
-# ── Forest clumps on the low ground (never on plateau/ramp) ─────────────────
-keepouts = [PB, EB, MERCHANT, MERCENARY] + gold + [(W - 1 - x, y) for (x, y) in gold]
+
+cut_ramp_left()
+cut_ramp_right()
+
+# ── Spawns, gold, neutral structures ────────────────────────────────────────
+PB = (11, 10)
+EB = (W - 1 - 11, 10)
+clear_box(PB[0], PB[1], 3, '^')   # keep base clearing on the plateau
+clear_box(EB[0], EB[1], 3, '^')
+put(PB[0], PB[1], 'P')
+put(EB[0], EB[1], 'E')
+
+# Home mines (on plateau, near base) + contested mines (low valley).
+home_gold = [(6, 8), (15, 12), (10, 28)]
+valley_gold = [(33, 40)]
+for (gx, gy) in home_gold:
+    clear_box(gx, gy, 1, '^')
+    put(gx, gy, '$'); put(W - 1 - gx, gy, '$')
+for (gx, gy) in valley_gold:
+    clear_box(gx, gy, 1, '.')
+    put(gx, gy, '$'); put(W - 1 - gx, gy, '$')
+
+MERCHANT = (int(CX), GULF_BOTTOM + 4)
+MERCENARY = (int(CX), H - 5)
+clear_box(MERCHANT[0], MERCHANT[1], 2, '.')
+clear_box(MERCENARY[0], MERCENARY[1], 2, '.')
+put(MERCHANT[0], MERCHANT[1], 'o')
+put(MERCENARY[0], MERCENARY[1], 'o')
+
+# ── Forest clumps on the low valley floor (never on the plateau) ────────────
+keepouts = [PB, EB, MERCHANT, MERCENARY] + home_gold + valley_gold + \
+           [(W - 1 - x, y) for (x, y) in home_gold + valley_gold]
 
 
 def clearing(x, y):
@@ -134,12 +139,12 @@ for y in range(H):
             continue
         if abs((x + 0.5) - CX) <= 3 and y >= GULF_BOTTOM:   # keep bottom bridge open
             continue
-        n = vnoise(x, y, 7.0)
+        n = vnoise(x, y, 6.0)
         if n + (h2(x, y) - 0.5) * 0.12 < FOREST_COVER:
             grid[y][x] = 'T'
 
 print("# Tideland Crossing — full board %dx%d (generated; mirror: none)." % (W, H))
-print("# Two clean plateaus (top corners) with ramps; central gulf splits the top.")
+print("# Twin fortress plateaus; one ramp each down to the low central valley.")
 print("# Regenerate: python3 tools/mapgen/sources/gen_tideland.py > tools/mapgen/sources/tideland-crossing.map")
 print("name: Tideland Crossing")
 print("tile: 64")
