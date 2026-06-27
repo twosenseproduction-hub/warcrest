@@ -92,62 +92,81 @@
     var s = targetW / Math.max(sz.x, sz.z, 0.001); g.scale.multiplyScalar(s); return g;
   }
 
-  /* ---- buildings --------------------------------------------------------- */
-  function crownKeep() {
-    var g = new THREE.Group();
-    g.add(box(5, 4, 5, P.stone, 0, 2, 0)); g.add(box(6, 0.9, 6, P.stoneD, 0, 4.2, 0));
-    [[-2.3, -2.3], [2.3, -2.3], [-2.3, 2.3], [2.3, 2.3]].forEach(function (p) {
-      var t = cyl(0.8, 0.9, 5.6, 7, P.stone); t.position.set(p[0], 2.8, p[1]); g.add(t);
-      var r = cone(1.1, 1.5, 7, P.crownRoof); r.position.set(p[0], 5.9, p[1]); g.add(r);
-    });
-    g.add(box(1.4, 2, 0.3, P.woodD, 0, 1, 2.55));
-    return g;
+  /* ---- buildings: Thronefall style --------------------------------------
+   * Warm cream stone + red-brown roofs, crenellated battlements, clean low-poly
+   * forms under strong directional light. A faction-colored banner keeps side
+   * identity. Shared warm materials built once. */
+  var BP = null;
+  function buildingPalette() {
+    BP = {
+      cream: M(0xe7d8b4), creamD: M(0xcdba8e), stone: M(0xd8cba6), stoneD: M(0xb6a47e),
+      roof: M(0xb5503a), roofD: M(0x8c3b2b), wood: M(0x7a5436), woodD: M(0x573a24),
+      door: M(0x4a3220), gold: M(0xe4b53a),
+    };
   }
-  function hordeHut() {
-    var g = new THREE.Group();
-    g.add(box(7, 2.4, 5.4, P.wood, 0, 1.2, 0)); g.add(box(7.2, 0.5, 5.6, P.woodD, 0, 2.5, 0));
-    var roof = cone(5.2, 2.6, 4, P.thatch); roof.rotation.y = Math.PI / 4; roof.position.y = 3.8; roof.scale.set(1, 1, 0.78); g.add(roof);
-    [[-3, -2.2], [3, -2.2], [-3, 2.2], [3, 2.2]].forEach(function (p) { var s = cone(0.45, 1.8, 6, P.bone); s.position.set(p[0], 2.6, p[1]); g.add(s); });
-    var sk = sphere(0.7, P.bone); sk.position.set(0, 3.0, 2.7); g.add(sk);
-    g.add(box(1.6, 2, 0.3, P.dark, 0, 1, 2.75));
-    return g;
+  function factionBanner(race) {
+    return new THREE.MeshStandardMaterial({ color: (TFCOL[race] || TFCOL.crown).body, flatShading: true, roughness: 1 });
   }
-  function elfHall() {
-    var g = new THREE.Group();
-    var trunk = cyl(1.2, 1.6, 5, 7, P.bark); trunk.position.y = 2.5; g.add(trunk);
-    g.add(box(3.4, 1.8, 3.4, P.wood, 0, 4.3, 0)); g.add(box(3.7, 0.3, 3.7, P.gold, 0, 5.3, 0));
-    g.add(box(0.9, 1.2, 0.2, P.gold, 0, 4.0, 1.75));
-    var c1 = cone(3.4, 3.2, 7, P.leaf); c1.position.y = 7.2; g.add(c1);
-    var c2 = cone(2.6, 2.6, 7, P.leaf2); c2.position.set(1.6, 6.4, 0.6); g.add(c2);
-    var c3 = cone(2.4, 2.4, 7, P.leaf2); c3.position.set(-1.5, 6.2, -0.8); g.add(c3);
-    return g;
-  }
-  // generic smaller structure (barracks/forge/tower/etc.) tinted by race
-  function genericBuilding(race, type) {
-    var g = new THREE.Group();
-    var wallMat = race === 'horde' ? P.wood : race === 'elf' ? P.elfTunic : P.stone;
-    var roofMat = race === 'horde' ? P.thatch : race === 'elf' ? P.leaf : P.crownRoof;
-    var tower = /turret|tower|conduit/.test(type || '');
-    if (tower) {
-      g.add(cyl(1.4, 1.7, 5, 8, wallMat).translateY(2.5));
-      var top = box(3.2, 1, 3.2, P.stoneD, 0, 5.1, 0); g.add(top);
-      var spire = cone(1.6, 2.2, 8, roofMat); spire.position.y = 6.4; g.add(spire);
-    } else {
-      g.add(box(4.4, 2.6, 4, wallMat, 0, 1.3, 0));
-      var roof = cone(3.6, 2, 4, roofMat); roof.rotation.y = Math.PI / 4; roof.position.y = 3.6; g.add(roof);
-      g.add(box(1.2, 1.6, 0.3, P.woodD, 0, 0.8, 2.05));
+  // crenellated rim: ring of merlons around a square top of half-width hw at height y
+  function crenellate(g, hw, y, mat) {
+    var n = 4, step = (hw * 2) / n;
+    for (var s = -hw; s <= hw + 0.01; s += step) {
+      [[s, hw], [s, -hw], [hw, s], [-hw, s]].forEach(function (p) {
+        g.add(box(step * 0.62, 0.5, step * 0.62, mat, p[0], y, p[1]));
+      });
     }
+  }
+  function tfKeep(race) {
+    var g = new THREE.Group();
+    g.add(box(5.2, 4.2, 5.2, BP.cream, 0, 2.1, 0));            // main body
+    g.add(box(5.6, 0.4, 5.6, BP.creamD, 0, 4.1, 0));          // lip
+    crenellate(g, 2.6, 4.5, BP.cream);
+    // taller central turret with red roof + banner
+    g.add(box(2.6, 2.6, 2.6, BP.stone, 0, 5.4, 0));
+    var roof = cone(2.3, 2.0, 4, BP.roof); roof.rotation.y = Math.PI / 4; roof.position.y = 7.6; g.add(roof);
+    g.add(box(0.12, 1.6, 0.12, BP.woodD, 0, 8.8, 0));
+    var flag = box(1.0, 0.6, 0.06, factionBanner(race), 0.55, 8.7, 0); g.add(flag);
+    g.add(box(1.5, 2.0, 0.3, BP.door, 0, 1.0, 2.62));         // door
+    return g;
+  }
+  function tfTower(race) {
+    var g = new THREE.Group();
+    g.add(box(2.6, 5.0, 2.6, BP.cream, 0, 2.5, 0));
+    g.add(box(3.0, 0.4, 3.0, BP.creamD, 0, 4.9, 0));
+    crenellate(g, 1.4, 5.3, BP.cream);
+    g.add(box(0.7, 1.0, 0.15, BP.door, 0, 0.8, 1.32));
+    var flag = box(0.7, 0.4, 0.05, factionBanner(race), 0, 5.9, 0); g.add(flag);
+    return g;
+  }
+  function tfHall(race) {
+    var g = new THREE.Group();
+    g.add(box(5.0, 2.6, 4.0, BP.cream, 0, 1.3, 0));
+    var roof = cone(3.8, 2.2, 4, BP.roof); roof.rotation.y = Math.PI / 4; roof.scale.set(1, 1, 0.82); roof.position.y = 3.7; g.add(roof);
+    g.add(box(5.2, 0.3, 4.2, BP.roofD, 0, 2.55, 0));          // eave
+    g.add(box(1.3, 1.7, 0.3, BP.door, 0, 0.85, 2.05));
+    g.add(box(0.8, 0.8, 0.15, BP.woodD, -1.6, 1.6, 2.05)); g.add(box(0.8, 0.8, 0.15, BP.woodD, 1.6, 1.6, 2.05)); // windows
+    g.add(box(0.7, 0.4, 0.05, factionBanner(race), 2.0, 2.3, 2.1));
+    return g;
+  }
+  function tfWindmill(race) {
+    var g = new THREE.Group();
+    g.add(cyl(1.6, 2.0, 4.4, 9, BP.cream).translateY(2.2));
+    var cap = cone(1.9, 1.3, 9, BP.roof); cap.position.y = 5.0; g.add(cap);
+    var hub = new THREE.Group(); hub.position.set(0, 4.0, 2.0);
+    for (var i = 0; i < 4; i++) { var bl = box(0.5, 2.6, 0.12, BP.wood, 0, 1.3, 0); var blade = new THREE.Group(); blade.add(bl); blade.rotation.z = i * Math.PI / 2; hub.add(blade); }
+    g.add(hub);
+    g.add(box(1.2, 1.6, 0.3, BP.door, 0, 0.8, 1.9));
     return g;
   }
   function makeBuildingMesh(b) {
+    if (!BP) buildingPalette();
     var race = raceOf(b.faction);
     var t = b.type || '';
     var g;
-    if (/core|keep|castle|hall|townhall|citadel|core/.test(t)) {
-      g = race === 'horde' ? hordeHut() : race === 'elf' ? elfHall() : crownKeep();
-    } else {
-      g = genericBuilding(race, t);
-    }
+    if (/core|keep|castle|hall|townhall|citadel/.test(t)) g = tfKeep(race);
+    else if (/turret|tower|conduit/.test(t)) g = tfTower(race);
+    else if (/conduit|sheep|farm|mill|merchant/.test(t)) g = tfWindmill(race);
+    else g = tfHall(race);
     g.traverse(function (o) { o.castShadow = true; o.receiveShadow = true; });
     fitWidth(g, (b.w || 128) * 0.92);
     return g;
@@ -359,21 +378,68 @@
     return g;
   }
 
-  // template cache + role mapping. Combat roles without a dedicated model
-  // (lancer/monk) reuse the warrior body for now.
+  /* ---- Thronefall-minimal units ----------------------------------------
+   * Clean team/faction-colored figures (body + shield/weapon), strong flat
+   * shading. Read at RTS zoom by color + silhouette, not detail. (The detailed
+   * lore roster still lives in the character workshop poc.) */
+  var TFCOL = {
+    crown: { body: 0x3f63b8, dark: 0x2b4682, trim: 0xdbe4f2 },   // Iron Crown — blue
+    horde: { body: 0xb5462f, dark: 0x86301f, trim: 0xe0a060 },   // Raider Horde — ember red
+    elf:   { body: 0x3f8a6a, dark: 0x2c6149, trim: 0xe6cf6a },   // Rimwalkers — teal/gold
+  };
+  function buildMinimalUnit(race, role) {
+    var col = TFCOL[race] || TFCOL.crown;
+    var body = M(col.body), bodyD = M(col.dark), trim = M(col.trim),
+        skin = M(0xe7c69e), steel = M(0xb9c2cc), wood = M(0x6b4a2a),
+        glow = M(col.trim, { emissive: col.trim, emissiveIntensity: .5 });
+    var g = new THREE.Group();
+    var hero = role === 'hero';
+    var hipY = 0.7;
+    function ml(side) { var j = new THREE.Group(); j.position.set(0.22 * side, hipY, 0); j.add(box(0.36, 0.72, 0.36, bodyD, 0, -0.36, 0)); return j; }
+    var legL = ml(-1), legR = ml(1); legL.name = 'legL'; legR.name = 'legR'; g.add(legL, legR);
+    // tapered torso + small head + helmet cap
+    g.add(cyl(0.5, 0.7, 1.35, 8, body).translateY(1.38));
+    g.add(sph(0.34, skin).translateY(2.25));
+    g.add(dome(0.4, hero ? M(0xe4b53a) : steel).translateY(2.22));
+    if (role === 'worker') {
+      var t = box(0.1, 1.15, 0.1, wood, 0.42, 1.45, 0.12); t.rotation.z = 0.4; g.add(t);
+      g.add(box(0.28, 0.22, 0.22, steel, 0.55, 2.02, 0.12));
+    } else if (role === 'archer') {
+      var bow = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.06, 5, 12, Math.PI), wood);
+      bow.rotation.z = Math.PI / 2; bow.position.set(-0.58, 1.55, 0.22); g.add(bow);
+      g.add(box(0.02, 1.2, 0.02, M(0xeee7cf), -0.58, 1.55, 0.22));
+    } else if (role === 'monk') {
+      g.add(cyl(0.05, 0.05, 1.8, 6, wood).translateX(0.5).translateY(1.55).translateZ(0.1));
+      g.add(sph(0.17, glow).translateX(0.5).translateY(2.5).translateZ(0.1));
+      g.add(cone(0.4, 0.6, 7, bodyD).translateY(2.35));   // hood
+    } else { // warrior / lancer / melee — kite shield + spear
+      g.add(box(0.14, 1.0, 0.7, trim, -0.52, 1.42, 0.16));
+      g.add(box(0.16, 0.5, 0.32, body, -0.54, 1.42, 0.16));   // emblem
+      g.add(cyl(0.05, 0.05, 2.0, 6, wood).translateX(0.5).translateY(1.6).translateZ(0.1));
+      g.add(cone(0.1, 0.32, 4, steel).translateX(0.5).translateY(2.65).translateZ(0.1));
+    }
+    if (hero) {
+      var cape = box(0.95, 1.45, 0.1, trim, 0, 1.45, -0.36); cape.rotation.x = 0.12; g.add(cape);
+      g.add(box(0.14, 0.5, 0.14, M(0xe4b53a), 0, 2.0, 0));
+    }
+    g.traverse(function (o) { o.castShadow = true; });
+    return g;
+  }
+
   var unitTemplates = {};
   function mapRole(u) {
     if (u.heroId || u.role === 'hero') return 'hero';
     var r = u.role;
     if (r === 'pawn' || r === 'worker') return 'worker';
     if (r === 'archer') return 'archer';
+    if (r === 'monk' || r === 'caster') return 'monk';
     return 'warrior';
   }
   function unitTemplate(race, role) {
     var key = race + ':' + role;
     if (unitTemplates[key]) return unitTemplates[key];
-    var g = buildHumanoid(race, role);
-    fitHeight(g, role === 'hero' ? 60 : role === 'worker' ? 34 : 48);
+    var g = buildMinimalUnit(race, role);
+    fitHeight(g, role === 'hero' ? 52 : role === 'worker' ? 32 : 40);
     unitTemplates[key] = g;
     return g;
   }
@@ -383,7 +449,6 @@
     var g = tmpl.clone();
     g.userData = {
       legL: g.getObjectByName('legL'), legR: g.getObjectByName('legR'),
-      shinL: g.getObjectByName('shinL'), shinR: g.getObjectByName('shinR'),
       isArcher: role === 'archer'
     };
     return g;
@@ -535,9 +600,9 @@
     R.scene.background = new THREE.Color(0xbfd8e6);
     R.scene.fog = new THREE.Fog(0xc8dcc6, 1400, 3600);
     R.camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 8, 9000);
-    R.amb = new THREE.AmbientLight(0xffffff, 0.46); R.scene.add(R.amb);
-    R.hemi = new THREE.HemisphereLight(0xe8ecdf, 0x46502f, 0.22); R.scene.add(R.hemi);
-    R.sun = new THREE.DirectionalLight(0xfff0d0, 1.25);
+    R.amb = new THREE.AmbientLight(0xfff3df, 0.42); R.scene.add(R.amb);
+    R.hemi = new THREE.HemisphereLight(0xfdeecb, 0x4a5230, 0.2); R.scene.add(R.hemi);
+    R.sun = new THREE.DirectionalLight(0xfff0cf, 1.6);
     R.sun.castShadow = true; R.sun.shadow.mapSize.set(2048, 2048);
     var sc = R.sun.shadow.camera; sc.near = 50; sc.far = 2600; sc.left = -900; sc.right = 900; sc.top = 900; sc.bottom = -900;
     R.sun.shadow.bias = -0.0006;
