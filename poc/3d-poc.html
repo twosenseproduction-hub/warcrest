@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Warcrest — 3D proof of concept</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#0e1118;font-family:"Segoe UI",system-ui,sans-serif;}
+  #c{display:block;width:100%;height:100%;touch-action:none;}
+  .hud{position:fixed;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:flex-start;
+    padding:12px;pointer-events:none;}
+  .pill{background:rgba(22,20,16,.82);color:#fff;border-radius:999px;padding:7px 14px 7px 8px;font-weight:800;
+    font-size:15px;display:flex;align-items:center;gap:7px;box-shadow:0 4px 14px rgba(0,0,0,.4);backdrop-filter:blur(5px);}
+  .pill i{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:13px;
+    background:radial-gradient(circle at 35% 30%,#ffe9a8,#f0c14b 60%,#c8971f);}
+  .title{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);color:#fff;font-size:12px;font-weight:700;
+    background:rgba(22,20,16,.7);padding:6px 14px;border-radius:999px;backdrop-filter:blur(5px);text-align:center;
+    box-shadow:0 4px 14px rgba(0,0,0,.4);}
+  .ctl{position:fixed;right:12px;top:64px;display:flex;flex-direction:column;gap:8px;}
+  .btn{pointer-events:auto;background:rgba(22,20,16,.82);color:#fff;border:none;border-radius:13px;width:48px;height:48px;
+    font-size:20px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4);backdrop-filter:blur(5px);}
+  .btn:active{transform:scale(.93);}
+  .hint{position:fixed;left:12px;bottom:48px;color:rgba(255,255,255,.6);font-size:11px;font-weight:700;}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="hud">
+  <div class="pill"><i>🪙</i><span id="gold">240</span></div>
+  <div class="pill" style="padding-left:13px">🛡️ Iron Crown</div>
+</div>
+<div class="ctl">
+  <button class="btn" id="bNight" title="Day/Night">🌙</button>
+  <button class="btn" id="bSpin" title="Auto-rotate">🔄</button>
+</div>
+<div class="hint">drag to orbit · scroll to zoom</div>
+<div class="title">Warcrest — 3D proof of concept · low-poly (KayKit-style placeholder geometry) · driven by a live mini game-state</div>
+
+<script src="./three.min.js"></script>
+<script>
+/* ============================================================================
+ * Warcrest 3D PoC — proves the rendering direction: an angled low-poly scene
+ * with real elevation (plateau + cliff + ramp), water, buildings, trees, and
+ * UNITS WALKING under a tiny game-state loop. Procedural geometry stands in for
+ * KayKit .glb models (which load through THREE.GLTFLoader into this same scene).
+ * ==========================================================================*/
+const C = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({canvas:C, antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+
+const scene = new THREE.Scene();
+const DAY = {sky:0xcfe6ef, fog:0xc8dcc6, sun:0xfff0d0, sunI:1.45, amb:0x9fb8c8, ambI:0.85, grade:0xffd9a0};
+const NIGHT = {sky:0x1d2740, fog:0x222c44, sun:0x9fb0e0, sunI:0.5, amb:0x2a3658, ambI:0.7, grade:0x3a4a78};
+let mood = DAY;
+
+const camera = new THREE.PerspectiveCamera(40, innerWidth/innerHeight, 0.5, 200);
+let camDist = 30, camYaw = Math.PI*0.25, camPitch = 0.85, spin = true;
+function placeCam(){
+  const cx=2, cz=2;
+  camera.position.set(cx + camDist*Math.cos(camYaw)*Math.cos(camPitch),
+                      camDist*Math.sin(camPitch),
+                      cz + camDist*Math.sin(camYaw)*Math.cos(camPitch));
+  camera.lookAt(cx, 1.5, cz);
+}
+
+const hemi = new THREE.HemisphereLight(0xffffff, 0x556b3f, 0.0);
+scene.add(hemi);
+const amb = new THREE.AmbientLight(0xffffff, 0.6); scene.add(amb);
+const sun = new THREE.DirectionalLight(0xffffff, 1.4);
+sun.position.set(14, 22, 8); sun.castShadow = true;
+sun.shadow.mapSize.set(2048,2048);
+const sc = sun.shadow.camera; sc.left=-30; sc.right=30; sc.top=30; sc.bottom=-30; sc.near=1; sc.far=70;
+sun.shadow.bias = -0.0004;
+scene.add(sun);
+
+/* ---- materials (flat-shaded low-poly) ---- */
+const M = (hex)=> new THREE.MeshStandardMaterial({color:hex, flatShading:true, roughness:1, metalness:0});
+const MAT = {
+  grass:M(0x8db35a), grassHi:M(0xa6c66e), dirt:M(0xb08a4e), cliff:M(0x6a5536), rampM:M(0xc9b178),
+  water:new THREE.MeshStandardMaterial({color:0x3f86b0, flatShading:true, roughness:.4, transparent:true, opacity:.86}),
+  stone:M(0x9aa6b2), stoneDark:M(0x6f7d8c), roof:M(0x2f4f9e), roof2:M(0x223a78), wood:M(0x7a5232),
+  trunk:M(0x6b4a2a), leaf:M(0x3f7a3e), leaf2:M(0x4f8a4a),
+  blue:M(0x3f63b8), blueT:M(0xdfe6f2), gold:M(0xf0c14b), skin:M(0xe8b07a),
+};
+
+function box(w,h,d,mat,x,y,z){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;return m;}
+function cone(r,h,seg,mat){const m=new THREE.Mesh(new THREE.ConeGeometry(r,h,seg),mat);m.castShadow=true;return m;}
+function cyl(r1,r2,h,seg,mat){const m=new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,h,seg),mat);m.castShadow=true;return m;}
+
+/* ---- terrain: low ground + a raised PLATEAU with cliff + ramp + water gulf ---- */
+const ground = new THREE.Mesh(new THREE.BoxGeometry(60,1,60), MAT.grass);
+ground.position.y=-0.5; ground.receiveShadow=true; scene.add(ground);
+// scattered grass facets for low-poly variation
+for(let i=0;i<26;i++){const s=2+Math.random()*3;const g=box(s,0.15,s,MAT.grassHi,(Math.random()-.5)*52,0.06,(Math.random()-.5)*52);g.castShadow=false;scene.add(g);}
+
+// PLATEAU (player's high ground) — a raised slab; sides are cliff faces
+const plat = new THREE.Group();
+const PH=3.2; // plateau height
+const slab = box(20,PH,16, MAT.cliff, 0,0,0); plat.add(slab);
+const platTop = box(20.2,0.5,16.2, MAT.grassHi, 0, PH/2, 0); plat.add(platTop);
+plat.position.set(-14, PH/2, -10); scene.add(plat);
+// RAMP down from the plateau's front edge to the ground
+const ramp = box(4, 0.5, 7, MAT.rampM, 0,0,0);
+ramp.position.set(-14+4, PH-1.0, -10+11.0);
+ramp.rotation.x = -Math.atan2(PH, 7);
+scene.add(ramp);
+
+// WATER gulf (a channel of water lower than the ground)
+const water = new THREE.Mesh(new THREE.BoxGeometry(14,0.6,40), MAT.water);
+water.position.set(9, -0.55, 0); scene.add(water);
+// shoreline lip
+const shore = box(15.5,0.3,41, MAT.dirt, 9,-0.2,0); shore.receiveShadow=true; scene.add(shore);
+scene.add(water); water.renderOrder=2;
+
+/* ---- a low-poly KEEP on the plateau ---- */
+function keep(){
+  const g=new THREE.Group();
+  g.add(box(5,4,5, MAT.stone, 0,2,0));
+  g.add(box(6,1,6, MAT.stoneDark, 0,4.2,0));            // battlement
+  // corner towers
+  [[-2.2,-2.2],[2.2,-2.2],[-2.2,2.2],[2.2,2.2]].forEach(p=>{
+    g.add(cyl(0.8,0.9,5.5,7,MAT.stone).translateX(p[0]).translateY(2.75).translateZ(p[1]));
+    const r=cone(1.0,1.4,7,MAT.roof); r.position.set(p[0],5.8,p[1]); g.add(r);
+  });
+  g.add(box(1.4,2,0.3, MAT.wood, 0,1,2.5));             // gate
+  return g;
+}
+const kp = keep(); kp.position.set(-14, PH+0.25, -10); scene.add(kp);
+
+/* ---- a barracks on the lower ground ---- */
+function barracks(){
+  const g=new THREE.Group();
+  g.add(box(6,2.4,4, MAT.wood, 0,1.2,0));
+  const r=box(6.6,0.4,4.6, MAT.roof2, 0,2.6,0); g.add(r);
+  const roofA=new THREE.Mesh(new THREE.CylinderGeometry(0.01,2.6,6.8,4,1,false,Math.PI/4), MAT.roof);
+  roofA.rotation.z=Math.PI/2; roofA.position.y=3.2; roofA.scale.set(1,1,0.7); roofA.castShadow=true; g.add(roofA);
+  g.add(box(1.2,1.6,0.2, MAT.blueT, 0,0.8,2.05));
+  return g;
+}
+const bk=barracks(); bk.position.set(4,0,8); scene.add(bk);
+
+/* ---- low-poly trees ---- */
+function tree(){
+  const g=new THREE.Group();
+  g.add(cyl(0.25,0.35,1.4,6,MAT.trunk).translateY(0.7));
+  const f=cone(1.3,2.6,7, Math.random()<.5?MAT.leaf:MAT.leaf2); f.position.y=2.3; g.add(f);
+  const f2=cone(0.95,1.8,7,MAT.leaf2); f2.position.y=3.4; g.add(f2);
+  return g;
+}
+[[-22,6],[-20,12],[14,-14],[20,10],[18,-6],[-6,16],[10,16],[24,-2]].forEach(p=>{
+  const t=tree(); t.position.set(p[0],0,p[1]); t.scale.setScalar(0.8+Math.random()*0.5); scene.add(t);
+});
+
+/* ---- BUILD PLOT marker (a glowing ring on the ground) ---- */
+const plotRing = new THREE.Mesh(new THREE.TorusGeometry(1.1,0.12,8,28), MAT.gold);
+plotRing.rotation.x=-Math.PI/2; plotRing.position.set(-8,0.1,2); scene.add(plotRing);
+
+/* ---- UNITS: low-poly soldiers driven by a tiny game-state loop ---- */
+function soldier(bodyMat){
+  const g=new THREE.Group();
+  const legL=box(0.32,1.0,0.32,bodyMat,-0.22,0.5,0); const legR=box(0.32,1.0,0.32,bodyMat,0.22,0.5,0);
+  g.add(legL); g.add(legR);
+  g.add(box(0.95,1.1,0.6, bodyMat, 0,1.55,0));         // torso
+  g.add(box(0.62,0.6,0.6, MAT.skin, 0,2.4,0));         // head
+  g.add(box(1.05,0.25,0.7, MAT.blueT, 0,2.0,0));       // shoulders
+  // weapon
+  const sw=box(0.12,1.6,0.12, MAT.stone, 0.6,1.8,0.2); sw.rotation.z=0.3; g.add(sw);
+  g.userData.legL=legL; g.userData.legR=legR;
+  g.traverse(o=>{o.castShadow=true;});
+  g.scale.setScalar(0.62);
+  return g;
+}
+// mini "game state" — units with positions + targets (renderer follows state)
+const STATE = [];
+function spawn(x,z,mat){ const m=soldier(mat); m.position.set(x,0,z); scene.add(m);
+  STATE.push({m, x, z, tx:x, tz:z, t:Math.random()*6, spd:1.6+Math.random()*0.8}); }
+// a small squad marching from the plateau ramp down toward the field
+for(let i=0;i<6;i++) spawn(-9+(i%3)*1.4, 4+Math.floor(i/3)*1.4, MAT.blue);
+// patrol targets
+const WAY = [[-2,6],[6,2],[2,-6],[-8,-2]];
+let wi=0;
+function newTarget(u){ const w=WAY[(wi++)%WAY.length]; u.tx=w[0]+(Math.random()-.5)*3; u.tz=w[1]+(Math.random()-.5)*3; }
+
+/* ---- apply mood (day/night) ---- */
+function applyMood(){
+  scene.background = new THREE.Color(mood.sky);
+  scene.fog = new THREE.Fog(mood.fog, 38, 90);
+  sun.color.setHex(mood.sun); sun.intensity = mood.sunI;
+  amb.color.setHex(mood.amb); amb.intensity = mood.ambI;
+}
+applyMood(); placeCam();
+
+/* ---- input: drag orbit + wheel zoom ---- */
+let drag=false, px=0, py=0;
+C.addEventListener('pointerdown',e=>{drag=true;px=e.clientX;py=e.clientY;spin=false;});
+addEventListener('pointermove',e=>{ if(!drag)return; camYaw-=(e.clientX-px)*0.008; camPitch=Math.max(0.35,Math.min(1.35,camPitch+(e.clientY-py)*0.006)); px=e.clientX;py=e.clientY; placeCam(); });
+addEventListener('pointerup',()=>drag=false);
+addEventListener('wheel',e=>{ camDist=Math.max(14,Math.min(54,camDist+e.deltaY*0.03)); placeCam(); },{passive:true});
+document.getElementById('bNight').onclick=function(){ mood = (mood===DAY)?NIGHT:DAY; this.textContent = mood===DAY?'🌙':'☀️'; applyMood(); };
+document.getElementById('bSpin').onclick=function(){ spin=!spin; };
+addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
+renderer.setSize(innerWidth,innerHeight);
+
+/* ---- main loop: advance the mini game-state, animate, render ---- */
+let last=performance.now();
+function frame(now){
+  const dt=Math.min(0.05,(now-last)/1000); last=now;
+  // game-state update: walk units toward targets, bob legs, face travel dir
+  STATE.forEach(u=>{
+    const dx=u.tx-u.x, dz=u.tz-u.z, d=Math.hypot(dx,dz);
+    if(d<0.4){ u.t-=dt; if(u.t<=0){ newTarget(u); u.t=2+Math.random()*3; } }
+    else { const vx=dx/d*u.spd*dt, vz=dz/d*u.spd*dt; u.x+=vx; u.z+=vz;
+      u.m.position.x=u.x; u.m.position.z=u.z; u.m.rotation.y=Math.atan2(vx,vz);
+      const sw=Math.sin(now*0.012)*0.5; u.m.userData.legL.rotation.x=sw; u.m.userData.legR.rotation.x=-sw;
+      u.m.position.y=Math.abs(Math.sin(now*0.012))*0.06;
+    }
+  });
+  plotRing.material.emissive = new THREE.Color(0x000000);
+  plotRing.scale.setScalar(1+Math.sin(now*0.004)*0.06);
+  water.position.y = -0.55 + Math.sin(now*0.0015)*0.04;
+  if(spin && !drag){ camYaw += dt*0.12; placeCam(); }
+  renderer.render(scene,camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
