@@ -153,66 +153,239 @@
     return g;
   }
 
-  /* ---- units ------------------------------------------------------------- */
-  function knight(tint) {
-    var g = new THREE.Group(); var body = tint || P.blue;
-    var lL = box(0.32, 1, 0.32, P.steel, -0.22, 0.5, 0), lR = box(0.32, 1, 0.32, P.steel, 0.22, 0.5, 0); g.add(lL, lR);
-    g.add(box(0.95, 1.1, 0.6, body, 0, 1.55, 0)); g.add(box(1.05, 0.28, 0.7, P.crownTrim, 0, 2.05, 0));
-    g.add(box(0.6, 0.6, 0.58, P.skin, 0, 2.42, 0)); g.add(box(0.66, 0.34, 0.64, P.steel, 0, 2.66, 0));
-    var sw = box(0.12, 1.7, 0.12, P.steel, 0.62, 1.9, 0.2); sw.rotation.z = 0.28; g.add(sw);
-    g.add(box(0.1, 0.9, 0.7, body, -0.6, 1.6, 0.1));
-    g.userData = { lL: lL, lR: lR }; g.scale.setScalar(0.62); return g;
-  }
-  function orcBrute(tint) {
+  /* ---- units: lore-styled roster (ported from the character workshop) ----
+   * One TEMPLATE is built per (race, role) and CLONED per unit — clones share
+   * geometry + materials, so a full army stays cheap. Joints are named so each
+   * clone can be animated independently. */
+  function sph(r, mat) { return sphere(r, mat); }
+  function ring(r, t, mat) { var m = new THREE.Mesh(new THREE.TorusGeometry(r, t, 6, 16), mat); m.castShadow = true; return m; }
+  function dome(r, mat) { var m = new THREE.Mesh(new THREE.SphereGeometry(r, 9, 6, 0, Math.PI * 2, 0, Math.PI * 0.56), mat); m.castShadow = true; return m; }
+  function crescent(r, t, mat) { var m = new THREE.Mesh(new THREE.TorusGeometry(r, t, 5, 14, Math.PI * 1.25), mat); m.castShadow = true; return m; }
+  function plate(w, h, d, base, trim, x, y, z) { var g = new THREE.Group(); g.position.set(x || 0, y || 0, z || 0);
+    g.add(box(w, h, d, base, 0, 0, 0)); g.add(box(w + 0.16, h + 0.16, d * 0.6, trim, 0, 0, -d * 0.22)); return g; }
+
+  var RACEDEF = {
+    crown: { skin: 0xe6ab73, skinD: 0xcf9560, cloth: 0x3f63b8, cloth2: 0x2c477f, metal: 0xb9c3d2, metalD: 0x848fa0,
+      trim: 0xe4b53a, trimD: 0xb98a23, leather: 0x6b4a2a, beard: 0xd1552a, hair: 0x8a4a24, gem: 0x57d06a, cape: 0xb22b33,
+      scale: 1.0, hunch: 0.02, armLen: 1.0, headR: 0.56, build: 1.12, legLen: 0.9, hand: 1.35, foot: 1.4, pauld: 1.0 },
+    horde: { skin: 0x5f8a3a, skinD: 0x4c7030, cloth: 0x6e2f1c, cloth2: 0x4a2014, metal: 0x55585c, metalD: 0x393c40,
+      trim: 0x8a6a3a, trimD: 0x5e4824, leather: 0x4a3320, bone: 0xe2dcc0, fur: 0x6a5436, warpaint: 0xc23528,
+      hair: 0x14100c, beard: 0x14100c, gem: 0xd8642a, cape: 0x3a2418,
+      scale: 1.08, hunch: 0.34, armLen: 1.34, headR: 0.6, build: 1.55, legLen: 0.8, hand: 1.6, foot: 1.45, pauld: 1.3 },
+    elf: { skin: 0xb39bd8, skinD: 0x9c84c4, cloth: 0x2f6a5e, cloth2: 0x214b43, metal: 0xd6dde6, metalD: 0xa7b0bd,
+      trim: 0xd9c069, trimD: 0xb89a45, leather: 0x4a4030, leaf: 0x4f8a5a, hair: 0x3a6b62, eye: 0xffd27a,
+      beard: 0x000000, gem: 0x8fe0d6, cape: 0x2f6a4a,
+      scale: 1.06, hunch: -0.04, armLen: 1.06, headR: 0.48, build: 0.86, legLen: 1.18, hand: 1.05, foot: 1.05, pauld: 0.7 },
+  };
+
+  function buildHumanoid(race, role) {
+    var Pal = RACEDEF[race];
+    var heavy = (role === 'warrior' || role === 'hero');
+    var orc = race === 'horde', elf = race === 'elf', crown = race === 'crown';
+    var troll = (orc && role === 'archer');             // Horde ranged = troll headhunter (spears)
+    var sk = M(troll ? 0x4f8f86 : Pal.skin), skD = M(troll ? 0x3d7a70 : Pal.skinD),
+      cloth = M(Pal.cloth), cloth2 = M(Pal.cloth2),
+      metal = M(Pal.metal, { metalness: .35, roughness: .5 }), metalD = M(Pal.metalD, { metalness: .3, roughness: .55 }),
+      trim = M(Pal.trim, { metalness: .55, roughness: .4 }), trimD = M(Pal.trimD, { metalness: .5, roughness: .46 }),
+      leather = M(Pal.leather), fur = M(Pal.fur || 0x6a5436), bone = M(Pal.bone || 0xe2dcc0),
+      beardM = M(Pal.beard), hairM = M(troll ? 0xdd6a24 : Pal.hair),
+      gemM = M(Pal.gem, { emissive: Pal.gem, emissiveIntensity: .55, roughness: .3 }),
+      warpaint = M(troll ? 0x2f6f8a : (Pal.warpaint || 0xc23528)),
+      eyeM = elf ? M(Pal.eye, { emissive: Pal.eye, emissiveIntensity: 1.0, roughness: .4 }) : M(orc ? 0xe8c33a : 0x241f17, orc ? { emissive: 0xc28a14, emissiveIntensity: .4 } : {}),
+      dark = M(0x241f17), white = M(0xeee7cf);
     var g = new THREE.Group();
-    var lL = box(0.42, 0.8, 0.42, P.orcArmor, -0.28, 0.4, 0), lR = box(0.42, 0.8, 0.42, P.orcArmor, 0.28, 0.4, 0); g.add(lL, lR);
-    var torso = box(1.4, 1.1, 0.85, tint || P.orcSkin, 0, 1.35, 0); torso.rotation.x = 0.18; g.add(torso);
-    g.add(box(1.7, 0.4, 1.0, P.bone, 0, 1.85, 0.06));
-    g.add(box(0.7, 0.62, 0.66, tint || P.orcSkin, 0, 2.2, 0.16));
-    g.add(box(0.12, 0.18, 0.12, P.white, -0.16, 2.05, 0.5)); g.add(box(0.12, 0.18, 0.12, P.white, 0.16, 2.05, 0.5));
-    var ax = new THREE.Group(); ax.add(cyl(0.1, 0.1, 2.0, 6, P.wood)); ax.add(box(0.18, 0.7, 0.9, P.steel, 0, 0.8, 0.3));
-    ax.position.set(0.75, 1.4, 0.1); ax.rotation.z = 0.5; g.add(ax);
-    g.userData = { lL: lL, lR: lR }; g.scale.setScalar(0.66); return g;
-  }
-  function elfUnit(tint, ranged) {
-    var g = new THREE.Group(); var body = tint || P.elfTunic;
-    var lL = box(0.26, 1.0, 0.26, body, -0.18, 0.5, 0), lR = box(0.26, 1.0, 0.26, body, 0.18, 0.5, 0); g.add(lL, lR);
-    g.add(box(0.72, 1.15, 0.45, body, 0, 1.55, 0)); g.add(box(0.8, 0.22, 0.5, P.gold, 0, 1.95, 0));
-    g.add(box(0.54, 0.58, 0.52, P.skin, 0, 2.32, 0));
-    var hood = cone(0.5, 0.7, 6, P.leaf); hood.position.y = 2.75; g.add(hood);
-    if (ranged) {
-      var bow = new THREE.Mesh(new THREE.TorusGeometry(0.7, 0.06, 5, 10, Math.PI), P.gold);
-      bow.position.set(-0.5, 1.6, 0.2); bow.rotation.z = Math.PI / 2; g.add(bow);
-    } else {
-      var sp = box(0.1, 1.9, 0.1, P.wood, 0.5, 1.7, 0.15); g.add(sp);
+    var bw = Pal.build, hsc = Pal.hand, fsc = Pal.foot, legLen = Pal.legLen, armLen = Pal.armLen, headR = Pal.headR, hunch = Pal.hunch;
+    if (troll) { bw = 1.0; hsc = 1.05; fsc = 1.1; legLen = 1.12; armLen = 1.42; headR = 0.5; hunch = 0.18; }
+
+    function leg(side) {
+      var j = new THREE.Group(); j.position.set(0.36 * bw * side, 2.5 * legLen, 0);
+      if (troll) { j.add(box(0.34 * bw, 1.05 * legLen, 0.42, sk, 0, -0.5 * legLen, 0)); j.add(box(0.4 * bw, 0.32, 0.46, leather, 0, -0.72 * legLen, 0)); }
+      else if (orc) { j.add(box(0.56 * bw, 1.0 * legLen, 0.6, sk, 0, -0.5 * legLen, 0)); j.add(box(0.5 * bw, 0.4, 0.62, leather, 0, -0.16 * legLen, 0)); }
+      else if (elf) { j.add(box(0.36 * bw, 1.05 * legLen, 0.4, cloth2, 0, -0.52 * legLen, 0)); }
+      else { j.add(box(0.5 * bw, 1.05 * legLen, 0.54, heavy ? metalD : leather, 0, -0.52 * legLen, 0)); }
+      var shin = new THREE.Group(); shin.position.y = -1.02 * legLen;
+      if (troll) { shin.add(box(0.3 * bw, 0.95 * legLen, 0.34, sk, 0, -0.48 * legLen, 0)); shin.add(box(0.44 * fsc, 0.24, 0.82 * fsc, leather, 0, -0.96 * legLen, 0.18)); }
+      else if (orc) { shin.add(box(0.46 * bw, 0.9 * legLen, 0.46, sk, 0, -0.45 * legLen, 0)); shin.add(box(0.6 * bw * fsc, 0.4, 0.85 * fsc, metalD, 0, -0.95 * legLen, 0.1)); shin.add(ring(0.34 * bw, 0.1, fur).rotateX(Math.PI / 2).translateY(-0.55 * legLen)); }
+      else if (elf) { shin.add(box(0.32 * bw, 0.95 * legLen, 0.36, cloth2, 0, -0.48 * legLen, 0)); shin.add(box(0.4 * fsc, 0.3, 0.72 * fsc, leather, 0, -0.96 * legLen, 0.14)); shin.add(box(0.34 * fsc, 0.12, 0.34 * fsc, metal, 0, -0.86 * legLen, 0.1)); }
+      else { shin.add(box(0.44 * bw, 0.95 * legLen, 0.48, heavy ? metal : leather, 0, -0.48 * legLen, 0)); shin.add(box(0.56 * bw * fsc, 0.34, 0.82 * fsc, metalD, 0, -0.98 * legLen, 0.12)); shin.add(box(0.5 * bw * fsc, 0.2, 0.34 * fsc, trim, 0, -1.0 * legLen, 0.45 * fsc)); if (heavy) { var r = ring(0.32 * bw, 0.06, trim); r.rotation.x = Math.PI / 2; r.position.y = -0.62 * legLen; shin.add(r); } }
+      j.add(shin); j.userData = { shin: shin }; return j;
     }
-    g.userData = { lL: lL, lR: lR }; g.scale.setScalar(0.6); return g;
+    var legL = leg(-1), legR = leg(1); legL.name = 'legL'; legR.name = 'legR'; legL.userData.shin.name = 'shinL'; legR.userData.shin.name = 'shinR'; g.add(legL, legR);
+
+    var torsoPivot = new THREE.Group(); torsoPivot.position.y = 2.5 * legLen; torsoPivot.rotation.x = hunch; torsoPivot.name = 'torso'; g.add(torsoPivot);
+    if (troll) {
+      torsoPivot.add(box(0.92 * bw, 1.5, 0.58, sk, 0, 0.86, 0));
+      torsoPivot.add(box(0.8, 0.16, 0.04, warpaint, 0, 1.06, 0.3)); torsoPivot.add(box(0.6, 0.14, 0.04, warpaint, 0, 0.68, 0.3));
+      torsoPivot.add(box(0.2, 0.7, 0.1, leather, 0, 0.85, 0.31).rotateZ(0.3));
+      torsoPivot.add(box(0.9 * bw, 0.24, 0.6, leather, 0, 0.16, 0));
+      torsoPivot.add(box(0.6, 0.95, 0.12, cloth, 0, -0.32, 0.32)); torsoPivot.add(box(0.6, 0.95, 0.12, cloth, 0, -0.32, -0.32));
+      [-0.22, 0, 0.22].forEach(function (o) { torsoPivot.add(box(0.1, 0.1, 0.1, bone, o, 1.34, 0.28)); });
+    } else if (orc) {
+      torsoPivot.add(box(1.55 * bw, 1.45, 0.92, sk, 0, 0.86, 0));
+      torsoPivot.add(box(0.5, 0.42, 0.22, sk, -0.34, 1.2, 0.42)); torsoPivot.add(box(0.5, 0.42, 0.22, sk, 0.34, 1.2, 0.42));
+      [-1, 1].forEach(function (s) { var st = box(0.2, 1.9, 0.12, leather, 0, 0.8, 0.46); st.rotation.z = s * 0.42; torsoPivot.add(st); });
+      torsoPivot.add(box(0.7, 0.1, 0.04, warpaint, 0, 0.95, 0.5)); torsoPivot.add(box(0.5, 0.1, 0.04, warpaint, 0, 0.6, 0.5));
+      if (heavy) { torsoPivot.add(box(0.8, 1.1, 0.5, metalD, -0.38, 0.95, 0.4)); torsoPivot.add(ring(0.55, 0.12, fur).rotateX(Math.PI / 2).translateY(1.5)); }
+      torsoPivot.add(box(1.45 * bw, 0.3, 0.94, leather, 0, 0.16, 0)); torsoPivot.add(box(0.32, 0.3, 0.1, bone, 0, 0.16, 0.5));
+      torsoPivot.add(box(0.7, 0.95, 0.14, leather, 0, -0.3, 0.42)); torsoPivot.add(box(0.7, 0.95, 0.14, leather, 0, -0.3, -0.42));
+    } else if (elf) {
+      torsoPivot.add(box(1.0 * bw, 1.5, 0.6, cloth, 0, 0.86, 0));
+      if (heavy) { torsoPivot.add(plate(0.92 * bw, 1.05, 0.34, metal, trim, 0, 0.98, 0.34));
+        torsoPivot.add(crescent(0.22, 0.05, metal).translateY(1.05).translateZ(0.56)); torsoPivot.add(box(0.2, 0.2, 0.1, gemM, 0, 0.75, 0.56));
+        [-1, 1].forEach(function (s) { var lf = cone(0.16, 0.5, 4, M(Pal.leaf)); lf.position.set(0.32 * s, 1.45, 0.2); lf.rotation.z = s * 0.5; torsoPivot.add(lf); }); }
+      else if (role === 'archer') { torsoPivot.add(box(1.0 * bw, 1.3, 0.62, leather, 0, 0.9, 0)); torsoPivot.add(box(0.18, 1.5, 0.1, M(Pal.leaf), -0.3, 0.85, 0.34).rotateZ(0.3)); }
+      torsoPivot.add(box(0.9 * bw, 0.22, 0.64, leather, 0, 0.18, 0)); torsoPivot.add(box(0.2, 0.2, 0.08, gemM, 0, 0.18, 0.34));
+      torsoPivot.add(box(0.7, 0.6, 0.12, cloth2, 0, -0.18, 0.3));
+    } else {
+      torsoPivot.add(box(1.4 * bw, 1.6, 0.82, heavy ? metalD : cloth, 0, 0.86, 0));
+      if (heavy) { torsoPivot.add(plate(1.3 * bw, 1.15, 0.5, metal, trim, 0, 0.98, 0.42));
+        if (role === 'hero') torsoPivot.add(box(0.26, 0.26, 0.12, gemM, 0, 1.02, 0.74));
+        torsoPivot.add(plate(1.2 * bw, 0.6, 0.4, metalD, trim, 0, 0.0, 0.34)); }
+      else torsoPivot.add(box(0.42, 1.3, 0.06, trimD, 0, 0.74, 0.43));
+      torsoPivot.add(box(1.42 * bw, 0.3, 0.84, leather, 0, 0.18, 0));
+      torsoPivot.add(box(0.34, 0.32, 0.1, trim, 0, 0.18, 0.45)); torsoPivot.add(box(0.16, 0.16, 0.06, gemM, 0, 0.18, 0.5));
+    }
+
+    if (orc && !troll && heavy) {
+      var grp = new THREE.Group(); grp.position.set(0.92 * bw, 1.62, 0); grp.add(dome(0.7 * Pal.pauld, metalD));
+      [0, 1, 2, 3].forEach(function (i) { var sp = cone(0.13, 0.5, 5, bone); var a = i / 4 * Math.PI - 0.4; sp.position.set(Math.cos(a) * 0.5, 0.3 + Math.sin(a) * 0.3, 0); sp.rotation.z = -a + Math.PI / 2; grp.add(sp); });
+      torsoPivot.add(grp);
+      var furL = new THREE.Group(); furL.position.set(-0.92 * bw, 1.6, 0);
+      [0, 0.2, -0.2].forEach(function (o) { furL.add(box(0.4, 0.45, 0.4, fur, 0, o * 0.5, o)); }); torsoPivot.add(furL);
+    } else if (elf && heavy) {
+      [-1, 1].forEach(function (s) { var lf = cone(0.34 * Pal.pauld, 0.5, 5, metal); lf.position.set(0.7 * bw * s, 1.55, 0); lf.rotation.z = s * 0.7; lf.scale.set(1, 1, 0.6); torsoPivot.add(lf);
+        torsoPivot.add(crescent(0.18, 0.04, trim).translateX(0.7 * bw * s).translateY(1.5)); });
+    } else if (crown && heavy) {
+      [-1, 1].forEach(function (s) { var grp2 = new THREE.Group(); grp2.position.set(0.86 * bw * s, 1.62, 0); grp2.add(dome(0.6, metal).translateY(-0.05)); var r = ring(0.55, 0.07, trim); r.rotation.x = Math.PI / 2; grp2.add(r); torsoPivot.add(grp2); });
+    }
+
+    function arm(side) {
+      var j = new THREE.Group(); j.position.set((troll ? 0.58 : orc ? 0.86 : 0.78) * bw * side, 1.42, 0);
+      if (troll) { j.add(box(0.3, 1.0 * armLen, 0.32, sk, 0, -0.48 * armLen, 0)); j.add(ring(0.22, 0.05, bone).rotateX(Math.PI / 2).translateY(-0.2)); }
+      else if (orc) { j.add(box(0.48, 1.0 * armLen, 0.5, sk, 0, -0.48 * armLen, 0)); j.add(ring(0.28, 0.07, bone).rotateX(Math.PI / 2).translateY(-0.2)); }
+      else if (elf) { j.add(box(0.32, 1.0 * armLen, 0.34, heavy ? metal : M(Pal.cloth), 0, -0.48 * armLen, 0)); }
+      else { j.add(box(0.4, 1.0 * armLen, 0.44, heavy ? metal : M(Pal.cloth), 0, -0.48 * armLen, 0)); }
+      var fore = new THREE.Group(); fore.position.y = -0.94 * armLen;
+      if (troll) { fore.add(box(0.26, 0.84 * armLen, 0.28, sk, 0, -0.4 * armLen, 0)); fore.add(box(0.3, 0.3, 0.3, leather, 0, -0.62 * armLen, 0)); fore.add(box(0.34 * hsc, 0.34, 0.34 * hsc, sk, 0, -0.84 * armLen, 0.04)); }
+      else if (orc) { fore.add(box(0.42, 0.8 * armLen, 0.44, sk, 0, -0.4 * armLen, 0)); fore.add(box(0.46, 0.34, 0.46, leather, 0, -0.66 * armLen, 0)); fore.add(box(0.54 * hsc, 0.42, 0.54 * hsc, sk, 0, -0.85 * armLen, 0.04)); }
+      else if (elf) { fore.add(box(0.28, 0.82 * armLen, 0.3, sk, 0, -0.4 * armLen, 0)); fore.add(box(0.34, 0.4, 0.34, leather, 0, -0.6 * armLen, 0)); fore.add(box(0.36 * hsc, 0.34, 0.36 * hsc, leather, 0, -0.84 * armLen, 0.04)); }
+      else { fore.add(box(0.36, 0.82 * armLen, 0.38, heavy ? metalD : sk, 0, -0.4 * armLen, 0)); fore.add(box(0.5 * hsc, 0.42, 0.5 * hsc, heavy ? metal : leather, 0, -0.82 * armLen, 0.04)); if (heavy) fore.add(box(0.5 * hsc, 0.12, 0.5 * hsc, trim, 0, -0.66 * armLen, 0.04)); }
+      j.add(fore); j.userData = { fore: fore }; return j;
+    }
+    var armL = arm(-1), armR = arm(1); armL.name = 'armL'; armR.name = 'armR'; torsoPivot.add(armL, armR);
+    var rfore = armR.userData.fore, lfore = armL.userData.fore;
+
+    var headPivot = new THREE.Group(); headPivot.position.y = 1.78; headPivot.name = 'head'; torsoPivot.add(headPivot);
+    headPivot.add(cyl(0.2, 0.24, 0.26, 8, sk).translateY(-0.08));
+    var head = sph(headR, sk); head.scale.set(1, elf ? 1.12 : 1.02, 0.96); head.position.y = 0.34; headPivot.add(head);
+    if (troll) {
+      headPivot.add(box(0.3, 0.34, 0.5, sk, 0, 0.28, headR * 0.78)); headPivot.add(box(0.16, 0.22, 0.16, skD, 0, 0.18, headR * 1.05));
+      headPivot.add(box(0.62, 0.08, 0.04, warpaint, 0, 0.42, headR * 0.86));
+      headPivot.add(box(0.12, 0.09, 0.09, eyeM, -0.15, 0.46, headR * 0.82)); headPivot.add(box(0.12, 0.09, 0.09, eyeM, 0.15, 0.46, headR * 0.82));
+      [-1, 1].forEach(function (s) { var tk = cone(0.09, 0.5, 5, bone); tk.position.set(0.2 * s, 0.1, headR * 0.6); tk.rotation.x = 0.4; tk.rotation.z = s * 0.15; headPivot.add(tk); });
+      [-0.16, 0, 0.16].forEach(function (o, i) { var mo = cone(0.1, 0.55 + (i === 1 ? 0.25 : 0), 4, hairM); mo.position.set(o, 0.66, -0.02); headPivot.add(mo); });
+      headPivot.add(cone(0.1, 0.6, 4, sk).translateX(-headR * 0.95).translateY(0.3).rotateZ(0.7)); headPivot.add(cone(0.1, 0.6, 4, sk).translateX(headR * 0.95).translateY(0.3).rotateZ(-0.7));
+      var fth = box(0.06, 0.5, 0.14, M(0xd84a3a), 0.2, 0.95, -0.1); fth.rotation.z = 0.3; headPivot.add(fth);
+    } else if (orc) {
+      headPivot.add(box(0.66, 0.18, 0.16, skD, 0, 0.46, headR * 0.7)); headPivot.add(box(0.62, 0.32, 0.46, sk, 0, 0.06, headR * 0.5));
+      headPivot.add(box(0.7, 0.1, 0.04, warpaint, 0, 0.36, headR * 0.82));
+      headPivot.add(box(0.14, 0.1, 0.1, eyeM, -0.16, 0.4, headR * 0.78)); headPivot.add(box(0.14, 0.1, 0.1, eyeM, 0.16, 0.4, headR * 0.78));
+      [-1, 1].forEach(function (s) { var tk = cone(0.1, 0.42, 5, bone); tk.position.set(0.2 * s, 0.0, headR * 0.66); tk.rotation.x = -0.5; tk.rotation.z = -s * 0.2; headPivot.add(tk); });
+      [-0.18, 0, 0.18].forEach(function (o) { var mo = cone(0.1, 0.4, 4, hairM); mo.position.set(o, 0.62, -0.05); headPivot.add(mo); });
+      headPivot.add(cone(0.12, 0.34, 4, skD).translateX(-headR * 0.94).translateY(0.34).rotateZ(0.4)); headPivot.add(cone(0.12, 0.34, 4, skD).translateX(headR * 0.94).translateY(0.34).rotateZ(-0.4));
+      if (heavy) { headPivot.add(ring(headR + 0.04, 0.06, bone).rotateX(Math.PI / 2).translateY(0.4)); }
+    } else if (elf) {
+      headPivot.add(box(0.16, 0.1, 0.06, eyeM, -0.15, 0.36, headR * 0.84)); headPivot.add(box(0.16, 0.1, 0.06, eyeM, 0.15, 0.36, headR * 0.84));
+      headPivot.add(cone(0.09, 0.5, 4, sk).translateX(-headR * 0.92).translateY(0.34).rotateZ(0.5)); headPivot.add(cone(0.09, 0.5, 4, sk).translateX(headR * 0.92).translateY(0.34).rotateZ(-0.5));
+      if (role !== 'archer') { headPivot.add(box(0.56, 1.3, 0.16, hairM, 0, -0.1, -headR * 0.7));
+        headPivot.add(box(0.2, 1.4, 0.14, hairM, -0.34, -0.15, -headR * 0.4)); headPivot.add(box(0.2, 1.4, 0.14, hairM, 0.34, -0.15, -headR * 0.4));
+        headPivot.add(dome(headR + 0.04, hairM).translateY(0.34)); }
+    } else {
+      headPivot.add(box(0.46, 0.1, 0.06, dark, 0, 0.4, headR * 0.86));
+      headPivot.add(box(0.62, 0.6, 0.42, beardM, 0, 0.02, headR * 0.5)); headPivot.add(box(0.5, 0.5, 0.36, beardM, 0, -0.34, headR * 0.55)); headPivot.add(box(0.32, 0.36, 0.26, beardM, 0, -0.72, headR * 0.5));
+    }
+    // helm / headgear
+    if (crown && heavy) { var helm = dome(headR + 0.08, metal); helm.position.y = 0.4; helm.scale.set(1, 1.05, 1); headPivot.add(helm);
+      headPivot.add(box(0.9, 0.18, 0.9, trim, 0, 0.5, 0)); headPivot.add(box(0.12, 0.5, 0.14, metalD, 0, 0.5, headR * 0.78));
+      [-1, 1].forEach(function (s) { var wg = box(0.5, 0.26, 0.1, trim, 0.5 * s, 0.62, -0.1); wg.rotation.z = s * 0.5; headPivot.add(wg); });
+      if (role === 'hero') [-1, 1].forEach(function (s) { var w2 = box(0.42, 0.2, 0.08, trim, 0.62 * s, 0.82, -0.1); w2.rotation.z = s * 0.7; headPivot.add(w2); }); }
+    else if (orc && !troll && role === 'hero') { headPivot.add(box(headR * 1.9, 0.3, headR * 1.9, metalD, 0, 0.52, 0));
+      [-1, 1].forEach(function (s) { var hn = crescent(0.34, 0.08, bone); hn.position.set(0.34 * s, 0.7, 0); hn.rotation.z = s * 1.4; headPivot.add(hn); }); }
+    else if (elf && heavy) { headPivot.add(ring(headR + 0.02, 0.05, trim).rotateX(Math.PI / 2).translateY(0.42));
+      headPivot.add(crescent(0.2, 0.05, metal).translateY(0.66).translateZ(headR * 0.3));
+      if (role === 'hero') [-1, 1].forEach(function (s) { var fin = cone(0.12, 0.6, 4, metal); fin.position.set(0.3 * s, 0.55, -0.2); fin.rotation.z = s * 0.9; fin.rotation.x = -0.5; headPivot.add(fin); }); }
+    else if (role === 'archer' && !troll) { var hd = cone(headR + 0.14, 0.8, 8, elf ? M(Pal.leaf) : cloth2); hd.position.y = 0.52; headPivot.add(hd);
+      headPivot.add(box(headR * 1.7, 0.6, 0.2, elf ? M(Pal.leaf) : cloth2, 0, 0.2, -headR * 0.7));
+      if (elf) headPivot.add(crescent(0.14, 0.04, trim).translateY(0.5).translateZ(headR * 0.5)); }
+    else if (crown) { var cap = dome(headR + 0.05, hairM); cap.position.y = 0.34; headPivot.add(cap); }
+
+    if (role === 'hero') { var cape = box((orc ? 1.5 : 1.4) * bw, 2.3, 0.12, M(Pal.cape), 0, 0.5, -0.46); cape.rotation.x = 0.13; torsoPivot.add(cape);
+      torsoPivot.add(box(1.5 * bw, 0.3, 0.16, elf ? metal : trim, 0, 1.55, -0.42));
+      if (elf) torsoPivot.add(crescent(0.18, 0.05, metal).translateY(1.55).translateZ(-0.34)); }
+
+    function holdR(o) { o.position.add(new THREE.Vector3(0, -0.95 * armLen, 0.06)); rfore.add(o); }
+    if (role === 'worker') {
+      var tool = new THREE.Group(); tool.add(cyl(0.07, 0.07, 1.8, 6, leather).translateY(-0.2)); tool.add(box(0.8, 0.18, 0.18, metalD, 0, 0.62, 0)); tool.add(box(0.2, 0.3, 0.18, metal, 0.34, 0.6, 0));
+      holdR(tool); tool.rotation.z = 0.5; armR.rotation.x = -0.5;
+    } else if (role === 'warrior') {
+      if (orc) { var axe = new THREE.Group(); axe.add(cyl(0.11, 0.11, 2.1, 6, leather)); axe.add(box(0.22, 1.0, 1.1, metalD, 0, 0.9, 0.32)); axe.add(box(0.22, 0.5, 0.5, metalD, 0, 1.35, 0.62)); axe.add(box(0.24, 0.95, 0.16, bone, 0, 0.85, -0.2)); holdR(axe); axe.rotation.z = 0.32;
+        var oshield = box(0.16, 1.1, 0.95, metalD, -0.05, -0.4, 0.2); lfore.add(oshield); lfore.add(box(0.2, 0.3, 0.3, bone, 0, -0.4, 0.28)); armL.rotation.x = -0.4; }
+      else if (elf) { var gl = new THREE.Group(); gl.add(cyl(0.07, 0.07, 2.4, 6, leather).translateY(0.1)); gl.add(crescent(0.5, 0.07, metal).translateY(1.35)); holdR(gl); gl.rotation.z = 0.1; armR.rotation.x = -0.15; }
+      else { var sw = new THREE.Group(); sw.add(box(0.13, 1.8, 0.14, metal, 0, 0.6, 0)); sw.add(box(0.6, 0.16, 0.18, trim, 0, -0.2, 0)); sw.add(box(0.16, 0.4, 0.16, leather, 0, -0.5, 0)); sw.add(sph(0.13, trim).translateY(-0.74)); holdR(sw); sw.rotation.z = 0.18;
+        var shield = plate(0.14, 1.2, 0.95, M(Pal.cloth), trim, -0.05, -0.4, 0.22); lfore.add(shield); lfore.add(box(0.16, 0.4, 0.34, gemM, 0, -0.4, 0.3)); armL.rotation.x = -0.45; }
+    } else if (role === 'archer') {
+      if (troll) {
+        var mkSpear = function () { var sp = new THREE.Group(); sp.add(cyl(0.05, 0.05, 2.6, 6, leather)); sp.add(cone(0.12, 0.5, 4, bone).translateY(1.45)); sp.add(box(0.16, 0.14, 0.14, M(0xd84a3a), 0, 1.05, 0)); return sp; };
+        var held = mkSpear(); held.position.set(0, -0.9 * armLen, 0.1); held.rotation.x = -0.5; rfore.add(held); armR.rotation.x = 0.6; armR.rotation.z = 0.2;
+        [-0.12, 0, 0.12].forEach(function (o) { var s2 = mkSpear(); s2.scale.setScalar(0.9); s2.position.set(-0.5 + o, 1.2, -0.42); s2.rotation.x = 0.5; s2.rotation.z = 0.2 + o; torsoPivot.add(s2); });
+      } else if (elf) { var bow = new THREE.Group(); bow.add(box(0.04, 1.6, 0.05, metal, 0, -0.5, 0.28));
+        bow.add(crescent(0.34, 0.05, metal).translateY(0.18).translateZ(0.28)); bow.add(crescent(0.34, 0.05, metal).translateY(-1.18).translateZ(0.28).rotateZ(Math.PI)); bow.add(box(0.02, 2.0, 0.02, white, 0, -0.5, 0.28)); lfore.add(bow); armL.rotation.x = -0.5; armR.rotation.x = -0.58; }
+      else { var bow2 = new THREE.Mesh(new THREE.TorusGeometry(1.0, 0.07, 5, 14, Math.PI), trim); bow2.rotation.z = Math.PI / 2; bow2.position.set(0, -0.5, 0.28); lfore.add(bow2); lfore.add(box(0.02, 1.95, 0.02, white, 0, -0.5, 0.28)); armL.rotation.x = -0.5; armR.rotation.x = -0.58; }
+      if (!troll) { torsoPivot.add(cyl(0.18, 0.18, 0.95, 8, leather).translateX(-0.44).translateY(1.2).translateZ(-0.38));
+        [0, 0.11, -0.11].forEach(function (o) { torsoPivot.add(box(0.04, 0.5, 0.04, white, -0.44 + o, 1.82, -0.38)); }); }
+    } else if (role === 'hero') {
+      if (crown) { var hm = new THREE.Group(); hm.add(cyl(0.11, 0.11, 2.5, 8, leather).translateY(0.1));
+        [1.0, 1.25].forEach(function (y) { hm.add(cyl(0.13, 0.13, 0.12, 8, trim).translateY(y)); });
+        hm.add(box(0.78, 0.95, 0.7, metal, 0, 1.5, 0)); hm.add(box(0.86, 0.3, 0.78, trim, 0, 1.18, 0)); hm.add(box(0.86, 0.3, 0.78, trim, 0, 1.82, 0)); hm.add(box(0.2, 0.4, 0.2, gemM, 0, 1.5, 0.4)); holdR(hm); hm.rotation.z = 0.18; armR.rotation.x = -0.2; }
+      else if (orc) { var axe2 = new THREE.Group(); axe2.add(cyl(0.13, 0.13, 2.5, 6, leather));
+        axe2.add(box(0.22, 1.05, 1.15, metalD, 0, 1.05, 0.36)); axe2.add(box(0.22, 1.05, 1.15, metalD, 0, 1.05, -0.36)); axe2.add(sph(0.22, bone).translateY(-1.15)); axe2.add(box(0.18, 0.4, 0.18, warpaint, 0, 1.05, 0)); holdR(axe2); axe2.rotation.z = 0.28; }
+      else { var glaive = new THREE.Group(); glaive.add(cyl(0.08, 0.08, 2.7, 6, leather)); glaive.add(crescent(0.62, 0.08, metal).translateY(1.5));
+        var orb = sph(0.16, M(Pal.gem, { emissive: Pal.gem, emissiveIntensity: .7, roughness: .3 })); orb.position.y = 1.5; glaive.add(orb); holdR(glaive); glaive.rotation.z = 0.08; }
+    }
+
+    g.userData = { isArcher: role === 'archer' };
+    g.scale.setScalar(Pal.scale);
+    g.traverse(function (o) { o.castShadow = true; });
+    return g;
   }
-  // worker — small, tool, race-tinted
-  function worker(race) {
-    var g = new THREE.Group();
-    var c = race === 'horde' ? P.orcSkin : race === 'elf' ? P.elfTunic : P.skin;
-    var cloth = race === 'horde' ? P.woodD : race === 'elf' ? P.leaf2 : P.ember;
-    var lL = box(0.24, 0.7, 0.24, P.woodD, -0.15, 0.35, 0), lR = box(0.24, 0.7, 0.24, P.woodD, 0.15, 0.35, 0); g.add(lL, lR);
-    g.add(box(0.6, 0.8, 0.4, cloth, 0, 1.1, 0));
-    g.add(box(0.42, 0.42, 0.4, c, 0, 1.7, 0));
-    var tool = box(0.08, 1.0, 0.08, P.wood, 0.4, 1.3, 0.1); tool.rotation.z = 0.3; g.add(tool);
-    g.userData = { lL: lL, lR: lR }; g.scale.setScalar(0.58); return g;
+
+  // template cache + role mapping. Combat roles without a dedicated model
+  // (lancer/monk) reuse the warrior body for now.
+  var unitTemplates = {};
+  function mapRole(u) {
+    if (u.heroId || u.role === 'hero') return 'hero';
+    var r = u.role;
+    if (r === 'pawn' || r === 'worker') return 'worker';
+    if (r === 'archer') return 'archer';
+    return 'warrior';
+  }
+  function unitTemplate(race, role) {
+    var key = race + ':' + role;
+    if (unitTemplates[key]) return unitTemplates[key];
+    var g = buildHumanoid(race, role);
+    fitHeight(g, role === 'hero' ? 60 : role === 'worker' ? 34 : 48);
+    unitTemplates[key] = g;
+    return g;
   }
   function makeUnitMesh(u) {
-    var race = raceOf(u.faction);
-    var role = u.role || 'warrior';
-    var enemyTint = u.team === (RTS.TEAM && RTS.TEAM.ENEMY) ? P.enemyTint : null;
-    var g;
-    if (role === 'pawn' || role === 'worker') g = worker(race);
-    else if (race === 'horde') g = orcBrute(enemyTint || P.orcSkin);
-    else if (race === 'elf') g = elfUnit(enemyTint, role === 'archer');
-    else g = knight(enemyTint);
-    var hero = u.heroId || role === 'hero';
-    if (hero) { var crown = cone(0.34, 0.5, 6, P.gold); crown.position.y = 3.0; g.add(crown); }
-    g.traverse(function (o) { o.castShadow = true; });
-    // normalize to world-pixel height: rank-and-file ~40px, heroes taller
-    fitHeight(g, hero ? 62 : (role === 'pawn' || role === 'worker') ? 34 : 42);
+    var race = raceOf(u.faction), role = mapRole(u);
+    var tmpl = unitTemplate(race, role);
+    var g = tmpl.clone();
+    g.userData = {
+      legL: g.getObjectByName('legL'), legR: g.getObjectByName('legR'),
+      shinL: g.getObjectByName('shinL'), shinR: g.getObjectByName('shinR'),
+      isArcher: role === 'archer'
+    };
     return g;
   }
 
@@ -469,11 +642,18 @@
       o.position.set(e.x, gy, e.y);
       if (kind === 'unit') {
         o.rotation.y = -(e.facing || 0) + Math.PI / 2;
-        // simple walk bob when moving
+        // walk cycle: swing legs (+ bend knees) while moving; relax on idle
         var moving = e.moveTo || (Math.abs(e.vx || 0) + Math.abs(e.vy || 0) > 4);
-        if (o.userData && o.userData.lL) {
-          var sw = moving ? Math.sin((RTS._renderT || 0) * 9 + (e._idlePhase || 0) * 6) * 0.5 : 0;
-          o.userData.lL.rotation.x = sw; o.userData.lR.rotation.x = -sw;
+        var ud = o.userData;
+        if (ud && ud.legL) {
+          if (moving) {
+            var sw = Math.sin((performance.now() * 0.001) * 9 + (e._idlePhase || 0) * 6) * 0.5;
+            ud.legL.rotation.x = sw; ud.legR.rotation.x = -sw;
+            if (ud.shinL) { ud.shinL.rotation.x = Math.max(0, -sw * 0.7); ud.shinR.rotation.x = Math.max(0, sw * 0.7); }
+          } else {
+            ud.legL.rotation.x *= 0.8; ud.legR.rotation.x *= 0.8;
+            if (ud.shinL) { ud.shinL.rotation.x *= 0.8; ud.shinR.rotation.x *= 0.8; }
+          }
         }
         // hit reaction: a brief scale-pop (per-instance; can't tint shared mats)
         var pop = e.hitFlash > 0 ? 1 + Math.min(0.16, e.hitFlash * 0.5) : 1;
