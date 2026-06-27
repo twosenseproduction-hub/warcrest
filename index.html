@@ -15,7 +15,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="styles/main.css?v=20260623b" />
 <link rel="stylesheet" href="styles/wc-hud.css?v=20260623g" />
-<link rel="stylesheet" href="styles/thronefall.css?v=20260627b" />
+<link rel="stylesheet" href="styles/thronefall.css?v=20260627c" />
 <style>
   /* ── Main menu WC3 enhancements ── */
   .menu-btn-row {
@@ -154,6 +154,7 @@
       <div id="bottom-hub" class="bottom-hub">
         <!-- LEFT: type-select bar (red) + command card (blue) -->
         <div class="deck-left wc-frame">
+          <button type="button" id="tf-sel-toggle" class="tf-sel-toggle" aria-label="Select units by type">👥</button>
           <div id="type-select" class="type-select" role="group" aria-label="Select units by type">
             <button class="ts-chip" data-cat="worker" data-role="pawn" aria-label="Select all workers"><span class="ts-ico unit-portrait-fill"></span><span class="ts-tag">WRK</span><span class="ts-count"></span></button>
             <button class="ts-chip" data-cat="melee" data-role="lancer" aria-label="Select all melee"><span class="ts-ico unit-portrait-fill"></span><span class="ts-tag">MEL</span><span class="ts-count"></span></button>
@@ -418,7 +419,7 @@
 <script src="src/render.js?v=20260627i"></script>
 <script src="src/ui.js?v=20260627a"></script>
 <script src="src/hud.js?v=20260627i"></script>
-<script src="src/game.js?v=20260627h"></script>
+<script src="src/game.js?v=20260627j"></script>
 
 <!-- Phaser bootstrap — after window.RTS is populated -->
 <script type="module" src="./src/main.js?v=20260627g"></script>

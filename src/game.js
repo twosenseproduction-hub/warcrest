@@ -257,6 +257,16 @@
       tf.checked = !!(RTS.Config && RTS.Config.tfLook);
       tf.addEventListener('change', function () { if (RTS.setTfLook) RTS.setTfLook(tf.checked); });
     }
+    // Collapsible macro unit-select (Thronefall look): toggle fans the chips
+    // open; picking a type collapses it again.
+    var selToggle = $('tf-sel-toggle');
+    if (selToggle) selToggle.addEventListener('click', function () {
+      document.body.classList.toggle('tf-sel-open');
+    });
+    var typeSel = $('type-select');
+    if (typeSel) typeSel.addEventListener('click', function (e) {
+      if (e.target.closest && e.target.closest('.ts-chip')) document.body.classList.remove('tf-sel-open');
+    });
   }
 
   function prevSceneForSettings() {

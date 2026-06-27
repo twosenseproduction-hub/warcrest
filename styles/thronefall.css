@@ -137,4 +137,28 @@ body.tf-look #bottom-hub { grid-template-columns:auto; justify-content:flex-star
 body.tf-look #btn-rail-army,
 body.tf-look #btn-rail-pawns { display:none !important; }
 /* float the type chips + command card as a compact bottom-left cluster */
-body.tf-look .deck-left { width:max-content; }
+body.tf-look .deck-left { width:max-content; position:relative; }
+
+/* ── Collapsible macro unit-select (matches the mockup) ────────────────────
+   Default game: the toggle is hidden, chips always show. Thronefall look: only
+   a single round button shows; tapping it fans the chips open; picking one (or
+   the body.tf-sel-open class clearing) collapses it again. */
+.tf-sel-toggle { display:none; }
+body.tf-look .tf-sel-toggle {
+  display:flex; align-items:center; justify-content:center;
+  width:50px; height:50px; border-radius:50%; font-size:21px;
+  background:var(--ui-dark); color:#fff; backdrop-filter:blur(5px);
+  box-shadow:0 4px 13px rgba(0,0,0,.42); transition:transform .12s cubic-bezier(.22,.9,.3,1);
+}
+body.tf-look .tf-sel-toggle:active { transform:scale(.92); }
+body.tf-look.tf-sel-open .tf-sel-toggle { box-shadow:0 0 0 2px var(--tf-coin), 0 4px 13px rgba(0,0,0,.42); }
+/* collapsed by default under the look; fan open above the toggle when open */
+body.tf-look #type-select { display:none; }
+body.tf-look.tf-sel-open #type-select {
+  display:flex; flex-direction:column-reverse; gap:7px; width:max-content;
+  position:absolute; left:0; bottom:58px; z-index:5;
+}
+body.tf-look.tf-sel-open .ts-chip { width:auto; height:42px; padding:0 14px; gap:6px;
+  flex-direction:row; justify-content:flex-start; }
+body.tf-look.tf-sel-open .ts-chip .ts-tag { position:static; font-size:11px; color:var(--tf-ink-soft); }
+:root{ --ui-dark:rgba(22,20,16,.82); --tf-coin:#f0c14b; }
