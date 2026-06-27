@@ -34,6 +34,8 @@
     raycaster: null,
     pool: {},                // id -> { obj, kind, builtFor } live entity meshes
     seen: {},                // id -> true this frame (for GC)
+    ppool: {}, pseen: {},    // projectile meshes
+    epool: {}, eseen: {},    // effect meshes
     mapId: null,             // terrain rebuilt when this changes
     ray: null, ndc: null,
     night: false,
@@ -346,7 +348,8 @@
       cv = document.createElement('canvas'); cv.id = 'game3d';
       // pointer-events:none so taps fall THROUGH to the #game canvas underneath,
       // where RTS.Input listens — the whole input path keeps working unchanged.
-      cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;z-index:0;display:none;pointer-events:none;';
+      // z-index above #game (1) so 3D covers the 2D world, below #hud (20).
+      cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;z-index:5;display:none;pointer-events:none;';
       var hud = document.getElementById('hud') || document.body;
       hud.parentNode.insertBefore(cv, hud);
     }
@@ -450,14 +453,16 @@
       var slot = R.pool[e.id];
       // rebuild if faction/role/type changed underneath an id (rare)
       var sig = kind + ':' + (e.faction || '') + ':' + (e.role || e.type || '') + ':' + (e.team || 0) + ':' + (e.heroId || '');
-      if (slot && slot.sig !== sig) { R.scene.remove(slot.obj); disposeObj(slot.obj); slot = null; }
+      if (slot && slot.sig !== sig) { freeSlot(slot); slot = null; }
       if (!slot) {
         var obj;
         if (kind === 'unit') obj = makeUnitMesh(e);
         else if (kind === 'building') obj = makeBuildingMesh(e);
         else obj = makeResourceMesh();
         R.scene.add(obj);
-        slot = R.pool[e.id] = { obj: obj, sig: sig, kind: kind, baseS: obj.scale.y };
+        if (!_box) _box = new THREE.Box3();
+        _box.setFromObject(obj); var bs = new THREE.Vector3(); _box.getSize(bs);
+        slot = R.pool[e.id] = { obj: obj, sig: sig, kind: kind, baseS: obj.scale.y, topY: bs.y };
       }
       var o = slot.obj;
       var gy = groundYAt(s, e.x, e.y);
@@ -470,13 +475,54 @@
           var sw = moving ? Math.sin((RTS._renderT || 0) * 9 + (e._idlePhase || 0) * 6) * 0.5 : 0;
           o.userData.lL.rotation.x = sw; o.userData.lR.rotation.x = -sw;
         }
-        // selection lift / hit flash tint handled by ring below
+        // hit reaction: a brief scale-pop (per-instance; can't tint shared mats)
+        var pop = e.hitFlash > 0 ? 1 + Math.min(0.16, e.hitFlash * 0.5) : 1;
+        o.scale.setScalar(slot.baseS * pop);
       } else if (kind === 'building') {
         // rise from the ground while under construction (relative to fitted scale)
         var prog = e.built ? 1 : Math.max(0.08, e.progress || 0);
         o.scale.y = slot.baseS * prog;
       }
+      updateHealthBar(s, slot, e, gy);
     }
+  }
+
+  /* ---- health bars: billboarded bg+fill quads above damaged entities ----- */
+  var hpBg = null, hpFillG = null, hpFillR = null, hpFillN = null;
+  function hpMats() {
+    if (hpBg) return;
+    hpBg = new THREE.MeshBasicMaterial({ color: 0x10130c, transparent: true, opacity: 0.72, depthTest: false });
+    hpFillG = new THREE.MeshBasicMaterial({ color: 0x6fdc5a, depthTest: false });
+    hpFillR = new THREE.MeshBasicMaterial({ color: 0xe2533f, depthTest: false });
+    hpFillN = new THREE.MeshBasicMaterial({ color: 0xd9c558, depthTest: false });
+  }
+  var UNIT_QUAD = null;
+  function updateHealthBar(s, slot, e, gy) {
+    var maxHp = e.maxHp || 0;
+    var ratio = maxHp ? Math.max(0, Math.min(1, (e.hp || 0) / maxHp)) : 1;
+    var sel = (s.selectedIds || []).indexOf(e.id) >= 0;
+    var show = maxHp && (ratio < 0.999 || sel);
+    if (!show) { if (slot.hp) slot.hp.visible = false; return; }
+    hpMats();
+    if (!UNIT_QUAD) UNIT_QUAD = new THREE.PlaneGeometry(1, 1);
+    if (!slot.hp) {
+      var g = new THREE.Group(); g.renderOrder = 999;
+      var bg = new THREE.Mesh(UNIT_QUAD, hpBg); bg.renderOrder = 999;
+      var team = e.team === (RTS.TEAM && RTS.TEAM.ENEMY) ? hpFillR : e.team === (RTS.TEAM && RTS.TEAM.NEUTRAL) ? hpFillN : hpFillG;
+      var fill = new THREE.Mesh(UNIT_QUAD, team); fill.renderOrder = 1000;
+      g.add(bg); g.add(fill); g.userData = { bg: bg, fill: fill };
+      R.scene.add(g); slot.hp = g;
+    }
+    var g2 = slot.hp; g2.visible = true;
+    var w = slot.kind === 'building' ? Math.max(46, (e.w || 80) * 0.7) : 34;
+    var h = slot.kind === 'building' ? 8 : 5;
+    var topY = gy + (slot.topY || 40) + (slot.kind === 'building' ? 16 : 10);
+    g2.position.set(e.x, topY, e.y);
+    g2.quaternion.copy(R.camera.quaternion);
+    var bg2 = g2.userData.bg, fill2 = g2.userData.fill;
+    bg2.scale.set(w + 3, h + 3, 1);
+    fill2.scale.set(w * ratio, h, 1);
+    fill2.position.set(-(w * (1 - ratio)) / 2, 0, 0.5);
   }
 
   // selection rings (re-created cheaply each frame into a single group)
@@ -495,11 +541,72 @@
     });
   }
 
+  function freeSlot(sl) {
+    R.scene.remove(sl.obj); disposeObj(sl.obj);
+    if (sl.hp) { R.scene.remove(sl.hp); }
+  }
   function gc() {
     for (var id in R.pool) {
-      if (!R.seen[id]) { var sl = R.pool[id]; R.scene.remove(sl.obj); disposeObj(sl.obj); delete R.pool[id]; }
+      if (!R.seen[id]) { freeSlot(R.pool[id]); delete R.pool[id]; }
     }
     R.seen = {};
+  }
+
+  /* ---- projectiles: small glowing motes flying between combatants -------- */
+  var projGeo = null;
+  function syncProjectiles(s) {
+    var list = s.entities && s.entities.projectiles; if (!list) return;
+    if (!projGeo) projGeo = new THREE.SphereGeometry(3.6, 6, 5);
+    for (var i = 0; i < list.length; i++) {
+      var p = list[i]; if (!p) continue; R.pseen[p.id] = true;
+      var sl = R.ppool[p.id];
+      if (!sl) {
+        var col = 0xffe08a; try { col = new THREE.Color(p.color || '#ffe08a').getHex(); } catch (e) {}
+        var m = new THREE.Mesh(projGeo, new THREE.MeshBasicMaterial({ color: col }));
+        R.scene.add(m); sl = R.ppool[p.id] = { m: m };
+      }
+      sl.m.position.set(p.x, groundYAt(s, p.x, p.y) + 26, p.y);
+    }
+    for (var id in R.ppool) {
+      if (!R.pseen[id]) { var s2 = R.ppool[id]; R.scene.remove(s2.m); s2.m.material.dispose(); delete R.ppool[id]; }
+    }
+    R.pseen = {};
+  }
+
+  /* ---- effects: impact bursts + ground shock rings ----------------------- */
+  var ringGeo = null, sparkGeo = null;
+  function syncEffects(s) {
+    var list = s.entities && s.entities.effects; if (!list) return;
+    if (!ringGeo) ringGeo = new THREE.RingGeometry(0.55, 1, 18);
+    if (!sparkGeo) sparkGeo = new THREE.IcosahedronGeometry(4, 0);
+    for (var i = 0; i < list.length; i++) {
+      var e = list[i]; if (!e) continue;
+      var k = e.kind;
+      if (k !== 'boom' && k !== 'nova' && k !== 'ring' && k !== 'spark') continue;
+      R.eseen[e.id] = true;
+      var sl = R.epool[e.id];
+      var gy = groundYAt(s, e.x, e.y);
+      if (!sl) {
+        var col = 0xffcf6b; try { col = new THREE.Color(e.color || '#ffcf6b').getHex(); } catch (er) {}
+        var mesh;
+        if (k === 'spark') {
+          mesh = new THREE.Mesh(sparkGeo, new THREE.MeshBasicMaterial({ color: col, transparent: true }));
+          mesh.position.set(e.x, gy + 24, e.y);
+        } else {
+          mesh = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: col, transparent: true, side: THREE.DoubleSide, depthWrite: false }));
+          mesh.rotation.x = -Math.PI / 2; mesh.position.set(e.x, gy + 2, e.y);
+        }
+        R.scene.add(mesh); sl = R.epool[e.id] = { m: mesh, k: k, baseR: e.r || 18 };
+      }
+      var prog = e.max ? 1 - Math.max(0, (e.life || 0) / e.max) : 1; // 0→1 over life
+      var m = sl.m;
+      if (k === 'spark') { m.scale.setScalar(1 - prog * 0.6); m.material.opacity = 1 - prog; }
+      else { var rr = sl.baseR * (0.4 + prog * 1.7); m.scale.set(rr, rr, rr); m.material.opacity = (1 - prog) * 0.8; }
+    }
+    for (var id in R.epool) {
+      if (!R.eseen[id]) { var s3 = R.epool[id]; R.scene.remove(s3.m); s3.m.material.dispose(); delete R.epool[id]; }
+    }
+    R.eseen = {};
   }
 
   /* ===========================================================================
@@ -515,6 +622,8 @@
     syncList(s, en.buildings, 'building');
     syncList(s, en.resources, 'resource');
     syncList(s, en.units, 'unit');
+    syncProjectiles(s);
+    syncEffects(s);
     drawSelection(s);
     gc();
     R.renderer.render(R.scene, R.camera);
