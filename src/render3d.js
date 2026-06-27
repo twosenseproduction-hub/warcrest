@@ -758,6 +758,15 @@
     RTS.Cam.screenToWorld = savedCam.s2w; RTS.Cam.worldToScreen = savedCam.w2s; savedCam = null;
   }
 
+  // "plop": easeOutBack scale pop when an entity first appears (Thronefall feel)
+  function spawnPop(slot) {
+    if (RTS.Config && RTS.Config.reducedMotion) return 1;
+    var t = (performance.now() - slot.born) / 240;
+    if (t >= 1 || t < 0) return 1;
+    var u = t - 1, c1 = 1.70158, c3 = c1 + 1;
+    return Math.max(0.05, 1 + c3 * u * u * u + c1 * u * u);   // 0 → overshoot → 1
+  }
+
   /* ===========================================================================
    * Per-frame sync — mirror s.entities into pooled meshes
    * ========================================================================= */
@@ -779,7 +788,7 @@
         R.scene.add(obj);
         if (!_box) _box = new THREE.Box3();
         _box.setFromObject(obj); var bs = new THREE.Vector3(); _box.getSize(bs);
-        slot = R.pool[e.id] = { obj: obj, sig: sig, kind: kind, baseS: obj.scale.y, topY: bs.y };
+        slot = R.pool[e.id] = { obj: obj, sig: sig, kind: kind, baseS: obj.scale.y, topY: bs.y, born: performance.now() };
       }
       var o = slot.obj;
       var gy = groundYAt(s, e.x, e.y);
@@ -801,7 +810,7 @@
         }
         // hit reaction: a brief scale-pop (per-instance; can't tint shared mats)
         var pop = e.hitFlash > 0 ? 1 + Math.min(0.16, e.hitFlash * 0.5) : 1;
-        o.scale.setScalar(slot.baseS * pop);
+        o.scale.setScalar(slot.baseS * pop * spawnPop(slot));   // + plop on spawn
       } else if (kind === 'building') {
         // rise from the ground while under construction (relative to fitted scale)
         var prog = e.built ? 1 : Math.max(0.08, e.progress || 0);
@@ -976,8 +985,49 @@
     syncEffects(s);
     drawSelection(s);
     drawBuildPlots(s);
+    drawFloats(s);
     gc();
+    // screen shake: jolt the camera (render-only; placeCamera resets next frame,
+    // so picking via screenToWorld is unaffected). Driven by s.screenShake.
+    if (s.screenShake > 0 && !(RTS.Config && RTS.Config.reducedMotion)) {
+      var sh = Math.min(s.screenShake, 8) * 3.2;
+      R.camera.position.x += (Math.random() - 0.5) * sh;
+      R.camera.position.y += (Math.random() - 0.5) * sh;
+    }
     R.renderer.render(R.scene, R.camera);
+  }
+
+  /* ---- floating text (gold gains, dodges, ability casts) as DOM billboards -- */
+  var floatPool = [], floatBox = null;
+  function drawFloats(s) {
+    var fx = s.entities && s.entities.effects;
+    if (!fx) return;
+    if (!floatBox) {
+      floatBox = document.createElement('div');
+      floatBox.id = 'r3d-floats';
+      floatBox.style.cssText = 'position:fixed;inset:0;z-index:15;pointer-events:none;overflow:hidden;';
+      (document.getElementById('hud') || document.body).parentNode.insertBefore(floatBox, document.getElementById('hud'));
+    }
+    floatBox.style.display = '';
+    var used = 0;
+    for (var i = 0; i < fx.length; i++) {
+      var e = fx[i];
+      if (e.kind !== 'float' || !e.text) continue;
+      var sc = RTS.Cam.worldToScreen(s, e.x, e.y);
+      var prog = e.max ? 1 - Math.max(0, (e.life || 0) / e.max) : 1;   // 0→1
+      var el = floatPool[used];
+      if (!el) { el = document.createElement('div');
+        el.style.cssText = 'position:absolute;font:800 15px system-ui,sans-serif;text-shadow:0 2px 4px rgba(0,0,0,.6);white-space:nowrap;transform:translate(-50%,-50%);';
+        floatBox.appendChild(el); floatPool[used] = el; }
+      el.textContent = e.text;
+      el.style.color = e.color || '#ffe08a';
+      el.style.left = sc.x + 'px';
+      el.style.top = (sc.y - prog * 34) + 'px';
+      el.style.opacity = Math.max(0, 1 - prog);
+      el.style.display = 'block';
+      used++;
+    }
+    for (var j = used; j < floatPool.length; j++) floatPool[j].style.display = 'none';
   }
 
   function setNight(on) {
@@ -1002,6 +1052,7 @@
     R.enabled = false;
     document.body.classList.remove('r3d-on');
     if (R.canvas) R.canvas.style.display = 'none';
+    if (floatBox) floatBox.style.display = 'none';
     removeCamOverride();
   }
 
