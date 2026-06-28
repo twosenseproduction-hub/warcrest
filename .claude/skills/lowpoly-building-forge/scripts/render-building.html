@@ -39,7 +39,7 @@
   var ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.ShadowMaterial({ opacity: 0.22 }));
   ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
 
-  var model = LPF.buildBuilding(faction, kind);
+  var model = LPF.buildBuilding(faction, kind, +(qs.get('tier') || 1));
   if (night && LPF.setNight) LPF.setNight(model, true);
   scene.add(model);
   var box = new THREE.Box3().setFromObject(model); var size = new THREE.Vector3(); box.getSize(size);

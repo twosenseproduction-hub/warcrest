@@ -23,7 +23,7 @@ def _chromium():
 async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--faction', default='human'); ap.add_argument('--kind', default='house')
-    ap.add_argument('--angles', default='35'); ap.add_argument('--night', default='0')
+    ap.add_argument('--angles', default='35'); ap.add_argument('--night', default='0'); ap.add_argument('--tier', default='1')
     ap.add_argument('--out', default=os.path.join(HERE, '..', 'renders'))
     ap.add_argument('--export', dest='export_path', default=''); ap.add_argument('--w', default='760'); ap.add_argument('--h', default='760')
     args = ap.parse_args(); os.makedirs(args.out, exist_ok=True)
@@ -34,7 +34,7 @@ async def main():
         b = await p.chromium.launch(**launch)
         pg = await b.new_page(viewport={'width': int(args.w), 'height': int(args.h)})
         errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
-        url = f'http://127.0.0.1:{port}/render-building.html?faction={args.faction}&kind={args.kind}&night={args.night}&w={args.w}&h={args.h}'
+        url = f'http://127.0.0.1:{port}/render-building.html?faction={args.faction}&kind={args.kind}&night={args.night}&tier={args.tier}&w={args.w}&h={args.h}'
         await pg.goto(url, wait_until='load')
         await pg.wait_for_function('window.LPF_VIEW && window.LPF_VIEW.ready', timeout=15000)
         await pg.wait_for_timeout(400)
