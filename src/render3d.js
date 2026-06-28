@@ -425,6 +425,49 @@
       scale: 1.06, hunch: -0.04, armLen: 1.06, headR: 0.48, build: 0.86, legLen: 1.18, hand: 1.05, foot: 1.05, pauld: 0.7 },
   };
 
+  // Low-poly steed for cavalry (lancers): horse for crown, war-panther for elf,
+  // dire-wolf for horde. hipY = the rider's hip height so the saddle lines up.
+  function buildMount(race, Pal, hipY) {
+    var g = new THREE.Group();
+    var horse = race === 'crown', cat = race === 'elf', wolf = race === 'horde';
+    var bodyHex = cat ? 0x46406a : wolf ? 0x5b4c3b : 0x6e4f2e;
+    var darkHex = cat ? 0x322c4d : wolf ? 0x40352a : 0x47331f;
+    var body = M(bodyHex), dk = M(darkHex), hoof = M(0x1f1812);
+    var saddle = M(Pal.cloth), saddleT = M(Pal.trim, { metalness: .4, roughness: .5 });
+    var by = Math.max(1.4, hipY - 0.5);     // back height
+    // barrel + chest + hindquarters
+    g.add(box(0.96, 1.02, 2.6, body, 0, by, 0.0));
+    g.add(box(0.82, 0.92, 0.9, body, 0, by, 1.2));
+    g.add(box(0.9, 0.98, 0.9, body, 0, by, -1.15));
+    // neck + head toward +Z (unit forward)
+    var neck = box(0.5, 0.95, 0.64, body, 0, by + 0.48, 1.62); neck.rotation.x = -0.6; g.add(neck);
+    if (horse) {
+      g.add(box(0.42, 0.5, 1.05, body, 0, by + 0.92, 2.25));
+      g.add(box(0.2, 0.78, 0.66, dk, 0, by + 0.66, 1.5).rotateX(-0.6));        // mane
+      [-1, 1].forEach(function (s) { g.add(cone(0.1, 0.28, 4, body).translateX(0.14 * s).translateY(by + 1.4).translateZ(2.0)); });
+    } else if (cat) {
+      g.add(box(0.5, 0.5, 0.6, body, 0, by + 0.74, 2.2));
+      [-1, 1].forEach(function (s) { g.add(cone(0.12, 0.26, 4, body).translateX(0.18 * s).translateY(by + 1.08).translateZ(2.1)); });
+    } else {
+      g.add(box(0.46, 0.5, 0.92, body, 0, by + 0.82, 2.2));
+      [-1, 1].forEach(function (s) { g.add(cone(0.12, 0.3, 4, dk).translateX(0.16 * s).translateY(by + 1.26).translateZ(1.95)); });
+      g.add(box(0.5, 0.5, 0.5, dk, 0, by + 0.2, -1.15));                        // shaggy scruff
+    }
+    // tail at -Z
+    var tg = new THREE.Group(); tg.position.set(0, by + 0.1, -1.55);
+    tg.add((cat ? cyl(0.11, 0.05, 1.5, 5, body) : box(0.2, 0.2, 1.0, dk)).translateZ(cat ? -0.55 : -0.4));
+    tg.rotation.x = cat ? 0.7 : 1.0; g.add(tg);
+    // 4 legs (ground to body)
+    function ml(x, z) { var L = new THREE.Group(); L.position.set(x, by, z);
+      L.add(box(0.26, by, 0.3, body, 0, -by * 0.5, 0)); L.add(box(0.32, 0.26, 0.42, hoof, 0, -by, 0.05)); return L; }
+    g.add(ml(0.42, 1.0), ml(-0.42, 1.0), ml(0.42, -1.05), ml(-0.42, -1.05));
+    // saddle + blanket
+    g.add(box(1.04, 0.2, 1.3, saddle, 0, by + 0.55, -0.05));
+    g.add(box(1.12, 0.1, 1.52, saddleT, 0, by + 0.47, -0.05));
+    g.traverse(function (o) { o.castShadow = true; });
+    return g;
+  }
+
   function buildHumanoid(race, role) {
     var Pal = RACEDEF[race];
     var heavy = (role === 'warrior' || role === 'hero' || role === 'lancer');
@@ -622,6 +665,14 @@
         var lsh = plate(0.14, 1.25, 0.82, M(Pal.cloth), trim, -0.05, -0.4, 0.22); lfore.add(lsh); lfore.add(box(0.14, 0.36, 0.3, gemM, 0, -0.4, 0.3));
       }
       armL.rotation.x = -0.45;
+      // mount the rider on a steed: build it, then seat the rider astride (legs
+      // splayed over the saddle) and hide the rider legs from the walk cycle so
+      // they don't pedal — the upper body still animates.
+      g.add(buildMount(race, Pal, 2.5 * legLen));
+      legL.name = ''; legR.name = '';
+      if (legL.userData.shin) { legL.userData.shin.name = ''; legL.userData.shin.rotation.x = 0.8; }
+      if (legR.userData.shin) { legR.userData.shin.name = ''; legR.userData.shin.rotation.x = 0.8; }
+      legL.rotation.set(-0.5, 0, 0.5); legR.rotation.set(-0.5, 0, -0.5);
     } else if (caster) {
       var gemBright = M(Pal.gem, { emissive: Pal.gem, emissiveIntensity: .95, roughness: .25 });
       var staff = new THREE.Group(); staff.add(cyl(0.06, 0.06, 2.9, 6, leather).translateY(0.1));
@@ -726,7 +777,7 @@
     if (unitTemplates[key]) return unitTemplates[key];
     var g = buildHumanoid(race, role);   // DETAILED roster (reversed from minimal pegs)
     // Larger so the per-race detail (antlers, glaive, tusks) reads at RTS zoom.
-    fitHeight(g, role === 'hero' ? 74 : role === 'worker' ? 44 : 60);
+    fitHeight(g, role === 'hero' ? 74 : role === 'worker' ? 44 : role === 'lancer' ? 74 : 60);
     unitTemplates[key] = g;
     return g;
   }
