@@ -512,8 +512,55 @@
     return finish(g);
   };
 
+  /* ============================ METABALL BODIES (#4) ============================
+   * Fuse a skeleton of metaballs into ONE seamless implicit skin via MarchingCubes,
+   * then bake it to a static smooth mesh. No part-overlap seams — fully organic.
+   * balls: [[x,y,z,strength,subtract], ...] in field space [0,1]. */
+  LPF.metaballSkin = function (balls, mat, opts) {
+    opts = opts || {};
+    if (!THREE.MarchingCubes) { console.warn('MarchingCubes not loaded'); return new THREE.Group(); }
+    var res = opts.res || 64;
+    var mc = new THREE.MarchingCubes(res, mat, true, false, 300000);
+    mc.isolation = opts.isolation != null ? opts.isolation : 60;
+    mc.reset();
+    balls.forEach(function (b) { mc.addBall(b[0], b[1], b[2], b[3] == null ? 0.55 : b[3], b[4] == null ? 12 : b[4]); });
+    mc.update();
+    var count = mc.count | 0;
+    var src = mc.geometry.attributes.position.array;
+    var arr = new Float32Array(count * 3); arr.set(src.subarray(0, count * 3));
+    var geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+    if (THREE.BufferGeometryUtils && THREE.BufferGeometryUtils.mergeVertices) geo = THREE.BufferGeometryUtils.mergeVertices(geo, 1e-4);
+    geo.computeVertexNormals();
+    geo.computeBoundingBox(); var bb = geo.boundingBox; var h = (bb.max.y - bb.min.y) || 1;
+    var sc = (opts.height || 3.2) / h;
+    geo.translate(-(bb.max.x + bb.min.x) / 2, -bb.min.y, -(bb.max.z + bb.min.z) / 2);
+    geo.scale(sc, sc, sc);
+    var m = new THREE.Mesh(geo, mat); m.castShadow = true; m.receiveShadow = true;
+    return m;
+  };
+  // Humanoid metaball skeleton (field space [0,1]); athletic elf proportions.
+  LPF.elfSkeletonBalls = function () {
+    var b = [], CX = 0.5, CZ = 0.5, SUB = 24;                 // tight falloff so limbs don't fuse
+    // legs (ankle→thigh) — spaced wide so the gap survives
+    [-1, 1].forEach(function (s) { var x = CX + 0.1 * s;
+      [[0.08, 0.18], [0.16, 0.2], [0.26, 0.24], [0.36, 0.2], [0.43, 0.26]].forEach(function (p) { b.push([x, p[0], CZ, p[1], SUB]); }); });
+    b.push([CX, 0.47, CZ, 0.32, SUB]);                        // hips
+    [[0.53, 0.26], [0.59, 0.24], [0.65, 0.28], [0.7, 0.3]].forEach(function (p) { b.push([CX, p[0], CZ, p[1], SUB]); }); // waist→chest→shoulders
+    [-1, 1].forEach(function (s) { b.push([CX + 0.13 * s, 0.69, CZ, 0.22, SUB]); });   // shoulders
+    [-1, 1].forEach(function (s) { var x0 = CX + 0.18 * s;    // arms (shoulder→wrist), splayed out from torso
+      [[0.66, 0.17], [0.6, 0.15], [0.54, 0.14], [0.49, 0.13]].forEach(function (p, i) { b.push([x0 + 0.015 * s * i, p[0], CZ, p[1], SUB]); }); });
+    b.push([CX, 0.73, CZ, 0.16, SUB]);                        // neck
+    b.push([CX, 0.82, CZ, 0.27, SUB]);                        // head
+    return b;
+  };
+
   LPF.buildCharacter = function (name, params) {
     var role = params && params.role;
+    if (name === 'meta') {   // metaball-skin proof (organic body, no armor)
+      var skinM = LPF.toon(0x8f7ad0, { ramp: LPF.RAMP.skin, rimColor: 0xbfa0ff, rimStrength: 0.25 });
+      return finish(LPF.metaballSkin(LPF.elfSkeletonBalls(), skinM, { res: 96, isolation: 40, height: 3.4 }));
+    }
     if (role === 'lancer') return LPF.buildMounted(name, params);
     if (name === 'human') return LPF.buildHuman(params);
     if (name === 'orc') return LPF.buildOrc(params);
