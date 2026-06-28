@@ -465,16 +465,57 @@
   RTS.applyUnitCommand = applyUnitCommand;
 
   // ---- Orders --------------------------------------------------------------
-  RTS.orderMove = function (s, units, x, y, attackMove) {
-    var n = units.length, idx = 0;
-    var mode = attackMove ? 'attackMove' : 'move';
-    units.forEach(function (u) {
-      u.patrol = null;
-      var off = spread(idx++, n);
-      var tx = x + off.x, ty = y + off.y;
+  // Front-to-back rank for formation ordering: melee lead, ranged behind,
+  // casters backmost (so a group arrives with its front line facing the move).
+  function roleRank(u) {
+    var r = u.role;
+    if (r === 'warrior' || r === 'lancer') return 0;
+    if (r === 'archer') return 2;
+    if (r === 'monk' || r === 'caster' || r === 'priest') return 3;
+    return 1;   // pawn / hero / other
+  }
+
+  // Lay the selected group out in a block oriented to the move direction: ranks
+  // run perpendicular to travel, the front rank (melee) leads toward the target,
+  // ranged/casters fall to the rear. Every member marches at the slowest pace.
+  function formationMove(s, units, x, y, attackMove) {
+    var n = units.length, mode = attackMove ? 'attackMove' : 'move';
+    if (n <= 1) {
+      units.forEach(function (u) {
+        u.patrol = null; u._grpSpeed = 0;
+        applyUnitCommand(u, mode, { pos: { x: x, y: y }, guardOrigin: { x: u.x, y: u.y } });
+        if (RTS.Pathfind) RTS.Pathfind.clearNav(u);
+      });
+      return;
+    }
+    var cx = 0, cy = 0, minSpd = Infinity;
+    units.forEach(function (u) { cx += u.x; cy += u.y; if ((u.speed || 60) < minSpd) minSpd = u.speed || 60; });
+    cx /= n; cy /= n;
+    var dx = x - cx, dy = y - cy, dl = Math.sqrt(dx * dx + dy * dy) || 1;
+    var fx = dx / dl, fy = dy / dl;        // forward (toward destination)
+    var pxx = -fy, pyy = fx;               // perpendicular (rank width)
+    var cols = Math.max(1, Math.round(Math.sqrt(n))), rows = Math.ceil(n / cols), gap = 34;
+    // sort by rank, tie-break by current side-position so left/right order holds
+    var order = units.slice().sort(function (a, b) {
+      var ra = roleRank(a), rb = roleRank(b);
+      if (ra !== rb) return ra - rb;
+      return ((a.x - cx) * pxx + (a.y - cy) * pyy) - ((b.x - cx) * pxx + (b.y - cy) * pyy);
+    });
+    order.forEach(function (u, i) {
+      var row = Math.floor(i / cols), col = i % cols;
+      var rowCount = Math.min(cols, n - row * cols);
+      var colOff = (col - (rowCount - 1) / 2) * gap;
+      var rowOff = ((rows - 1) / 2 - row) * gap;   // row 0 (melee) leads, deeper ranks trail
+      var tx = x + fx * rowOff + pxx * colOff;
+      var ty = y + fy * rowOff + pyy * colOff;
+      u.patrol = null; u._grpSpeed = minSpd;       // march together at the slowest pace
       applyUnitCommand(u, mode, { pos: { x: tx, y: ty }, guardOrigin: { x: u.x, y: u.y } });
       if (RTS.Pathfind) RTS.Pathfind.clearNav(u);
     });
+  }
+
+  RTS.orderMove = function (s, units, x, y, attackMove) {
+    formationMove(s, units, x, y, attackMove);
     if (attackMove) RTS.Audio.play('attack');
     else RTS.Audio.play('move');
   };
@@ -497,7 +538,7 @@
     var target = RTS.getById(s, targetId);
     if (!target || !RTS.canBeAttacked(target)) return;
     units.forEach(function (u) {
-      u.patrol = null;
+      u.patrol = null; u._grpSpeed = 0;
       applyUnitCommand(u, 'attackTarget', { targetId: targetId, guardOrigin: { x: u.x, y: u.y } });
       if (RTS.Pathfind) RTS.Pathfind.clearNav(u);
     });
@@ -506,7 +547,7 @@
 
   RTS.orderStop = function (s, units) {
     units.forEach(function (u) {
-      u.patrol = null;
+      u.patrol = null; u._grpSpeed = 0;
       applyUnitCommand(u, 'idle');
       if (RTS.Pathfind) RTS.Pathfind.clearNav(u);
       u.vx = 0; u.vy = 0;
@@ -516,6 +557,7 @@
   RTS.orderHarvest = function (s, worker, nodeId, opts) {
     opts = opts || {};
     if (worker.role !== 'pawn') return;
+    worker._grpSpeed = 0;   // drop any group-march pace cap when sent to gather
     var carry = worker.harvest && worker.harvest.carry > 0 ? worker.harvest.carry : 0;
     var depositId = carry > 0 && worker.harvest ? worker.harvest.depositId : null;
     var node = RTS.getById(s, nodeId);

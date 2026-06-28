@@ -315,6 +315,7 @@
         } else if (u.commandMode === 'move') {
           u.commandMode = 'idle';
           u.attackMove = false;
+          u._grpSpeed = 0;            // formation march over — drop the group pace cap
         }
         if (RTS.Pathfind) RTS.Pathfind.clearNav(u);
       }
@@ -1234,7 +1235,8 @@
   function moveToward(s, u, tx, ty, dt, stop) {
     var dx = tx - u.x, dy = ty - u.y, d = Math.sqrt(dx * dx + dy * dy) || 1;
     if (d <= stop) { u.vx = 0; u.vy = 0; return; }
-    var vx = dx / d * u.speed, vy = dy / d * u.speed;
+    var spd = (u._grpSpeed && !u.target) ? u._grpSpeed : u.speed;
+    var vx = dx / d * spd, vy = dy / d * spd;
     var grid = s && s.map && s.map.terrainGrid;
     if (grid && RTS.Terrain) {
       var nx = u.x + vx * dt, ny = u.y + vy * dt;
@@ -1304,6 +1306,11 @@
     return u.radius + o.radius + RTS.Config.unitCollisionGap;
   }
 
+  // A unit is "mobile" while it has somewhere to be; otherwise it's settled and
+  // acts as a stable anchor that movers flow around (instead of all parties
+  // splitting penetration 50/50 and shuffling in place forever).
+  function unitMobile(u) { return !!(u.moveTo || u.target); }
+
   function separateUnitPair(u, o) {
     var dx = u.x - o.x, dy = u.y - o.y;
     var d = Math.sqrt(dx * dx + dy * dy);
@@ -1320,10 +1327,11 @@
       ny = dy / d;
     }
     var pen = minD - d;
-    u.x += nx * pen * 0.5;
-    u.y += ny * pen * 0.5;
-    o.x -= nx * pen * 0.5;
-    o.y -= ny * pen * 0.5;
+    // Mobility-weighted split: the mover gives way, the settled one holds.
+    var um = unitMobile(u), om = unitMobile(o), wu = 0.5;
+    if (um && !om) wu = 0.82; else if (!um && om) wu = 0.18;
+    u.x += nx * pen * wu;       u.y += ny * pen * wu;
+    o.x -= nx * pen * (1 - wu); o.y -= ny * pen * (1 - wu);
   }
 
   function resolveAllUnitOverlaps(s) {
@@ -1343,6 +1351,10 @@
   }
 
   function softSeparation(s, u, dt) {
+    // Settled units don't actively shove their neighbours — the hard overlap
+    // pass still keeps them from interpenetrating, but they stop churning the
+    // crowd. Only units that are actually going somewhere push to clear a lane.
+    if (!unitMobile(u)) return;
     var push = RTS.Config.separation;
     if (u.role === 'pawn') push *= RTS.Config.pawnSeparationMul || 0.28;
     var units = s.entities.units;

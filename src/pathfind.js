@@ -387,7 +387,10 @@
   function directMoveToward(s, u, tx, ty, dt, stop) {
     var dx = tx - u.x, dy = ty - u.y, d = Math.sqrt(dx * dx + dy * dy) || 1;
     if (d <= stop) { u.vx = 0; u.vy = 0; return; }
-    var vx = dx / d * u.speed, vy = dy / d * u.speed;
+    // March at the group's pace (slowest member) while pure-moving; a unit that
+    // has acquired a combat target ignores the cap and closes at full speed.
+    var spd = (u._grpSpeed && !u.target) ? u._grpSpeed : u.speed;
+    var vx = dx / d * spd, vy = dy / d * spd;
     if (s && wouldEnterWater(s, u.x, u.y, vx, vy, dt)) {
       u.vx = 0; u.vy = 0;
       return;
