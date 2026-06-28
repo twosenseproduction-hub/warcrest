@@ -552,6 +552,12 @@
           meta.terrainGrid.cols * meta.terrainGrid.rows === meta.ramp.length) {
         meta.terrainGrid.ramp = meta.ramp;
       }
+      // Attach the shallow-water ford grid so the terrain renderer can draw
+      // those walkable FLAT tiles as wadeable shallow water.
+      if (meta.shallow && meta.terrainGrid &&
+          meta.terrainGrid.cols * meta.terrainGrid.rows === meta.shallow.length) {
+        meta.terrainGrid.shallow = meta.shallow;
+      }
       var avoid = meta.avoidDecor || [];
       if (meta.coastalRing) {
         meta.decor = (meta.decor || []).concat(
@@ -694,6 +700,7 @@
       avoidDecor: decorAvoid,
       mapgenForest: true,
       ramp: mg.ramp,   // ramp tiles (passable cliff gaps) from the .tmj
+      shallow: mg.shallow,   // wadeable shallow-water ford tiles from the .tmj
       // TerraformZones holds hardcoded corridor/forest-wall data authored for
       // one specific map; let an authored map opt out so its walls aren't
       // stamped onto an unrelated layout (Tideland sets this false).

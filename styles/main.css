@@ -82,6 +82,14 @@ html, body {
   z-index: 1; pointer-events: auto;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
+  /* ── Warcraft III colour-grade ──────────────────────────────────────────
+   * The Tiny Swords palette reads bright + pastel; WC3 outdoor maps read
+   * warmer, richer and higher-contrast under golden sun. Grade the whole game
+   * world (terrain + units + buildings render to this one canvas) so it lands
+   * closer to that look. Single composited GPU layer — cheap on mobile. */
+  filter: saturate(1.26) contrast(1.12) brightness(0.95) sepia(0.09) hue-rotate(-6deg);
+  /* gentle edge vignette for depth/focus (drawn over the canvas content) */
+  box-shadow: inset 0 0 180px 56px rgba(10, 8, 4, 0.42);
 }
 
 /* ============================================================================

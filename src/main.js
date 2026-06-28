@@ -1,5 +1,5 @@
 import { BootScene } from './scenes/BootScene.js';
-import { PreloadScene } from './scenes/PreloadScene.js?v=20260628b';
+import { PreloadScene } from './scenes/PreloadScene.js?v=20260628c';
 import { GameScene } from './scenes/GameScene.js?v=20260626a';
 
 const config = {

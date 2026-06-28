@@ -95,6 +95,7 @@ const GLYPH = {
   '.': { h: FLAT,  forest: 0 },
   '^': { h: HIGH,  forest: 0 },
   '/': { h: FLAT,  forest: 0, ramp: 1 },   // ramp: passable break in a cliff wall
+  ':': { h: FLAT,  forest: 0, shallow: 1 },// wadeable shallow-water ford (walkable, rendered as water)
   'T': { h: FLAT,  forest: 1 },
   'P': { h: FLAT,  forest: 0, spawn: 'spawn_player' },
   'E': { h: FLAT,  forest: 0, spawn: 'spawn_enemy' },
@@ -113,6 +114,7 @@ function buildTerrain(header, grid) {
   const heights = new Int8Array(cols * rows).fill(WATER);
   const forest = new Uint8Array(cols * rows);
   const ramp = new Uint8Array(cols * rows);
+  const shallow = new Uint8Array(cols * rows);
   const spawns = []; // {type, cx, cy, amount?}
 
   for (let r = 0; r < rows; r++) {
@@ -124,6 +126,7 @@ function buildTerrain(header, grid) {
         heights[cx + r * cols] = g.h;
         if (g.forest) forest[cx + r * cols] = 1;
         if (g.ramp) ramp[cx + r * cols] = 1;
+        if (g.shallow) shallow[cx + r * cols] = 1;
       };
       place(c);
       const mc = cols - 1 - c;
@@ -159,7 +162,7 @@ function buildTerrain(header, grid) {
     if (high >= 3) heights[i] = HIGH;
   });
 
-  return { tile, cols, rows, heights, forest, ramp, spawns };
+  return { tile, cols, rows, heights, forest, ramp, shallow, spawns };
 }
 
 // ── Autotile (ported from tools/export-map.js) ────────────────────────────────
@@ -171,7 +174,7 @@ function autotileGid(bit, blockCol, blockRow) {
 }
 
 function emitTmj(t) {
-  const { tile, cols, rows, heights, forest, ramp, spawns } = t;
+  const { tile, cols, rows, heights, forest, ramp, shallow, spawns } = t;
   const at = (cx, cy) => (cx < 0 || cy < 0 || cx >= cols || cy >= rows ? WATER : heights[cx + cy * cols]);
   const isLand = (h) => h >= FLAT;
   const flatBit = (cx, cy) => (isLand(at(cx, cy - 1)) ? 1 : 0) | (isLand(at(cx + 1, cy)) ? 2 : 0) |
@@ -184,6 +187,7 @@ function emitTmj(t) {
   const cliffData = new Array(cols * rows).fill(0);
   const forestObjs = [];
   const rampObjs = [];
+  const shallowObjs = [];
 
   for (let cy = 0; cy < rows; cy++) {
     for (let cx = 0; cx < cols; cx++) {
@@ -210,6 +214,10 @@ function emitTmj(t) {
       }
       if (ramp && ramp[idx]) {
         rampObjs.push({ id: 9000 + rampObjs.length + 1, name: 'ramp', type: 'ramp', visible: true,
+          x: cx * tile, y: cy * tile, width: tile, height: tile, properties: [] });
+      }
+      if (shallow && shallow[idx]) {
+        shallowObjs.push({ id: 8000 + shallowObjs.length + 1, name: 'shallow', type: 'shallow', visible: true,
           x: cx * tile, y: cy * tile, width: tile, height: tile, properties: [] });
       }
     }
@@ -250,6 +258,7 @@ function emitTmj(t) {
       { id: 4, name: 'forest', type: 'objectgroup', visible: true, opacity: 1, x: 0, y: 0, objects: forestObjs },
       { id: 5, name: 'spawns', type: 'objectgroup', visible: true, opacity: 1, x: 0, y: 0, objects: spawnObjs },
       { id: 6, name: 'ramps', type: 'objectgroup', visible: true, opacity: 1, x: 0, y: 0, objects: rampObjs },
+      { id: 7, name: 'shallows', type: 'objectgroup', visible: true, opacity: 1, x: 0, y: 0, objects: shallowObjs },
     ],
   };
 }

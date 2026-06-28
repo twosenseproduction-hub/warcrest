@@ -64,8 +64,10 @@ def isle(cx, cy, rx, ry, wob=1.0):
                 grid[y][x] = '.'
 
 
-def bridge(x0, y0, x1, y1, half):
-    """Lay a walkable grass land-bridge between two anchors (thickness 2*half+1)."""
+def ford(x0, y0, x1, y1, half):
+    """Carve a wadeable shallow-water ford between two isles. Only converts the
+    WATER gap to ':' (walkable shallow) — the parts of the line crossing island
+    grass stay grass, so the isles read as joined by a shallow sandbar."""
     steps = int(max(abs(x1 - x0), abs(y1 - y0)) * 2) + 1
     for i in range(steps + 1):
         t = i / steps
@@ -74,7 +76,9 @@ def bridge(x0, y0, x1, y1, half):
         for dy in range(-half, half + 1):
             for dx in range(-half, half + 1):
                 if dx * dx + dy * dy <= half * half + 1:
-                    put(bx + dx, by + dy, '.')
+                    x = int(round(bx + dx)); y = int(round(by + dy))
+                    if 0 <= x < W and 0 <= y < H and grid[y][x] == '~':
+                        grid[y][x] = ':'
 
 
 def clear_box(x, y, rad, ch):
@@ -112,15 +116,17 @@ for (cx, cy, rx, ry) in LEFT_ISLES:
 for (cx, cy, rx, ry) in SPINE_ISLES:
     isle(cx, cy, rx, ry)
 
-# ── Land bridges. Top bridges exist as land but get WALLED later. ────────────
-TOP_BRIDGES = [(TL, TC)]                 # mirrored below -> sealed by the wall
-OPEN_BRIDGES = [                         # the real walkable network (kept clear)
+# ── Shallow-water fords. The isles are joined ONLY by wadeable shallow
+# crossings (no grass land-bridges). The TOP has no ford — the northern gap is
+# open sea + the forested top isle, so the mains must route down through the
+# centre to reach each other. ────────────────────────────────────────────────
+OPEN_BRIDGES = [                         # the real walkable network (shallow fords)
     (TL, ML), (TL, CC), (ML, BL), (BL, CC), (BL, BC),
 ]
-for (a, b) in OPEN_BRIDGES + TOP_BRIDGES:
-    bridge(a[0], a[1], b[0], b[1], 2)
-    bridge(mx(a[0]), a[1], mx(b[0]), b[1], 2)
-bridge(CC[0], CC[1], BC[0], BC[1], 2)    # central spine (single)
+for (a, b) in OPEN_BRIDGES:
+    ford(a[0], a[1], b[0], b[1], 1)
+    ford(mx(a[0]), a[1], mx(b[0]), b[1], 1)
+ford(CC[0], CC[1], BC[0], BC[1], 1)      # central spine (single)
 
 # ── Outer ocean border ───────────────────────────────────────────────────────
 for y in range(H):
@@ -193,8 +199,9 @@ def wall_line(a, b, half):
                 wall.add((int(round(bx + dx)), int(round(by + dy))))
 
 
+# The top isle is a forested barrier; the open sea on either side of it (no ford
+# crosses the top) is what actually seals the northern route between the mains.
 wall_ellipse(TC[0], TC[1], 12, 6)
-wall_line(TL, TC, 3); wall_line((mx(TL[0]), TL[1]), TC, 3)
 wall -= protect                          # don't seal the base clearings
 
 # ── Forest pass 1 — sparse interior scatter ──────────────────────────────────
