@@ -176,7 +176,7 @@
     var blade = LPF.toon(pal.blade, { ramp: LPF.RAMP.metal, emissive: pal.blade, emissiveIntensity: 1.4, rim: false }); blade.userData.glow = true;
     var mats = { accent: accent, gem: gem, blade: blade, steel: steel, wood: M(pal.wood), string: hair, sash: sashM };
     var F = { worker: { pauld: false, head: 'none' }, warrior: { pauld: true, head: 'none' }, lancer: { pauld: true, head: 'helm' },
-      archer: { pauld: false, head: 'none', cape: true, shoulderPad: true }, caster: { pauld: false, head: 'none', pelt: true }, hero: { pauld: true, cape: true } }[role] || {};
+      archer: { pauld: false, head: 'hood', cape: true, shoulderPad: true }, caster: { pauld: false, head: 'none', pelt: true }, hero: { pauld: true, cape: true } }[role] || {};
     var g = new THREE.Group(); var glow = [];
 
     [-1, 1].forEach(function (s) { g.add(at(smoothMesh(P.limbGeo(0.16, p.limbLen), cloth), 0.17 * s, p.limbLen * 0.5, 0));
@@ -198,7 +198,9 @@
 
     var headY = shoulderY + 0.5 * p.headScale;
     var headR = buildHead(g, { skin: skin, headY: headY, headScale: p.headScale, earLen: p.earLen, eye: pal.eye });
-    if (F.head === 'hood') { var hd = facetMesh(new THREE.ConeGeometry(0.62 * p.headScale, 0.95, 7), cloth); at(hd, 0, headY + 0.18, 0); g.add(hd); }
+    if (F.head === 'hood') { // Night Elf Archer cowl: rounded hood over top+back, point at the rear
+      var hd = facetMesh(new THREE.SphereGeometry(0.5 * p.headScale + 0.13, 9, 7, 0, Math.PI * 2, 0, 1.85), cloth); at(hd, 0, headY + 0.13, -0.12); hd.scale.set(1.12, 1.06, 1.22); g.add(hd);
+      g.add(at(facetMesh(new THREE.ConeGeometry(0.18, 0.5, 5), cloth), 0, headY + 0.22, -0.42)); }
     else { var hairBack = smoothMesh(P.headGeo(0.54 * p.headScale, 0.12), hair); at(hairBack, 0, headY + 0.06, -0.12); hairBack.scale.set(1.04, 1.1, 0.9); g.add(hairBack);
       [-1, 1].forEach(function (s) { var a = antler(antlerM, s); at(a, headR * 0.55 * s, headY + 0.3, -0.04); g.add(a); });
       g.add(at(facetMesh(new THREE.ConeGeometry(0.1, 0.28, 5), hairTip), 0, headY + 0.52 * p.headScale, -0.02));
@@ -363,19 +365,19 @@
    * "different approach to combat". A quadruped mount + a seated rider built from
    * the same race head/parts. */
   LPF.buildMounted = function (race, params) {
-    var elf = race === 'elf';
-    var pal = elf ? ELF.palette : ORC.palette;
-    var skin = LPF.toon(pal.skin, { ramp: LPF.RAMP.skin, rimColor: elf ? 0xbfa0ff : 0xc9e08a, rimStrength: 0.2 });
+    var elf = race === 'elf', human = race === 'human', orc = !elf && !human;
+    var pal = human ? HUMAN.palette : orc ? ORC.palette : ELF.palette;
+    var skin = LPF.toon(pal.skin, { ramp: LPF.RAMP.skin, rimColor: elf ? 0xbfa0ff : human ? 0xffd9a8 : 0xc9e08a, rimStrength: 0.2 });
     var cloth = LPF.toon(pal.cloth, { ramp: LPF.RAMP.cloth });
     var accent = LPF.toon(pal.accent, { ramp: LPF.RAMP.metal });
     var steel = LPF.toon(pal.steel, { ramp: LPF.RAMP.metal });
-    var sashM = LPF.toon(pal.sash, { ramp: LPF.RAMP.cloth });
+    var sashM = LPF.toon(pal.sash || pal.cloth, { ramp: LPF.RAMP.cloth });
     var gem = LPF.toon(pal.gem || 0x57c23a, { ramp: LPF.RAMP.metal, emissive: pal.gem || 0x57c23a, emissiveIntensity: 0.3, rim: false });
     var blade = LPF.toon(elf ? pal.blade : pal.steel, { ramp: LPF.RAMP.metal, emissive: elf ? pal.blade : 0x000000, emissiveIntensity: elf ? 1.2 : 0, rim: false }); if (elf) blade.userData.glow = true;
-    // mount fur
-    var fur = LPF.toon(elf ? 0x2c2738 : 0x7b7f86, { ramp: LPF.RAMP.skin, rim: false });
-    var furD = LPF.toon(elf ? 0x1c1926 : 0x55585c, { ramp: LPF.RAMP.cloth });
-    var mEye = LPF.toon(elf ? 0x5ff0dc : 0xf0b43a, { ramp: LPF.RAMP.metal, emissive: elf ? 0x5ff0dc : 0xf0b43a, emissiveIntensity: 0.85, rim: false });
+    // mount fur: panther (elf) / dire wolf (orc) / chestnut warhorse (human)
+    var fur = LPF.toon(human ? 0x8a5a32 : elf ? 0x2c2738 : 0x7b7f86, { ramp: LPF.RAMP.skin, rim: false });
+    var furD = LPF.toon(human ? 0x523619 : elf ? 0x1c1926 : 0x55585c, { ramp: LPF.RAMP.cloth });
+    var mEye = LPF.toon(human ? 0x201510 : elf ? 0x5ff0dc : 0xf0b43a, { ramp: LPF.RAMP.metal, emissive: human ? 0x000000 : elf ? 0x5ff0dc : 0xf0b43a, emissiveIntensity: human ? 0 : 0.85, rim: false });
     var markM = LPF.toon(elf ? 0x4fd6c4 : 0xb5402f, { ramp: LPF.RAMP.cloth, rim: false });
     var g = new THREE.Group(); var glow = [];
     var bodyY = 1.05;
@@ -389,12 +391,17 @@
       var paw = smoothMesh(new THREE.SphereGeometry(0.16, 8, 6), furD); at(paw, p[0], 0.14, p[1] + (p[1] > 0 ? 0.04 : -0.02)); paw.scale.set(1, 0.7, 1.3); g.add(paw);
     });
     // neck + head forward
-    var neck = smoothMesh(P.limbGeo(0.22, 0.6), fur); at(neck, 0, bodyY + 0.4, 1.1); neck.rotation.x = elf ? 0.9 : 0.7; g.add(neck);
-    var mHeadY = bodyY + (elf ? 0.75 : 0.7), mHeadZ = elf ? 1.45 : 1.5;
-    var mhead = smoothMesh(new THREE.SphereGeometry(0.34, 10, 8), fur); at(mhead, 0, mHeadY, mHeadZ); mhead.scale.set(1, 0.95, 1.15); g.add(mhead);
+    var neck = smoothMesh(P.limbGeo(0.22, 0.6), fur); at(neck, 0, bodyY + 0.4, 1.1); neck.rotation.x = elf ? 0.9 : human ? 0.85 : 0.7; g.add(neck);
+    var mHeadY = bodyY + (elf ? 0.75 : human ? 0.88 : 0.7), mHeadZ = elf ? 1.45 : human ? 1.55 : 1.5;
+    var mhead = smoothMesh(new THREE.SphereGeometry(0.34, 10, 8), fur); at(mhead, 0, mHeadY, mHeadZ); mhead.scale.set(1, 0.95, human ? 1.3 : 1.15); g.add(mhead);
     if (elf) { // panther: short muzzle, pointed ears
       g.add(at(smoothMesh(new THREE.BoxGeometry(0.26, 0.22, 0.3), fur), 0, mHeadY - 0.05, mHeadZ + 0.28));
       [-1, 1].forEach(function (s) { g.add(at(facetMesh(new THREE.ConeGeometry(0.1, 0.22, 4), fur), 0.18 * s, mHeadY + 0.32, mHeadZ - 0.05)); });
+    } else if (human) { // horse: long muzzle, small ears, forelock + neck mane
+      g.add(at(smoothMesh(new THREE.BoxGeometry(0.26, 0.28, 0.62), fur), 0, mHeadY - 0.1, mHeadZ + 0.42));
+      g.add(at(facetMesh(new THREE.BoxGeometry(0.12, 0.1, 0.12), furD), 0, mHeadY - 0.16, mHeadZ + 0.72));
+      [-1, 1].forEach(function (s) { g.add(at(facetMesh(new THREE.ConeGeometry(0.07, 0.2, 4), fur), 0.13 * s, mHeadY + 0.34, mHeadZ - 0.04)); });
+      var hm = smoothMesh(new THREE.BoxGeometry(0.14, 0.85, 0.5), furD); at(hm, 0, mHeadY + 0.1, mHeadZ - 0.52); hm.rotation.x = 0.55; g.add(hm);
     } else { // wolf: long snout, shaggy
       g.add(at(smoothMesh(new THREE.BoxGeometry(0.24, 0.2, 0.5), fur), 0, mHeadY - 0.08, mHeadZ + 0.34));
       g.add(at(facetMesh(new THREE.BoxGeometry(0.12, 0.1, 0.12), furD), 0, mHeadY - 0.08, mHeadZ + 0.6));
@@ -402,21 +409,27 @@
       var mane = smoothMesh(new THREE.SphereGeometry(0.4, 9, 7), furD); at(mane, 0, mHeadY - 0.1, mHeadZ - 0.45); mane.scale.set(1.1, 1.1, 0.7); g.add(mane);
     }
     [-1, 1].forEach(function (s) { var e = new THREE.Mesh(new THREE.SphereGeometry(0.075, 6, 5), mEye); at(e, 0.13 * s, mHeadY + 0.05, mHeadZ + 0.26); g.add(e); glow.push(e); });
-    // tribal markings: teal cheek flashes + back stripes (elf) / red war-paint (orc)
-    [-1, 1].forEach(function (s) { var mk = facetMesh(new THREE.ConeGeometry(0.05, 0.22, 3), markM); at(mk, 0.21 * s, mHeadY - 0.02, mHeadZ + 0.16); mk.rotation.x = 1.4; mk.rotation.z = s * 0.5; g.add(mk); });
-    [-0.78, 0.5].forEach(function (z) { var st = facetMesh(new THREE.BoxGeometry(0.46, 0.05, 0.14), markM); at(st, 0, bodyY + 0.44, z); g.add(st); });
+    if (!human) { // tribal markings (teal panther / red wolf); horses go unmarked
+      [-1, 1].forEach(function (s) { var mk = facetMesh(new THREE.ConeGeometry(0.05, 0.22, 3), markM); at(mk, 0.21 * s, mHeadY - 0.02, mHeadZ + 0.16); mk.rotation.x = 1.4; mk.rotation.z = s * 0.5; g.add(mk); });
+      [-0.78, 0.5].forEach(function (z) { var st = facetMesh(new THREE.BoxGeometry(0.46, 0.05, 0.14), markM); at(st, 0, bodyY + 0.44, z); g.add(st); });
+    }
     // S-curved, tufted tail: a jointed chain whose segment angles alternate so
     // the tail flows back, dips, rises, then curls over (a sinuous cat tail).
-    var tail = new THREE.Group(); var segLen = 0.32;
-    var tdefs = [{ r: 0.085, a: 0.0 }, { r: 0.07, a: 0.75 }, { r: 0.055, a: -1.0 }, { r: 0.045, a: -0.75 }, { r: 0.038, a: 0.55 }];
-    var seg = tail;
-    tdefs.forEach(function (d, i) {
-      var j = new THREE.Group(); j.rotation.x = d.a; if (i > 0) j.position.y = segLen;
-      j.add(at(smoothMesh(P.limbGeo(d.r, segLen), elf ? fur : furD), 0, segLen * 0.5, 0));
-      seg.add(j); seg = j;
-    });
-    seg.add(at(facetMesh(new THREE.SphereGeometry(0.1, 7, 6), elf ? markM : furD), 0, segLen + 0.04, 0));
-    at(tail, 0, bodyY + 0.28, -1.22); tail.rotation.x = -0.45; g.add(tail);
+    if (human) { // horse tail: hangs down and back
+      var ht = smoothMesh(P.limbGeo(0.1, 1.0), furD); at(ht, 0, bodyY - 0.05, -1.3); ht.rotation.x = 2.3; g.add(ht);
+      g.add(at(smoothMesh(P.limbGeo(0.07, 0.6), furD), 0, bodyY - 0.45, -1.4));
+    } else {
+      var tail = new THREE.Group(); var segLen = 0.32;
+      var tdefs = [{ r: 0.085, a: 0.0 }, { r: 0.07, a: 0.75 }, { r: 0.055, a: -1.0 }, { r: 0.045, a: -0.75 }, { r: 0.038, a: 0.55 }];
+      var seg = tail;
+      tdefs.forEach(function (d, i) {
+        var j = new THREE.Group(); j.rotation.x = d.a; if (i > 0) j.position.y = segLen;
+        j.add(at(smoothMesh(P.limbGeo(d.r, segLen), elf ? fur : furD), 0, segLen * 0.5, 0));
+        seg.add(j); seg = j;
+      });
+      seg.add(at(facetMesh(new THREE.SphereGeometry(0.1, 7, 6), elf ? markM : furD), 0, segLen + 0.04, 0));
+      at(tail, 0, bodyY + 0.28, -1.22); tail.rotation.x = -0.45; g.add(tail);
+    }
 
     // ---- rider (own group, seated back on the saddle) ----
     var rider = new THREE.Group();
@@ -429,22 +442,30 @@
       var calf = smoothMesh(P.limbGeo(0.12, 0.44), skin); at(calf, 0.5 * s, seatY - 0.38, 0.12); calf.rotation.z = -s * 0.1; rider.add(calf);
     });
     var headY = seatY + 1.05;
-    var headR = buildHead(rider, { skin: skin, headY: headY, headScale: hs, earLen: elf ? 0.8 : 0.4, earDroop: elf ? 0.9 : 1.3, eye: pal.eye, brow: !elf, taper: elf ? 0.18 : 0.05 });
+    var headR = buildHead(rider, { skin: skin, headY: headY, headScale: hs, earLen: elf ? 0.8 : 0.4, ears: human ? 'round' : 'pointed', earDroop: elf ? 0.9 : 1.3, eye: pal.eye, eyeGlow: human ? false : undefined, brow: orc, taper: elf ? 0.18 : 0.05 });
     if (elf) { var hb = smoothMesh(P.headGeo(0.52 * hs, 0.12), LPF.toon(pal.hair, { ramp: LPF.RAMP.cloth })); at(hb, 0, headY + 0.06, -0.12); hb.scale.set(1.04, 1.1, 0.9); rider.add(hb);
       [-1, 1].forEach(function (s) { var a = antler(LPF.toon(pal.antler, { ramp: LPF.RAMP.cloth }), s); at(a, headR * 0.55 * s, headY + 0.3, -0.04); rider.add(a); }); }
+    else if (human) { // Knight: hair + steel helm + noseguard + blue plume
+      rider.add(at(smoothMesh(P.headGeo(0.5 * hs, 0.1), LPF.toon(pal.hair, { ramp: LPF.RAMP.cloth })), 0, headY + 0.08, -0.05));
+      rider.add(at(facetMesh(new THREE.SphereGeometry(0.5 * hs + 0.06, 9, 6, 0, 6.3, 0, 1.7), steel), 0, headY + 0.1, 0));
+      rider.add(at(facetMesh(new THREE.BoxGeometry(0.1, 0.4, 0.12), steel), 0, headY - 0.02, 0.5 * hs * 0.92));
+      var pl = facetMesh(new THREE.ConeGeometry(0.12, 0.5, 5), cloth); at(pl, 0, headY + 0.62 * hs, -0.06); rider.add(pl); }
     else { rider.add(at(smoothMesh(new THREE.BoxGeometry(0.52 * hs, 0.3, 0.42), skin), 0, headY - 0.28, 0.3));
       rider.add(at(smoothMesh(new THREE.BoxGeometry(0.34 * hs, 0.14, 0.12), LPF.toon(0x3a1410, { ramp: LPF.RAMP.cloth, rim: false })), 0, headY - 0.24, 0.47));
       [-1, 1].forEach(function (s) { var tk = facetMesh(P.tuskGeo(0.11, 0.55), LPF.toon(pal.bone, { ramp: LPF.RAMP.cloth })); at(tk, 0.15 * s, headY - 0.02, 0.45); tk.rotation.z = -s * 0.16; rider.add(tk); });
       rider.add(at(smoothMesh(new THREE.SphereGeometry(0.14, 8, 6), LPF.toon(pal.hair, { ramp: LPF.RAMP.cloth })), 0, headY + 0.5 * hs, -0.05)); }
     var mats = { accent: accent, gem: gem, blade: blade, steel: steel, wood: LPF.toon(pal.wood, { ramp: LPF.RAMP.cloth }), sash: sashM };
-    var wpn = elf ? throwGlaive(mats) : spear(mats, 2.5, steel);   // Huntress throws a glaive; Raider wields a spear
+    // Huntress throws a glaive; Raider wields a spear; Knight couches a long lance
+    var wpn = elf ? throwGlaive(mats) : spear(mats, human ? 3.2 : 2.5, steel);
     if (elf) wpn.scale.setScalar(1.25);
     var rH = at(floatingHand(skin, 0.15), 0.42, seatY + 0.35, 0.25);
     var lH = at(floatingHand(skin, 0.15), -0.42, seatY + 0.35, 0.2);
     wpn.position.copy(rH.position);
     if (elf) { wpn.position.y += 0.25; wpn.position.z += 0.15; wpn.rotation.x = -0.2; }
+    else if (human) { wpn.rotation.x = -1.45; wpn.position.z += 0.1; }   // couched lance, leveled forward
     else { wpn.rotation.z = -0.4; wpn.rotation.x = -0.25; }
     rider.add(wpn); rider.add(rH); rider.add(lH);
+    if (human) { var sh = kiteShield(mats); sh.scale.setScalar(0.9); sh.position.copy(lH.position); sh.position.z += 0.12; rider.add(sh); }
     (wpn.userData.glow || []).forEach(function (x) { glow.push(x); });
     rider.position.set(0, -0.08, -0.34);   // seat back onto the mid-back, slightly lower
     g.add(rider);
@@ -456,7 +477,7 @@
 
   LPF.buildCharacter = function (name, params) {
     var role = params && params.role;
-    if (role === 'lancer' && (name === 'orc' || name === 'elf')) return LPF.buildMounted(name, params);
+    if (role === 'lancer') return LPF.buildMounted(name, params);
     if (name === 'human') return LPF.buildHuman(params);
     if (name === 'orc') return LPF.buildOrc(params);
     return LPF.buildElf(params);
