@@ -99,10 +99,11 @@
   // Per-race building palette — Thronefall architecture: terracotta wall BODIES
   // with cream crenellated CAPS/tops. Each faction shifts the body+cap tint and
   // flies a faction banner for side identity.
+  // Reference-matched: light STONE walls (body) + faction-colored ROOF/cap.
   var RACETINT = {
-    crown: { body: 0xb5503a, bodyD: 0x8a3b2b, cap: 0xe9dcc0, capD: 0xcdba8e },   // terracotta + cream
-    horde: { body: 0x7d3528, bodyD: 0x551f17, cap: 0xccbd95, capD: 0xa8946a },   // oxblood + bone
-    elf:   { body: 0x3f7d6a, bodyD: 0x2b5849, cap: 0xe7e6cf, capD: 0xc4c4a8 },   // teal + pale
+    crown: { body: 0xc7bc9f, bodyD: 0x9f9478, cap: 0x7c8caa, capD: 0x586585 },   // stone + blue-slate
+    horde: { body: 0xbfb086, bodyD: 0x968760, cap: 0x9c3f2c, capD: 0x6c2718 },   // stone + red
+    elf:   { body: 0xccc6ad, bodyD: 0xa49e85, cap: 0x4f9281, capD: 0x356458 },   // pale stone + teal
   };
   var BPR = {}, BP = null;
   function bpFor(race) {

@@ -1346,7 +1346,41 @@ body.player-aurex .res-pill.supply { border-color: rgba(77, 208, 225, 0.35); }
 }
 #long-press-ring.hidden { display: none; }
 
-#radial-menu { display: none !important; pointer-events: none !important; }
+/* ── Radial build/command wheel — anchored on a selected building ──────────
+   JS sets the root's inline left/top (screen px from the building) and places
+   each .rcard via --rx/--ry offsets. Replaces the bottom hub for buildings. */
+#radial-menu { position: fixed; z-index: 26; pointer-events: none; }
+#radial-menu.hidden { display: none; }
+/* radial wheel replaces the bottom hub for buildings: hide the deck while open */
+body.radial-open #command-deck { display: none !important; }
+#radial-menu .radial-hub { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+#radial-menu .rcard {
+  position: absolute; left: 0; top: 0;
+  transform: translate(calc(var(--rx, 0px) - 50%), calc(var(--ry, 0px) - 50%));
+  width: 56px; height: 56px; border: none; background: none; padding: 0; margin: 0;
+  pointer-events: auto; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: transform .08s ease-out;
+}
+#radial-menu .rcard:active { transform: translate(calc(var(--rx,0px) - 50%), calc(var(--ry,0px) - 50%)) scale(.9); }
+#radial-menu .rcard.disabled { opacity: .45; cursor: default; }
+#radial-menu .rcard-ring {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: linear-gradient(180deg, #f6eed9, #e3d2ad);
+  box-shadow: 0 3px 0 rgba(120,96,40,.5), 0 4px 10px rgba(20,16,10,.45),
+              inset 0 2px 0 rgba(255,255,255,.6), inset 0 0 0 2px rgba(228,181,58,.85);
+}
+#radial-menu .rcard-body {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; overflow: hidden;
+}
+#radial-menu .rcard-avatar { width: 78%; height: 78%; object-fit: contain;
+  image-rendering: pixelated; pointer-events: none; }
+#radial-menu .rcard-cost {
+  position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 2px; padding: 1px 6px; border-radius: 999px;
+  background: rgba(26,18,8,.9); color: #f0d24b; font: 800 11px system-ui,sans-serif; white-space: nowrap;
+}
+#radial-menu .rcard-coin { width: 11px; height: 11px; }
 
 @media (orientation: landscape) and (max-height: 480px) {
   :root { --deck-expanded-h: 100px; --unit-btn: 44px; --cmd-slot: var(--unit-btn); --cmd-btn: 40px; --combat-btn: 40px; --combat-primary: 46px; }

@@ -481,6 +481,7 @@
       layoutItems(s);
       root.classList.remove('hidden');
       open = true;
+      if (document.body) document.body.classList.add('radial-open');   // retire the hub
       bindEscape();
       if (navigator.vibrate) navigator.vibrate(14);
       return true;
@@ -490,6 +491,7 @@
       if (!root) return;
       root.classList.add('hidden');
       root.classList.remove('arc-flip');
+      if (document.body) document.body.classList.remove('radial-open');
       open = false;
       ctx = null;
       items = [];
