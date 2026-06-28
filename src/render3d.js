@@ -292,6 +292,77 @@
     for (var x = -2.2; x <= 2.21; x += 0.73) g.add(box(0.46, 0.5, 1.6, BP.cap, x, 2.5, 0));   // merlons
     return g;
   }
+  // ── per-race building flourishes ──────────────────────────────────────────
+  function orcSpikeRidge(g, halfW, y, z) {                          // bone spikes along a ridge
+    var n = Math.max(3, Math.round(halfW * 2.6));
+    for (var i = 0; i < n; i++) { var sp = cone(0.16, 0.72, 5, P.bone); sp.position.set(-halfW + (i + 0.5) * (halfW * 2 / n), y, z == null ? 0 : z); g.add(sp); }
+  }
+  function elfCanopy(g, r, x, y, z) {                               // clustered leaf crown
+    var c = new THREE.Group(); c.position.set(x || 0, y, z || 0); c.add(sphere(r, P.leaf));
+    for (var i = 0; i < 6; i++) { var a = i / 6 * Math.PI * 2, e = 0.2 + (i % 3) * 0.3; var b = sphere(r * 0.6, i % 2 ? P.leaf2 : P.leaf); b.position.set(Math.cos(a) * r * 0.7, Math.sin(e) * r * 0.5, Math.sin(a) * r * 0.7); c.add(b); }
+    g.add(c);
+  }
+  function emberMesh(x, y, z, r) {
+    var m = new THREE.Mesh(new THREE.IcosahedronGeometry(r || 0.42, 0), new THREE.MeshStandardMaterial({ color: 0xff7a2a, emissive: 0xff5a1a, emissiveIntensity: 0.9, flatShading: true }));
+    m.position.set(x, y, z); return m;
+  }
+  // ORC: tan stone + red cap + bone spikes + lashed timber
+  function tfHouseOrc() {
+    var g = new THREE.Group();
+    g.add(cyl(1.9, 2.2, 2.2, 8, BP.body).translateY(1.1));
+    var t = cone(2.3, 1.8, 8, BP.cap); t.position.y = 3.0; g.add(t);
+    orcSpikeRidge(g, 1.8, 2.2, 0);
+    g.add(box(1.0, 1.3, 0.3, BP.door, 0, 0.65, 2.0));
+    return g;
+  }
+  function tfBarracksOrc(race) {
+    var g = new THREE.Group();
+    g.add(box(6.0, 2.3, 3.4, BP.body, 0, 1.15, 0));
+    g.add(box(6.4, 0.5, 3.8, BP.cap, 0, 2.35, 0));
+    orcSpikeRidge(g, 2.9, 2.75, 0);
+    g.add(box(1.2, 1.5, 0.3, BP.door, 0, 0.75, 1.75));
+    g.add(box(0.16, 1.7, 3.7, BP.woodD, 3.0, 1.0, 0));            // lashed beam
+    g.add(box(0.14, 1.7, 0.14, BP.woodD, -2.9, 3.2, 0)); g.add(box(0.95, 0.55, 0.05, factionBanner(race), -2.4, 3.7, 0));
+    return g;
+  }
+  function tfForgeOrc() {
+    var g = new THREE.Group();
+    g.add(box(4.4, 2.2, 3.8, BP.body, 0, 1.1, 0));
+    var t = cone(2.6, 1.7, 8, BP.cap); t.position.y = 3.0; g.add(t);
+    orcSpikeRidge(g, 2.0, 2.2, 0);
+    g.add(cyl(0.9, 1.0, 0.7, 9, BP.bodyD).translateX(2.4).translateY(0.5).translateZ(1.4));   // cauldron
+    g.add(emberMesh(2.4, 1.0, 1.4, 0.62));                        // lava glow
+    g.add(box(1.4, 1.6, 0.3, BP.door, 0, 0.8, 1.95));
+    return g;
+  }
+  // ELF: stone + leaf canopy + gnarled bark + glow
+  function tfHouseElf() {
+    var g = new THREE.Group();
+    g.add(box(3.4, 1.9, 3.0, BP.body, 0, 0.95, 0));
+    elfCanopy(g, 2.4, 0, 2.7, 0);
+    [-1, 1].forEach(function (s) { g.add(cyl(0.12, 0.3, 2.2, 6, P.bark).translateX(1.6 * s).translateY(0.9).translateZ(1.2)); });
+    g.add(box(1.1, 1.3, 0.3, BP.door, 0, 0.65, 1.55));
+    return g;
+  }
+  function tfBarracksElf() {
+    var g = new THREE.Group();
+    g.add(box(5.6, 2.0, 3.2, BP.body, 0, 1.0, 0));
+    elfCanopy(g, 1.9, -1.5, 2.6, 0); elfCanopy(g, 1.9, 1.5, 2.6, 0);
+    [-1, 1].forEach(function (s) { g.add(cyl(0.14, 0.34, 2.4, 6, P.bark).translateX(2.7 * s).translateY(1.0).translateZ(1.1)); });
+    g.add(box(1.2, 1.5, 0.3, BP.door, 0, 0.75, 1.65));
+    var orb = new THREE.Mesh(new THREE.IcosahedronGeometry(0.3, 0), new THREE.MeshStandardMaterial({ color: 0xffe07a, emissive: 0xd9b94a, emissiveIntensity: 0.9, flatShading: true })); orb.position.set(0, 2.4, 1.7); g.add(orb);
+    return g;
+  }
+  function tfForgeElf() {
+    var g = new THREE.Group();
+    g.add(cyl(1.6, 2.2, 4.0, 8, P.bark).translateY(2.0));         // ancient trunk
+    elfCanopy(g, 2.6, 0, 5.0, 0);
+    g.add(cyl(1.3, 1.4, 0.4, 10, BP.body).translateX(2.3).translateY(0.2).translateZ(0.6));   // moonwell basin
+    g.add(emberMesh(2.3, 0.45, 0.6, 0.5).translateY(0));
+    var well = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 1.05, 0.14, 10), new THREE.MeshStandardMaterial({ color: 0x6fe0d6, emissive: 0x3fbfb0, emissiveIntensity: 0.9, flatShading: true })); well.position.set(2.3, 0.45, 0.6); g.add(well);
+    g.add(box(1.2, 1.6, 0.3, BP.door, 0, 0.8, 1.7));
+    return g;
+  }
   // inverted-hull toon outline (works with the core three build; no post-pass):
   // a back-faced black shell slightly larger than each mesh reads as a dark edge.
   var OUTLINE_MAT = null;
@@ -314,11 +385,11 @@
     if (/core|keep|castle|townhall|citadel|chiefs_hall/.test(t)) g = race === 'horde' ? tfKeepOrc(race) : race === 'elf' ? tfKeepElf(race) : tfKeep(race);
     else if (/wall|gate|rampart/.test(t)) g = tfWall();
     else if (/turret|tower/.test(t)) g = tfTower(race, b.towerType);
-    else if (/forge/.test(t)) g = tfForge();
-    else if (/foundry|barrack/.test(t)) g = tfBarracks(race);
+    else if (/forge/.test(t)) g = race === 'horde' ? tfForgeOrc() : race === 'elf' ? tfForgeElf() : tfForge();
+    else if (/foundry|barrack/.test(t)) g = race === 'horde' ? tfBarracksOrc(race) : race === 'elf' ? tfBarracksElf() : tfBarracks(race);
     else if (/conduit|sheep|farm|pen/.test(t)) g = tfFarm();
     else if (/windmill|mill|merchant|market/.test(t)) g = tfWindmill(race);
-    else g = tfHouse(race);
+    else g = race === 'horde' ? tfHouseOrc() : race === 'elf' ? tfHouseElf() : tfHouse(race);
     g.traverse(function (o) { o.castShadow = true; o.receiveShadow = true; });
     addOutline(g, 0.06);
     fitWidth(g, (b.w || 128) * 0.92);
