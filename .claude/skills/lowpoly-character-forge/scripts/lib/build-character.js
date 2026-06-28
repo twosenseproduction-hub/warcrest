@@ -127,7 +127,7 @@
     head.position.y = headY; head.scale.z = 0.92; g.add(head);
     var eyeM = opt.eyeGlow === false ? LPF.toon(0x241f17, { ramp: LPF.RAMP.cloth, rim: false })
       : LPF.toon(opt.eye || 0x6fe06a, { ramp: LPF.RAMP.metal, emissive: opt.eye || 0x6fe06a, emissiveIntensity: 0.18, rim: false });
-    [-1, 1].forEach(function (s) { var e = new THREE.Mesh(new THREE.SphereGeometry((opt.eyeGlow === false ? 0.06 : 0.085) * hs, 8, 6), eyeM); e.position.set(0.17 * hs * s, headY + 0.02, headR * 0.88); g.add(e); });
+    [-1, 1].forEach(function (s) { var e = new THREE.Mesh(new THREE.SphereGeometry((opt.eyeGlow === false ? 0.05 : 0.062) * hs, 8, 6), eyeM); e.position.set(0.15 * hs * s, headY + 0.02, headR * 0.92); g.add(e); });
     if (opt.brow) { var brow = smoothMesh(new THREE.BoxGeometry(0.72 * hs, 0.17, 0.22), skin); brow.position.set(0, headY + 0.17, headR * 0.78); g.add(brow); }
     var ears = opt.ears || 'pointed';
     if (ears === 'pointed') { [-1, 1].forEach(function (s) { var ear = smoothMesh(P.extrude(P.pointedShape(opt.earLen, 0.16), 0.08), skin);
@@ -160,9 +160,12 @@
 
   /* ============================ NIGHT ELF ============================ */
   var ELF = {
-    palette: { skin: 0x564a98, cloth: 0x163433, accent: 0xf2c14e, gem: 0x57c23a, blade: 0x8fe66a,
-      hair: 0xede8da, hairTip: 0xf2c14e, eye: 0x76e85a, sash: 0xa84768, antler: 0x6e4a2a, wood: 0x7a5a38, steel: 0xcfd6de },
-    headScale: 1.2, earLen: 0.85, torsoH: 1.25, limbLen: 0.9, outline: 0.028,
+    // Tuned toward the WoW Night-Elf reference: lavender skin + hair, green
+    // tabard over brown leather, cyan glowing runes/eyes.
+    palette: { skin: 0x8f7ad0, cloth: 0x3c6b39, accent: 0x6f4a28, gem: 0x7fe6d8, blade: 0xaef0e0,
+      hair: 0xb6a6e4, hairTip: 0x9a86d8, eye: 0xcffcff, sash: 0x5a3f28, antler: 0x5e4126, wood: 0x6e4a2a, steel: 0xb7beca },
+    // adult heroic proportions (not chibi): small head, neck, long legs, swept ears
+    headScale: 0.78, earLen: 0.8, earDroop: 0.5, torsoH: 1.62, limbLen: 1.55, outline: 0.024,
   };
   LPF.buildElf = function (params) {
     var p = Object.assign({}, ELF, params || {});
@@ -181,11 +184,16 @@
 
     [-1, 1].forEach(function (s) { g.add(at(smoothMesh(P.limbGeo(0.16, p.limbLen), cloth), 0.17 * s, p.limbLen * 0.5, 0));
       g.add(at(smoothMesh(P.limbGeo(0.17, 0.22), accent), 0.17 * s, 0.12, 0.04)); });
-    g.add(at(smoothMesh(P.torsoGeo(0.4, 0.58, p.torsoH), cloth), 0, p.limbLen + p.torsoH * 0.5, 0));
-    g.add(at(smoothMesh(P.torsoGeo(0.46, 0.46, 0.34), sashM), 0, p.limbLen + p.torsoH * 0.62, 0));
-    g.add(at(smoothMesh(P.torsoGeo(0.5, 0.5, 0.14), accent), 0, p.limbLen + p.torsoH * 0.2, 0));
+    // slender upper torso (chest→waist) + flared tabard/skirt + waist belt
+    g.add(at(smoothMesh(P.torsoGeo(0.33, 0.27, p.torsoH * 0.6), cloth), 0, p.limbLen + p.torsoH * 0.68, 0));   // chest, tapering to waist
+    g.add(at(smoothMesh(P.torsoGeo(0.27, 0.52, p.torsoH * 0.56), cloth), 0, p.limbLen + p.torsoH * 0.26, 0));  // flared skirt/tabard
+    g.add(at(smoothMesh(P.torsoGeo(0.3, 0.3, 0.2), sashM), 0, p.limbLen + p.torsoH * 0.4, 0));                  // waist belt
+    g.add(at(smoothMesh(P.torsoGeo(0.55, 0.55, 0.12), accent), 0, p.limbLen + p.torsoH * 0.02, 0));             // hem trim
 
     var shoulderY = p.limbLen + p.torsoH;
+    // neck + shoulder deltoids for an adult silhouette
+    g.add(at(smoothMesh(P.limbGeo(0.11, 0.16), skin), 0, shoulderY + 0.02, 0));
+    [-1, 1].forEach(function (s) { var d = smoothMesh(new THREE.SphereGeometry(0.2, 9, 7), cloth); d.scale.set(1.1, 0.85, 1); at(d, 0.34 * s, shoulderY - 0.04, 0); g.add(d); });
     if (F.pauld) [-1, 1].forEach(function (s) { var pg = facetMesh(P.leafGemGeo(role === 'hero' ? 0.85 : 0.7, 0.9), gem); at(pg, 0.5 * s, shoulderY - 0.06, 0); pg.rotation.z = -s * 0.5; g.add(pg); glow.push(pg); });
     if (F.cape) { var cp = flowCape(M(role === 'hero' ? pal.cloth : pal.sash), 5, 0.5); at(cp, 0, shoulderY + 0.24, -0.12); g.add(cp); }   // back-hugging cloak
     if (F.shoulderPad) [-1, 1].forEach(function (s) {   // WC3 Night Elf Archer: big upswept pauldrons
@@ -197,13 +205,15 @@
       var pelt = smoothMesh(new THREE.SphereGeometry(0.5, 10, 7), M(pal.antler)); pelt.scale.set(1.15, 0.55, 1.0); at(pelt, 0, shoulderY - 0.02, 0); g.add(pelt); }
 
     var headY = shoulderY + 0.5 * p.headScale;
-    var headR = buildHead(g, { skin: skin, headY: headY, headScale: p.headScale, earLen: p.earLen, eye: pal.eye });
+    var headR = buildHead(g, { skin: skin, headY: headY, headScale: p.headScale, earLen: p.earLen, earDroop: p.earDroop, eye: pal.eye, brow: true });
     if (F.head === 'hood') { // Night Elf Archer cowl: rounded hood over top+back, point at the rear
       var hd = facetMesh(new THREE.SphereGeometry(0.5 * p.headScale + 0.13, 9, 7, 0, Math.PI * 2, 0, 1.85), cloth); at(hd, 0, headY + 0.13, -0.12); hd.scale.set(1.12, 1.06, 1.22); g.add(hd);
       g.add(at(facetMesh(new THREE.ConeGeometry(0.18, 0.5, 5), cloth), 0, headY + 0.22, -0.42)); }
     else { var hairBack = smoothMesh(P.headGeo(0.54 * p.headScale, 0.12), hair); at(hairBack, 0, headY + 0.06, -0.12); hairBack.scale.set(1.04, 1.1, 0.9); g.add(hairBack);
-      [-1, 1].forEach(function (s) { var a = antler(antlerM, s); at(a, headR * 0.55 * s, headY + 0.3, -0.04); g.add(a); });
-      g.add(at(facetMesh(new THREE.ConeGeometry(0.1, 0.28, 5), hairTip), 0, headY + 0.52 * p.headScale, -0.02));
+      // lavender hair pulled up into a bun + two side braids (per reference; no antlers)
+      g.add(at(smoothMesh(new THREE.SphereGeometry(0.17 * p.headScale, 9, 8), hair), 0, headY + 0.46 * p.headScale, -0.06));
+      [-1, 1].forEach(function (s) { var br = smoothMesh(P.limbGeo(0.052, 0.55), hair); at(br, headR * 0.74 * s, headY - 0.16, 0.0); br.rotation.z = s * 0.14; g.add(br);
+        g.add(at(smoothMesh(new THREE.SphereGeometry(0.06, 7, 6), hairTip), headR * 0.78 * s, headY - 0.46, 0.0)); });
       if (F.head === 'helm') { var helm = facetMesh(new THREE.SphereGeometry(0.56 * p.headScale, 9, 6, 0, 6.3, 0, 1.7), steel); at(helm, 0, headY + 0.12, 0); g.add(helm);
         g.add(at(facetMesh(new THREE.ConeGeometry(0.08, 0.45, 4), accent), 0, headY + 0.62 * p.headScale, 0)); } }
 
