@@ -190,5 +190,83 @@
     return finish(g);
   };
 
-  LPF.buildCharacter = function (name, params) { return name === 'orc' ? LPF.buildOrc(params) : LPF.buildElf(params); };
+  /* ============================ MOUNTED CAVALRY ============================
+   * Elf Huntress on a panther / Orc Raider on a dire wolf — the races' distinct
+   * "different approach to combat". A quadruped mount + a seated rider built from
+   * the same race head/parts. */
+  LPF.buildMounted = function (race, params) {
+    var elf = race === 'elf';
+    var pal = elf ? ELF.palette : ORC.palette;
+    var skin = LPF.toon(pal.skin, { ramp: LPF.RAMP.skin, rimColor: elf ? 0xbfa0ff : 0xc9e08a, rimStrength: 0.2 });
+    var cloth = LPF.toon(pal.cloth, { ramp: LPF.RAMP.cloth });
+    var accent = LPF.toon(pal.accent, { ramp: LPF.RAMP.metal });
+    var steel = LPF.toon(pal.steel, { ramp: LPF.RAMP.metal });
+    var sashM = LPF.toon(pal.sash, { ramp: LPF.RAMP.cloth });
+    var gem = LPF.toon(pal.gem || 0x57c23a, { ramp: LPF.RAMP.metal, emissive: pal.gem || 0x57c23a, emissiveIntensity: 0.3, rim: false });
+    var blade = LPF.toon(elf ? pal.blade : pal.steel, { ramp: LPF.RAMP.metal, emissive: elf ? pal.blade : 0x000000, emissiveIntensity: elf ? 1.2 : 0, rim: false }); if (elf) blade.userData.glow = true;
+    // mount fur
+    var fur = LPF.toon(elf ? 0x2c2738 : 0x7b7f86, { ramp: LPF.RAMP.skin, rim: false });
+    var furD = LPF.toon(elf ? 0x1c1926 : 0x55585c, { ramp: LPF.RAMP.cloth });
+    var mEye = LPF.toon(elf ? 0x4fd6c4 : 0xe8a83a, { ramp: LPF.RAMP.metal, emissive: elf ? 0x4fd6c4 : 0xe8a83a, emissiveIntensity: 0.5, rim: false });
+    var g = new THREE.Group(); var glow = [];
+    var bodyY = 1.05;
+
+    // ---- mount: body, 4 legs, neck+head, tail ----
+    var body = smoothMesh(new THREE.CapsuleGeometry(0.46, 1.5, 4, 10), fur); body.rotation.x = Math.PI / 2; at(body, 0, bodyY, -0.1); g.add(body);
+    var chest = smoothMesh(new THREE.SphereGeometry(0.5, 10, 8), fur); at(chest, 0, bodyY, 0.85); chest.scale.set(1, 1, 0.9); g.add(chest);
+    var haunch = smoothMesh(new THREE.SphereGeometry(0.52, 10, 8), fur); at(haunch, 0, bodyY + 0.05, -0.95); g.add(haunch);
+    [[0.32, 0.85], [-0.32, 0.85], [0.32, -0.85], [-0.32, -0.85]].forEach(function (p) {
+      var thigh = smoothMesh(P.limbGeo(0.16, 0.55), fur); at(thigh, p[0], bodyY - 0.45, p[1]); g.add(thigh);
+      var paw = smoothMesh(new THREE.SphereGeometry(0.16, 8, 6), furD); at(paw, p[0], 0.14, p[1] + (p[1] > 0 ? 0.04 : -0.02)); paw.scale.set(1, 0.7, 1.3); g.add(paw);
+    });
+    // neck + head forward
+    var neck = smoothMesh(P.limbGeo(0.22, 0.6), fur); at(neck, 0, bodyY + 0.4, 1.1); neck.rotation.x = elf ? 0.9 : 0.7; g.add(neck);
+    var mHeadY = bodyY + (elf ? 0.75 : 0.7), mHeadZ = elf ? 1.45 : 1.5;
+    var mhead = smoothMesh(new THREE.SphereGeometry(0.34, 10, 8), fur); at(mhead, 0, mHeadY, mHeadZ); mhead.scale.set(1, 0.95, 1.15); g.add(mhead);
+    if (elf) { // panther: short muzzle, pointed ears
+      g.add(at(smoothMesh(new THREE.BoxGeometry(0.26, 0.22, 0.3), fur), 0, mHeadY - 0.05, mHeadZ + 0.28));
+      [-1, 1].forEach(function (s) { g.add(at(facetMesh(new THREE.ConeGeometry(0.1, 0.22, 4), fur), 0.18 * s, mHeadY + 0.32, mHeadZ - 0.05)); });
+    } else { // wolf: long snout, shaggy
+      g.add(at(smoothMesh(new THREE.BoxGeometry(0.24, 0.2, 0.5), fur), 0, mHeadY - 0.08, mHeadZ + 0.34));
+      g.add(at(facetMesh(new THREE.BoxGeometry(0.12, 0.1, 0.12), furD), 0, mHeadY - 0.08, mHeadZ + 0.6));
+      [-1, 1].forEach(function (s) { g.add(at(facetMesh(new THREE.ConeGeometry(0.11, 0.26, 4), furD), 0.16 * s, mHeadY + 0.34, mHeadZ - 0.02)); });
+      var mane = smoothMesh(new THREE.SphereGeometry(0.4, 9, 7), furD); at(mane, 0, mHeadY - 0.1, mHeadZ - 0.45); mane.scale.set(1.1, 1.1, 0.7); g.add(mane);
+    }
+    [-1, 1].forEach(function (s) { var e = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), mEye); at(e, 0.13 * s, mHeadY + 0.05, mHeadZ + 0.26); g.add(e); glow.push(e); });
+    var tail = smoothMesh(P.limbGeo(0.07, 0.9), elf ? fur : furD); at(tail, 0, bodyY + 0.2, -1.4); tail.rotation.x = -0.7; g.add(tail);
+
+    // ---- rider seated on the back ----
+    var seatY = bodyY + 0.55, hs = 0.95;
+    g.add(at(smoothMesh(P.torsoGeo(0.32, 0.42, 0.85), cloth), 0, seatY + 0.45, -0.05));
+    g.add(at(smoothMesh(P.torsoGeo(0.36, 0.36, 0.22), sashM), 0, seatY + 0.7, -0.05));
+    // bent legs gripping the flanks
+    [-1, 1].forEach(function (s) { var thigh = smoothMesh(P.limbGeo(0.13, 0.5), cloth); at(thigh, 0.34 * s, seatY + 0.2, 0.1); thigh.rotation.x = 1.1; thigh.rotation.z = -s * 0.2; g.add(thigh);
+      g.add(at(smoothMesh(P.limbGeo(0.12, 0.4), skin), 0.42 * s, seatY - 0.15, 0.4)); });
+    var headY = seatY + 1.05;
+    var headR = buildHead(g, { skin: skin, headY: headY, headScale: hs, earLen: elf ? 0.8 : 0.4, earDroop: elf ? 0.9 : 1.3, eye: pal.eye, brow: !elf, taper: elf ? 0.18 : 0.05 });
+    if (elf) { var hb = smoothMesh(P.headGeo(0.52 * hs, 0.12), LPF.toon(pal.hair, { ramp: LPF.RAMP.cloth })); at(hb, 0, headY + 0.06, -0.12); hb.scale.set(1.04, 1.1, 0.9); g.add(hb);
+      [-1, 1].forEach(function (s) { var a = antler(LPF.toon(pal.antler, { ramp: LPF.RAMP.cloth }), s); at(a, headR * 0.55 * s, headY + 0.3, -0.04); g.add(a); }); }
+    else { g.add(at(smoothMesh(new THREE.BoxGeometry(0.52 * hs, 0.3, 0.42), skin), 0, headY - 0.28, 0.3));
+      g.add(at(smoothMesh(new THREE.BoxGeometry(0.34 * hs, 0.14, 0.12), LPF.toon(0x3a1410, { ramp: LPF.RAMP.cloth, rim: false })), 0, headY - 0.24, 0.47));
+      [-1, 1].forEach(function (s) { var tk = facetMesh(P.tuskGeo(0.11, 0.55), LPF.toon(pal.bone, { ramp: LPF.RAMP.cloth })); at(tk, 0.15 * s, headY - 0.02, 0.45); tk.rotation.z = -s * 0.16; g.add(tk); });
+      g.add(at(smoothMesh(new THREE.SphereGeometry(0.14, 8, 6), LPF.toon(pal.hair, { ramp: LPF.RAMP.cloth })), 0, headY + 0.5 * hs, -0.05)); }
+    // floating hands + weapon (elf: moon-glaive, orc: spear)
+    var mats = { accent: accent, gem: gem, blade: blade, steel: steel, wood: LPF.toon(pal.wood, { ramp: LPF.RAMP.cloth }), sash: sashM };
+    var wpn = elf ? gemGlaive(mats, 2.0) : spear(mats, 2.5, steel);
+    var rH = at(floatingHand(skin, 0.15), 0.42, seatY + 0.35, 0.25);
+    var lH = at(floatingHand(skin, 0.15), -0.42, seatY + 0.35, 0.2);
+    wpn.position.copy(rH.position); wpn.rotation.z = -0.4; wpn.rotation.x = -0.25; g.add(wpn);
+    (wpn.userData.glow || []).forEach(function (x) { glow.push(x); });
+    g.add(rH); g.add(lH);
+
+    g.userData.emissiveMeshes = glow;
+    LPF.outlineGroup(g, 0.026, elf ? 0x1a1226 : 0x141008);
+    return finish(g);
+  };
+
+  LPF.buildCharacter = function (name, params) {
+    var role = params && params.role;
+    if (role === 'lancer') return LPF.buildMounted(name === 'orc' ? 'orc' : 'elf', params);
+    return name === 'orc' ? LPF.buildOrc(params) : LPF.buildElf(params);
+  };
 })(typeof window !== 'undefined' ? window : globalThis);
