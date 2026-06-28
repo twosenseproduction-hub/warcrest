@@ -791,12 +791,12 @@
     });
 
     // Neutral structures on the central-spine isles (the 'o' markers in
-    // gen_archipelago.py): a merchant on the top-centre isle and a mercenary
-    // camp on the contested central isle. Bottom-centre stays an open creep
-    // approach guarded by buildFromAuthoredTMJ's auto camps.
+    // gen_archipelago.py): a merchant on the contested central isle and a
+    // mercenary camp on the bottom-centre isle. The top-centre isle is now a
+    // sealed forest wall, not a camp.
     var cw = (RTS.Config.world && RTS.Config.world.w) || 4864;
-    var mt = RTS.makeBuilding(s, 'merchant', RTS.TEAM.NEUTRAL, cw / 2, 9 * 64 + 32, s.playerFaction, true);
-    var mb = RTS.makeBuilding(s, 'mercenary', RTS.TEAM.NEUTRAL, cw / 2, 27 * 64 + 32, s.playerFaction, true);
+    var mt = RTS.makeBuilding(s, 'merchant', RTS.TEAM.NEUTRAL, cw / 2, 27 * 64 + 32, s.playerFaction, true);
+    var mb = RTS.makeBuilding(s, 'mercenary', RTS.TEAM.NEUTRAL, cw / 2, 42 * 64 + 32, s.playerFaction, true);
     if (RTS.markBuildingFootprint) {
       if (mt) RTS.markBuildingFootprint(s, mt, true);
       if (mb) RTS.markBuildingFootprint(s, mb, true);
