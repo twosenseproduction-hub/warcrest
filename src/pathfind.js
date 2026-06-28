@@ -218,35 +218,44 @@
 
     var size = cols * rows;
     var gScore = new Float32Array(size);
-    var fScore = new Float32Array(size);
     var came = new Int32Array(size);
-    var open = new Uint8Array(size);
     var closed = new Uint8Array(size);
-    var i, j, k, ci, ni, tentative, h0;
+    var i, j, k, ni, tentative;
 
     for (i = 0; i < size; i++) {
       gScore[i] = Infinity;
-      fScore[i] = Infinity;
       came[i] = -1;
     }
-
     gScore[startI] = 0;
-    fScore[startI] = octile(scx, scy, gcx, gcy);
-    open[startI] = 1;
 
-    var guard = 0;
-    while (guard++ < 6000) {
-      var best = -1, bestF = Infinity;
-      for (i = 0; i < size; i++) {
-        if (open[i] && fScore[i] < bestF) { bestF = fScore[i]; best = i; }
-      }
-      if (best < 0) return null;
-      if (best === goalI) break;
+    // Open set as a binary min-heap of cell indices keyed by f (parallel arrays).
+    // Replaces the old O(cells) linear min-scan per pop — pops are now O(log n).
+    // Stale entries (a cell re-pushed with a better f) are skipped via `closed`.
+    var heap = [], hf = [], hlen = 0;
+    function hpush(idx, f) {
+      heap[hlen] = idx; hf[hlen] = f; var c = hlen++;
+      while (c > 0) { var p = (c - 1) >> 1; if (hf[p] <= hf[c]) break;
+        var ti = heap[p]; heap[p] = heap[c]; heap[c] = ti; var tf = hf[p]; hf[p] = hf[c]; hf[c] = tf; c = p; }
+    }
+    function hpop() {
+      var top = heap[0]; hlen--;
+      heap[0] = heap[hlen]; hf[0] = hf[hlen];
+      var c = 0; while (true) { var l = 2 * c + 1, r = l + 1, m = c;
+        if (l < hlen && hf[l] < hf[m]) m = l;
+        if (r < hlen && hf[r] < hf[m]) m = r;
+        if (m === c) break;
+        var ti = heap[m]; heap[m] = heap[c]; heap[c] = ti; var tf = hf[m]; hf[m] = hf[c]; hf[c] = tf; c = m; }
+      return top;
+    }
 
-      open[best] = 0;
+    hpush(startI, octile(scx, scy, gcx, gcy));
+    var reached = (startI === goalI), guard = 0;
+    while (hlen > 0 && guard++ < 200000) {
+      var best = hpop();
+      if (closed[best]) continue;          // a stale, already-expanded entry
+      if (best === goalI) { reached = true; break; }
       closed[best] = 1;
-      ci = best;
-      var ccx = ci % cols, ccy = (ci / cols) | 0;
+      var ccx = best % cols, ccy = (best / cols) | 0;
 
       for (j = 0; j < DIRS.length; j++) {
         var nx = ccx + DIRS[j].dx, ny = ccy + DIRS[j].dy;
@@ -258,16 +267,16 @@
           if (blocked[cellIdx(cols, ccx + DIRS[j].dx, ccy)] ||
               blocked[cellIdx(cols, ccx, ccy + DIRS[j].dy)]) continue;
         }
-        tentative = gScore[ci] + DIRS[j].c;
+        tentative = gScore[best] + DIRS[j].c;
         if (tentative < gScore[ni]) {
-          came[ni] = ci;
+          came[ni] = best;
           gScore[ni] = tentative;
-          fScore[ni] = tentative + octile(nx, ny, gcx, gcy);
-          open[ni] = 1;
+          hpush(ni, tentative + octile(nx, ny, gcx, gcy));
         }
       }
     }
 
+    if (!reached) return null;
     if (came[goalI] < 0 && goalI !== startI) return null;
 
     var path = [];
