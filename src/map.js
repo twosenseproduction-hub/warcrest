@@ -769,6 +769,40 @@
       .map(function (t) { return { x: t[0] * 64 + 32, y: t[1] * 64 + 32, used: false }; });
   }
 
+  /* ---- Sundered Isles — WC3 island-archipelago melee map ------------------- */
+  function buildSunderedIsles(s) {
+    // Ensure the map data is available even if the scene parse hasn't run.
+    if (!RTS.CurrentMapgen && RTS._mapJSON && RTS._mapJSON.sundered_isles && RTS.parseMapTMJ) {
+      RTS.CurrentMapgen = RTS.parseMapTMJ(RTS._mapJSON.sundered_isles);
+    }
+    buildFromAuthoredTMJ(s, {
+      id: 'sundered_isles',
+      name: 'Sundered Isles',
+      theme: 'grass',
+      rallyDx: 120,
+      rallyDy: 90,
+      // The map authors its own isle forests + flat shoreline — don't let the
+      // global TerraformZones (authored for another map) stamp walls on it.
+      terraformForestWalls: false,
+      applyTerraform: false,
+      intro: 'Sundered Isles — eight isles adrift on open sea, joined by narrow land bridges. Clear the guarded mines to expand.',
+      win: 'The Sundered Isles are yours — every shore bows to your banner.',
+      lose: 'Cut off from the gold, your hold slips beneath the tide.',
+    });
+
+    // Neutral structures on the central-spine isles (the 'o' markers in
+    // gen_archipelago.py): a merchant on the top-centre isle and a mercenary
+    // camp on the contested central isle. Bottom-centre stays an open creep
+    // approach guarded by buildFromAuthoredTMJ's auto camps.
+    var cw = (RTS.Config.world && RTS.Config.world.w) || 4864;
+    var mt = RTS.makeBuilding(s, 'merchant', RTS.TEAM.NEUTRAL, cw / 2, 9 * 64 + 32, s.playerFaction, true);
+    var mb = RTS.makeBuilding(s, 'mercenary', RTS.TEAM.NEUTRAL, cw / 2, 27 * 64 + 32, s.playerFaction, true);
+    if (RTS.markBuildingFootprint) {
+      if (mt) RTS.markBuildingFootprint(s, mt, true);
+      if (mb) RTS.markBuildingFootprint(s, mb, true);
+    }
+  }
+
   function buildRunicClearing(s) {
     buildFromAuthoredTMJ(s, {
       id: 'runic_clearing',
@@ -1520,10 +1554,17 @@
       blurb: 'Symmetric two-player isles joined by land bridges over shallow seas. Mains are safe; every expansion mine is guarded by a creep camp.',
       build: buildTideland,
     },
+    sundered_isles: {
+      id: 'sundered_isles',
+      name: 'Sundered Isles',
+      tagline: '1v1 · island archipelago',
+      blurb: 'A Warcraft 3-style island archipelago: eight grass-and-forest isles adrift on open sea, stitched by narrow land bridges. Corner mains, edge gold, a contested creep spine through the centre.',
+      build: buildSunderedIsles,
+    },
   };
 
   /* Visible in map select */
-  RTS.MapList = ['fairy_clearing', 'tideland_crossing'];
+  RTS.MapList = ['fairy_clearing', 'tideland_crossing', 'sundered_isles'];
 
   RTS.buildMap = function (s, mapId) {
     mapId = mapId || s.mapId || 'fairy_clearing';
