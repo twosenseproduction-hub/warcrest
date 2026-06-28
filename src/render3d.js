@@ -1043,7 +1043,7 @@
     var H = (s.map && s.map.h) || RTS.Config.world.h;
 
     // water plane spanning the whole world (shows through gaps / below cliffs)
-    var wmat = new THREE.MeshStandardMaterial({ color: 0x18415c, roughness: 0.66, metalness: 0.0, transparent: true, opacity: 0.95, flatShading: true });
+    var wmat = new THREE.MeshStandardMaterial({ color: 0x123f5e, roughness: 0.66, metalness: 0.0, transparent: true, opacity: 0.96, flatShading: true });
     // Segmented so it can ripple; flat-shaded so the moving facets catch the sun
     // and shimmer (low-poly water). Animated per-frame in updateEnv.
     var wsegX = Math.max(16, Math.min(70, Math.round((W + 800) / 150)));
@@ -1061,8 +1061,8 @@
     // then slope down into the water (sandy beach) and the land gently domes —
     // the soft, faceted low-poly look. Flat-shaded for the facets.
     var positions = [], normals = [], colors = [];
-    var cTop = new THREE.Color(0x537d3c), cTopHi = new THREE.Color(0x688f49), cSand = new THREE.Color(0xab9670);
-    var cShallow = new THREE.Color(0x266f80);   // wadeable shallow-water shelf
+    var cTop = new THREE.Color(0x4c7826), cTopHi = new THREE.Color(0x5e8a2c), cSand = new THREE.Color(0x7e6438);
+    var cShallow = new THREE.Color(0x2a8a9e);   // wadeable shallow-water shelf
     var cols = grid.cols, rows = grid.rows;
     function tlevel(tx, ty) {
       if (tx < 0 || ty < 0 || tx >= cols || ty >= rows) return WATER_DROP;
@@ -1113,9 +1113,9 @@
       var i = vx + vy * vstride, yv = VH[i];
       if (VS[i]) { out.copy(cShallow); return; }
       var jh = Math.sin(vx * 12.9898 + vy * 78.233) * 43758.5453; jh -= Math.floor(jh);
-      if (yv > -2) out.copy(yv > 22 ? cTopHi : cTop).multiplyScalar(0.9 + jh * 0.12);
-      else if (yv > -15) out.copy(cTop).lerp(cSand, (-2 - yv) / 13);   // grass → sand beach
-      else out.copy(cSand).multiplyScalar(0.9);                         // submerged sand
+      if (yv > -2) out.copy(yv > 22 ? cTopHi : cTop).multiplyScalar(0.88 + jh * 0.14);
+      else if (yv > -11) out.copy(cTop).lerp(cSand, (-2 - yv) / 9);    // grass → sand beach (narrow band)
+      else out.copy(cSand).multiplyScalar(0.8);                         // submerged sand
     }
     var cA = new THREE.Color(), cB = new THREE.Color(), cC = new THREE.Color(), cD = new THREE.Color();
     function pushTri(ax, ay, az, ca, bx, by, bz, cb, gx, gy, gz, cc) {
@@ -1230,7 +1230,7 @@
     if (!R.skyDome) {
       var skyGeo = new THREE.SphereGeometry(7000, 24, 16);
       var sp = skyGeo.attributes.position, scol = [];
-      var skyTop = new THREE.Color(0x2b496f), skyHorizon = new THREE.Color(0x8499a6);
+      var skyTop = new THREE.Color(0x274670), skyHorizon = new THREE.Color(0x6b8194);
       for (var si = 0; si < sp.count; si++) {
         var ny = Math.max(0, sp.getY(si) / 7000);
         var sc2 = skyHorizon.clone().lerp(skyTop, Math.pow(ny, 0.6));
@@ -1365,9 +1365,9 @@
     R.camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 8, 9000);
     // Soft daylight: a NEUTRAL fill (the old warm fill is what yellow-washed the
     // grass) + a gently warm key sun, so colours read true — not washed, not garish.
-    R.amb = new THREE.AmbientLight(0xd6dde6, 0.26); R.scene.add(R.amb);
-    R.hemi = new THREE.HemisphereLight(0x9ab2cc, 0x3a4628, 0.22); R.scene.add(R.hemi);
-    R.sun = new THREE.DirectionalLight(0xf3ddba, 1.08);
+    R.amb = new THREE.AmbientLight(0xb9c4d0, 0.20); R.scene.add(R.amb);
+    R.hemi = new THREE.HemisphereLight(0x8ea6c2, 0x39481f, 0.16); R.scene.add(R.hemi);
+    R.sun = new THREE.DirectionalLight(0xffe2a8, 1.2);
     R.sun.castShadow = true; R.sun.shadow.mapSize.set(IS_MOBILE ? 1024 : 2048, IS_MOBILE ? 1024 : 2048);
     var sc = R.sun.shadow.camera; sc.near = 50; sc.far = 2600; sc.left = -900; sc.right = 900; sc.top = 900; sc.bottom = -900;
     R.sun.shadow.bias = -0.0006;
@@ -1985,7 +1985,7 @@
   function setNight(on) {
     R.night = on; if (!R.inited) return;
     if (on) { R.scene.background.setHex(0x18223c); R.scene.fog.color.setHex(0x1c2640); R.sun.color.setHex(0x9fb0e0); R.sun.intensity = 0.5; R.amb.intensity = 0.55; }
-    else { R.scene.background.setHex(0x6f8aa0); R.scene.fog.color.setHex(0x7e909a); R.sun.color.setHex(0xf3ddba); R.sun.intensity = 1.05; R.amb.intensity = 0.28; }
+    else { R.scene.background.setHex(0x5a7488); R.scene.fog.color.setHex(0x6b7d86); R.sun.color.setHex(0xffe2a8); R.sun.intensity = 1.2; R.amb.intensity = 0.2; }
   }
 
   function enable(s) {
