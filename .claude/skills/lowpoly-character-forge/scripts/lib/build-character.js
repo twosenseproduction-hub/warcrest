@@ -55,6 +55,34 @@
     [-1, 1].forEach(function (s) { g.add(at(facetMesh(new THREE.SphereGeometry(0.05, 5, 4), m.eye), 0.07 * s, 1.12, 0.16)); });
     [-1, 0, 1].forEach(function (o) { var f = facetMesh(new THREE.ConeGeometry(0.05, 0.45, 4), o === 0 ? m.sash : m.feather); at(f, 0.1 * o, 0.86, -0.05); f.rotation.z = o * 0.4; f.rotation.x = -0.3; g.add(f); }); return g; }
 
+  // ---- human arms ----
+  function sword(m, len) { len = len || 1.7; var g = new THREE.Group();
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.12, len, 0.05), m.steel), 0, len * 0.5 + 0.2, 0));
+    g.add(at(smoothMesh(new THREE.BoxGeometry(0.42, 0.1, 0.12), m.accent), 0, 0.2, 0));       // crossguard
+    g.add(smoothMesh(P.limbGeo(0.05, 0.3), m.wood || m.accent));                               // grip
+    g.add(at(facetMesh(new THREE.SphereGeometry(0.09, 6, 5), m.accent), 0, -0.16, 0)); return g; }
+  function warhammer(m) { var g = new THREE.Group(); g.add(smoothMesh(P.limbGeo(0.06, 2.0), m.wood || m.accent));
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), m.steel), 0, 1.05, 0));
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.16, 0.42, 0.42), m.accent), 0, 1.05, 0.34));
+    g.add(at(facetMesh(new THREE.ConeGeometry(0.1, 0.3, 4), m.accent), 0, 1.4, 0)); return g; }
+  function crossbow(m) { var g = new THREE.Group();
+    g.add(at(smoothMesh(new THREE.BoxGeometry(0.1, 0.9, 0.1), m.wood || m.accent), 0, 0.1, 0));   // stock
+    g.add(at(facetMesh(new THREE.BoxGeometry(1.05, 0.08, 0.1), m.steel), 0, 0.45, 0.06));        // limbs
+    g.add(at(smoothMesh(new THREE.BoxGeometry(0.02, 0.02, 0.6), m.steel), 0, 0.45, 0.3)); return g; }
+  function holyMace(m) { var g = new THREE.Group(); g.add(smoothMesh(P.limbGeo(0.05, 1.4), m.wood || m.accent));
+    var head = facetMesh(new THREE.SphereGeometry(0.2, 7, 6), m.accent); at(head, 0, 0.75, 0); g.add(head);
+    g.add(at(facetMesh(P.crystalGeo(0.13, 1.3), m.gem), 0, 0.92, 0)); g.userData.glow = [g.children[g.children.length - 1]]; return g; }
+  function wizardStaff(m) { var g = new THREE.Group(); g.add(smoothMesh(P.limbGeo(0.055, 2.0), m.wood || m.accent));
+    var ring = facetMesh(new THREE.TorusGeometry(0.2, 0.045, 6, 6), m.accent); at(ring, 0, 1.05, 0); g.add(ring);
+    var orb = facetMesh(P.crystalGeo(0.2, 1.3), m.gem); at(orb, 0, 1.06, 0); g.add(orb);
+    g.userData.glow = [orb]; return g; }
+  function kiteShield(m) { var g = new THREE.Group();
+    var body = facetMesh(new THREE.BoxGeometry(0.7, 0.95, 0.12), m.cloth || m.steel); g.add(body);
+    g.add(at(facetMesh(new THREE.ConeGeometry(0.42, 0.5, 3), m.cloth || m.steel), 0, -0.6, 0));     // tapered point
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.78, 0.12, 0.04), m.accent), 0, 0.3, 0.08));          // trim
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.1, 0.5, 0.06), m.accent), 0, -0.05, 0.08))           // emblem cross
+      ; g.add(at(facetMesh(new THREE.BoxGeometry(0.34, 0.12, 0.06), m.accent), 0, 0.02, 0.08)); return g; }
+
   /* ---- accessories ---- */
   function shield(m, r) { r = r || 0.6; var g = new THREE.Group();
     var disc = facetMesh(new THREE.CylinderGeometry(r, r, 0.14, 8), m.steel || m.accent); disc.rotation.x = Math.PI / 2; g.add(disc);
@@ -68,11 +96,14 @@
     var skin = opt.skin, headY = opt.headY, hs = opt.headScale, headR = 0.5 * hs;
     var head = smoothMesh(P.headGeo(headR, opt.taper == null ? 0.18 : opt.taper), skin);
     head.position.y = headY; head.scale.z = 0.92; g.add(head);
-    var eyeM = LPF.toon(opt.eye || 0x6fe06a, { ramp: LPF.RAMP.metal, emissive: opt.eye || 0x6fe06a, emissiveIntensity: 0.18, rim: false });
-    [-1, 1].forEach(function (s) { var e = new THREE.Mesh(new THREE.SphereGeometry(0.085 * hs, 8, 6), eyeM); e.position.set(0.17 * hs * s, headY + 0.02, headR * 0.88); g.add(e); });
+    var eyeM = opt.eyeGlow === false ? LPF.toon(0x241f17, { ramp: LPF.RAMP.cloth, rim: false })
+      : LPF.toon(opt.eye || 0x6fe06a, { ramp: LPF.RAMP.metal, emissive: opt.eye || 0x6fe06a, emissiveIntensity: 0.18, rim: false });
+    [-1, 1].forEach(function (s) { var e = new THREE.Mesh(new THREE.SphereGeometry((opt.eyeGlow === false ? 0.06 : 0.085) * hs, 8, 6), eyeM); e.position.set(0.17 * hs * s, headY + 0.02, headR * 0.88); g.add(e); });
     if (opt.brow) { var brow = smoothMesh(new THREE.BoxGeometry(0.72 * hs, 0.17, 0.22), skin); brow.position.set(0, headY + 0.17, headR * 0.78); g.add(brow); }
-    [-1, 1].forEach(function (s) { var ear = smoothMesh(P.extrude(P.pointedShape(opt.earLen, 0.16), 0.08), skin);
-      ear.position.set(headR * 0.85 * s, headY + 0.04, -0.05); ear.rotation.z = -s * (opt.earDroop == null ? 0.9 : opt.earDroop); ear.rotation.y = s * 0.3; g.add(ear); });
+    var ears = opt.ears || 'pointed';
+    if (ears === 'pointed') { [-1, 1].forEach(function (s) { var ear = smoothMesh(P.extrude(P.pointedShape(opt.earLen, 0.16), 0.08), skin);
+      ear.position.set(headR * 0.85 * s, headY + 0.04, -0.05); ear.rotation.z = -s * (opt.earDroop == null ? 0.9 : opt.earDroop); ear.rotation.y = s * 0.3; g.add(ear); }); }
+    else if (ears === 'round') { [-1, 1].forEach(function (s) { var ear = smoothMesh(new THREE.SphereGeometry(0.11 * hs, 7, 6), skin); ear.position.set(headR * 0.92 * s, headY - 0.02, 0); ear.scale.set(0.55, 1, 0.7); g.add(ear); }); }
     return headR;
   }
   function antler(mat, side) { var g = new THREE.Group();
@@ -86,7 +117,7 @@
   function placeHands(g, parent, skin, handY, x, r, hands) {
     var rH = at(floatingHand(skin, r), x, handY, 0.16);
     var lH = at(floatingHand(skin, r), -x, handY, 0.16);
-    if (hands.right) { hands.right.position.copy(rH.position); hands.right.rotation.z = -0.38; hands.right.rotation.x = hands.rTilt || 0; parent.add(hands.right); }
+    if (hands.right) { hands.right.position.copy(rH.position); hands.right.rotation.z = hands.rRotZ != null ? hands.rRotZ : -0.38; hands.right.rotation.x = hands.rTilt || 0; parent.add(hands.right); }
     if (hands.left) { hands.left.position.copy(lH.position); hands.left.rotation.z = hands.lRot || 0; parent.add(hands.left); }
     parent.add(rH); parent.add(lH);
     return [].concat(hands.right && hands.right.userData.glow || [], hands.left && hands.left.userData.glow || []);
@@ -215,6 +246,68 @@
     return finish(g);
   };
 
+  /* ============================ IRON CROWN (HUMAN) ============================ */
+  var HUMAN = {
+    palette: { skin: 0xe6b07a, cloth: 0x2f5aa8, accent: 0xe4b53a, steel: 0xc2ccd8, leather: 0x6b4a2a,
+      hair: 0x6b4a2a, beard: 0x5a3a22, gem: 0x52b6e8, eye: 0x2a241a, wood: 0x6b4a2a },
+    headScale: 1.15, torsoH: 1.25, limbLen: 0.9, outline: 0.028,
+  };
+  LPF.buildHuman = function (params) {
+    var p = Object.assign({}, HUMAN, params || {});
+    var role = (params && params.role) || 'warrior';
+    var pal = Object.assign({}, HUMAN.palette, (params && params.palette) || {});
+    var M = function (c, o) { return LPF.toon(c, Object.assign({ ramp: LPF.RAMP.cloth }, o || {})); };
+    var skin = LPF.toon(pal.skin, { ramp: LPF.RAMP.skin, rimStrength: 0.18 });
+    var tabard = M(pal.cloth), accent = LPF.toon(pal.accent, { ramp: LPF.RAMP.metal }), steel = LPF.toon(pal.steel, { ramp: LPF.RAMP.metal }),
+      leather = M(pal.leather), hair = M(pal.hair), beardM = M(pal.beard);
+    var gem = LPF.toon(pal.gem, { ramp: LPF.RAMP.metal, emissive: pal.gem, emissiveIntensity: 0.5, rim: false });
+    var armored = (role === 'warrior' || role === 'hero');
+    var bodyMat = role === 'caster' ? tabard : armored ? steel : leather;
+    var mats = { accent: accent, gem: gem, steel: steel, blade: steel, wood: M(pal.wood), cloth: tabard, string: hair };
+    var F = { worker: { head: 'cap', beard: true }, warrior: { head: 'helm', pauld: true, shield: true },
+      lancer: { head: 'helm', pauld: true, shield: true }, archer: { head: 'cap', quiver: true },
+      caster: { head: 'wizhat', robe: true }, hero: { head: 'winghelm', pauld: true, cape: true, beard: true } }[role] || {};
+    var g = new THREE.Group(); var glow = [];
+
+    [-1, 1].forEach(function (s) { g.add(at(smoothMesh(P.limbGeo(0.17, p.limbLen), armored ? steel : leather), 0.18 * s, p.limbLen * 0.5, 0));
+      g.add(at(smoothMesh(P.limbGeo(0.18, 0.22), leather), 0.18 * s, 0.12, 0.04)); });
+    g.add(at(smoothMesh(P.torsoGeo(0.42, 0.6, p.torsoH), bodyMat), 0, p.limbLen + p.torsoH * 0.5, 0));
+    if (armored) g.add(at(smoothMesh(new THREE.BoxGeometry(0.32, p.torsoH * 0.95, 0.12), tabard), 0, p.limbLen + p.torsoH * 0.5, 0.46));
+    g.add(at(smoothMesh(P.torsoGeo(0.5, 0.5, 0.14), accent), 0, p.limbLen + p.torsoH * 0.18, 0));
+    if (F.robe) g.add(at(smoothMesh(P.torsoGeo(0.42, 0.72, 1.05), tabard), 0, p.limbLen * 0.62, 0));
+
+    var shoulderY = p.limbLen + p.torsoH;
+    if (F.pauld) [-1, 1].forEach(function (s) { var pd = facetMesh(new THREE.SphereGeometry(0.3, 9, 7), steel); pd.scale.y = 0.7; at(pd, 0.52 * s, shoulderY - 0.02, 0); g.add(pd);
+      var r = facetMesh(new THREE.TorusGeometry(0.26, 0.05, 5, 8), accent); r.rotation.x = Math.PI / 2; at(r, 0.52 * s, shoulderY - 0.05, 0); g.add(r); });
+    if (F.cape) { var cp = smoothMesh(new THREE.BoxGeometry(0.95, 1.5, 0.08), M(0x9c2b2b)); at(cp, 0, shoulderY - 0.1, -0.34); cp.rotation.x = 0.12; g.add(cp); }
+
+    var headY = shoulderY + 0.5 * p.headScale;
+    var headR = buildHead(g, { skin: skin, headY: headY, headScale: p.headScale, eye: pal.eye, eyeGlow: false, ears: 'round', taper: 0.16 });
+    g.add(at(smoothMesh(P.headGeo(0.54 * p.headScale, 0.1), hair), 0, headY + 0.12, -0.06));
+    if (F.beard) g.add(at(smoothMesh(new THREE.BoxGeometry(0.42, 0.36, 0.3), beardM), 0, headY - 0.34, headR * 0.5));
+    if (F.head === 'helm') { g.add(at(facetMesh(new THREE.SphereGeometry(headR + 0.06, 9, 6, 0, 6.3, 0, 1.7), steel), 0, headY + 0.1, 0));
+      g.add(at(facetMesh(new THREE.BoxGeometry(0.1, 0.42, 0.12), steel), 0, headY - 0.02, headR * 0.92)); }
+    else if (F.head === 'winghelm') { g.add(at(facetMesh(new THREE.SphereGeometry(headR + 0.07, 9, 6, 0, 6.3, 0, 1.7), steel), 0, headY + 0.12, 0));
+      [-1, 1].forEach(function (s) { var w = facetMesh(new THREE.ConeGeometry(0.1, 0.42, 4), accent); at(w, (headR + 0.1) * s, headY + 0.22, -0.04); w.rotation.z = s * 1.2; g.add(w); }); }
+    else if (F.head === 'wizhat') { g.add(at(facetMesh(new THREE.CylinderGeometry(0.72 * p.headScale, 0.72 * p.headScale, 0.06, 9), tabard), 0, headY + 0.33, 0));
+      var cone = facetMesh(new THREE.ConeGeometry(0.4 * p.headScale, 1.15, 9), tabard); at(cone, 0, headY + 0.88, -0.02); cone.rotation.z = 0.08; g.add(cone);
+      var hg = facetMesh(new THREE.SphereGeometry(0.12, 7, 6), gem); at(hg, 0, headY + 0.42, headR * 0.62); g.add(hg); glow.push(hg); }
+    else if (F.head === 'cap') { g.add(at(smoothMesh(new THREE.SphereGeometry(headR + 0.04, 9, 6, 0, 6.3, 0, 1.5), leather), 0, headY + 0.1, 0)); }
+
+    if (F.quiver) { var q = quiver(mats); at(q, -0.1, shoulderY - 0.3, -0.4); q.rotation.x = 0.3; q.rotation.z = -0.4; g.add(q); }
+    var rWeapon = role === 'caster' ? wizardStaff(mats) : role === 'worker' ? pick(mats)
+      : role === 'archer' ? crossbow(mats) : role === 'hero' ? warhammer(mats)
+      : role === 'lancer' ? spear(mats, 2.5, steel) : sword(mats, 1.7);
+    var leftItem = F.shield ? kiteShield(mats) : null;
+    var hands = { right: rWeapon, left: leftItem, rRotZ: role === 'archer' ? -0.05 : undefined };
+    var handY = p.limbLen + p.torsoH * 0.22;
+    glow = glow.concat(placeHands(g, g, skin, handY, 0.52, 0.16, hands));
+
+    g.userData.emissiveMeshes = glow;
+    if (p.outline) LPF.outlineGroup(g, p.outline, 0x1a1620);
+    return finish(g);
+  };
+
   /* ============================ MOUNTED CAVALRY ============================
    * Elf Huntress on a panther / Orc Raider on a dire wolf — the races' distinct
    * "different approach to combat". A quadruped mount + a seated rider built from
@@ -313,7 +406,9 @@
 
   LPF.buildCharacter = function (name, params) {
     var role = params && params.role;
-    if (role === 'lancer') return LPF.buildMounted(name === 'orc' ? 'orc' : 'elf', params);
-    return name === 'orc' ? LPF.buildOrc(params) : LPF.buildElf(params);
+    if (role === 'lancer' && (name === 'orc' || name === 'elf')) return LPF.buildMounted(name, params);
+    if (name === 'human') return LPF.buildHuman(params);
+    if (name === 'orc') return LPF.buildOrc(params);
+    return LPF.buildElf(params);
   };
 })(typeof window !== 'undefined' ? window : globalThis);
