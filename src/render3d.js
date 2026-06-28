@@ -1201,23 +1201,88 @@
     R.seen = {};
   }
 
-  /* ---- projectiles: small glowing motes flying between combatants -------- */
-  var projGeo = null;
+  /* ---- projectiles: per-type shape, ballistic arc, trails --------------- */
+  // ---- projectile archetypes: shape + flight by what fired it -------------
+  var _pGeo = null, _pv = null, _pq = null, _pf = null;
+  function projGeoKit() {
+    if (_pGeo) return _pGeo;
+    // arrow/spear lie along +X (tip at +X) so a single direction quaternion aims them
+    var shaft = new THREE.CylinderGeometry(0.7, 0.7, 16, 5); shaft.rotateZ(-Math.PI / 2);
+    var head = new THREE.ConeGeometry(1.7, 4.5, 6); head.rotateZ(-Math.PI / 2); head.translate(10, 0, 0);
+    var sshaft = new THREE.CylinderGeometry(0.6, 0.6, 28, 5); sshaft.rotateZ(-Math.PI / 2);
+    var shead = new THREE.ConeGeometry(1.5, 5, 6); shead.rotateZ(-Math.PI / 2); shead.translate(16, 0, 0);
+    _pGeo = {
+      arrowShaft: shaft, arrowHead: head, spearShaft: sshaft, spearHead: shead,
+      ball: new THREE.IcosahedronGeometry(4.6, 0),
+      orb: new THREE.SphereGeometry(3.4, 8, 6),
+      tail: (function () { var g = new THREE.ConeGeometry(2.6, 22, 7); g.rotateZ(Math.PI / 2); g.translate(-12, 0, 0); return g; })(),
+    };
+    return _pGeo;
+  }
+  function projKind(p) {
+    if (p.heroId || p.role === 'monk' || p.role === 'caster' || p.role === 'priest') return 'magic';
+    if (p.splash > 0) return 'siege';
+    if (p.faction === 'cinder' && p.role === 'archer') return 'spear';
+    return 'arrow';
+  }
+  // shared, cached materials so projectile cleanup is a plain scene-remove
+  // (NEVER dispose — geometry + materials here are reused across all shots)
+  var _pMat = {};
+  function pBasic(colHex, opacity) {
+    var key = colHex + ':' + (opacity == null ? 1 : opacity);
+    if (_pMat[key]) return _pMat[key];
+    var o = opacity == null ? 1 : opacity;
+    return _pMat[key] = new THREE.MeshBasicMaterial({ color: colHex, transparent: o < 1, opacity: o, depthWrite: o >= 1 });
+  }
+  function makeProjMesh(kind, colHex) {
+    var K = projGeoKit(), g = new THREE.Group();
+    if (kind === 'magic') {
+      g.add(new THREE.Mesh(K.orb, pBasic(colHex, 1)));
+      g.add(new THREE.Mesh(K.tail, pBasic(colHex, 0.5)));
+    } else if (kind === 'siege') {
+      if (!_pMat.siege) _pMat.siege = M(0x3a342c);
+      g.add(new THREE.Mesh(K.ball, _pMat.siege));
+      var st = new THREE.Mesh(K.tail, pBasic(0xff7a2a, 0.5)); st.scale.set(0.7, 0.7, 0.7); g.add(st);
+    } else {   // arrow / spear
+      var sp = kind === 'spear';
+      g.add(new THREE.Mesh(sp ? K.spearShaft : K.arrowShaft, P.wood));
+      g.add(new THREE.Mesh(sp ? K.spearHead : K.arrowHead, P.steel));
+    }
+    return g;
+  }
   function syncProjectiles(s) {
     var list = s.entities && s.entities.projectiles; if (!list) return;
-    if (!projGeo) projGeo = new THREE.SphereGeometry(3.6, 6, 5);
+    if (!_pv) { _pv = new THREE.Vector3(); _pq = new THREE.Quaternion(); _pf = new THREE.Vector3(1, 0, 0); }
     for (var i = 0; i < list.length; i++) {
       var p = list[i]; if (!p) continue; R.pseen[p.id] = true;
       var sl = R.ppool[p.id];
       if (!sl) {
         var col = 0xffe08a; try { col = new THREE.Color(p.color || '#ffe08a').getHex(); } catch (e) {}
-        var m = new THREE.Mesh(projGeo, new THREE.MeshBasicMaterial({ color: col }));
-        R.scene.add(m); sl = R.ppool[p.id] = { m: m };
+        var kind = projKind(p);
+        var m = makeProjMesh(kind, col);
+        R.scene.add(m);
+        // remember launch geometry so a parabolic ARC can be derived from progress
+        var d0 = Math.max(1, Math.hypot((p.lastX || p.x) - p.x, (p.lastY || p.y) - p.y));
+        var H = kind === 'siege' ? Math.min(260, d0 * 0.34) : kind === 'magic' ? 0 : Math.min(70, d0 * 0.11);
+        sl = R.ppool[p.id] = { m: m, kind: kind, d0: d0, H: H };
       }
-      sl.m.position.set(p.x, groundYAt(s, p.x, p.y) + 26, p.y);
+      var gy = groundYAt(s, p.x, p.y) + 22;
+      var tx = p.lastX, ty = p.lastY;
+      var dx = tx - p.x, dz = ty - p.y, dh = Math.hypot(dx, dz) || 1;
+      var prog = Math.max(0, Math.min(1, 1 - dh / sl.d0));
+      var h = sl.H ? sl.H * 4 * prog * (1 - prog) : 0;
+      sl.m.position.set(p.x, gy + h, p.y);
+      if (sl.kind === 'magic') { sl.m.rotation.y = -Math.atan2(dz, dx); }   // tail trails behind
+      else {
+        // aim along the 3D velocity (horizontal dir + arc slope) for yaw + pitch
+        var slope = sl.H ? (4 * sl.H * (1 - 2 * prog)) / sl.d0 : 0;
+        _pv.set(dx / dh, slope, dz / dh).normalize();
+        _pq.setFromUnitVectors(_pf, _pv); sl.m.quaternion.copy(_pq);
+      }
     }
     for (var id in R.ppool) {
-      if (!R.pseen[id]) { var s2 = R.ppool[id]; R.scene.remove(s2.m); s2.m.material.dispose(); delete R.ppool[id]; }
+      // geometry + materials are shared/cached — just unhook the group from the scene
+      if (!R.pseen[id]) { R.scene.remove(R.ppool[id].m); delete R.ppool[id]; }
     }
     R.pseen = {};
   }
@@ -1426,6 +1491,15 @@
         if (ud.torso) ud.torso.rotation.y = sw * 0.12;
       }
       g.traverse(function (o) { o.castShadow = true; o.receiveShadow = true; });
+      return g;
+    },
+    // Debug/preview: a projectile mesh of a kind aimed along a climbing diagonal
+    // so shape, aim (yaw+pitch) and trail are visible in a still. Harmless.
+    _previewProj: function (kind, colHex) {
+      THREE = THREE || window.THREE; if (!P) buildPalette();
+      var g = makeProjMesh(kind, colHex == null ? 0xffe08a : colHex);
+      if (kind === 'magic') { g.rotation.y = -Math.atan2(0.6, 1); }
+      else { g.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), new THREE.Vector3(1, 0.4, 0.55).normalize()); }
       return g;
     },
   };
