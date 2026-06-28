@@ -917,6 +917,20 @@
     R.raycaster = new THREE.Raycaster();
     R.ray = new THREE.Vector2(); R.ndc = new THREE.Vector2();
     buildPalette();
+    // Bloom glow pass: emissive VFX (projectiles, magic, impacts, building glows)
+    // bloom above a high luminance threshold so the lit world doesn't smear.
+    // Skipped on mobile for performance.
+    R.composer = null;
+    if (!IS_MOBILE && THREE.EffectComposer && THREE.UnrealBloomPass && THREE.RenderPass) {
+      try {
+        var iw = window.innerWidth, ih = window.innerHeight;
+        R.composer = new THREE.EffectComposer(R.renderer);
+        R.composer.addPass(new THREE.RenderPass(R.scene, R.camera));
+        R.bloom = new THREE.UnrealBloomPass(new THREE.Vector2(iw, ih), 0.6, 0.55, 0.88);
+        R.composer.addPass(R.bloom);
+        R.composer.setSize(iw, ih);
+      } catch (e) { R.composer = null; }
+    }
     window.addEventListener('resize', resize);
     R.inited = true;
     return true;
@@ -927,6 +941,7 @@
     var w = window.innerWidth, h = window.innerHeight;
     R.camera.aspect = w / h; R.camera.updateProjectionMatrix();
     R.renderer.setSize(w, h, false);
+    if (R.composer) R.composer.setSize(w, h);
   }
 
   /* ===========================================================================
@@ -1101,6 +1116,13 @@
           var lf = Math.min(e.muzzleFlash, 0.13) * 64;
           o.position.x += Math.cos(e.facing || 0) * lf; o.position.z += Math.sin(e.facing || 0) * lf;
         }
+        // rising edge of muzzleFlash = a fresh attack → spawn a flash/slash burst
+        if ((e.muzzleFlash || 0) > (slot._mf || 0) + 1e-4) {
+          var fa = e.facing || 0, fh = gy + (slot.topY || 40) * 0.52;
+          if (e.ranged) fxFlash(e.x + Math.cos(fa) * 17, fh, e.y + Math.sin(fa) * 17, 0xffe6a0, 0.8, 0.1);
+          else fxFlash(e.x + Math.cos(fa) * 16, fh, e.y + Math.sin(fa) * 16, 0xfff0d8, 1.0, 0.12);   // melee slash spark
+        }
+        slot._mf = e.muzzleFlash || 0;
       } else if (kind === 'building') {
         // rise from the ground while under construction (relative to fitted scale)
         var prog = e.built ? 1 : Math.max(0.08, e.progress || 0);
@@ -1277,6 +1299,7 @@
       var prog = Math.max(0, Math.min(1, 1 - dh / sl.d0));
       var h = sl.H ? sl.H * 4 * prog * (1 - prog) : 0;
       sl.m.position.set(p.x, gy + h, p.y);
+      sl.lx = p.x; sl.lz = p.y; sl.lgy = gy;   // remember for the impact burst on removal
       if (sl.kind === 'magic') { sl.m.rotation.y = -Math.atan2(dz, dx); }   // tail trails behind
       else {
         // aim along the 3D velocity (horizontal dir + arc slope) for yaw + pitch
@@ -1287,7 +1310,11 @@
     }
     for (var id in R.ppool) {
       // geometry + materials are shared/cached — just unhook the group from the scene
-      if (!R.pseen[id]) { R.scene.remove(R.ppool[id].m); delete R.ppool[id]; }
+      if (!R.pseen[id]) {
+        var ps = R.ppool[id];
+        if (ps.lx != null) fxImpact(ps.lx, ps.lgy, ps.lz, ps.kind);   // burst where it landed
+        R.scene.remove(ps.m); delete R.ppool[id];
+      }
     }
     R.pseen = {};
   }
@@ -1328,6 +1355,51 @@
     R.eseen = {};
   }
 
+  /* ---- render-only VFX: impacts + muzzle/melee flashes -------------------
+   * The 2D Particles system draws under the 3D canvas (invisible here), so the
+   * 3D view spawns + animates its own short-lived bursts, decoupled from the
+   * sim's effect entities. Geometry is shared; per-burst materials animate
+   * opacity and are disposed on expiry (geometry never is). */
+  var flashGeo = null;
+  function fxGeos() {
+    if (!ringGeo) ringGeo = new THREE.RingGeometry(0.55, 1, 18);
+    if (!flashGeo) flashGeo = new THREE.SphereGeometry(3, 8, 6);
+  }
+  function fxMat(col, op) { return new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op == null ? 1 : op, depthWrite: false }); }
+  function fxImpact(x, gy, z, kind) {
+    if (!R.fx) R.fx = []; fxGeos();
+    var col = kind === 'siege' ? 0xffb24d : kind === 'magic' ? 0x9a6cff : 0xffe6b0;
+    var big = kind === 'siege' ? 2.4 : kind === 'magic' ? 1.3 : 1.0;
+    var ring = new THREE.Mesh(ringGeo, fxMat(col, 0.9)); ring.rotation.x = -Math.PI / 2; ring.position.set(x, gy + 2, z);
+    var flash = new THREE.Mesh(flashGeo, fxMat(col, 1)); flash.position.set(x, gy + 9 * big, z); flash.scale.setScalar(big);
+    R.scene.add(ring); R.scene.add(flash);
+    R.fx.push({ kind: 'impact', ring: ring, flash: flash, t: 0, life: kind === 'siege' ? 0.5 : 0.34, big: big });
+  }
+  function fxFlash(x, y, z, col, scl, life) {
+    if (!R.fx) R.fx = []; fxGeos();
+    var flash = new THREE.Mesh(flashGeo, fxMat(col == null ? 0xffe08a : col, 1)); flash.position.set(x, y, z); flash.scale.setScalar(scl || 1);
+    R.scene.add(flash);
+    R.fx.push({ kind: 'flash', flash: flash, t: 0, life: life || 0.13, scl: scl || 1 });
+  }
+  function updateFx(dt) {
+    var list = R.fx; if (!list || !list.length) return;
+    for (var i = list.length - 1; i >= 0; i--) {
+      var f = list[i]; f.t += dt; var p = f.t / f.life;
+      if (p >= 1) {
+        if (f.ring) { R.scene.remove(f.ring); f.ring.material.dispose(); }
+        if (f.flash) { R.scene.remove(f.flash); f.flash.material.dispose(); }
+        list.splice(i, 1); continue;
+      }
+      if (f.kind === 'impact') {
+        var rr = (0.4 + p * 1.9) * f.big * 13;
+        f.ring.scale.set(rr, rr, rr); f.ring.material.opacity = (1 - p) * 0.85;
+        f.flash.scale.setScalar(Math.max(0.01, (1 - p * 0.7) * f.big)); f.flash.material.opacity = 1 - p;
+      } else {
+        f.flash.scale.setScalar(Math.max(0.01, f.scl * (1 - p * 0.55))); f.flash.material.opacity = 1 - p;
+      }
+    }
+  }
+
   /* ===========================================================================
    * Public: render one frame (called from the game loop when enabled)
    * ========================================================================= */
@@ -1359,6 +1431,7 @@
     drawFloats(s);
     drawMarquee(s);
     updateDust(s);
+    updateFx(R.renderDt);
     gc();
     // advance any glTF skeletal animations
     if (!_clock) _clock = new THREE.Clock();
@@ -1371,7 +1444,7 @@
       R.camera.position.x += (Math.random() - 0.5) * sh;
       R.camera.position.y += (Math.random() - 0.5) * sh;
     }
-    R.renderer.render(R.scene, R.camera);
+    if (R.composer) R.composer.render(); else R.renderer.render(R.scene, R.camera);
   }
 
   /* ---- floating text (gold gains, dodges, ability casts) as DOM billboards -- */

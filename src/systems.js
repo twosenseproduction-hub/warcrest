@@ -399,6 +399,7 @@
           heroId: u.heroId || null,
         });
       }
+      u.muzzleFlash = RTS.Config.muzzleFlash;   // signal the 3D renderer to flash + lunge
       u._pendingShot.released = true;
       if (u._pendingShot.released) u._pendingShot = null;
     }
@@ -418,6 +419,7 @@
           );
         }
       }
+      u.muzzleFlash = RTS.Config.muzzleFlash;   // melee impact: lunge + 3D slash spark
       u._pendingMelee.released = true;
       if (u._pendingMelee.released) u._pendingMelee = null;
     }
