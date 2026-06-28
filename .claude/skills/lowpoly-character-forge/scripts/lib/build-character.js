@@ -93,6 +93,19 @@
     [-1, 1].forEach(function (s) { var bar = facetMesh(new THREE.BoxGeometry(0.07, 0.46, 0.06), m.steel); at(bar, 0.14 * s, 0.06, 0.09); bar.rotation.z = s * 0.6; g.add(bar); });  // white chevron
     return g; }
 
+  // Long flowing cape: a jointed chain of cloth segments that drape down, curve
+  // back, and flare wider toward the hem (so it reads as flowing, not a stiff board).
+  function flowCape(mat, segs, baseW) {
+    var g = new THREE.Group(); var seg = g; var segLen = 0.42;
+    for (var i = 0; i < segs; i++) {
+      var j = new THREE.Group(); j.rotation.x = 0.08 + i * 0.07; if (i > 0) j.position.y = -segLen;
+      var w = baseW * (1 + i * 0.14);
+      j.add(at(smoothMesh(new THREE.BoxGeometry(w, segLen * 1.04, 0.05), mat), 0, -segLen * 0.5, 0));
+      seg.add(j); seg = j;
+    }
+    return g;
+  }
+
   /* ---- accessories ---- */
   function shield(m, r) { r = r || 0.6; var g = new THREE.Group();
     var disc = facetMesh(new THREE.CylinderGeometry(r, r, 0.14, 8), m.steel || m.accent); disc.rotation.x = Math.PI / 2; g.add(disc);
@@ -275,7 +288,7 @@
     var bodyMat = role === 'caster' ? tabard : armored ? steel : leather;
     var mats = { accent: accent, gem: gem, steel: steel, blade: steel, wood: M(pal.wood), cloth: tabard, string: hair };
     var F = { worker: { head: 'cap', beard: true }, warrior: { head: 'helm', pauld: true, shield: true },
-      lancer: { head: 'helm', pauld: true, shield: true }, archer: { head: 'riflehelm', beard: true },
+      lancer: { head: 'helm', pauld: true, shield: true }, archer: { head: 'riflehelm', beard: true, cape: true },
       caster: { head: 'wizhat', robe: true }, hero: { head: 'winghelm', pauld: true, cape: true, beard: true } }[role] || {};
     var g = new THREE.Group(); var glow = [];
 
@@ -295,7 +308,7 @@
     var shoulderY = limbLen + torsoH;
     if (F.pauld) [-1, 1].forEach(function (s) { var pd = facetMesh(new THREE.SphereGeometry(0.32, 9, 7), steel); pd.scale.y = 0.7; at(pd, 0.54 * bw * s, shoulderY - 0.02, 0); g.add(pd);
       var r = facetMesh(new THREE.TorusGeometry(0.28, 0.05, 5, 8), accent); r.rotation.x = Math.PI / 2; at(r, 0.54 * bw * s, shoulderY - 0.05, 0); g.add(r); });
-    if (F.cape) { var cp = smoothMesh(new THREE.BoxGeometry(0.9 * bw, dwarf ? 1.0 : 1.5, 0.08), M(role === 'hero' ? 0x9c2b2b : pal.cloth)); at(cp, 0, shoulderY - (dwarf ? 0.35 : 0.1), -0.34 * bw); cp.rotation.x = 0.12; g.add(cp); }
+    if (F.cape) { var cp = flowCape(M(role === 'hero' ? 0x9c2b2b : pal.cloth), 5, 0.72 * bw); at(cp, 0, shoulderY + 0.12, -0.32 * bw); g.add(cp); }
 
     var headY = shoulderY + 0.5 * headScale;
     var headR = buildHead(g, { skin: skin, headY: headY, headScale: headScale, eye: pal.eye, eyeGlow: false, ears: 'round', taper: 0.16 });
