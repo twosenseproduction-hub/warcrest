@@ -34,6 +34,26 @@
     var sh = facetMesh(new THREE.ConeGeometry(0.16, 0.7, 4), headMat || m.steel); at(sh, 0, len * 0.5 + 0.3, 0); g.add(sh);
     var bind = smoothMesh(new THREE.TorusGeometry(0.09, 0.035, 5, 6), m.sash || m.accent); bind.rotation.x = Math.PI / 2; at(bind, 0, len * 0.5 - 0.05, 0); g.add(bind);
     if (headMat && headMat.userData && headMat.userData.glow) g.userData.glow = [sh]; return g; }
+  // Sentinel moon-polearm: pole + a large curved crescent blade (melee).
+  function moonPolearm(m) { var g = new THREE.Group(); g.add(smoothMesh(P.limbGeo(0.055, 2.0), m.wood || m.accent));
+    var cr = new THREE.Mesh(LPF.facet(new THREE.TorusGeometry(0.46, 0.08, 5, 14, Math.PI * 1.15)), m.blade); at(cr, 0, 1.25, 0); cr.rotation.z = -0.5; g.add(cr);
+    g.userData.glow = [cr]; return g; }
+  // Glaive-thrower disc: double-crescent throwing glaive held flat in hand (ranged).
+  function throwGlaive(m) { var g = new THREE.Group(); var glow = [];
+    g.add(facetMesh(new THREE.CylinderGeometry(0.1, 0.1, 0.16, 6), m.accent));
+    [0.25, Math.PI + 0.25].forEach(function (rot) { var bl = new THREE.Mesh(LPF.facet(new THREE.TorusGeometry(0.44, 0.07, 5, 12, Math.PI * 0.8)), m.blade); bl.rotation.z = rot; g.add(bl); glow.push(bl); });
+    g.userData.glow = glow; return g; }
+  // Druid staff: gnarled wood + a glowing leaf-gem cluster.
+  function druidStaff(m) { var g = new THREE.Group(); g.add(smoothMesh(P.limbGeo(0.06, 2.0), m.wood || m.accent));
+    var orb = facetMesh(P.crystalGeo(0.24, 1.2), m.gem); at(orb, 0, 1.05, 0); g.add(orb);
+    [-1, 1].forEach(function (s) { var lf = facetMesh(P.leafGemGeo(0.46, 0.7), m.gem); at(lf, 0.2 * s, 0.92, 0); lf.rotation.z = -s * 0.7; g.add(lf); });
+    g.userData.glow = [orb]; return g; }
+  // Witch-doctor totem staff: skull + jaw + feathers.
+  function witchStaff(m) { var g = new THREE.Group(); g.add(smoothMesh(P.limbGeo(0.06, 2.0), m.wood || m.accent));
+    var skull = facetMesh(new THREE.SphereGeometry(0.2, 8, 6), m.bone); at(skull, 0, 1.08, 0); skull.scale.set(1, 1.1, 0.9); g.add(skull);
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.2, 0.1, 0.16), m.bone), 0, 0.95, 0.04));
+    [-1, 1].forEach(function (s) { g.add(at(facetMesh(new THREE.SphereGeometry(0.05, 5, 4), m.eye), 0.07 * s, 1.12, 0.16)); });
+    [-1, 0, 1].forEach(function (o) { var f = facetMesh(new THREE.ConeGeometry(0.05, 0.45, 4), o === 0 ? m.sash : m.feather); at(f, 0.1 * o, 0.86, -0.05); f.rotation.z = o * 0.4; f.rotation.x = -0.3; g.add(f); }); return g; }
 
   /* ---- accessories ---- */
   function shield(m, r) { r = r || 0.6; var g = new THREE.Group();
@@ -95,8 +115,8 @@
     var gem = LPF.toon(pal.gem, { ramp: LPF.RAMP.metal, emissive: pal.gem, emissiveIntensity: 0.3, rim: false });
     var blade = LPF.toon(pal.blade, { ramp: LPF.RAMP.metal, emissive: pal.blade, emissiveIntensity: 1.4, rim: false }); blade.userData.glow = true;
     var mats = { accent: accent, gem: gem, blade: blade, steel: steel, wood: M(pal.wood), string: hair, sash: sashM };
-    var F = { worker: { pauld: false, head: 'none' }, warrior: { pauld: true, shield: true }, lancer: { pauld: true, head: 'helm' },
-      archer: { pauld: false, quiver: true, head: 'none' }, caster: { pauld: false, head: 'hood' }, hero: { pauld: true, cape: true } }[role] || {};
+    var F = { worker: { pauld: false, head: 'none' }, warrior: { pauld: true, head: 'none' }, lancer: { pauld: true, head: 'helm' },
+      archer: { pauld: false, head: 'none' }, caster: { pauld: false, head: 'none', pelt: true }, hero: { pauld: true, cape: true } }[role] || {};
     var g = new THREE.Group(); var glow = [];
 
     [-1, 1].forEach(function (s) { g.add(at(smoothMesh(P.limbGeo(0.16, p.limbLen), cloth), 0.17 * s, p.limbLen * 0.5, 0));
@@ -107,8 +127,9 @@
 
     var shoulderY = p.limbLen + p.torsoH;
     if (F.pauld) [-1, 1].forEach(function (s) { var pg = facetMesh(P.leafGemGeo(role === 'hero' ? 0.85 : 0.7, 0.9), gem); at(pg, 0.5 * s, shoulderY - 0.06, 0); pg.rotation.z = -s * 0.5; g.add(pg); glow.push(pg); });
-    if (F.quiver) { var q = quiver(mats); at(q, -0.1, shoulderY - 0.3, -0.4); q.rotation.x = 0.3; q.rotation.z = -0.4; g.add(q); }
     if (F.cape) { var cp = smoothMesh(new THREE.BoxGeometry(0.95, 1.5, 0.08), sashM); at(cp, 0, p.limbLen + p.torsoH * 0.55, -0.34); cp.rotation.x = 0.12; g.add(cp); }
+    if (F.pelt) { // druid fur mantle over the shoulders
+      var pelt = smoothMesh(new THREE.SphereGeometry(0.5, 10, 7), M(pal.antler)); pelt.scale.set(1.15, 0.55, 1.0); at(pelt, 0, shoulderY - 0.02, 0); g.add(pelt); }
 
     var headY = shoulderY + 0.5 * p.headScale;
     var headR = buildHead(g, { skin: skin, headY: headY, headScale: p.headScale, earLen: p.earLen, eye: pal.eye });
@@ -119,10 +140,10 @@
       if (F.head === 'helm') { var helm = facetMesh(new THREE.SphereGeometry(0.56 * p.headScale, 9, 6, 0, 6.3, 0, 1.7), steel); at(helm, 0, headY + 0.12, 0); g.add(helm);
         g.add(at(facetMesh(new THREE.ConeGeometry(0.08, 0.45, 4), accent), 0, headY + 0.62 * p.headScale, 0)); } }
 
-    var rWeapon = role === 'caster' ? gemStaff(mats) : role === 'worker' ? gemTool(mats)
-      : role === 'lancer' ? spear(mats, 2.6, blade) : role === 'hero' ? gemGlaive(mats, 2.3)
-      : role === 'archer' ? null : gemGlaive(mats, 1.9);
-    var hands = { right: rWeapon, left: role === 'archer' ? bow(mats) : null, rTilt: role === 'lancer' ? -0.25 : 0, lRot: 0.2 };
+    var rWeapon = role === 'caster' ? druidStaff(mats) : role === 'worker' ? gemTool(mats)
+      : role === 'archer' ? throwGlaive(mats) : role === 'hero' ? gemGlaive(mats, 2.3)
+      : moonPolearm(mats);   // warrior = Sentinel moon-polearm
+    var hands = { right: rWeapon, left: null, rTilt: role === 'archer' ? -0.3 : 0, lRot: 0.2 };
     var handY = p.limbLen + p.torsoH * 0.22;
     glow = glow.concat(placeHands(g, g, skin, handY, 0.52, 0.16, hands));
 
@@ -134,7 +155,7 @@
   /* ============================ ORC + TROLL ============================ */
   var ORC = {
     palette: { skin: 0x5f8a2e, cloth: 0x5a3a22, accent: 0x8a6a3a, bone: 0xe2dcc0, blade: 0xb9c2cc,
-      eye: 0xe8c33a, hair: 0x1c160f, sash: 0x9c3f2c, wood: 0x4e351d, steel: 0xb9c2cc },
+      eye: 0xe8c33a, hair: 0x1c160f, sash: 0x9c3f2c, wood: 0x4e351d, steel: 0xb9c2cc, feather: 0xc23528 },
     headScale: 1.25, earLen: 0.4, earDroop: 1.3, torsoH: 1.3, limbLen: 0.78, outline: 0.03, hunch: 0.26,
   };
   LPF.buildOrc = function (params) {
@@ -147,12 +168,13 @@
     var skin = LPF.toon(pal.skin, { ramp: LPF.RAMP.skin, rimColor: troll ? 0x9fe0d6 : 0xc9e08a, rimStrength: 0.2 });
     var cloth = M(pal.cloth), accent = LPF.toon(pal.accent, { ramp: LPF.RAMP.metal }), bone = M(pal.bone),
       sashM = M(pal.sash), steel = LPF.toon(pal.steel, { ramp: LPF.RAMP.metal }), hair = M(pal.hair);
-    var mats = { accent: accent, gem: bone, blade: steel, steel: steel, wood: M(pal.wood), sash: sashM };
+    var mats = { accent: accent, gem: bone, blade: steel, steel: steel, wood: M(pal.wood), sash: sashM, bone: bone,
+      eye: LPF.toon(pal.eye, { ramp: LPF.RAMP.metal, emissive: pal.eye, emissiveIntensity: 0.4, rim: false }), feather: M(pal.feather) };
     var g = new THREE.Group();
     var bw = troll ? 1.0 : 1.35;
     var limbLen = troll ? 1.05 : p.limbLen, torsoH = troll ? 1.2 : p.torsoH, headScale = troll ? 1.05 : p.headScale, hunch = troll ? 0.14 : p.hunch;
-    var F = { worker: { pauld: false }, warrior: { pauld: true, shield: true }, lancer: { pauld: true, head: 'helm' },
-      caster: { pauld: false, head: 'bonehood' }, hero: { pauld: true, cape: true } }[role] || {};
+    var F = { worker: { pauld: false }, warrior: { pauld: true }, lancer: { pauld: true, head: 'helm' },
+      caster: { pauld: false, head: 'mask' }, hero: { pauld: true, cape: true } }[role] || {};
 
     [-1, 1].forEach(function (s) { g.add(at(smoothMesh(P.limbGeo(troll ? 0.16 : 0.22, limbLen), skin), (troll ? 0.2 : 0.24) * s, limbLen * 0.5, 0));
       g.add(at(smoothMesh(P.torsoGeo(0.24, 0.3, 0.4), cloth), (troll ? 0.2 : 0.24) * s, limbLen * 0.78, 0)); });
@@ -175,10 +197,13 @@
     if (troll) { [-0.16, 0, 0.16].forEach(function (o, i) { var mo = facetMesh(new THREE.ConeGeometry(0.09, 0.55 + (i === 1 ? 0.2 : 0), 4), hair); at(mo, o, headY + 0.5 * headScale, -0.04); tp.add(mo); }); }
     else if (F.head === 'helm') { var helm = facetMesh(new THREE.SphereGeometry(0.58 * headScale, 9, 6, 0, 6.3, 0, 1.7), steel); at(helm, 0, headY + 0.1, 0); tp.add(helm);
       [-1, 1].forEach(function (s) { tp.add(at(facetMesh(P.tuskGeo(0.06, 0.4), bone), 0.5 * headScale * s, headY + 0.3, 0)); }); }
-    else if (F.head === 'bonehood') { var bh = facetMesh(new THREE.ConeGeometry(0.6 * headScale, 0.7, 7), cloth); at(bh, 0, headY + 0.34, 0); tp.add(bh); }
+    else if (F.head === 'mask') { // witch-doctor bone skull mask over the face + feathered headdress
+      var mask = facetMesh(new THREE.SphereGeometry(0.5 * headScale, 9, 7, 0, 6.3, 0, 1.5), bone); at(mask, 0, headY + 0.04, 0.06); mask.scale.set(1.02, 1.0, 1.05); tp.add(mask);
+      [-1, 1].forEach(function (s) { tp.add(at(facetMesh(new THREE.SphereGeometry(0.07, 6, 5), LPF.toon(0x201712, { ramp: LPF.RAMP.cloth, rim: false })), 0.17 * headScale * s, headY + 0.08, 0.45 * headScale)); });
+      [-0.22, -0.07, 0.07, 0.22].forEach(function (o) { var f = facetMesh(new THREE.ConeGeometry(0.05, 0.5, 4), o < 0 ? M(pal.feather) : LPF.toon(0xd8c14a, { ramp: LPF.RAMP.cloth })); at(f, o, headY + 0.5 * headScale, -0.08); f.rotation.z = o * 0.7; f.rotation.x = -0.3; tp.add(f); }); }
     else { tp.add(at(smoothMesh(new THREE.SphereGeometry(0.16, 8, 6), hair), 0, headY + 0.5 * headScale, -0.05)); }
 
-    var rWeapon = troll ? spear(mats, 2.7, steel) : role === 'caster' ? gemStaff({ accent: accent, gem: bone, wood: M(pal.wood) })
+    var rWeapon = troll ? spear(mats, 2.7, steel) : role === 'caster' ? witchStaff(mats)
       : role === 'worker' ? pick(mats) : role === 'lancer' ? spear(mats, 2.6, steel)
       : role === 'hero' ? bigAxe(mats, 1.25) : bigAxe(mats, 1.0);
     var hands = { right: rWeapon, left: null, rTilt: (troll || role === 'lancer') ? -0.3 : 0 };
