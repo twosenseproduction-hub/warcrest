@@ -87,17 +87,17 @@ html, body {
    * warmer, richer and higher-contrast under golden sun. Grade the whole game
    * world (terrain + units + buildings render to this one canvas) so it lands
    * closer to that look. Single composited GPU layer — cheap on mobile. */
-  filter: saturate(1.26) contrast(1.12) brightness(0.95) sepia(0.09) hue-rotate(-6deg);
-  /* gentle edge vignette for depth/focus (drawn over the canvas content) */
-  box-shadow: inset 0 0 180px 56px rgba(10, 8, 4, 0.42);
+  filter: saturate(1.22) contrast(1.16) brightness(0.84) sepia(0.06) hue-rotate(-4deg);
+  /* stronger edge vignette for a moodier, darker tone */
+  box-shadow: inset 0 0 200px 70px rgba(6, 7, 12, 0.6);
 }
 /* The 3D engine renders to its own overlay canvas (#game3d, z-index 5) which
  * sits ABOVE #game, so the WC3 colour-grade must be applied here too — this is
  * the canvas actually shown when 3D mode is on (now the default). The 3D scene
  * grades a touch lighter since its own lighting already carries contrast. */
 #game3d {
-  filter: saturate(1.2) contrast(1.08) brightness(0.97) sepia(0.07) hue-rotate(-5deg);
-  box-shadow: inset 0 0 190px 60px rgba(10, 8, 4, 0.4);
+  filter: saturate(1.16) contrast(1.14) brightness(0.86) sepia(0.05) hue-rotate(-4deg);
+  box-shadow: inset 0 0 210px 76px rgba(6, 7, 12, 0.56);
 }
 
 /* ============================================================================

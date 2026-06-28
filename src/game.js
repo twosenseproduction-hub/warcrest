@@ -67,6 +67,7 @@
       if (name === 'menu' || name === 'factionselect' || name === 'mapselect' || name === 'howto' || name === 'settings') {
         document.body.classList.remove('player-aurex', 'player-cinder');
         if (RTS.Audio && RTS.Audio.setFaction) RTS.Audio.setFaction('default');
+        if (name === 'menu' && RTS.Audio && RTS.Audio.stopAmbient) RTS.Audio.stopAmbient();
         var meta = document.querySelector('meta[name="theme-color"]');
         if (meta) meta.setAttribute('content', '#1565c0');
       }
@@ -117,6 +118,7 @@
       RTS.log(state, 'Lead the ' + RTS.Factions[factionId].name + ' — destroy the ' +
         RTS.nameFor(state.enemyFaction, 'core'), 'info');
       RTS.Audio.resume();
+      if (RTS.Audio.startAmbient) RTS.Audio.startAmbient();
       lastT = performance.now();
 
       // Enable the 3D engine on match start if the player persisted the choice.

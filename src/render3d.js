@@ -1043,7 +1043,7 @@
     var H = (s.map && s.map.h) || RTS.Config.world.h;
 
     // water plane spanning the whole world (shows through gaps / below cliffs)
-    var wmat = new THREE.MeshStandardMaterial({ color: 0x245a7e, roughness: 0.66, metalness: 0.0, transparent: true, opacity: 0.94, flatShading: true });
+    var wmat = new THREE.MeshStandardMaterial({ color: 0x18415c, roughness: 0.66, metalness: 0.0, transparent: true, opacity: 0.95, flatShading: true });
     // Segmented so it can ripple; flat-shaded so the moving facets catch the sun
     // and shimmer (low-poly water). Animated per-frame in updateEnv.
     var wsegX = Math.max(16, Math.min(70, Math.round((W + 800) / 150)));
@@ -1061,8 +1061,8 @@
     // then slope down into the water (sandy beach) and the land gently domes —
     // the soft, faceted low-poly look. Flat-shaded for the facets.
     var positions = [], normals = [], colors = [];
-    var cTop = new THREE.Color(0x6a9f4c), cTopHi = new THREE.Color(0x84b85f), cSand = new THREE.Color(0xceb98a);
-    var cShallow = new THREE.Color(0x2f8ea2);   // wadeable shallow-water shelf
+    var cTop = new THREE.Color(0x537d3c), cTopHi = new THREE.Color(0x688f49), cSand = new THREE.Color(0xab9670);
+    var cShallow = new THREE.Color(0x266f80);   // wadeable shallow-water shelf
     var cols = grid.cols, rows = grid.rows;
     function tlevel(tx, ty) {
       if (tx < 0 || ty < 0 || tx >= cols || ty >= rows) return WATER_DROP;
@@ -1230,7 +1230,7 @@
     if (!R.skyDome) {
       var skyGeo = new THREE.SphereGeometry(7000, 24, 16);
       var sp = skyGeo.attributes.position, scol = [];
-      var skyTop = new THREE.Color(0x4d88c9), skyHorizon = new THREE.Color(0xd2e4ee);
+      var skyTop = new THREE.Color(0x2b496f), skyHorizon = new THREE.Color(0x8499a6);
       for (var si = 0; si < sp.count; si++) {
         var ny = Math.max(0, sp.getY(si) / 7000);
         var sc2 = skyHorizon.clone().lerp(skyTop, Math.pow(ny, 0.6));
@@ -1253,6 +1253,32 @@
     mgeo.setAttribute('position', new THREE.Float32BufferAttribute(mp, 3));
     var mmat = new THREE.PointsMaterial({ color: 0xfff3d6, size: 7, sizeAttenuation: true, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending });
     R.motes = new THREE.Points(mgeo, mmat); R.motes.frustumCulled = false; R.scene.add(R.motes);
+
+    // ── drifting cloud shadows: a dark plane just above the ground whose alpha
+    // comes from a soft-blob texture, scrolled in updateEnv ──────────────────
+    if (!R.cloudTex && typeof document !== 'undefined') {
+      var ccv = document.createElement('canvas'); ccv.width = ccv.height = 256;
+      var cg = ccv.getContext('2d');
+      cg.fillStyle = '#000'; cg.fillRect(0, 0, 256, 256);
+      for (var ci = 0; ci < 15; ci++) {
+        var bx = Math.random() * 256, by = Math.random() * 256, br = 34 + Math.random() * 64;
+        var grd = cg.createRadialGradient(bx, by, 0, bx, by, br);
+        grd.addColorStop(0, 'rgba(255,255,255,' + (0.45 + Math.random() * 0.4).toFixed(2) + ')');
+        grd.addColorStop(1, 'rgba(255,255,255,0)');
+        cg.fillStyle = grd; cg.beginPath(); cg.arc(bx, by, br, 0, 7); cg.fill();
+      }
+      R.cloudTex = new THREE.CanvasTexture(ccv);
+      R.cloudTex.wrapS = R.cloudTex.wrapT = THREE.RepeatWrapping;
+    }
+    if (R.cloudMesh) { R.scene.remove(R.cloudMesh); R.cloudMesh.geometry.dispose(); R.cloudMesh = null; }
+    if (R.cloudTex) {
+      R.cloudTex.repeat.set((W + 1200) / 1500, (H + 1200) / 1500);
+      var cmat = new THREE.MeshBasicMaterial({ color: 0x0a0e16, transparent: true, opacity: 0.34, alphaMap: R.cloudTex, depthWrite: false, fog: false });
+      var cmesh = new THREE.Mesh(new THREE.PlaneGeometry(W + 1200, H + 1200), cmat);
+      cmesh.rotation.x = -Math.PI / 2; cmesh.position.set(W / 2, 16, H / 2);
+      cmesh.frustumCulled = false;
+      R.cloudMesh = cmesh; R.scene.add(cmesh);
+    }
   }
 
   /* ---- per-frame environment animation: wind, water ripple, motes, sky ----- */
@@ -1279,6 +1305,7 @@
       R.motes.geometry.attributes.position.needsUpdate = true;
     }
     if (R.skyDome && R.camera) R.skyDome.position.set(R.camera.position.x, 0, R.camera.position.z);
+    if (R.cloudTex) { R.cloudTex.offset.x += dt * 0.0045; R.cloudTex.offset.y += dt * 0.0022; }
   }
 
   function disposeObj(o) {
@@ -1338,9 +1365,9 @@
     R.camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 8, 9000);
     // Soft daylight: a NEUTRAL fill (the old warm fill is what yellow-washed the
     // grass) + a gently warm key sun, so colours read true — not washed, not garish.
-    R.amb = new THREE.AmbientLight(0xeef1f4, 0.34); R.scene.add(R.amb);
-    R.hemi = new THREE.HemisphereLight(0xbcd6ff, 0x4a5a32, 0.30); R.scene.add(R.hemi);
-    R.sun = new THREE.DirectionalLight(0xffe7c2, 1.45);
+    R.amb = new THREE.AmbientLight(0xd6dde6, 0.26); R.scene.add(R.amb);
+    R.hemi = new THREE.HemisphereLight(0x9ab2cc, 0x3a4628, 0.22); R.scene.add(R.hemi);
+    R.sun = new THREE.DirectionalLight(0xf3ddba, 1.08);
     R.sun.castShadow = true; R.sun.shadow.mapSize.set(IS_MOBILE ? 1024 : 2048, IS_MOBILE ? 1024 : 2048);
     var sc = R.sun.shadow.camera; sc.near = 50; sc.far = 2600; sc.left = -900; sc.right = 900; sc.top = 900; sc.bottom = -900;
     R.sun.shadow.bias = -0.0006;
@@ -1958,7 +1985,7 @@
   function setNight(on) {
     R.night = on; if (!R.inited) return;
     if (on) { R.scene.background.setHex(0x18223c); R.scene.fog.color.setHex(0x1c2640); R.sun.color.setHex(0x9fb0e0); R.sun.intensity = 0.5; R.amb.intensity = 0.55; }
-    else { R.scene.background.setHex(0xa9cfe0); R.scene.fog.color.setHex(0xbcd3c4); R.sun.color.setHex(0xffe7c2); R.sun.intensity = 1.4; R.amb.intensity = 0.4; }
+    else { R.scene.background.setHex(0x6f8aa0); R.scene.fog.color.setHex(0x7e909a); R.sun.color.setHex(0xf3ddba); R.sun.intensity = 1.05; R.amb.intensity = 0.28; }
   }
 
   function enable(s) {

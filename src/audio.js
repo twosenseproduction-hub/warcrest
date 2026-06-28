@@ -317,17 +317,77 @@
     lose:   playLoseFanfare,
   };
 
+  /* ---- procedural ambient bed: wind + sea swell (+ rare distant birds) ------
+   * No audio assets needed — looping filtered noise driven by slow LFOs gives a
+   * moody outdoor wash that suits the darker island tone. */
+  var ambient = null, AMBIENT_GAIN = 0.42;
+  function makeNoiseBuffer(c, secs) {
+    var len = Math.floor(c.sampleRate * secs);
+    var buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0), last = 0;
+    for (var i = 0; i < len; i++) { var w = Math.random() * 2 - 1; last = (last + 0.02 * w) / 1.02; d[i] = last * 3.2; }
+    return buf;
+  }
+  function startAmbient() {
+    var c = ensure(); if (!c || ambient) return;
+    if (c.state === 'suspended') c.resume();
+    var noise = makeNoiseBuffer(c, 4);
+    var master = c.createGain(); master.gain.value = 0; master.connect(c.destination);
+    // sea swell — low rumble with a slow rolling LFO
+    var ws = c.createBufferSource(); ws.buffer = noise; ws.loop = true;
+    var wlp = c.createBiquadFilter(); wlp.type = 'lowpass'; wlp.frequency.value = 430; wlp.Q.value = 0.6;
+    var wg = c.createGain(); wg.gain.value = 0.85; ws.connect(wlp); wlp.connect(wg); wg.connect(master);
+    var lfo = c.createOscillator(); lfo.frequency.value = 0.13; var lfoG = c.createGain(); lfoG.gain.value = 0.5;
+    lfo.connect(lfoG); lfoG.connect(wg.gain); lfo.start();
+    // wind — airy band, slower gust LFO
+    var nd = c.createBufferSource(); nd.buffer = noise; nd.loop = true; nd.playbackRate.value = 0.8;
+    var bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1050; bp.Q.value = 0.7;
+    var ng = c.createGain(); ng.gain.value = 0.3; nd.connect(bp); bp.connect(ng); ng.connect(master);
+    var lfo2 = c.createOscillator(); lfo2.frequency.value = 0.07; var lfo2G = c.createGain(); lfo2G.gain.value = 0.2;
+    lfo2.connect(lfo2G); lfo2G.connect(ng.gain); lfo2.start();
+    ws.start(); nd.start();
+    master.gain.setValueAtTime(0, c.currentTime);
+    master.gain.linearRampToValueAtTime(enabled ? AMBIENT_GAIN * volume : 0, c.currentTime + 2.5);
+    ambient = { master: master, nodes: [ws, nd, lfo, lfo2], birdTimer: null };
+    scheduleBird();
+  }
+  function scheduleBird() {
+    if (!ambient) return;
+    ambient.birdTimer = setTimeout(function () {
+      if (ambient && enabled) {
+        var base = 1500 + Math.random() * 800, notes = 2 + (Math.random() * 2 | 0);
+        for (var i = 0; i < notes; i++) (function (i) { setTimeout(function () { blip(base * (1 + i * 0.1), 0.07, 'sine', 0.05); }, i * 120); })(i);
+      }
+      scheduleBird();
+    }, 9000 + Math.random() * 13000);
+  }
+  function stopAmbient() {
+    if (!ambient) return; var c = ensure();
+    try {
+      if (ambient.birdTimer) clearTimeout(ambient.birdTimer);
+      ambient.master.gain.cancelScheduledValues(c.currentTime);
+      ambient.master.gain.linearRampToValueAtTime(0, c.currentTime + 0.8);
+      ambient.nodes.forEach(function (n) { try { n.stop(c.currentTime + 1); } catch (e) {} });
+    } catch (e) {}
+    ambient = null;
+  }
+  function syncAmbientVolume() {
+    if (!ambient) return; var c = ensure(); if (!c) return;
+    ambient.master.gain.setTargetAtTime(enabled ? AMBIENT_GAIN * volume : 0, c.currentTime, 0.3);
+  }
+
   RTS.Audio = {
     play: function (name) { var f = SOUNDS[name]; if (f) f(); },
     setEnabled: function (v) {
       enabled = !!v;
       syncMusicVolume();
+      syncAmbientVolume();
       if (!enabled && music) music.pause();
       else resumeMusic();
     },
     setVolume: function (v) {
       volume = Math.max(0, Math.min(1, v));
       syncMusicVolume();
+      syncAmbientVolume();
     },
     isEnabled: function () { return enabled; },
     setFaction: setFaction,
@@ -339,6 +399,8 @@
     },
     startMusic: startMusic,
     stopMusic: stopMusic,
+    startAmbient: startAmbient,
+    stopAmbient: stopAmbient,
     bindAutostart: bindMusicAutostart,
   };
 
