@@ -544,8 +544,62 @@
     unitTemplates[key] = g;
     return g;
   }
+  /* ---- glTF model pipeline ----------------------------------------------
+   * Procedural primitives top out at "low-poly robots". To reach the smooth,
+   * sculpted reference look, render real modeled .glb assets instead. A model
+   * is registered per (race:role) key (or 'race:*' / '*' wildcards); when one
+   * is loaded it replaces the procedural body, otherwise we fall back to it —
+   * so the game looks identical until real assets are dropped in. */
+  var UNIT_MODELS = {};        // 'crown:warrior' -> { url, height, yaw, anims:{idle,walk,attack,death} }
+  var modelProtos = {};        // key -> { scene, clips }
+  var _gltf = null, _clock = null;
+  function modelKeys(race, role) { return [race + ':' + role, race + ':*', '*']; }
+  function protoFor(race, role) {
+    var ks = modelKeys(race, role);
+    for (var i = 0; i < ks.length; i++) if (modelProtos[ks[i]]) return { proto: modelProtos[ks[i]], cfg: UNIT_MODELS[ks[i]] };
+    return null;
+  }
+  function registerUnitModel(key, cfg) { UNIT_MODELS[key] = cfg; }
+  function loadUnitModels() {
+    THREE = THREE || window.THREE;
+    if (!THREE || !THREE.GLTFLoader) return Promise.resolve(false);
+    if (!_gltf) _gltf = new THREE.GLTFLoader();
+    var keys = Object.keys(UNIT_MODELS);
+    return Promise.all(keys.map(function (k) {
+      if (modelProtos[k]) return Promise.resolve();
+      var cfg = UNIT_MODELS[k];
+      return new Promise(function (res) {
+        _gltf.load(cfg.url, function (gltf) {
+          modelProtos[k] = { scene: gltf.scene, clips: gltf.animations || [] };
+          res();
+        }, undefined, function () { res(); });   // on error, leave unregistered → procedural fallback
+      });
+    })).then(function () { return true; });
+  }
+  function makeModelMesh(entry, race, role, u) {
+    var cfg = entry.cfg, proto = entry.proto;
+    var root = (THREE.SkeletonUtils ? THREE.SkeletonUtils.clone(proto.scene) : proto.scene.clone());
+    var holder = new THREE.Group(); holder.add(root);
+    holder.traverse(function (o) { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    fitHeight(holder, cfg.height || (role === 'hero' ? 60 : role === 'worker' ? 34 : 48));
+    var ud = { model: true, isArcher: role === 'archer', yaw: cfg.yaw || 0 };
+    if (proto.clips && proto.clips.length) {
+      var mixer = new THREE.AnimationMixer(root); var actions = {};
+      var an = cfg.anims || {};
+      ['idle', 'walk', 'attack', 'death'].forEach(function (k) {
+        var clip = an[k] && THREE.AnimationClip.findByName(proto.clips, an[k]);
+        if (clip) actions[k] = mixer.clipAction(clip);
+      });
+      if (actions.idle) actions.idle.play();
+      ud.mixer = mixer; ud.actions = actions; ud.cur = 'idle';
+    }
+    holder.userData = ud;
+    return holder;
+  }
   function makeUnitMesh(u) {
     var race = raceOf(u.faction), role = mapRole(u);
+    var entry = protoFor(race, role);
+    if (entry) return makeModelMesh(entry, race, role, u);
     var tmpl = unitTemplate(race, role);
     var g = tmpl.clone();
     g.userData = {
@@ -867,11 +921,19 @@
         continue;
       }
       if (kind === 'unit') {
-        o.rotation.y = -(e.facing || 0) + Math.PI / 2;
+        var ud = o.userData;
+        o.rotation.y = -(e.facing || 0) + Math.PI / 2 + ((ud && ud.yaw) || 0);
         // walk cycle: swing legs (+ bend knees) while moving; relax on idle
         var moving = e.moveTo || (Math.abs(e.vx || 0) + Math.abs(e.vy || 0) > 4);
-        var ud = o.userData;
-        if (ud && ud.legL) {
+        if (ud && ud.model && ud.actions) {           // glTF model: crossfade idle<->walk clips
+          var want = moving && ud.actions.walk ? 'walk' : 'idle';
+          if (ud.cur !== want && ud.actions[want]) {
+            var from = ud.actions[ud.cur];
+            ud.actions[want].reset().play();
+            if (from) ud.actions[want].crossFadeFrom(from, 0.2, false);
+            ud.cur = want;
+          }
+        } else if (ud && ud.legL) {
           if (moving) {
             var sw = Math.sin((performance.now() * 0.001) * 9 + (e._idlePhase || 0) * 6) * 0.5;
             ud.legL.rotation.x = sw; ud.legR.rotation.x = -sw;
@@ -1067,6 +1129,10 @@
     drawMarquee(s);
     updateDust(s);
     gc();
+    // advance any glTF skeletal animations
+    if (!_clock) _clock = new THREE.Clock();
+    var dt = _clock.getDelta();
+    for (var pid in R.pool) { var psl = R.pool[pid]; if (psl && psl.obj && psl.obj.userData && psl.obj.userData.mixer) psl.obj.userData.mixer.update(dt); }
     // screen shake: jolt the camera (render-only; placeCamera resets next frame,
     // so picking via screenToWorld is unaffected). Driven by s.screenShake.
     if (s.screenShake > 0 && !(RTS.Config && RTS.Config.reducedMotion)) {
@@ -1144,6 +1210,12 @@
     resize();
     installCamOverride(s);
     R.mapId = null; // force terrain rebuild
+    // opt-in live preview of the modeled-unit pipeline: ?models=demo renders every
+    // unit from a real .glb (smooth/rigged) instead of procedural primitives.
+    if (/[?&]models=demo/.test(location.search) && !Object.keys(UNIT_MODELS).length) {
+      registerUnitModel('*', { url: 'assets/models/RobotExpressive.glb', height: 50, anims: { idle: 'Idle', walk: 'Walking' } });
+      loadUnitModels();
+    }
     return true;
   }
   function disable() {
@@ -1161,6 +1233,12 @@
     disable: disable,
     setNight: setNight,
     isEnabled: function () { return R.enabled; },
+    // glTF model pipeline: register a .glb per 'race:role' (or 'race:*' / '*'),
+    // then loadUnitModels() to fetch them. Units spawned after load use the model;
+    // anything unregistered keeps the procedural body.
+    registerUnitModel: registerUnitModel,
+    loadUnitModels: loadUnitModels,
+    hasModel: function (race, role) { return !!protoFor(race, role); },
     _state: R,
   };
 
