@@ -430,14 +430,40 @@
     },
   };
 
-  // Arrow Tower specialisations — a built turret can research into ONE of these.
+  // Guard-tower specialisations — a built turret can research into ONE of its
+  // faction's two lines. Every faction has an anti-unit "long-range single
+  // target" line and an anti-building "short-range splash siege" line, but each
+  // is themed + named to its race (and gets its own tower silhouette in 3D).
   RTS.TowerUpgrades = {
-    arrow:   { label: 'Arrow Tower', cost: 90,  time: 16, dmg: 24, range: 240, rof: 0.5,
-               splash: 0,  buildingDmgBonus: 0,
-               desc: 'Long-range single-target fire — strong against units.' },
-    bombard: { label: 'Bombard',     cost: 150, time: 24, dmg: 52, range: 150, rof: 1.5,
-               splash: 46, buildingDmgBonus: 0.5,
-               desc: 'Short-range splash shells — smash buildings and clustered foes.' },
+    aurex: {
+      arrow:    { label: 'Arrow Tower', cost: 90,  time: 16, dmg: 24, range: 240, rof: 0.5,
+                  splash: 0,  buildingDmgBonus: 0,
+                  desc: 'Long-range single-target fire — strong against units.' },
+      bombard:  { label: 'Bombard',     cost: 150, time: 24, dmg: 52, range: 150, rof: 1.5,
+                  splash: 46, buildingDmgBonus: 0.5,
+                  desc: 'Short-range splash shells — smash buildings and clustered foes.' },
+    },
+    cinder: {
+      barb:     { label: 'Barb Spire',   cost: 90,  time: 16, dmg: 26, range: 230, rof: 0.5,
+                  splash: 0,  buildingDmgBonus: 0,
+                  desc: 'Hurls bone shards at single targets from afar.' },
+      catapult: { label: 'Skull Hurler', cost: 150, time: 24, dmg: 54, range: 150, rof: 1.6,
+                  splash: 50, buildingDmgBonus: 0.5,
+                  desc: 'Lobs flaming skulls — splash that wrecks buildings and packed foes.' },
+    },
+    rimwalker: {
+      moonfire:  { label: 'Moonfire Spire', cost: 95,  time: 16, dmg: 22, range: 255, rof: 0.45,
+                   splash: 0,  buildingDmgBonus: 0,
+                   desc: 'Arcane bolts strike single targets at extreme range.' },
+      thornwall: { label: 'Thornwall',      cost: 145, time: 24, dmg: 46, range: 155, rof: 1.4,
+                   splash: 48, buildingDmgBonus: 0.4,
+                   desc: 'Bursting spores — splash damage against clustered enemies.' },
+    },
+  };
+
+  // Resolve a faction's tower-upgrade line (falls back to the human set).
+  RTS.towerUpgradesFor = function (faction) {
+    return RTS.TowerUpgrades[faction] || RTS.TowerUpgrades.aurex;
   };
 
   RTS.BuildMenu = ['conduit', 'foundry', 'forge', 'ancestor_shrine', 'turret', 'outpost'];

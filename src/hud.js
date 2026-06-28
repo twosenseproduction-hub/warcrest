@@ -713,16 +713,16 @@
     model['r3c1'] = slot('cancel-train', UI().iconUrl('cancel') || '', {
       slotId: 'r3c1', label: 'Cancel last from queue', bid: b.id, disabled: !hasQueue,
     });
-    // Base Arrow Tower can specialise into a long-range Arrow Tower or a Bombard.
-    if (b.type === 'turret' && !b.towerType && !b.upgrading && RTS.TowerUpgrades) {
-      var arrow = RTS.TowerUpgrades.arrow, bombard = RTS.TowerUpgrades.bombard;
-      model['r3c2'] = slot('upgrade-tower', UI().iconUrl('upgrade') || '', {
-        slotId: 'r3c2', label: arrow.label, bid: b.id, variant: 'arrow', cost: arrow.cost,
-        disabled: s.res.player.halcite < arrow.cost,
-      });
-      model['r3c3'] = slot('upgrade-tower', UI().iconUrl('upgrade') || '', {
-        slotId: 'r3c3', label: bombard.label, bid: b.id, variant: 'bombard', cost: bombard.cost,
-        disabled: s.res.player.halcite < bombard.cost,
+    // A base guard tower can specialise into ONE of its faction's two lines
+    // (an anti-unit long-range line and an anti-building splash line).
+    if (b.type === 'turret' && !b.towerType && !b.upgrading && RTS.towerUpgradesFor) {
+      var ups = RTS.towerUpgradesFor(b.faction), vkeys = Object.keys(ups);
+      ['r3c2', 'r3c3'].forEach(function (slotId, i) {
+        var key = vkeys[i]; if (!key) return; var def = ups[key];
+        model[slotId] = slot('upgrade-tower', UI().iconUrl('upgrade') || '', {
+          slotId: slotId, label: def.label, bid: b.id, variant: key, cost: def.cost,
+          disabled: s.res.player.halcite < def.cost,
+        });
       });
     } else if (RTS.Config.canUpgrade && RTS.Config.canUpgrade(b)) {
       var upCost = RTS.Config.upgradeCost ? RTS.Config.upgradeCost(b) : 0;

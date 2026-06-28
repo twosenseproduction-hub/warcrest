@@ -8,13 +8,28 @@
   var LPF = root.LPF = root.LPF || {};
   var K = LPF.kit;
   var at = K.at, facet = K.facet, smooth = K.smooth;
-  var M = function (c, o) { return LPF.toon(c, Object.assign({ ramp: LPF.RAMP.cloth, rim: false }, o || {})); };
-  var glowM = function (c, i) { return LPF.toon(c, { ramp: LPF.RAMP.metal, emissive: c, emissiveIntensity: i == null ? 1.2 : i, rim: false }); };
+  // Building matte ramp: a touch deeper than the shared character cloth ramp so
+  // big flat stone/roof faces don't blow out to near-white under the key + ACES.
+  var BRAMP = LPF.makeRamp([28, 96, 152]);
+  var M = function (c, o) { return LPF.toon(c, Object.assign({ ramp: BRAMP, rim: false }, o || {})); };
+  // Magic prop glow (lava, orbs, runes, moonwells): glows by day, brighter at night.
+  var glowM = function (c, i) {
+    var iv = i == null ? 1.2 : i;
+    var m = LPF.toon(c, { ramp: LPF.RAMP.metal, emissive: c, emissiveIntensity: iv, rim: false });
+    m.userData.dayI = iv; m.userData.nightI = iv * 1.45; return m;
+  };
+  // Window glass pane: DARK by day (emissive off), warm glow at night. Base is a
+  // dark glass tone so daytime windows read as recessed glass, not white stickers.
+  var paneM = function (c, i) {
+    var iv = i == null ? 1.4 : i;
+    var m = LPF.toon(0x1f232c, { ramp: LPF.RAMP.cloth, emissive: c, emissiveIntensity: 0.0, rim: false });
+    m.userData.dayI = 0.0; m.userData.nightI = iv; return m;
+  };
 
   var FACTIONS = {
-    human: { stone: 0x868d98, stoneD: 0x5f656e, roof: 0x2f4f82, timber: 0x5a3e22, accent: 0xe4b53a, glow: 0xffd27a, banner: 0x2a4fa0 },
-    orc: { stone: 0xa89878, stoneD: 0x7a6c4e, roof: 0x8a3320, timber: 0x4a2f1c, accent: 0xc23528, glow: 0xff7a18, bone: 0xe2dcc0, banner: 0x8a3320 },
-    elf: { stone: 0x807d8e, stoneD: 0x5c5a6a, timber: 0x5a3e22, leaf: 0x5cb233, leafD: 0x356b22, accent: 0xf2c14e, glow: 0xffe07a, banner: 0x57c23a },
+    human: { stone: 0x70767f, stoneD: 0x474c54, roof: 0x2f4f82, timber: 0x5a3e22, accent: 0xe4b53a, glow: 0xffce7a, banner: 0x2a4fa0 },
+    orc: { stone: 0x8c7e60, stoneD: 0x5e5238, roof: 0x7e2f1d, timber: 0x4a2f1c, accent: 0xc23528, glow: 0xff7a18, bone: 0xddd6bc, banner: 0x7e2f1d },
+    elf: { stone: 0x6a6878, stoneD: 0x474655, timber: 0x5a3e22, leaf: 0x5cb233, leafD: 0x2f6320, accent: 0xf2c14e, glow: 0xffe07a, banner: 0x57c23a },
   };
 
   // Faction-flavored roof/crown for a keep or tower (group whose base sits at topY).
@@ -77,7 +92,7 @@
     g.add(K.at(smooth(new THREE.BoxGeometry(keepW, keepH, keepW), stone), 0, keepH / 2, 0));
     g.add(K.at(smooth(new THREE.BoxGeometry(keepW * 1.05, 0.4, keepW * 1.05), stoneD), 0, keepH, 0));
     g.add(K.at(K.door(1.1, 1.5, timber), 0, 0, keepW / 2 + 0.02));
-    var bw = K.window(0.6, 0.8, timber, glowM(p.glow)); K.at(bw, 0, keepH * 0.62, keepW / 2 + 0.02); g.add(bw); glow = glow.concat(bw.userData.glow);
+    var bw = K.window(0.6, 0.8, timber, paneM(p.glow)); K.at(bw, 0, keepH * 0.62, keepW / 2 + 0.02); g.add(bw); glow = glow.concat(bw.userData.glow);
     if (tier >= 2) crenellate(g, keepW / 2 + 0.1, keepH + 0.2, stone);
     g.add(factionTop('human', p, keepW * 0.58, keepH + 0.3, glow, tier >= 2));
     var towers = tier >= 3 ? [[1, 1], [-1, 1], [1, -1], [-1, -1]] : tier >= 2 ? [[1, -1], [-1, -1]] : [];
@@ -100,7 +115,7 @@
     var hallY = moundTiers * 0.55;
     g.add(K.at(smooth(new THREE.CylinderGeometry(hallW * 0.55, hallW * 0.62, hallH, 8), stone), 0, hallY + hallH / 2, 0));
     g.add(K.at(K.door(1.0, 1.4, timber), 0, hallY, hallW * 0.55 + 0.02));
-    var ow = K.window(0.5, 0.5, timber, glowM(p.accent, 1.4)); K.at(ow, 0, hallY + hallH * 0.62, hallW * 0.55 + 0.02); g.add(ow); glow = glow.concat(ow.userData.glow);
+    var ow = K.window(0.5, 0.5, timber, paneM(p.accent, 1.4)); K.at(ow, 0, hallY + hallH * 0.62, hallW * 0.55 + 0.02); g.add(ow); glow = glow.concat(ow.userData.glow);
     var tent = K.tentRoof(hallW * 0.72, hallH * 0.75, M(p.roof)); K.at(tent, 0, hallY + hallH, 0); g.add(tent);
     if (tier >= 2) { var tent2 = K.tentRoof(hallW * 0.5, hallH * 0.5, M(p.roof)); K.at(tent2, 0, hallY + hallH * 1.6, 0); g.add(tent2); }   // stacked upper tent
     var ns = 6 + tier * 2; for (var i = 0; i < ns; i++) { var a = i / ns * Math.PI * 2, R = hallW * 0.6; var sp = K.boneSpike(0.7, bone); K.at(sp, Math.cos(a) * R, hallY + hallH, Math.sin(a) * R); sp.rotation.z = Math.cos(a) * 0.5; sp.rotation.x = -Math.sin(a) * 0.5; g.add(sp); }
@@ -136,7 +151,7 @@
     // flared roots
     var nr = 6; for (var i = 0; i < nr; i++) { var a = i / nr * Math.PI * 2; var root = K.facet(new THREE.CylinderGeometry(0.1, 0.34, 1.4, 6), timber); K.at(root, Math.cos(a) * trunkR * 0.9, 0.6, Math.sin(a) * trunkR * 0.9); root.rotation.x = -Math.sin(a) * 0.5; root.rotation.z = Math.cos(a) * 0.5; g.add(root); }
     g.add(K.at(K.door(1.0, 1.5, timber), 0, 0, trunkR * 1.05));
-    var lw = K.leafWindow(0.42, timber, glowM(p.glow, 0.9)); K.at(lw, 0, trunkH * 0.5, trunkR * 1.05); g.add(lw); glow = glow.concat(lw.userData.glow);
+    var lw = K.leafWindow(0.42, timber, paneM(p.glow, 0.9)); K.at(lw, 0, trunkH * 0.5, trunkR * 1.05); g.add(lw); glow = glow.concat(lw.userData.glow);
     // gold rune orbs climbing the trunk
     for (var r = 0; r < tier + 1; r++) { var orb = K.facet(new THREE.IcosahedronGeometry(0.18, 0), glowM(p.glow, 1.3)); K.at(orb, 0, trunkH * (0.3 + r * 0.18), trunkR * 1.0); g.add(orb); glow.push(orb); }
     // massive canopy crown (grows per tier)
@@ -173,7 +188,7 @@
       g.add(at(K.gableRoof(bodyW + 0.5, bodyD + 0.5, 1.3, M(p.roof)), 0, bodyH, 0));
       g.add(at(smooth(new THREE.BoxGeometry(bodyW + 0.5, 0.12, bodyD + 0.5), timber), 0, bodyH, 0));   // eave board
       g.add(at(K.chimney(1.1, stoneD), bodyW * 0.3, bodyH + 0.7, -bodyD * 0.2));
-      var hw = K.window(0.55, 0.7, timber, glowM(p.glow)); at(hw, -0.8, 1.4, bodyD / 2 + 0.02); g.add(hw); glow = glow.concat(hw.userData.glow);
+      var hw = K.window(0.55, 0.7, timber, paneM(p.glow)); at(hw, -0.8, 1.4, bodyD / 2 + 0.02); g.add(hw); glow = glow.concat(hw.userData.glow);
       var bn = K.banner(2.0, M(p.banner), timber); at(bn, -bodyW / 2 - 0.2, 0, bodyD / 2 - 0.2); g.add(bn);
     } else if (faction === 'orc') {
       // tan stone + red draped tent roof + bone spikes around the eave + forge-glow window + cauldron
@@ -181,7 +196,7 @@
       var bone = M(p.bone);
       var ns = 7; for (var i = 0; i < ns; i++) { var a = i / ns * Math.PI * 2; var sp = K.boneSpike(0.6, bone); at(sp, Math.cos(a) * bodyW * 0.6, bodyH + 0.1, Math.sin(a) * bodyD * 0.6); sp.rotation.z = Math.cos(a) * 0.5; sp.rotation.x = -Math.sin(a) * 0.5; g.add(sp); }
       g.add(at(smooth(new THREE.BoxGeometry(0.16, bodyH * 0.7, bodyD + 0.3), timber), bodyW / 2, bodyH * 0.45, 0));   // lashed beam
-      var ow = K.window(0.5, 0.5, timber, glowM(p.accent, 1.4)); at(ow, -0.8, 1.4, bodyD / 2 + 0.02); g.add(ow); glow = glow.concat(ow.userData.glow);
+      var ow = K.window(0.5, 0.5, timber, paneM(p.accent, 1.4)); at(ow, -0.8, 1.4, bodyD / 2 + 0.02); g.add(ow); glow = glow.concat(ow.userData.glow);
       // forge cauldron with lava glow beside the hut
       var pot = facet(new THREE.SphereGeometry(0.4, 9, 7, 0, 6.3, Math.PI * 0.35, Math.PI * 0.65), M(0x2a2622)); at(pot, bodyW / 2 + 0.7, 0.5, bodyD * 0.2); g.add(pot);
       var lava = facet(new THREE.CylinderGeometry(0.34, 0.34, 0.12, 9), glowM(p.glow, 1.8)); at(lava, bodyW / 2 + 0.7, 0.72, bodyD * 0.2); g.add(lava); glow.push(lava);
@@ -189,7 +204,7 @@
       // stone + big green leaf canopy crown + gnarled timber + gold rune orb + leaf-cross window
       g.add(at(K.canopy(2.0, 7, M(p.leaf, { ramp: LPF.RAMP.skin }), M(p.leafD)), 0, bodyH + 0.9, 0));
       [-1, 1].forEach(function (s) { var root = facet(new THREE.CylinderGeometry(0.12, 0.34, bodyH + 0.4, 6), timber); at(root, bodyW / 2 * s, (bodyH + 0.4) / 2 - 0.2, bodyD / 2 * 0.6); root.rotation.x = -0.12; g.add(root); });   // gnarled roots
-      var lw = K.leafWindow(0.42, timber, glowM(p.glow, 0.9)); at(lw, 0, 1.5, bodyD / 2 + 0.05); g.add(lw); glow = glow.concat(lw.userData.glow);
+      var lw = K.leafWindow(0.42, timber, paneM(p.glow, 0.9)); at(lw, 0, 1.5, bodyD / 2 + 0.05); g.add(lw); glow = glow.concat(lw.userData.glow);
       // gold rune orb on a small post
       var orb = facet(new THREE.IcosahedronGeometry(0.22, 0), glowM(p.glow, 1.4)); at(orb, bodyW / 2 + 0.5, 1.2, bodyD * 0.2); g.add(orb); glow.push(orb);
       g.add(at(smooth(new THREE.CylinderGeometry(0.06, 0.06, 1.2, 6), timber), bodyW / 2 + 0.5, 0.6, bodyD * 0.2));
@@ -216,7 +231,7 @@
     var ns = 10; for (var i = 0; i < ns; i++) { var sp = K.boneSpike(0.6, bone); K.at(sp, -w / 2 + (i + 0.5) * w / ns, y + h + 0.1, d / 2 * (i % 2 ? 1 : -1)); g.add(sp); }
     g.add(K.at(K.door(1.1, 1.5, timber), 0, y, d / 2 + 0.02));
     var arch = K.boneArch(2.0, 1.9, bone); K.at(arch, 0, y, d / 2 + 0.6); g.add(arch);
-    var ow = K.window(0.5, 0.5, timber, glowM(p.accent, 1.4)); K.at(ow, -1.4, y + h * 0.6, d / 2 + 0.02); g.add(ow); glow = glow.concat(ow.userData.glow);
+    var ow = K.window(0.5, 0.5, timber, paneM(p.accent, 1.4)); K.at(ow, -1.4, y + h * 0.6, d / 2 + 0.02); g.add(ow); glow = glow.concat(ow.userData.glow);
     // weapon rack of spears leaning on the wall
     for (var s = 0; s < 4; s++) { var sp2 = smooth(new THREE.CylinderGeometry(0.04, 0.04, 1.9, 5), timber); K.at(sp2, w / 2 + 0.25, 1.0, -0.7 + s * 0.32); sp2.rotation.x = 0.18; g.add(sp2);
       g.add(K.at(facet(new THREE.ConeGeometry(0.08, 0.3, 4), bone), w / 2 + 0.25 + 0.17, 1.95, -0.7 + s * 0.32)); }
@@ -291,7 +306,7 @@
     g.add(K.at(K.canopy(1.6, 6, leaf, leafD), -w * 0.25, h + 0.5, 0));
     g.add(K.at(K.canopy(1.6, 6, leaf, leafD), w * 0.25, h + 0.5, 0));
     g.add(K.at(K.door(1.2, 1.5, timber), 0, 0, d / 2 + 0.02));
-    var lw = K.leafWindow(0.4, timber, glowM(p.glow, 0.9)); K.at(lw, -1.3, h * 0.6, d / 2 + 0.02); g.add(lw); glow = glow.concat(lw.userData.glow);
+    var lw = K.leafWindow(0.4, timber, paneM(p.glow, 0.9)); K.at(lw, -1.3, h * 0.6, d / 2 + 0.02); g.add(lw); glow = glow.concat(lw.userData.glow);
     [-1, 1].forEach(function (s) { g.add(K.at(facet(new THREE.CylinderGeometry(0.14, 0.3, h + 0.3, 6), timber), w / 2 * s, (h + 0.3) / 2 - 0.15, d / 2 * 0.7)); });
     var orb = facet(new THREE.IcosahedronGeometry(0.2, 0), glowM(p.glow, 1.3)); K.at(orb, 0, h + 0.2, d / 2 + 0.3); g.add(orb); glow.push(orb);
     [-1, 1].forEach(function (s) { var hn = horn(0.6, timber); K.at(hn, w * 0.42 * s, h + 0.7, 0); hn.rotation.z = -s * 0.7; g.add(hn); });
@@ -305,7 +320,7 @@
     g.add(K.at(smooth(new THREE.CylinderGeometry(r * 0.8, r * 1.1, h, 8), timber), 0, h / 2, 0));
     var nr = 5; for (var i = 0; i < nr; i++) { var a = i / nr * Math.PI * 2; var root = facet(new THREE.CylinderGeometry(0.08, 0.26, 1.1, 6), timber); K.at(root, Math.cos(a) * r * 0.9, 0.5, Math.sin(a) * r * 0.9); root.rotation.x = -Math.sin(a) * 0.5; root.rotation.z = Math.cos(a) * 0.5; g.add(root); }
     g.add(K.at(K.canopy(1.7, 7, leaf, leafD), 0, h + 0.5, 0));
-    var lw = K.leafWindow(0.4, timber, glowM(p.glow, 1.0)); K.at(lw, 0, h * 0.6, r * 1.0); g.add(lw); glow = glow.concat(lw.userData.glow);
+    var lw = K.leafWindow(0.4, timber, paneM(p.glow, 1.0)); K.at(lw, 0, h * 0.6, r * 1.0); g.add(lw); glow = glow.concat(lw.userData.glow);
     for (var k = 0; k < 2; k++) { var orb = facet(new THREE.IcosahedronGeometry(0.16, 0), glowM(p.glow, 1.3)); K.at(orb, 0, h * (0.35 + k * 0.2), r * 0.95); g.add(orb); glow.push(orb); }
     [-1, 1].forEach(function (s) { var hn = horn(0.7, timber); K.at(hn, r * 1.2 * s, h + 0.3, 0); hn.rotation.z = -s * 0.8; g.add(hn); });
     return finishB(g, 'elf', { w: 1, d: 1 }, glow);
@@ -318,7 +333,7 @@
     var r = 1.3, h = 3.6;
     g.add(K.at(smooth(new THREE.CylinderGeometry(r * 0.85, r * 1.25, h, 8), timber), 0, h / 2, 0));
     var nr = 7; for (var i = 0; i < nr; i++) { var a = i / nr * Math.PI * 2; var root = facet(new THREE.CylinderGeometry(0.12, 0.4, 1.6, 6), timber); K.at(root, Math.cos(a) * r * 0.95, 0.7, Math.sin(a) * r * 0.95); root.rotation.x = -Math.sin(a) * 0.55; root.rotation.z = Math.cos(a) * 0.55; g.add(root); }
-    var lw = K.leafWindow(0.5, timber, glowM(p.glow, 1.0)); K.at(lw, 0, h * 0.55, r * 1.05); g.add(lw); glow = glow.concat(lw.userData.glow);
+    var lw = K.leafWindow(0.5, timber, paneM(p.glow, 1.0)); K.at(lw, 0, h * 0.55, r * 1.05); g.add(lw); glow = glow.concat(lw.userData.glow);
     g.add(K.at(K.door(1.2, 1.6, timber), 0, 0, r * 1.05));
     g.add(K.at(K.canopy(2.6, 11, leaf, leafD), 0, h + 0.8, 0));
     g.add(K.at(facet(new THREE.CylinderGeometry(0.9, 1.0, 0.4, 9), stone), 2.2, 0.2, 0.6));
@@ -353,7 +368,7 @@
     g.add(K.at(K.gableRoof(w + 0.5, d + 0.5, 1.4, M(p.roof)), 0, h, 0));
     g.add(K.at(smooth(new THREE.BoxGeometry(w + 0.5, 0.12, d + 0.5), timber), 0, h, 0));
     g.add(K.at(K.door(1.2, 1.5, timber), 0, 0, d / 2 + 0.02));
-    [-1, 1].forEach(function (s) { var hw = K.window(0.5, 0.7, timber, glowM(p.glow)); K.at(hw, 1.1 * s, h * 0.55, d / 2 + 0.02); g.add(hw); glow = glow.concat(hw.userData.glow); });
+    [-1, 1].forEach(function (s) { var hw = K.window(0.5, 0.7, timber, paneM(p.glow)); K.at(hw, 1.1 * s, h * 0.55, d / 2 + 0.02); g.add(hw); glow = glow.concat(hw.userData.glow); });
     var bn = K.banner(2.4, M(p.banner), timber); K.at(bn, -w / 2 - 0.3, 0, d / 2 - 0.2); g.add(bn);
     return finishB(g, 'human', { w: 3, d: 2 }, glow);
   }
@@ -366,7 +381,7 @@
     crenellate(g, r + 0.05, h + 0.05, stone);
     var ch = 1.4, cone = K.coneRoof(r * 1.05, ch, M(p.roof), 8); K.at(cone, 0, h + 0.5 + ch / 2, 0); g.add(cone);
     g.add(K.at(facet(new THREE.ConeGeometry(0.07, 0.5, 5), LPF.toon(p.accent, { ramp: LPF.RAMP.metal, rim: false })), 0, h + 0.5 + ch + 0.2, 0));
-    for (var i = 0; i < 3; i++) { var a = i / 3 * Math.PI * 2; var sl = K.window(0.22, 0.5, timber, glowM(p.glow)); K.at(sl, Math.cos(a) * r, h * 0.6, Math.sin(a) * r); sl.rotation.y = -a + Math.PI / 2; g.add(sl); glow = glow.concat(sl.userData.glow); }
+    for (var i = 0; i < 3; i++) { var a = i / 3 * Math.PI * 2; var sl = K.window(0.22, 0.5, timber, paneM(p.glow)); K.at(sl, Math.cos(a) * r, h * 0.6, Math.sin(a) * r); sl.rotation.y = -a + Math.PI / 2; g.add(sl); glow = glow.concat(sl.userData.glow); }
     g.add(K.at(K.door(0.9, 1.3, timber), 0, 0, r + 0.02));
     return finishB(g, 'human', { w: 1, d: 1 }, glow);
   }
@@ -383,7 +398,7 @@
     g.add(K.at(K.door(1.1, 1.5, timber), -0.4, 0, d / 2 + 0.02));
     g.add(K.at(K.chimney(1.6, stoneD), -1.6, h + 1.0, -0.6));
     var ember = facet(new THREE.CylinderGeometry(0.2, 0.2, 0.12, 8), glowM(0xff8a3a, 1.6)); K.at(ember, -1.6, h + 1.85, -0.6); g.add(ember); glow.push(ember);
-    var fg = K.window(0.6, 0.5, timber, glowM(0xff8a3a, 1.5)); K.at(fg, 0.7, h * 0.45, d / 2 + 0.02); g.add(fg); glow = glow.concat(fg.userData.glow);
+    var fg = K.window(0.6, 0.5, timber, paneM(0xff8a3a, 1.5)); K.at(fg, 0.7, h * 0.45, d / 2 + 0.02); g.add(fg); glow = glow.concat(fg.userData.glow);
     g.add(K.at(K.waterwheel(1.1, timber, iron), w / 2 + 0.2, 1.1, 0.4));
     var bn = K.banner(2.2, M(p.banner), timber); K.at(bn, -w / 2 - 0.7, 0, d / 2 - 0.2); g.add(bn);
     return finishB(g, 'human', { w: 3, d: 2 }, glow);
@@ -398,7 +413,7 @@
     var ch = 1.7, cone = K.coneRoof(w * 0.64, ch, M(p.roof), 8); K.at(cone, 0, h + ch / 2, 0); g.add(cone);
     var orb = facet(new THREE.IcosahedronGeometry(0.28, 0), glowM(0x6fb4ff, 1.6)); K.at(orb, 0, h + ch + 0.2, 0); g.add(orb); glow.push(orb);
     g.add(K.at(K.door(1.0, 1.4, timber), 0, 0, d / 2 + 0.02));
-    [-0.7, 0.7].forEach(function (x) { var ww = K.window(0.4, 1.2, timber, glowM(0x6fb4ff, 1.0)); K.at(ww, x, h * 0.55, d / 2 + 0.02); g.add(ww); glow = glow.concat(ww.userData.glow); });
+    [-0.7, 0.7].forEach(function (x) { var ww = K.window(0.4, 1.2, timber, paneM(0x6fb4ff, 1.0)); K.at(ww, x, h * 0.55, d / 2 + 0.02); g.add(ww); glow = glow.concat(ww.userData.glow); });
     var bn = K.banner(2.4, M(p.banner), timber); K.at(bn, -w / 2 - 0.3, 0, d / 2 - 0.2); g.add(bn);
     return finishB(g, 'human', { w: 2, d: 2 }, glow);
   }
@@ -428,5 +443,12 @@
     return buildHouse(faction);
   };
 
-  LPF.setNight = function (b, on) { (b.userData.glowMeshes || []).forEach(function (m) { m.material.emissiveIntensity = on ? (m.material.userData.base || 1.4) : 0.0; }); };
+  // Day/night toggle. Each glow material carries dayI/nightI; magic props keep a
+  // soft day glow, window panes go fully dark by day. Call this for BOTH states.
+  LPF.setNight = function (b, on) {
+    (b.userData.glowMeshes || []).forEach(function (m) {
+      var u = m.material.userData;
+      m.material.emissiveIntensity = on ? (u.nightI != null ? u.nightI : 1.4) : (u.dayI != null ? u.dayI : 0.0);
+    });
+  };
 })(typeof window !== 'undefined' ? window : globalThis);

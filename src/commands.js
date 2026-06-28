@@ -1277,7 +1277,8 @@
   RTS.upgradeTower = function (s, buildingId, variant) {
     var b = (s.entities.buildings || []).find(function (x) { return x.id === buildingId; });
     if (!b || !b.built || b.type !== 'turret' || b.towerType || b.upgrading) return;
-    var def = RTS.TowerUpgrades && RTS.TowerUpgrades[variant];
+    var ups = RTS.towerUpgradesFor && RTS.towerUpgradesFor(b.faction);
+    var def = ups && ups[variant];
     if (!def) return;
     var team = b.team, isPlayer = team === RTS.TEAM.PLAYER;
     if (!RTS.canAfford(s, team, def.cost)) {
@@ -1296,7 +1297,8 @@
   /* Commit a completed tower specialisation — applies its combat stats + sprite. */
   RTS.applyTowerUpgrade = function (s, b) {
     var variant = b.upgrading && b.upgrading.toTower;
-    var def = RTS.TowerUpgrades && RTS.TowerUpgrades[variant];
+    var ups = RTS.towerUpgradesFor && RTS.towerUpgradesFor(b.faction);
+    var def = ups && ups[variant];
     b.upgrading = null;
     if (!def) return;
     b.towerType = variant;

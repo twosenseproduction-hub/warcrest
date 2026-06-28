@@ -40,7 +40,7 @@
   ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
 
   var model = LPF.buildBuilding(faction, kind, +(qs.get('tier') || 1));
-  if (night && LPF.setNight) LPF.setNight(model, true);
+  if (LPF.setNight) LPF.setNight(model, night);
   scene.add(model);
   var box = new THREE.Box3().setFromObject(model); var size = new THREE.Vector3(); box.getSize(size);
   var center = new THREE.Vector3(); box.getCenter(center);

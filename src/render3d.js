@@ -124,14 +124,77 @@
     }
   }
   function sideStair(g, x, mat) { for (var i = 0; i < 6; i++) g.add(box(0.9, 0.34, 1.5, mat, x, 0.5 + i * 0.78, 0)); }
-  function tfTower(race) {
+  function emberMat(c, e) { return new THREE.MeshStandardMaterial({ color: c, emissive: e || c, emissiveIntensity: 0.95, flatShading: true, roughness: 1 }); }
+  // Per-race guard towers: each race gets its own silhouette (not just a recolor),
+  // and an upgraded tower (towerType) adds a distinguishing topper for its line.
+  function tfTower(race, tt) {
+    if (race === 'horde') return tfTowerOrc(race, tt);
+    if (race === 'elf') return tfTowerElf(race, tt);
+    return tfTowerHuman(race, tt);
+  }
+  // HUMAN: round stone shaft + corbeled cap + crenellations + blue cone roof + gold finial
+  //   arrow → mounted ballista bolt · bombard → cannon barrel
+  function tfTowerHuman(race, tt) {
     var g = new THREE.Group();
-    g.add(box(2.4, 5.0, 2.4, BP.body, 0, 2.5, 0));                 // terracotta shaft
-    g.add(box(3.3, 0.7, 3.3, BP.cap, 0, 5.15, 0));                 // corbeled cream cap (overhangs)
-    crenellate(g, 1.5, 5.7, BP.cap);
-    sideStair(g, 1.95, BP.capD);
-    g.add(box(0.7, 1.0, 0.18, BP.door, 0, 0.8, 1.22));
-    g.add(box(0.7, 0.45, 0.05, factionBanner(race), 0, 6.3, 0));
+    g.add(cyl(1.25, 1.45, 5.0, 8, BP.body).translateY(2.5));      // round stone shaft
+    g.add(box(3.2, 0.6, 3.2, BP.cap, 0, 5.2, 0));                 // corbeled cap (overhangs)
+    crenellate(g, 1.5, 5.75, BP.cap);
+    g.add(box(0.6, 0.95, 0.18, BP.door, 0, 0.78, 1.27));
+    for (var i = 0; i < 3; i++) { var a = i / 3 * Math.PI * 2; var sl = box(0.22, 0.55, 0.16, emberMat(0xffce7a, 0xb98a23), Math.cos(a) * 1.3, 3.6, Math.sin(a) * 1.3); g.add(sl); }   // arrow-slit glows
+    if (!tt) {                                                     // base: blue cone roof + gold finial
+      var roof = cone(1.45, 2.1, 8, BP.cap); roof.position.y = 6.95; g.add(roof);
+      g.add(cyl(0.07, 0.07, 0.7, 5, BP.gold).translateY(8.35));
+    } else {                                                       // upgraded: open battle deck + a war engine
+      g.add(box(2.0, 0.16, 2.0, BP.woodD, 0, 5.65, 0));
+      if (tt === 'arrow') {                                        // mounted ballista — bolt projects forward over the wall
+        g.add(box(1.5, 0.16, 0.16, P.dark, 0, 6.3, -0.1));         // crossbar
+        var stock = box(0.18, 0.18, 1.0, BP.woodD, 0, 6.3, -0.45); g.add(stock);
+        var bolt = cyl(0.08, 0.04, 2.4, 6, BP.woodD); bolt.rotation.x = Math.PI / 2; bolt.position.set(0, 6.3, 0.95); g.add(bolt);
+        g.add(box(0.05, 0.42, 0.42, BP.gold, 0, 6.3, -0.2));       // fletching
+      } else {                                                     // bombard — iron cannon over a timber carriage
+        g.add(box(1.2, 0.45, 1.2, BP.woodD, 0, 6.0, 0.1));         // carriage
+        var barrel = cyl(0.32, 0.42, 2.0, 8, P.dark); barrel.rotation.x = Math.PI / 2.3; barrel.position.set(0, 6.5, 0.7); g.add(barrel);
+      }
+    }
+    return g;
+  }
+  // ORC: rough shaft + lashed-wood scaffold platform + red tent roof + bone spikes + forge-glow eye
+  //   barb → tall bone-shard cluster · catapult → skull-throwing arm
+  function tfTowerOrc(race, tt) {
+    var g = new THREE.Group();
+    g.add(box(2.3, 4.4, 2.3, BP.body, 0, 2.2, 0));                // rough stone shaft
+    [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(function (c) { g.add(box(0.18, 1.5, 0.18, BP.wood, c[0] * 1.25, 4.6, c[1] * 1.25)); });   // scaffold posts
+    g.add(box(2.9, 0.18, 2.9, BP.woodD, 0, 5.35, 0));             // platform
+    var tent = cone(1.85, 1.9, 8, BP.cap); tent.position.y = 6.4; g.add(tent);    // red tent roof
+    for (var i = 0; i < 7; i++) { var a = i / 7 * Math.PI * 2; var sp = cone(0.16, 0.7, 5, P.bone); sp.position.set(Math.cos(a) * 1.35, 5.6, Math.sin(a) * 1.35); sp.rotation.z = Math.cos(a) * 0.45; sp.rotation.x = -Math.sin(a) * 0.45; g.add(sp); }   // bone spikes
+    g.add(box(0.5, 0.6, 0.16, emberMat(0xff7a18), 0, 3.4, 1.18)); // glowing forge-eye
+    g.add(box(0.9, 1.2, 0.2, BP.door, 0, 0.85, 1.18));
+    if (tt === 'barb') {                                          // tall bone-shard cluster bursting through the tent
+      for (var s = 0; s < 4; s++) { var a3 = s / 4 * Math.PI * 2; var shard = cone(0.18, 2.0 - (s % 2) * 0.5, 5, P.bone); shard.position.set(Math.cos(a3) * 0.35, 8.0, Math.sin(a3) * 0.35); shard.rotation.z = Math.cos(a3) * 0.18; shard.rotation.x = -Math.sin(a3) * 0.18; g.add(shard); }
+    } else if (tt === 'catapult') {                              // throwing arm rising forward over the tent, skull at the tip
+      [-0.5, 0.5].forEach(function (o) { var leg = box(0.16, 1.4, 0.16, BP.wood, o, 6.0, 0.0); leg.rotation.x = 0.3; g.add(leg); });   // A-frame
+      var arm = box(0.22, 2.8, 0.22, BP.wood, 0, 7.1, 0.6); arm.rotation.x = 0.8; g.add(arm);
+      g.add(sphere(0.44, P.bone).translateY(8.2).translateZ(1.8)); // skull payload, high & forward
+    }
+    return g;
+  }
+  // ELF: gnarled tapered trunk + flared roots + leaf canopy crown + climbing rune orbs
+  //   moonfire → bright moon orb · thornwall → bristling thorn crown
+  function tfTowerElf(race, tt) {
+    var g = new THREE.Group();
+    g.add(cyl(0.85, 1.25, 4.6, 8, P.bark).translateY(2.3));       // gnarled trunk
+    for (var i = 0; i < 5; i++) { var a = i / 5 * Math.PI * 2; var rt = cyl(0.1, 0.34, 1.3, 6, P.bark); rt.position.set(Math.cos(a) * 1.0, 0.6, Math.sin(a) * 1.0); rt.rotation.x = -Math.sin(a) * 0.5; rt.rotation.z = Math.cos(a) * 0.5; g.add(rt); }   // flared roots
+    var crown = new THREE.Group(); crown.position.y = 5.3; crown.add(sphere(1.55, P.leaf));
+    for (var j = 0; j < 6; j++) { var a2 = j / 6 * Math.PI * 2; var b = sphere(0.92, j % 2 ? P.leaf2 : P.leaf); b.position.set(Math.cos(a2) * 1.2, 0.35 + (j % 3) * 0.32, Math.sin(a2) * 1.2); crown.add(b); }
+    g.add(crown);                                                  // leaf canopy crown
+    for (var k = 0; k < 2; k++) { var orb = sphere(0.2, emberMat(0xffe07a, 0xd9b94a)); orb.position.set(0, 2.3 + k * 1.0, 1.05); g.add(orb); }   // rune orbs
+    g.add(box(0.8, 1.2, 0.2, BP.door, 0, 0.85, 1.05));
+    if (tt === 'moonfire') {                                      // bright moon orb floating above the canopy
+      var moon = sphere(0.62, emberMat(0xd8e6ff, 0x8fb6ff)); moon.position.y = 7.4; g.add(moon);
+      g.add(cyl(0.05, 0.05, 0.9, 5, P.bark).translateY(6.6));     // stem
+    } else if (tt === 'thornwall') {                             // dark thorns bristling outward beyond the canopy
+      for (var s = 0; s < 8; s++) { var a4 = s / 8 * Math.PI * 2; var th = cone(0.13, 1.4, 5, P.woodD); th.position.set(Math.cos(a4) * 2.1, 5.2, Math.sin(a4) * 2.1); th.rotation.z = Math.cos(a4) * 1.5; th.rotation.x = -Math.sin(a4) * 1.5; g.add(th); }
+    }
     return g;
   }
   function tfKeep(race) {
@@ -220,7 +283,7 @@
     var g;
     if (/core|keep|castle|townhall|citadel|chiefs_hall/.test(t)) g = tfKeep(race);
     else if (/wall|gate|rampart/.test(t)) g = tfWall();
-    else if (/turret|tower/.test(t)) g = tfTower(race);
+    else if (/turret|tower/.test(t)) g = tfTower(race, b.towerType);
     else if (/forge/.test(t)) g = tfForge();
     else if (/foundry|barrack/.test(t)) g = tfBarracks(race);
     else if (/conduit|sheep|farm|pen/.test(t)) g = tfFarm();
@@ -957,7 +1020,7 @@
       R.seen[e.id] = true;
       var slot = R.pool[e.id];
       // rebuild if faction/role/type changed underneath an id (rare)
-      var sig = kind + ':' + (e.faction || '') + ':' + (e.role || e.type || '') + ':' + (e.team || 0) + ':' + (e.heroId || '');
+      var sig = kind + ':' + (e.faction || '') + ':' + (e.role || e.type || '') + ':' + (e.team || 0) + ':' + (e.heroId || '') + ':' + (e.towerType || '');
       if (slot && slot.sig !== sig) { freeSlot(slot); slot = null; }
       if (!slot) {
         var obj;
@@ -1299,6 +1362,19 @@
     loadUnitModels: loadUnitModels,
     hasModel: function (race, role) { return !!protoFor(race, role); },
     _state: R,
+    // Debug/preview: build a guard-tower mesh for a faction + optional towerType
+    // ('arrow'|'bombard'|'barb'|'catapult'|'moonfire'|'thornwall'). Used by the
+    // offline tower-preview harness; harmless in-game.
+    _previewTower: function (faction, towerType) {
+      THREE = THREE || window.THREE;
+      if (!P) buildPalette();
+      var race = raceOf(faction);
+      BP = bpFor(race);
+      var g = tfTower(race, towerType);
+      g.traverse(function (o) { o.castShadow = true; o.receiveShadow = true; });
+      addOutline(g, 0.06);
+      return g;
+    },
   };
 
 })(window.RTS = window.RTS || {});
