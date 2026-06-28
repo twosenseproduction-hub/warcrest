@@ -462,7 +462,7 @@
     var lH = at(floatingHand(skin, 0.15), -0.42, seatY + 0.35, 0.2);
     wpn.position.copy(rH.position);
     if (elf) { wpn.position.y += 0.25; wpn.position.z += 0.15; wpn.rotation.x = -0.2; }
-    else if (human) { wpn.rotation.x = -1.45; wpn.position.z += 0.1; }   // couched lance, leveled forward
+    else if (human) { wpn.rotation.x = 1.45; wpn.position.z += 0.1; }   // couched lance, tip leveled FORWARD (+Z)
     else { wpn.rotation.z = -0.4; wpn.rotation.x = -0.25; }
     rider.add(wpn); rider.add(rH); rider.add(lH);
     if (human) { var sh = kiteShield(mats); sh.scale.setScalar(0.9); sh.position.copy(lH.position); sh.position.z += 0.12; rider.add(sh); }
