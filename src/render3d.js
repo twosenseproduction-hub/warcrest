@@ -22,6 +22,7 @@
   var TILE = 64;
   var HIGH_RISE = 46;        // world-units a HIGH plateau stands above FLAT
   var WATER_DROP = -30;      // water surface sits below FLAT
+  var SHALLOW_DROP = -7;     // wadeable shallow-water shelf sits just below FLAT
 
   var THREE = null;          // resolved lazily once the vendor script loads
   var R = {                  // module-private renderer state
@@ -879,14 +880,64 @@
     fitHeight(g, 52);
     return g;
   }
-  function makeTreeMesh() {
-    var g = new THREE.Group();
-    g.add(cyl(0.28, 0.42, 2.2, 6, P.bark).translateY(1.1));
-    var c = cone(1.5, 2.8, 7, P.leaf); c.position.y = 3.3; g.add(c);
-    var c2 = cone(1.1, 1.9, 7, P.leaf2); c2.position.y = 4.4; g.add(c2);
-    g.traverse(function (o) { o.castShadow = true; });
-    fitHeight(g, 64 + Math.random() * 22);
-    return g;
+  /* ---- Low-poly trees (KayKit / Bitgem style), drawn via InstancedMesh ------
+   * Two species (conifer + broadleaf). Each is baked ONCE into a single merged,
+   * vertex-coloured geometry; a whole forest then renders as ~2 draw calls
+   * (one InstancedMesh per species) instead of thousands of little meshes —
+   * essential now that the 3D view is the default on dense maps. */
+  function rgb3(hex) { return [((hex >> 16) & 255) / 255, ((hex >> 8) & 255) / 255, (hex & 255) / 255]; }
+  function partMat(x, y, z, ry, rz, s) {
+    var m = new THREE.Matrix4();
+    var q = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, ry || 0, rz || 0));
+    m.compose(new THREE.Vector3(x, y, z), q, new THREE.Vector3(s || 1, s || 1, s || 1));
+    return m;
+  }
+  function bakeInto(geo, m4, c, pos, nor, col) {
+    var g = geo.index ? geo.toNonIndexed() : geo.clone();
+    g.applyMatrix4(m4);
+    var pa = g.attributes.position.array, na = g.attributes.normal.array, i;
+    for (i = 0; i < pa.length; i++) { pos.push(pa[i]); nor.push(na[i]); }
+    for (i = 0; i < pa.length / 3; i++) { col.push(c[0], c[1], c[2]); }
+    g.dispose && g.dispose();
+  }
+  function mergeParts(parts) {
+    var pos = [], nor = [], col = [];
+    parts.forEach(function (p) { bakeInto(p.geo, p.m, p.c, pos, nor, col); });
+    var merged = new THREE.BufferGeometry();
+    merged.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    merged.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    merged.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    merged.computeBoundingBox();
+    return merged;
+  }
+  var TREE_PROTOS = null, TREE_MAT = null;
+  function treeProtos() {
+    if (TREE_PROTOS) return TREE_PROTOS;
+    var bark = rgb3(0x6b4a32), barkD = rgb3(0x553c28);
+    var pine = rgb3(0x2f6d3a), pineHi = rgb3(0x3c8048);
+    var leaf = rgb3(0x4f8a46), leafHi = rgb3(0x66a957);
+    var I = function (r) { return new THREE.IcosahedronGeometry(r, 0); };
+    // conifer: tapered trunk + 3 stacked cones
+    var conifer = mergeParts([
+      { geo: new THREE.CylinderGeometry(0.22, 0.4, 2.0, 6), m: partMat(0, 1.0, 0), c: bark },
+      { geo: new THREE.ConeGeometry(1.7, 2.6, 7), m: partMat(0, 2.7, 0), c: pine },
+      { geo: new THREE.ConeGeometry(1.3, 2.2, 7), m: partMat(0, 3.9, 0), c: pineHi },
+      { geo: new THREE.ConeGeometry(0.9, 1.8, 7), m: partMat(0, 5.05, 0), c: pine },
+    ]);
+    // broadleaf: trunk + rounded icosahedron canopy cluster
+    var broad = mergeParts([
+      { geo: new THREE.CylinderGeometry(0.26, 0.44, 2.1, 6), m: partMat(0, 1.05, 0), c: barkD },
+      { geo: I(1.55), m: partMat(0, 3.35, 0), c: leaf },
+      { geo: I(1.05), m: partMat(1.2, 3.0, 0.3), c: leafHi },
+      { geo: I(1.05), m: partMat(-1.0, 3.15, -0.4), c: leaf },
+      { geo: I(0.95), m: partMat(0.1, 4.15, 0.2), c: leafHi },
+    ]);
+    TREE_PROTOS = { conifer: conifer, broad: broad };
+    return TREE_PROTOS;
+  }
+  function treeMat() {
+    if (!TREE_MAT) TREE_MAT = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 1, metalness: 0 });
+    return TREE_MAT;
   }
 
   /* ===========================================================================
@@ -895,7 +946,11 @@
   function elevAt(grid, cx, cy) {
     if (!grid) return 0;
     if (cx < 0 || cy < 0 || cx >= grid.cols || cy >= grid.rows) return WATER_DROP;
-    var h = grid.heights[cx + cy * grid.cols];
+    var i = cx + cy * grid.cols;
+    // shallow ford: a wadeable shelf just below grass level (still walkable —
+    // groundYAt clamps entities to >=0 so they wade rather than sink).
+    if (grid.shallow && grid.shallow[i] === 1) return SHALLOW_DROP;
+    var h = grid.heights[i];
     if (h < 0) return WATER_DROP;
     return h >= 1 ? HIGH_RISE : 0;
   }
@@ -915,7 +970,7 @@
     var H = (s.map && s.map.h) || RTS.Config.world.h;
 
     // water plane spanning the whole world (shows through gaps / below cliffs)
-    var wmat = new THREE.MeshStandardMaterial({ color: 0x2a5b86, roughness: 0.45, metalness: 0.1, transparent: true, opacity: 0.92 });
+    var wmat = new THREE.MeshStandardMaterial({ color: 0x245a7e, roughness: 0.78, metalness: 0.0, transparent: true, opacity: 0.94 });
     var wm = new THREE.Mesh(new THREE.PlaneGeometry(W + 800, H + 800), wmat);
     wm.rotation.x = -Math.PI / 2; wm.position.set(W / 2, WATER_DROP + 6, H / 2); wm.receiveShadow = true;
     R.waterMesh = wm; R.scene.add(wm);
@@ -926,6 +981,7 @@
     // Deeper, more saturated grass so the warm daylight doesn't wash it to pale
     // yellow; per-tile jitter (below) breaks the flat single-colour look.
     var cTop = new THREE.Color(0x6a9f4c), cTopHi = new THREE.Color(0x7eb158), cCliff = new THREE.Color(0x6e5d40), cSand = new THREE.Color(0xc9b483);
+    var cShallow = new THREE.Color(0x2f8ea2);   // wadeable shallow-water shelf (deep teal so sun doesn't clip it to white)
     var _tcol = new THREE.Color();
     function quad(ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz, col) {
       // two tris a-b-c, a-c-d
@@ -944,23 +1000,27 @@
     var cols = grid.cols, rows = grid.rows;
     for (var cy = 0; cy < rows; cy++) {
       for (var cx = 0; cx < cols; cx++) {
-        var h = grid.heights[cx + cy * cols];
+        var ti = cx + cy * cols;
+        var h = grid.heights[ti];
         if (h < 0) continue; // water tile: leave gap, water plane shows
-        var y = h >= 1 ? HIGH_RISE : 0;
+        var sh = grid.shallow && grid.shallow[ti] === 1;
+        var y = sh ? SHALLOW_DROP : (h >= 1 ? HIGH_RISE : 0);
         var x0 = cx * TILE, x1 = x0 + TILE, z0 = cy * TILE, z1 = z0 + TILE;
         // per-tile brightness jitter (deterministic hash) → grassy patch variation
         var hsh = Math.sin(cx * 12.9898 + cy * 78.233) * 43758.5453; hsh -= Math.floor(hsh);
         var jit = 0.9 + hsh * 0.1;   // darken-only patch variation (never brightens to white)
-        _tcol.copy(h >= 1 ? cTopHi : cTop).multiplyScalar(jit);
+        if (sh) _tcol.copy(cShallow).multiplyScalar(0.94 + hsh * 0.12);
+        else _tcol.copy(h >= 1 ? cTopHi : cTop).multiplyScalar(jit);
         // CCW-from-above winding so the top-face normal points UP (sun-lit)
         quad(x0, y, z0, x0, y, z1, x1, y, z1, x1, y, z0, _tcol);
-        // cliff faces toward any lower neighbor (incl. water)
+        // side faces toward any lower neighbor: sand beach down to shallow/water,
+        // dirt cliff down to a lower plateau.
         var nb = [[0, -1, x0, z0, x1, z0], [1, 0, x1, z0, x1, z1], [0, 1, x1, z1, x0, z1], [-1, 0, x0, z1, x0, z0]];
         for (var k = 0; k < 4; k++) {
           var e = nb[k]; var ne = elevAt(grid, cx + e[0], cy + e[1]);
           if (ne < y) {
             var sx = e[2], sz = e[3], ex = e[4], ez = e[5];
-            var col = ne <= WATER_DROP ? cSand : cCliff;
+            var col = ne <= SHALLOW_DROP ? cSand : cCliff;
             quad(sx, y, sz, ex, y, ez, ex, ne, ez, sx, ne, sz, col);
           }
         }
@@ -974,16 +1034,45 @@
     var tm = new THREE.Mesh(geo, tmat); tm.receiveShadow = true; tm.castShadow = true;
     R.terrainMesh = tm; R.scene.add(tm);
 
-    // decor (trees) — built once with the terrain
+    // decor (trees) — instanced per species, built once with the terrain
     if (R.decorGroup) { R.scene.remove(R.decorGroup); disposeObj(R.decorGroup); }
     R.decorGroup = new THREE.Group();
-    var decor = s.map && s.map.decor;
-    if (decor) {
-      decor.forEach(function (d) {
-        if (d.kind !== 'tree' && d.kind !== 'grove_tree') return;
-        var t = makeTreeMesh(); t.position.set(d.x, groundYAt(s, d.x, d.y), d.y);
-        R.decorGroup.add(t);
+    var decor = (s.map && s.map.decor) || [];
+    var trees = decor.filter(function (d) { return d.kind === 'tree' || d.kind === 'grove_tree'; });
+    if (trees.length) {
+      var protos = treeProtos();
+      var hCon = protos.conifer.boundingBox.max.y - protos.conifer.boundingBox.min.y;
+      var hBro = protos.broad.boundingBox.max.y - protos.broad.boundingBox.min.y;
+      var conList = [], broList = [];
+      trees.forEach(function (d) {
+        var hsh = ((Math.floor(d.x) * 73856093) ^ (Math.floor(d.y) * 19349663)) >>> 0;
+        ((hsh & 1) ? broList : conList).push({ d: d, h: hsh });
       });
+      var dummy = new THREE.Object3D(), tc = new THREE.Color();
+      var mkInst = function (geo, list, protoH, baseH) {
+        if (!list.length) return null;
+        var im = new THREE.InstancedMesh(geo, treeMat(), list.length);
+        im.castShadow = true; im.receiveShadow = true;
+        list.forEach(function (it, i) {
+          var d = it.d, hsh = it.h;
+          var sc = (baseH + ((hsh >>> 8) & 31)) / protoH;   // ±31px height variety
+          dummy.position.set(d.x, groundYAt(s, d.x, d.y), d.y);
+          dummy.rotation.set(0, ((hsh >>> 4) & 63) / 63 * Math.PI * 2, 0);
+          dummy.scale.set(sc, sc * (0.92 + ((hsh >>> 13) & 7) / 7 * 0.2), sc);
+          dummy.updateMatrix();
+          im.setMatrixAt(i, dummy.matrix);
+          var tint = 0.88 + ((hsh >>> 16) & 15) / 15 * 0.2;  // subtle per-tree shade
+          tc.setRGB(tint, tint, tint);
+          im.setColorAt(i, tc);
+        });
+        im.instanceMatrix.needsUpdate = true;
+        if (im.instanceColor) im.instanceColor.needsUpdate = true;
+        return im;
+      };
+      var imC = mkInst(protos.conifer, conList, hCon, 60);
+      var imB = mkInst(protos.broad, broList, hBro, 58);
+      if (imC) R.decorGroup.add(imC);
+      if (imB) R.decorGroup.add(imB);
     }
     R.scene.add(R.decorGroup);
   }
@@ -1045,9 +1134,9 @@
     R.camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 8, 9000);
     // Soft daylight: a NEUTRAL fill (the old warm fill is what yellow-washed the
     // grass) + a gently warm key sun, so colours read true — not washed, not garish.
-    R.amb = new THREE.AmbientLight(0xeef1f4, 0.30); R.scene.add(R.amb);
-    R.hemi = new THREE.HemisphereLight(0xcfe2ff, 0x49532e, 0.28); R.scene.add(R.hemi);
-    R.sun = new THREE.DirectionalLight(0xfff3e2, 1.55);
+    R.amb = new THREE.AmbientLight(0xeef1f4, 0.34); R.scene.add(R.amb);
+    R.hemi = new THREE.HemisphereLight(0xbcd6ff, 0x4a5a32, 0.30); R.scene.add(R.hemi);
+    R.sun = new THREE.DirectionalLight(0xffe7c2, 1.45);
     R.sun.castShadow = true; R.sun.shadow.mapSize.set(IS_MOBILE ? 1024 : 2048, IS_MOBILE ? 1024 : 2048);
     var sc = R.sun.shadow.camera; sc.near = 50; sc.far = 2600; sc.left = -900; sc.right = 900; sc.top = 900; sc.bottom = -900;
     R.sun.shadow.bias = -0.0006;
@@ -1064,7 +1153,7 @@
         var iw = window.innerWidth, ih = window.innerHeight;
         R.composer = new THREE.EffectComposer(R.renderer);
         R.composer.addPass(new THREE.RenderPass(R.scene, R.camera));
-        R.bloom = new THREE.UnrealBloomPass(new THREE.Vector2(iw, ih), 0.6, 0.55, 0.88);
+        R.bloom = new THREE.UnrealBloomPass(new THREE.Vector2(iw, ih), 0.5, 0.6, 0.93);
         R.composer.addPass(R.bloom);
         R.composer.setSize(iw, ih);
       } catch (e) { R.composer = null; }
@@ -1664,7 +1753,7 @@
   function setNight(on) {
     R.night = on; if (!R.inited) return;
     if (on) { R.scene.background.setHex(0x18223c); R.scene.fog.color.setHex(0x1c2640); R.sun.color.setHex(0x9fb0e0); R.sun.intensity = 0.5; R.amb.intensity = 0.55; }
-    else { R.scene.background.setHex(0xbfd8e6); R.scene.fog.color.setHex(0xc8dcc6); R.sun.color.setHex(0xfff0d0); R.sun.intensity = 1.45; R.amb.intensity = 0.72; }
+    else { R.scene.background.setHex(0xa9cfe0); R.scene.fog.color.setHex(0xbcd3c4); R.sun.color.setHex(0xffe7c2); R.sun.intensity = 1.4; R.amb.intensity = 0.4; }
   }
 
   function enable(s) {

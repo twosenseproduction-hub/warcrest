@@ -202,11 +202,15 @@
     tfLook: (function () {
       try { return localStorage.getItem('wc_tflook') === '1'; } catch (e) { return false; }
     })(),
-    // 3D engine (beta): renders the LIVE game through a Three.js scene built from
+    // 3D engine: renders the LIVE game through a Three.js scene built from
     // hand-authored low-poly geometry. The simulation is identical — only the
-    // view changes. Off by default; persisted; toggled in Settings.
+    // view changes. ON by default now; an explicit opt-out is still persisted in
+    // localStorage and respected; toggled in Settings.
     render3d: (function () {
-      try { return localStorage.getItem('wc_render3d') === '1'; } catch (e) { return false; }
+      try {
+        var v = localStorage.getItem('wc_render3d');
+        return v === null ? true : v === '1';
+      } catch (e) { return true; }
     })(),
   };
 
