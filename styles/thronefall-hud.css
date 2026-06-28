@@ -6,6 +6,12 @@
  * Loaded LAST so it overrides wc-hud.css / main.css. JS ids are untouched.
  * ==========================================================================*/
 
+/* ── De-cloud the field: the warm soft-light colour-grade + vignette overlays
+ * sit on top of the canvas and wash/desaturate the battlefield. Pull them way
+ * back so the 3D scene reads crisp and saturated. ──────────────────────────── */
+body.tf-look #tf-grade { opacity: 0.4 !important; }      /* softer warm wash */
+body.tf-look #tf-vignette { opacity: 0.5 !important; }   /* lighter corner darkening */
+
 /* ── Tokens ─────────────────────────────────────────────────────────────── */
 :root {
   --tf-disc:        rgba(18, 14, 9, 0.60);
