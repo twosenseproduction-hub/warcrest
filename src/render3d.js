@@ -976,54 +976,91 @@
     R.waterMesh = wm; R.scene.add(wm);
 
     if (!grid) return;
-    // merge per-tile top quads + cliff side quads into one BufferGeometry
+    // ── Smooth heightfield terrain ────────────────────────────────────────────
+    // Instead of independent flat per-tile quads with vertical cliff faces (which
+    // read as blocky stairs), build ONE continuous surface from SHARED corner
+    // vertices whose heights are the average of the adjacent tile levels. Coasts
+    // then slope down into the water (sandy beach) and the land gently domes —
+    // the soft, faceted low-poly look. Flat-shaded for the facets.
     var positions = [], normals = [], colors = [];
-    // Deeper, more saturated grass so the warm daylight doesn't wash it to pale
-    // yellow; per-tile jitter (below) breaks the flat single-colour look.
-    var cTop = new THREE.Color(0x6a9f4c), cTopHi = new THREE.Color(0x7eb158), cCliff = new THREE.Color(0x6e5d40), cSand = new THREE.Color(0xc9b483);
-    var cShallow = new THREE.Color(0x2f8ea2);   // wadeable shallow-water shelf (deep teal so sun doesn't clip it to white)
-    var _tcol = new THREE.Color();
-    function quad(ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz, col) {
-      // two tris a-b-c, a-c-d
-      var nx = 0, ny = 1, nz = 0;
-      var verts = [ax, ay, az, bx, by, bz, cx, cy, cz, ax, ay, az, cx, cy, cz, dx, dy, dz];
-      // crude normal from first tri
-      var ux = bx - ax, uy = by - ay, uz = bz - az, vx = cx - ax, vy = cy - ay, vz = cz - az;
-      nx = uy * vz - uz * vy; ny = uz * vx - ux * vz; nz = ux * vy - uy * vx;
-      var len = Math.hypot(nx, ny, nz) || 1; nx /= len; ny /= len; nz /= len;
-      for (var i = 0; i < 6; i++) {
-        positions.push(verts[i * 3], verts[i * 3 + 1], verts[i * 3 + 2]);
-        normals.push(nx, ny, nz);
-        colors.push(col.r, col.g, col.b);
-      }
-    }
+    var cTop = new THREE.Color(0x6a9f4c), cTopHi = new THREE.Color(0x84b85f), cSand = new THREE.Color(0xceb98a);
+    var cShallow = new THREE.Color(0x2f8ea2);   // wadeable shallow-water shelf
     var cols = grid.cols, rows = grid.rows;
-    for (var cy = 0; cy < rows; cy++) {
-      for (var cx = 0; cx < cols; cx++) {
-        var ti = cx + cy * cols;
-        var h = grid.heights[ti];
-        if (h < 0) continue; // water tile: leave gap, water plane shows
-        var sh = grid.shallow && grid.shallow[ti] === 1;
-        var y = sh ? SHALLOW_DROP : (h >= 1 ? HIGH_RISE : 0);
-        var x0 = cx * TILE, x1 = x0 + TILE, z0 = cy * TILE, z1 = z0 + TILE;
-        // per-tile brightness jitter (deterministic hash) → grassy patch variation
-        var hsh = Math.sin(cx * 12.9898 + cy * 78.233) * 43758.5453; hsh -= Math.floor(hsh);
-        var jit = 0.9 + hsh * 0.1;   // darken-only patch variation (never brightens to white)
-        if (sh) _tcol.copy(cShallow).multiplyScalar(0.94 + hsh * 0.12);
-        else _tcol.copy(h >= 1 ? cTopHi : cTop).multiplyScalar(jit);
-        // CCW-from-above winding so the top-face normal points UP (sun-lit)
-        quad(x0, y, z0, x0, y, z1, x1, y, z1, x1, y, z0, _tcol);
-        // side faces toward any lower neighbor: sand beach down to shallow/water,
-        // dirt cliff down to a lower plateau.
-        var nb = [[0, -1, x0, z0, x1, z0], [1, 0, x1, z0, x1, z1], [0, 1, x1, z1, x0, z1], [-1, 0, x0, z1, x0, z0]];
-        for (var k = 0; k < 4; k++) {
-          var e = nb[k]; var ne = elevAt(grid, cx + e[0], cy + e[1]);
-          if (ne < y) {
-            var sx = e[2], sz = e[3], ex = e[4], ez = e[5];
-            var col = ne <= SHALLOW_DROP ? cSand : cCliff;
-            quad(sx, y, sz, ex, y, ez, ex, ne, ez, sx, ne, sz, col);
+    function tlevel(tx, ty) {
+      if (tx < 0 || ty < 0 || tx >= cols || ty >= rows) return WATER_DROP;
+      var i = tx + ty * cols;
+      if (grid.shallow && grid.shallow[i] === 1) return SHALLOW_DROP;
+      var hh = grid.heights[i];
+      return hh < 0 ? WATER_DROP : (hh >= 1 ? HIGH_RISE : 0);
+    }
+    function tshallow(tx, ty) {
+      return tx >= 0 && ty >= 0 && tx < cols && ty < rows && grid.shallow && grid.shallow[tx + ty * cols] === 1;
+    }
+    // Per-corner height (VH) + shallow flag (VS): a vertex is shared by its up-to-4
+    // neighbouring tiles, so averaging their levels smooths every step into a slope.
+    var vstride = cols + 1;
+    var VH = new Float32Array(vstride * (rows + 1));
+    var VS = new Uint8Array(vstride * (rows + 1));
+    var VJX = new Float32Array(vstride * (rows + 1));   // organic XZ jitter so the
+    var VJZ = new Float32Array(vstride * (rows + 1));   // coastline isn't a grid zigzag
+    var JIT = TILE * 0.32;
+    function rndAt(a, b) { var h = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return h - Math.floor(h); }
+    for (var vy = 0; vy <= rows; vy++) {
+      for (var vx = 0; vx <= cols; vx++) {
+        var sum = 0, anySh = false, allLand = true;
+        for (var oy = -1; oy <= 0; oy++) {
+          for (var ox = -1; ox <= 0; ox++) {
+            var lv = tlevel(vx + ox, vy + oy);
+            if (tshallow(vx + ox, vy + oy)) anySh = true;
+            if (lv <= WATER_DROP) allLand = false;
+            sum += lv;
           }
         }
+        var yv;
+        if (anySh) yv = SHALLOW_DROP;                 // hold fords as a flat wadeable shelf
+        else {
+          yv = sum / 4;
+          if (allLand) yv += 1.2 + Math.sin(vx * 0.55 + 1.3) * Math.cos(vy * 0.5 + 0.7) * 2.2; // gentle dome
+        }
+        var vi = vx + vy * vstride;
+        VH[vi] = yv;
+        VS[vi] = anySh ? 1 : 0;
+        // keep the outer map border un-jittered (no cracks at the world edge)
+        var edge = (vx === 0 || vy === 0 || vx === cols || vy === rows);
+        VJX[vi] = edge ? 0 : (rndAt(vx, vy) - 0.5) * 2 * JIT;
+        VJZ[vi] = edge ? 0 : (rndAt(vx + 7.3, vy + 1.9) - 0.5) * 2 * JIT;
+      }
+    }
+    function vcol(vx, vy, out) {
+      var i = vx + vy * vstride, yv = VH[i];
+      if (VS[i]) { out.copy(cShallow); return; }
+      var jh = Math.sin(vx * 12.9898 + vy * 78.233) * 43758.5453; jh -= Math.floor(jh);
+      if (yv > -2) out.copy(yv > 22 ? cTopHi : cTop).multiplyScalar(0.9 + jh * 0.12);
+      else if (yv > -15) out.copy(cTop).lerp(cSand, (-2 - yv) / 13);   // grass → sand beach
+      else out.copy(cSand).multiplyScalar(0.9);                         // submerged sand
+    }
+    var cA = new THREE.Color(), cB = new THREE.Color(), cC = new THREE.Color(), cD = new THREE.Color();
+    function pushTri(ax, ay, az, ca, bx, by, bz, cb, gx, gy, gz, cc) {
+      var ux = bx - ax, uy = by - ay, uz = bz - az, wx = gx - ax, wy = gy - ay, wz = gz - az;
+      var nx = uy * wz - uz * wy, ny = uz * wx - ux * wz, nz = ux * wy - uy * wx;
+      var l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l;
+      positions.push(ax, ay, az, bx, by, bz, gx, gy, gz);
+      normals.push(nx, ny, nz, nx, ny, nz, nx, ny, nz);
+      colors.push(ca.r, ca.g, ca.b, cb.r, cb.g, cb.b, cc.r, cc.g, cc.b);
+    }
+    for (var cy = 0; cy < rows; cy++) {
+      for (var cx = 0; cx < cols; cx++) {
+        var h00 = VH[cx + cy * vstride], h10 = VH[cx + 1 + cy * vstride];
+        var h01 = VH[cx + (cy + 1) * vstride], h11 = VH[cx + 1 + (cy + 1) * vstride];
+        if (Math.max(h00, h10, h01, h11) <= WATER_DROP + 1) continue;  // deep water → gap (water plane shows)
+        var i00 = cx + cy * vstride, i10 = cx + 1 + cy * vstride, i01 = cx + (cy + 1) * vstride, i11 = cx + 1 + (cy + 1) * vstride;
+        var ax0 = cx * TILE + VJX[i00], az0 = cy * TILE + VJZ[i00];
+        var bx0 = (cx + 1) * TILE + VJX[i10], bz0 = cy * TILE + VJZ[i10];
+        var cx1 = (cx + 1) * TILE + VJX[i11], cz1 = (cy + 1) * TILE + VJZ[i11];
+        var dx0 = cx * TILE + VJX[i01], dz1 = (cy + 1) * TILE + VJZ[i01];
+        vcol(cx, cy, cA); vcol(cx + 1, cy, cB); vcol(cx + 1, cy + 1, cC); vcol(cx, cy + 1, cD);
+        pushTri(ax0, h00, az0, cA, dx0, h01, dz1, cD, cx1, h11, cz1, cC);
+        pushTri(ax0, h00, az0, cA, cx1, h11, cz1, cC, bx0, h10, bz0, cB);
       }
     }
     var geo = new THREE.BufferGeometry();
