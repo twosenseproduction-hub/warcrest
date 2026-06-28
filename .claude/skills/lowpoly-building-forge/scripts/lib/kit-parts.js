@@ -77,8 +77,24 @@
     }
     return g;
   };
-  // bone spike (orc): a curved tusk
+  // bone spike (orc): a straight tusk
   K.boneSpike = function (len, mat) { var c = facet(new THREE.ConeGeometry(len * 0.22, len, 5), mat); return c; };
+  // curved bone tusk: a tapered chain of segments that arcs (side=+1/-1 curve dir)
+  K.boneTusk = function (len, mat, side) {
+    var g = new THREE.Group(); var seg = g, n = 5, sl = len / n;
+    for (var i = 0; i < n; i++) {
+      var j = new THREE.Group(); j.rotation.z = side * (0.18 + i * 0.13); if (i > 0) j.position.y = sl;
+      j.add(at(facet(new THREE.ConeGeometry((1 - i / n) * len * 0.12 + 0.04, sl * 1.06, 6), mat), 0, sl / 2, 0));
+      seg.add(j); seg = j;
+    }
+    return g;
+  };
+  // curved bone arch/gate: two big tusks rising and curving toward each other
+  K.boneArch = function (span, len, mat) {
+    var g = new THREE.Group();
+    [-1, 1].forEach(function (s) { var t = K.boneTusk(len, mat, -s); at(t, s * span / 2, 0, 0); g.add(t); });
+    return g;
+  };
   // banner / flag cloth on a pole
   K.banner = function (h, mat, poleMat) {
     var g = new THREE.Group(); g.add(at(smooth(new THREE.CylinderGeometry(0.05, 0.05, h, 6), poleMat), 0, h / 2, 0));

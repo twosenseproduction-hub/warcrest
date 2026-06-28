@@ -93,26 +93,36 @@
   function coreOrc(tier) {
     var p = FACTIONS.orc, stone = M(p.stone), stoneD = M(p.stoneD), timber = M(p.timber), bone = M(p.bone);
     var g = new THREE.Group(); var glow = [];
-    g.add(rockMound(2.4 + tier * 0.5, stoneD, 1 + tier));
-    var hallY = (1 + tier) * 0.55, hallW = 2.2 + tier * 0.35, hallH = 1.8 + tier * 0.5;
+    // dramatic per-tier scale: a hut, a stronghold, a great war-camp
+    var moundTiers = [2, 3, 4][tier - 1], moundR = [2.0, 2.9, 3.8][tier - 1];
+    var hallW = [2.0, 2.7, 3.4][tier - 1], hallH = [1.7, 2.4, 3.2][tier - 1];
+    g.add(rockMound(moundR, stoneD, moundTiers));
+    var hallY = moundTiers * 0.55;
     g.add(K.at(smooth(new THREE.CylinderGeometry(hallW * 0.55, hallW * 0.62, hallH, 8), stone), 0, hallY + hallH / 2, 0));
     g.add(K.at(K.door(1.0, 1.4, timber), 0, hallY, hallW * 0.55 + 0.02));
-    var ow = K.window(0.5, 0.5, timber, glowM(p.accent, 1.4)); K.at(ow, 0, hallY + hallH * 0.6, hallW * 0.55 + 0.02); g.add(ow); glow = glow.concat(ow.userData.glow);
-    var tent = K.tentRoof(hallW * 0.72 + tier * 0.15, 1.4 + tier * 0.25, M(p.roof)); K.at(tent, 0, hallY + hallH, 0); g.add(tent);
-    var ns = 6 + tier; for (var i = 0; i < ns; i++) { var a = i / ns * Math.PI * 2, R = hallW * 0.6; var sp = K.boneSpike(0.7, bone); K.at(sp, Math.cos(a) * R, hallY + hallH, Math.sin(a) * R); sp.rotation.z = Math.cos(a) * 0.5; sp.rotation.x = -Math.sin(a) * 0.5; g.add(sp); }
-    // bone totems at the rim (scale with tier)
-    var totems = tier >= 3 ? 4 : tier >= 2 ? 2 : 1; var tR = hallW * 0.55 + 1.3;
+    var ow = K.window(0.5, 0.5, timber, glowM(p.accent, 1.4)); K.at(ow, 0, hallY + hallH * 0.62, hallW * 0.55 + 0.02); g.add(ow); glow = glow.concat(ow.userData.glow);
+    var tent = K.tentRoof(hallW * 0.72, hallH * 0.75, M(p.roof)); K.at(tent, 0, hallY + hallH, 0); g.add(tent);
+    if (tier >= 2) { var tent2 = K.tentRoof(hallW * 0.5, hallH * 0.5, M(p.roof)); K.at(tent2, 0, hallY + hallH * 1.6, 0); g.add(tent2); }   // stacked upper tent
+    var ns = 6 + tier * 2; for (var i = 0; i < ns; i++) { var a = i / ns * Math.PI * 2, R = hallW * 0.6; var sp = K.boneSpike(0.7, bone); K.at(sp, Math.cos(a) * R, hallY + hallH, Math.sin(a) * R); sp.rotation.z = Math.cos(a) * 0.5; sp.rotation.x = -Math.sin(a) * 0.5; g.add(sp); }
+    // CURVED BONE ARCH over the entrance — grows each tier
+    var arch = K.boneArch(hallW * 0.9 + tier * 0.3, 1.6 + tier * 0.6, bone); K.at(arch, 0, hallY, hallW * 0.55 + 0.7); g.add(arch);
+    // bone totems at the rim
+    var totems = [1, 2, 4][tier - 1]; var tR = moundR + 0.5;
     for (var t = 0; t < totems; t++) { var a2 = t / totems * Math.PI * 2 + 0.6; var px = Math.cos(a2) * tR, pz = Math.sin(a2) * tR;
       g.add(K.at(smooth(new THREE.CylinderGeometry(0.12, 0.14, 1.6, 6), timber), px, 0.8, pz));
       var sk = K.facet(new THREE.SphereGeometry(0.26, 8, 6), bone); sk.scale.set(1, 1.1, 0.9); K.at(sk, px, 1.7, pz); g.add(sk);
       [-1, 1].forEach(function (s) { var hn = horn(0.4, bone); K.at(hn, px + 0.16 * s, 1.85, pz); hn.rotation.z = -s * 0.9; g.add(hn); }); }
-    // wooden scaffold watchtower (tier >= 2)
-    if (tier >= 2) { var sc = scaffold(2.6 + tier * 0.4, timber, stoneD); K.at(sc, tR * 0.7, hallY, -tR * 0.7); g.add(sc);
-      var tt = K.tentRoof(0.8, 0.8, M(p.roof)); K.at(tt, tR * 0.7, hallY + 2.6 + tier * 0.4 + 0.1, -tR * 0.7); g.add(tt); }
+    // palisade ring of sharpened stakes (tier >= 2)
+    if (tier >= 2) { var np = 14 + tier * 4; for (var k = 0; k < np; k++) { var pa = k / np * Math.PI * 2; if (Math.abs(pa - Math.PI / 2) < 0.5) continue; // gap at the gate
+      var stake = K.boneSpike(1.2, timber); K.at(stake, Math.cos(pa) * (moundR + 0.2), 0.5, Math.sin(pa) * (moundR + 0.2)); stake.rotation.z = Math.cos(pa) * 0.12; stake.rotation.x = -Math.sin(pa) * 0.12; g.add(stake); } }
+    // wooden scaffold watchtowers (1 at T2, 2 at T3)
+    var watch = tier >= 3 ? 2 : tier >= 2 ? 1 : 0;
+    for (var w = 0; w < watch; w++) { var wa = (w ? -1 : 1) * 0.8; var sc = scaffold(2.8 + tier * 0.5, timber, stoneD); K.at(sc, Math.cos(wa) * tR * 0.9, hallY, -Math.abs(Math.sin(wa)) * tR * 0.9 - 0.5); g.add(sc);
+      var tt = K.tentRoof(0.8, 0.8, M(p.roof)); K.at(tt, Math.cos(wa) * tR * 0.9, hallY + 2.8 + tier * 0.5 + 0.1, -Math.abs(Math.sin(wa)) * tR * 0.9 - 0.5); g.add(tt); }
     // forge cauldron with lava (bigger per tier)
-    var fx = tR * 0.7, fz = tR * 0.6, fr = 0.45 + tier * 0.08;
-    g.add(K.at(K.facet(new THREE.SphereGeometry(fr, 9, 7, 0, 6.3, Math.PI * 0.35, Math.PI * 0.65), M(0x2a2622)), fx, 0.55, fz));
-    var lava = K.facet(new THREE.CylinderGeometry(fr * 0.82, fr * 0.82, 0.14, 9), glowM(p.glow, 1.8)); K.at(lava, fx, 0.78, fz); g.add(lava); glow.push(lava);
+    var fr = 0.45 + tier * 0.1;
+    g.add(K.at(K.facet(new THREE.SphereGeometry(fr, 9, 7, 0, 6.3, Math.PI * 0.35, Math.PI * 0.65), M(0x2a2622)), tR * 0.7, 0.55, tR * 0.5));
+    var lava = K.facet(new THREE.CylinderGeometry(fr * 0.82, fr * 0.82, 0.14, 9), glowM(p.glow, 1.8)); K.at(lava, tR * 0.7, 0.55 + fr * 0.4, tR * 0.5); g.add(lava); glow.push(lava);
     return finishCore(g, 'orc', tier, glow);
   }
   // ELF: gnarled trunk-tower under a massive leaf canopy (Eldertree) + roots + runes + horns + satellite canopy huts
@@ -146,8 +156,7 @@
   }
   LPF.buildCore = buildCore;
 
-  LPF.buildBuilding = function (faction, kind, tier) {
-    if (kind === 'core') return buildCore(faction, tier || 1);
+  function buildHouse(faction) {
     var p = FACTIONS[faction] || FACTIONS.human;
     var g = new THREE.Group(); var glow = [];
     var stone = M(p.stone), stoneD = M(p.stoneD), timber = M(p.timber), accent = LPF.toon(p.accent, { ramp: LPF.RAMP.metal, rim: false });
@@ -193,6 +202,165 @@
     g.position.x -= c.x; g.position.z -= c.z; g.position.y -= box.min.y;
     g.traverse(function (o) { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     return g;
+  }
+
+  // ORC BARRACKS: long bone-spiked hall with a red awning + bone arch entrance + weapon rack
+  function orcBarracks() {
+    var p = FACTIONS.orc, stone = M(p.stone), stoneD = M(p.stoneD), timber = M(p.timber), bone = M(p.bone);
+    var g = new THREE.Group(); var glow = [];
+    g.add(rockMound(3.0, stoneD, 1));
+    var w = 4.4, h = 2.2, d = 2.6, y = 0.55;
+    g.add(K.at(smooth(new THREE.BoxGeometry(w, h, d), stone), 0, y + h / 2, 0));
+    g.add(K.at(K.tentRoof(w * 0.42, 1.1, M(p.roof)), -w * 0.25, y + h, 0));
+    g.add(K.at(K.tentRoof(w * 0.42, 1.1, M(p.roof)), w * 0.25, y + h, 0));
+    var ns = 10; for (var i = 0; i < ns; i++) { var sp = K.boneSpike(0.6, bone); K.at(sp, -w / 2 + (i + 0.5) * w / ns, y + h + 0.1, d / 2 * (i % 2 ? 1 : -1)); g.add(sp); }
+    g.add(K.at(K.door(1.1, 1.5, timber), 0, y, d / 2 + 0.02));
+    var arch = K.boneArch(2.0, 1.9, bone); K.at(arch, 0, y, d / 2 + 0.6); g.add(arch);
+    var ow = K.window(0.5, 0.5, timber, glowM(p.accent, 1.4)); K.at(ow, -1.4, y + h * 0.6, d / 2 + 0.02); g.add(ow); glow = glow.concat(ow.userData.glow);
+    // weapon rack of spears leaning on the wall
+    for (var s = 0; s < 4; s++) { var sp2 = smooth(new THREE.CylinderGeometry(0.04, 0.04, 1.9, 5), timber); K.at(sp2, w / 2 + 0.25, 1.0, -0.7 + s * 0.32); sp2.rotation.x = 0.18; g.add(sp2);
+      g.add(K.at(facet(new THREE.ConeGeometry(0.08, 0.3, 4), bone), w / 2 + 0.25 + 0.17, 1.95, -0.7 + s * 0.32)); }
+    return finishB(g, 'orc', { w: 3, d: 2 }, glow);
+  }
+  // ORC TOWER: stone drum + wooden scaffold cap + red tent + bone spikes + forge-glow eye
+  function orcTower() {
+    var p = FACTIONS.orc, stone = M(p.stone), stoneD = M(p.stoneD), timber = M(p.timber), bone = M(p.bone);
+    var g = new THREE.Group(); var glow = [];
+    g.add(rockMound(1.8, stoneD, 1));
+    var r = 1.0, h = 3.6, y = 0.55;
+    g.add(K.at(K.tower(r, h, stone, 8), 0, y + h / 2, 0));
+    g.add(K.at(scaffold(1.0, timber, stoneD), 0, y + h, 0));
+    g.add(K.at(K.tentRoof(r * 1.1, 1.3, M(p.roof)), 0, y + h + 1.0, 0));
+    var ns = 7; for (var i = 0; i < ns; i++) { var a = i / ns * Math.PI * 2; var sp = K.boneSpike(0.6, bone); K.at(sp, Math.cos(a) * r, y + h + 0.9, Math.sin(a) * r); sp.rotation.z = Math.cos(a) * 0.5; sp.rotation.x = -Math.sin(a) * 0.5; g.add(sp); }
+    var eye = facet(new THREE.BoxGeometry(0.4, 0.5, 0.16), glowM(p.glow, 1.5)); K.at(eye, 0, y + h * 0.7, r + 0.02); g.add(eye); glow.push(eye);
+    g.add(K.at(K.door(0.9, 1.3, timber), 0, y, r + 0.02));
+    return finishB(g, 'orc', { w: 1, d: 1 }, glow);
+  }
+  // ORC WAR FORGE (tier-2 unit building): big lava cauldron + anvil + bellows + ember chimney
+  function orcForge() {
+    var p = FACTIONS.orc, stone = M(p.stone), stoneD = M(p.stoneD), timber = M(p.timber), bone = M(p.bone), iron = M(0x2a2622);
+    var g = new THREE.Group(); var glow = [];
+    g.add(rockMound(3.0, stoneD, 1));
+    var y = 0.55;
+    g.add(K.at(smooth(new THREE.BoxGeometry(3.0, 2.0, 2.4), stone), -0.6, y + 1.0, 0));              // forge house
+    g.add(K.at(K.tentRoof(1.7, 1.1, M(p.roof)), -0.6, y + 2.0, 0));
+    // big lava cauldron centerpiece
+    var pot = facet(new THREE.SphereGeometry(0.85, 10, 8, 0, 6.3, Math.PI * 0.32, Math.PI * 0.68), iron); K.at(pot, 1.4, y + 0.7, 0.3); g.add(pot);
+    g.add(K.at(smooth(new THREE.CylinderGeometry(0.12, 0.12, 0.7, 6), iron), 1.4, y + 0.35, 0.3));   // pot leg
+    var lava = facet(new THREE.CylinderGeometry(0.72, 0.72, 0.16, 10), glowM(p.glow, 1.9)); K.at(lava, 1.4, y + 1.05, 0.3); g.add(lava); glow.push(lava);
+    // crossbeam over the cauldron (lashed timber)
+    g.add(K.at(smooth(new THREE.BoxGeometry(0.14, 0.14, 2.4), timber), 1.4, y + 2.0, 0.3));
+    [-1, 1].forEach(function (s) { g.add(K.at(smooth(new THREE.CylinderGeometry(0.1, 0.12, 2.2, 6), timber), 1.4, y + 1.1, 0.3 + s * 1.0)); });
+    // anvil + molten ingot
+    g.add(K.at(facet(new THREE.BoxGeometry(0.6, 0.3, 0.3), iron), -0.6, y + 0.45, 1.4));
+    g.add(K.at(facet(new THREE.BoxGeometry(0.25, 0.12, 0.18), iron), -0.6, y + 0.3, 1.4));
+    var ingot = facet(new THREE.BoxGeometry(0.22, 0.1, 0.14), glowM(p.glow, 1.6)); K.at(ingot, -0.6, y + 0.66, 1.4); g.add(ingot); glow.push(ingot);
+    // ember chimney
+    g.add(K.at(facet(new THREE.BoxGeometry(0.5, 1.4, 0.5), stoneD), -1.6, y + 2.3, -0.6));
+    var ember = facet(new THREE.CylinderGeometry(0.18, 0.18, 0.12, 8), glowM(p.glow, 1.7)); K.at(ember, -1.6, y + 3.05, -0.6); g.add(ember); glow.push(ember);
+    // bone spikes on the forge house
+    var ns = 6; for (var i = 0; i < ns; i++) { var sp = K.boneSpike(0.55, bone); K.at(sp, -0.6 - 1.5 + i * 0.6, y + 2.0, -1.2); g.add(sp); }
+    return finishB(g, 'orc', { w: 3, d: 2 }, glow);
+  }
+  // ORC RESEARCH (upgrade — Bonecaller's Altar / Spirit Lodge): glowing altar + bone totem ring + spirit orbs
+  function orcResearch() {
+    var p = FACTIONS.orc, stone = M(p.stone), stoneD = M(p.stoneD), timber = M(p.timber), bone = M(p.bone);
+    var g = new THREE.Group(); var glow = [];
+    g.add(rockMound(2.6, stoneD, 1));
+    var y = 0.55;
+    // central altar stone with a glowing rune
+    g.add(K.at(facet(new THREE.CylinderGeometry(0.9, 1.05, 0.9, 8), stone), 0, y + 0.45, 0));
+    g.add(K.at(facet(new THREE.BoxGeometry(1.0, 0.3, 1.0), stoneD), 0, y + 0.95, 0));
+    var rune = facet(new THREE.CylinderGeometry(0.42, 0.42, 0.12, 8), glowM(p.glow, 1.6)); K.at(rune, 0, y + 1.12, 0); g.add(rune); glow.push(rune);
+    var crystal = facet(new THREE.OctahedronGeometry(0.34, 0), glowM(p.accent, 1.4)); crystal.scale.y = 1.6; K.at(crystal, 0, y + 1.55, 0); g.add(crystal); glow.push(crystal);
+    // ring of bone totems (post + skull + horns)
+    var nt = 5; for (var t = 0; t < nt; t++) { var a = t / nt * Math.PI * 2; var px = Math.cos(a) * 2.0, pz = Math.sin(a) * 2.0;
+      g.add(K.at(smooth(new THREE.CylinderGeometry(0.12, 0.14, 1.8, 6), timber), px, y + 0.9, pz));
+      var sk = facet(new THREE.SphereGeometry(0.26, 8, 6), bone); sk.scale.set(1, 1.1, 0.9); K.at(sk, px, y + 1.85, pz); g.add(sk);
+      [-1, 1].forEach(function (s) { var hn = horn(0.4, bone); K.at(hn, px + 0.16 * s, y + 2.0, pz); hn.rotation.z = -s * 0.9; g.add(hn); });
+      var so = facet(new THREE.IcosahedronGeometry(0.12, 0), glowM(p.glow, 1.2)); K.at(so, px, y + 2.25, pz); g.add(so); glow.push(so); }
+    return finishB(g, 'orc', { w: 2, d: 2 }, glow);
+  }
+  // ---- ELF buildings (stone + leaf canopy + gnarled wood + gold runes + horns) ----
+  function elfBarracks() {
+    var p = FACTIONS.elf, stone = M(p.stone), stoneD = M(p.stoneD), timber = M(p.timber), leaf = M(p.leaf, { ramp: LPF.RAMP.skin }), leafD = M(p.leafD);
+    var g = new THREE.Group(); var glow = [];
+    g.add(K.foundation(4.4, 3.2, stoneD));
+    var w = 3.8, h = 2.0, d = 2.4;
+    g.add(K.at(smooth(new THREE.BoxGeometry(w, h, d), stone), 0, h / 2, 0));
+    g.add(K.at(K.canopy(1.6, 6, leaf, leafD), -w * 0.25, h + 0.5, 0));
+    g.add(K.at(K.canopy(1.6, 6, leaf, leafD), w * 0.25, h + 0.5, 0));
+    g.add(K.at(K.door(1.2, 1.5, timber), 0, 0, d / 2 + 0.02));
+    var lw = K.leafWindow(0.4, timber, glowM(p.glow, 0.9)); K.at(lw, -1.3, h * 0.6, d / 2 + 0.02); g.add(lw); glow = glow.concat(lw.userData.glow);
+    [-1, 1].forEach(function (s) { g.add(K.at(facet(new THREE.CylinderGeometry(0.14, 0.3, h + 0.3, 6), timber), w / 2 * s, (h + 0.3) / 2 - 0.15, d / 2 * 0.7)); });
+    var orb = facet(new THREE.IcosahedronGeometry(0.2, 0), glowM(p.glow, 1.3)); K.at(orb, 0, h + 0.2, d / 2 + 0.3); g.add(orb); glow.push(orb);
+    [-1, 1].forEach(function (s) { var hn = horn(0.6, timber); K.at(hn, w * 0.42 * s, h + 0.7, 0); hn.rotation.z = -s * 0.7; g.add(hn); });
+    return finishB(g, 'elf', { w: 3, d: 2 }, glow);
+  }
+  function elfTower() {
+    var p = FACTIONS.elf, timber = M(p.timber), leaf = M(p.leaf, { ramp: LPF.RAMP.skin }), leafD = M(p.leafD);
+    var g = new THREE.Group(); var glow = [];
+    g.add(K.foundation(2.4, 2.4, M(p.stoneD)));
+    var r = 0.9, h = 3.8;
+    g.add(K.at(smooth(new THREE.CylinderGeometry(r * 0.8, r * 1.1, h, 8), timber), 0, h / 2, 0));
+    var nr = 5; for (var i = 0; i < nr; i++) { var a = i / nr * Math.PI * 2; var root = facet(new THREE.CylinderGeometry(0.08, 0.26, 1.1, 6), timber); K.at(root, Math.cos(a) * r * 0.9, 0.5, Math.sin(a) * r * 0.9); root.rotation.x = -Math.sin(a) * 0.5; root.rotation.z = Math.cos(a) * 0.5; g.add(root); }
+    g.add(K.at(K.canopy(1.7, 7, leaf, leafD), 0, h + 0.5, 0));
+    var lw = K.leafWindow(0.4, timber, glowM(p.glow, 1.0)); K.at(lw, 0, h * 0.6, r * 1.0); g.add(lw); glow = glow.concat(lw.userData.glow);
+    for (var k = 0; k < 2; k++) { var orb = facet(new THREE.IcosahedronGeometry(0.16, 0), glowM(p.glow, 1.3)); K.at(orb, 0, h * (0.35 + k * 0.2), r * 0.95); g.add(orb); glow.push(orb); }
+    [-1, 1].forEach(function (s) { var hn = horn(0.7, timber); K.at(hn, r * 1.2 * s, h + 0.3, 0); hn.rotation.z = -s * 0.8; g.add(hn); });
+    return finishB(g, 'elf', { w: 1, d: 1 }, glow);
+  }
+  // ELF tier-2 "Ancient of War": big ancient tree-building + moonwell pool
+  function elfForge() {
+    var p = FACTIONS.elf, stone = M(p.stone), stoneD = M(p.stoneD), timber = M(p.timber), leaf = M(p.leaf, { ramp: LPF.RAMP.skin }), leafD = M(p.leafD);
+    var g = new THREE.Group(); var glow = [];
+    g.add(K.foundation(4.8, 4.0, stoneD));
+    var r = 1.3, h = 3.6;
+    g.add(K.at(smooth(new THREE.CylinderGeometry(r * 0.85, r * 1.25, h, 8), timber), 0, h / 2, 0));
+    var nr = 7; for (var i = 0; i < nr; i++) { var a = i / nr * Math.PI * 2; var root = facet(new THREE.CylinderGeometry(0.12, 0.4, 1.6, 6), timber); K.at(root, Math.cos(a) * r * 0.95, 0.7, Math.sin(a) * r * 0.95); root.rotation.x = -Math.sin(a) * 0.55; root.rotation.z = Math.cos(a) * 0.55; g.add(root); }
+    var lw = K.leafWindow(0.5, timber, glowM(p.glow, 1.0)); K.at(lw, 0, h * 0.55, r * 1.05); g.add(lw); glow = glow.concat(lw.userData.glow);
+    g.add(K.at(K.door(1.2, 1.6, timber), 0, 0, r * 1.05));
+    g.add(K.at(K.canopy(2.6, 11, leaf, leafD), 0, h + 0.8, 0));
+    g.add(K.at(facet(new THREE.CylinderGeometry(0.9, 1.0, 0.4, 9), stone), 2.2, 0.2, 0.6));
+    var well = facet(new THREE.CylinderGeometry(0.72, 0.72, 0.12, 9), glowM(0x6fe0d6, 1.5)); K.at(well, 2.2, 0.42, 0.6); g.add(well); glow.push(well);
+    [-1, 1].forEach(function (s) { var hn = horn(1.0, timber); K.at(hn, 1.6 * s, h + 1.0, 0); hn.rotation.z = -s * 0.7; g.add(hn); });
+    return finishB(g, 'elf', { w: 3, d: 3 }, glow);
+  }
+  // ELF research "Moonwell": glowing basin + rune crystal + leaf-canopy arches
+  function elfResearch() {
+    var p = FACTIONS.elf, stone = M(p.stone), stoneD = M(p.stoneD), timber = M(p.timber), leaf = M(p.leaf, { ramp: LPF.RAMP.skin }), leafD = M(p.leafD);
+    var g = new THREE.Group(); var glow = [];
+    g.add(rockMound(2.6, stoneD, 1));
+    var y = 0.55;
+    g.add(K.at(facet(new THREE.CylinderGeometry(1.4, 1.55, 0.7, 10), stone), 0, y + 0.35, 0));
+    var water = facet(new THREE.CylinderGeometry(1.15, 1.15, 0.14, 10), glowM(0x6fe0d6, 1.4)); K.at(water, 0, y + 0.7, 0); g.add(water); glow.push(water);
+    var cr = facet(new THREE.OctahedronGeometry(0.4, 0), glowM(p.glow, 1.5)); cr.scale.y = 1.8; K.at(cr, 0, y + 1.4, 0); g.add(cr); glow.push(cr);
+    var na = 3; for (var i = 0; i < na; i++) { var a = i / na * Math.PI * 2 + 0.5; var px = Math.cos(a) * 2.0, pz = Math.sin(a) * 2.0;
+      g.add(K.at(facet(new THREE.CylinderGeometry(0.14, 0.2, 2.2, 6), timber), px, y + 1.1, pz));
+      g.add(K.at(K.canopy(0.8, 4, leaf, leafD), px, y + 2.3, pz));
+      var so = facet(new THREE.IcosahedronGeometry(0.12, 0), glowM(p.glow, 1.2)); K.at(so, px, y + 1.9, pz); g.add(so); glow.push(so); }
+    return finishB(g, 'elf', { w: 2, d: 2 }, glow);
+  }
+  function finishB(g, faction, fp, glow) {
+    g.userData = { glowMeshes: glow, faction: faction, footprint: fp };
+    LPF.outlineGroup && LPF.outlineGroup(g, 0.03, 0x1a1620);
+    var box = new THREE.Box3().setFromObject(g); var c = new THREE.Vector3(); box.getCenter(c);
+    g.position.x -= c.x; g.position.z -= c.z; g.position.y -= box.min.y;
+    g.traverse(function (o) { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    return g;
+  }
+
+  LPF.buildBuilding = function (faction, kind, tier) {
+    if (kind === 'core') return buildCore(faction, tier || 1);
+    if (kind === 'barracks' && faction === 'orc') return orcBarracks();
+    if (kind === 'tower' && faction === 'orc') return orcTower();
+    if (kind === 'forge' && faction === 'orc') return orcForge();
+    if (kind === 'research' && faction === 'orc') return orcResearch();
+    if (kind === 'barracks' && faction === 'elf') return elfBarracks();
+    if (kind === 'tower' && faction === 'elf') return elfTower();
+    if (kind === 'forge' && faction === 'elf') return elfForge();
+    if (kind === 'research' && faction === 'elf') return elfResearch();
+    return buildHouse(faction);
   };
 
   LPF.setNight = function (b, on) { (b.userData.glowMeshes || []).forEach(function (m) { m.material.emissiveIntensity = on ? (m.material.userData.base || 1.4) : 0.0; }); };
