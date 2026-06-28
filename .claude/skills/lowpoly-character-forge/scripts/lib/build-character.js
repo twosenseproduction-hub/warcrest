@@ -128,7 +128,10 @@
     var eyeM = opt.eyeGlow === false ? LPF.toon(0x241f17, { ramp: LPF.RAMP.cloth, rim: false })
       : LPF.toon(opt.eye || 0x6fe06a, { ramp: LPF.RAMP.metal, emissive: opt.eye || 0x6fe06a, emissiveIntensity: 0.18, rim: false });
     [-1, 1].forEach(function (s) { var e = new THREE.Mesh(new THREE.SphereGeometry((opt.eyeGlow === false ? 0.05 : 0.062) * hs, 8, 6), eyeM); e.position.set(0.15 * hs * s, headY + 0.02, headR * 0.92); g.add(e); });
-    if (opt.brow) { var brow = smoothMesh(new THREE.BoxGeometry(0.72 * hs, 0.17, 0.22), skin); brow.position.set(0, headY + 0.17, headR * 0.78); g.add(brow); }
+    if (opt.brow) {   // two angled brow ridges + a small nose → reads as a face
+      [-1, 1].forEach(function (s) { var b = smoothMesh(new THREE.BoxGeometry(0.3 * hs, 0.06, 0.12), skin); b.position.set(0.16 * hs * s, headY + 0.14, headR * 0.82); b.rotation.z = s * 0.16; g.add(b); });
+      var nose = smoothMesh(new THREE.ConeGeometry(0.055 * hs, 0.2 * hs, 5), skin); nose.rotation.x = Math.PI * 0.5; nose.position.set(0, headY - 0.04, headR * 0.92); g.add(nose);
+    }
     var ears = opt.ears || 'pointed';
     if (ears === 'pointed') { [-1, 1].forEach(function (s) { var ear = smoothMesh(P.extrude(P.pointedShape(opt.earLen, 0.16), 0.08), skin);
       ear.position.set(headR * 0.85 * s, headY + 0.04, -0.05); ear.rotation.z = -s * (opt.earDroop == null ? 0.9 : opt.earDroop); ear.rotation.y = s * 0.3; g.add(ear); }); }
@@ -163,7 +166,7 @@
     // Tuned toward the WoW Night-Elf reference: lavender skin + hair, green
     // tabard over brown leather, cyan glowing runes/eyes.
     palette: { skin: 0x8f7ad0, cloth: 0x3c6b39, accent: 0x6f4a28, gem: 0x7fe6d8, blade: 0xaef0e0,
-      hair: 0xb6a6e4, hairTip: 0x9a86d8, eye: 0xcffcff, sash: 0x5a3f28, antler: 0x5e4126, wood: 0x6e4a2a, steel: 0xb7beca },
+      hair: 0x9d8ad6, hairTip: 0x7d6abf, eye: 0xcffcff, sash: 0x5a3f28, antler: 0x5e4126, wood: 0x6e4a2a, steel: 0xb7beca },
     // adult heroic proportions (not chibi): small head, neck, long legs, swept ears
     headScale: 0.78, earLen: 0.8, earDroop: 0.5, torsoH: 1.62, limbLen: 1.55, outline: 0.024,
   };
@@ -227,15 +230,17 @@
       var pelt = smoothMesh(new THREE.SphereGeometry(0.5, 10, 7), M(pal.antler)); pelt.scale.set(1.15, 0.55, 1.0); at(pelt, 0, shoulderY - 0.02, 0); g.add(pelt); }
 
     var headY = shoulderY + 0.5 * p.headScale;
-    var headR = buildHead(g, { skin: skin, headY: headY, headScale: p.headScale, earLen: p.earLen, earDroop: p.earDroop, eye: pal.eye, brow: true });
+    var headR = buildHead(g, { skin: skin, headY: headY, headScale: p.headScale, earLen: p.earLen, earDroop: p.earDroop, eye: pal.eye, brow: true, taper: 0.3 });
     if (F.head === 'hood') { // Night Elf Archer cowl: rounded hood over top+back, point at the rear
       var hd = facetMesh(new THREE.SphereGeometry(0.5 * p.headScale + 0.13, 9, 7, 0, Math.PI * 2, 0, 1.85), cloth); at(hd, 0, headY + 0.13, -0.12); hd.scale.set(1.12, 1.06, 1.22); g.add(hd);
       g.add(at(facetMesh(new THREE.ConeGeometry(0.18, 0.5, 5), cloth), 0, headY + 0.22, -0.42)); }
-    else { var hairBack = smoothMesh(P.headGeo(0.54 * p.headScale, 0.12), hair); at(hairBack, 0, headY + 0.06, -0.12); hairBack.scale.set(1.04, 1.1, 0.9); g.add(hairBack);
-      // lavender hair pulled up into a bun + two side braids (per reference; no antlers)
-      g.add(at(smoothMesh(new THREE.SphereGeometry(0.17 * p.headScale, 9, 8), hair), 0, headY + 0.46 * p.headScale, -0.06));
-      [-1, 1].forEach(function (s) { var br = smoothMesh(P.limbGeo(0.052, 0.55), hair); at(br, headR * 0.74 * s, headY - 0.16, 0.0); br.rotation.z = s * 0.14; g.add(br);
-        g.add(at(smoothMesh(new THREE.SphereGeometry(0.06, 7, 6), hairTip), headR * 0.78 * s, headY - 0.46, 0.0)); });
+    else { // swept-back hair volume (back + nape) — not a full cap
+      var hb = smoothMesh(new THREE.SphereGeometry(0.56 * p.headScale, 12, 9), hair); hb.scale.set(1.06, 1.0, 1.12); at(hb, 0, headY + 0.04, -0.2); g.add(hb);
+      g.add(at(smoothMesh(new THREE.ConeGeometry(0.17 * p.headScale, 0.32, 6), hair), 0, headY + 0.32 * p.headScale, headR * 0.32));   // forehead peak
+      g.add(at(smoothMesh(new THREE.SphereGeometry(0.18 * p.headScale, 9, 8), hair), 0, headY + 0.5 * p.headScale, -0.14));            // top knot
+      [-1, 1].forEach(function (s) { var lk = smoothMesh(P.profileLimb([[0.05, 0], [0.09, 0.28], [0.05, 0.56]], 8), hair); at(lk, headR * 0.92 * s, headY - 0.56, headR * 0.28); lk.rotation.z = s * 0.08; g.add(lk); });   // face-framing side locks
+      [-1, 1].forEach(function (s) { var br = smoothMesh(P.limbGeo(0.05, 0.62), hair); at(br, headR * 0.5 * s, headY - 0.34, -0.22); g.add(br);
+        g.add(at(smoothMesh(new THREE.SphereGeometry(0.055, 7, 6), hairTip), headR * 0.5 * s, headY - 0.66, -0.22)); });            // back braids
       if (F.head === 'helm') { var helm = facetMesh(new THREE.SphereGeometry(0.56 * p.headScale, 9, 6, 0, 6.3, 0, 1.7), steel); at(helm, 0, headY + 0.12, 0); g.add(helm);
         g.add(at(facetMesh(new THREE.ConeGeometry(0.08, 0.45, 4), accent), 0, headY + 0.62 * p.headScale, 0)); } }
 
