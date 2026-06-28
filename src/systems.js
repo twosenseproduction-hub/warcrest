@@ -193,6 +193,14 @@
     tickAutoMine(s, dt);
     if (!(s.map && s.map.sandbox)) RTS.AI.update(s, dt);
 
+    // expire timed summons (e.g. Grollusk's spirit warriors) — poof, not a death.
+    for (i = 0; i < s.entities.units.length; i++) {
+      var su = s.entities.units[i];
+      if (su.dead || !su._expireAt || s.timers.gameTime < su._expireAt) continue;
+      su.dead = true; su.hp = 0; su.corpse = 0.4;
+      RTS.addEffect(s, { kind: 'nova', x: su.x, y: su.y, r: 6, maxR: 46, life: 0.5, max: 0.5, color: '#6cff8a' });
+    }
+
     // cull dead units after corpse fade
     s.entities.units = s.entities.units.filter(function (u) {
       if (!u.dead) return true;
@@ -1093,6 +1101,11 @@
   }
 
   function applyDamage(s, target, amount, attacker, impact) {
+    // The Last Wall — Valdris is untouchable while the wall stands.
+    if (target._invuln) {
+      if (RTS.spawnFloat) RTS.spawnFloat(s, target.x, target.y - (target.radius || 12), 'block', '#cfe0ff');
+      return;
+    }
     // Wild Grace (Rimwalker) — a dodged hit deals nothing; mark it for feedback.
     if (target.kind === 'unit' && target.evade > 0 && !target.dead && Math.random() < target.evade) {
       target._lastCombatAt = s.timers.gameTime || 0;
@@ -1138,6 +1151,17 @@
       s.ui.baseAlarm = 1.2;
     }
 
+    // Iron Edict — Valdris's banner lets an ally survive one lethal hit at 1hp.
+    if (target.hp <= 0 && !target.dead && target.buffs && target.buffs.length) {
+      var ward = target.buffs.find(function (b) { return b.wardLethal; });
+      if (ward) {
+        target.hp = 1;
+        target.buffs = target.buffs.filter(function (b) { return b !== ward; });
+        if (RTS.recomputeBuffs) RTS.recomputeBuffs(target);
+        if (RTS.spawnFloat) RTS.spawnFloat(s, target.x, target.y - (target.radius || 12), 'edict', '#ffd98a');
+        if (RTS.addEffect) RTS.addEffect(s, { kind: 'nova', x: target.x, y: target.y, r: 6, maxR: 40, life: 0.5, max: 0.5, color: '#ffd98a' });
+      }
+    }
     if (target.hp <= 0 && !target.dead) {
       killEntity(s, target, attacker);
     }
@@ -1244,7 +1268,8 @@
   function moveToward(s, u, tx, ty, dt, stop) {
     var dx = tx - u.x, dy = ty - u.y, d = Math.sqrt(dx * dx + dy * dy) || 1;
     if (d <= stop) { u.vx = 0; u.vy = 0; return; }
-    var spd = (u._grpSpeed && !u.target) ? u._grpSpeed : u.speed;
+    var base = RTS.effectiveSpeed ? RTS.effectiveSpeed(u) : u.speed;
+    var spd = (u._grpSpeed && !u.target) ? Math.min(u._grpSpeed, base) : base;
     var vx = dx / d * spd, vy = dy / d * spd;
     var grid = s && s.map && s.map.terrainGrid;
     if (grid && RTS.Terrain) {

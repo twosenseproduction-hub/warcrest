@@ -398,7 +398,8 @@
     if (d <= stop) { u.vx = 0; u.vy = 0; return; }
     // March at the group's pace (slowest member) while pure-moving; a unit that
     // has acquired a combat target ignores the cap and closes at full speed.
-    var spd = (u._grpSpeed && !u.target) ? u._grpSpeed : u.speed;
+    var base = RTS.effectiveSpeed ? RTS.effectiveSpeed(u) : u.speed;
+    var spd = (u._grpSpeed && !u.target) ? Math.min(u._grpSpeed, base) : base;
     var vx = dx / d * spd, vy = dy / d * spd;
     if (s && wouldEnterWater(s, u.x, u.y, vx, vy, dt)) {
       u.vx = 0; u.vy = 0;

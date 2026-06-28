@@ -141,6 +141,7 @@
     var used = 0;
     s.entities.units.forEach(function (u) {
       if (u.team !== team || u.dead) return;
+      if (u.isSummon) return;                 // timed summons (spirit warriors) are free
       if (u.heroId && RTS.getHero) {
         var hero = RTS.getHero(u.heroId);
         used += hero && hero.supply != null ? hero.supply : 0;

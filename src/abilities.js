@@ -104,14 +104,14 @@
   RTS.hasBuff = hasBuff;
 
   function recompute(u) {
-    var dm = 0, aa = 0, rm = 0, dt = 0, hps = 0, rooted = false, disabled = false;
+    var dm = 0, aa = 0, rm = 0, dt = 0, hps = 0, mm = 0, rooted = false, disabled = false;
     (u.buffs || []).forEach(function (b) {
       dm += b.dmgMul || 0; aa += b.armorAdd || 0; rm += b.rofMul || 0;
-      dt += b.dmgTakenMul || 0; hps += b.healPerSec || 0;
+      dt += b.dmgTakenMul || 0; hps += b.healPerSec || 0; mm += b.moveMul || 0;
       if (b.rooted) rooted = true; if (b.disabled) disabled = true;
     });
     u.buffDmgMul = dm; u.buffArmorAdd = aa; u.buffRofMul = rm;
-    u.buffDmgTakenMul = dt; u.buffHealPerSec = hps;
+    u.buffDmgTakenMul = dt; u.buffHealPerSec = hps; u.buffMoveMul = mm;
     u.buffRooted = rooted; u.buffDisabled = disabled;
   }
   RTS.recomputeBuffs = recompute;
@@ -123,8 +123,8 @@
     if (ex) { ex.until = now + buff.duration; }
     else target.buffs.push({ id: buff.id, until: now + buff.duration,
       dmgMul: buff.dmgMul || 0, armorAdd: buff.armorAdd || 0, rofMul: buff.rofMul || 0,
-      dmgTakenMul: buff.dmgTakenMul || 0, healPerSec: buff.healPerSec || 0,
-      rooted: !!buff.rooted, disabled: !!buff.disabled, color: buff.color });
+      dmgTakenMul: buff.dmgTakenMul || 0, healPerSec: buff.healPerSec || 0, moveMul: buff.moveMul || 0,
+      rooted: !!buff.rooted, disabled: !!buff.disabled, wardLethal: !!buff.wardLethal, color: buff.color });
     recompute(target);
   }
 
@@ -148,6 +148,9 @@
   // higher rofMul = faster attacks (smaller cooldown). dmgTakenMul amplifies incoming hits.
   RTS.effectiveRof = function (u) { return u.rof / (1 + (u && u.buffRofMul || 0)); };
   RTS.incomingMul = function (u) { return 1 + (u && u.buffDmgTakenMul || 0); };
+  // move speed folds in slows/hastes (moveMul: -0.4 = 40% slower). Clamped so a
+  // stacked slow can never freeze a unit outright (use a root for that).
+  RTS.effectiveSpeed = function (u) { return (u.speed || 60) * Math.max(0.2, 1 + (u && u.buffMoveMul || 0)); };
 
   // ── casting ─────────────────────────────────────────────────────────────
   function findAllyTarget(s, u, ab) {
