@@ -259,7 +259,8 @@
 
   function buildHumanoid(race, role) {
     var Pal = RACEDEF[race];
-    var heavy = (role === 'warrior' || role === 'hero');
+    var heavy = (role === 'warrior' || role === 'hero' || role === 'lancer');
+    var caster = (role === 'caster');                   // mage / shaman / priestess (gem staff + robe)
     var orc = race === 'horde', elf = race === 'elf', crown = race === 'crown';
     var troll = (orc && role === 'archer');             // Horde ranged = troll headhunter (spears)
     var sk = M(troll ? 0x4f8f86 : Pal.skin), skD = M(troll ? 0x3d7a70 : Pal.skinD),
@@ -335,7 +336,11 @@
       [-1, 1].forEach(function (s) { var lf = cone(0.34 * Pal.pauld, 0.5, 5, metal); lf.position.set(0.7 * bw * s, 1.55, 0); lf.rotation.z = s * 0.7; lf.scale.set(1, 1, 0.6); torsoPivot.add(lf);
         torsoPivot.add(crescent(0.18, 0.04, trim).translateX(0.7 * bw * s).translateY(1.5)); });
     } else if (crown && heavy) {
-      [-1, 1].forEach(function (s) { var grp2 = new THREE.Group(); grp2.position.set(0.86 * bw * s, 1.62, 0); grp2.add(dome(0.6, metal).translateY(-0.05)); var r = ring(0.55, 0.07, trim); r.rotation.x = Math.PI / 2; grp2.add(r); torsoPivot.add(grp2); });
+      [-1, 1].forEach(function (s) { var grp2 = new THREE.Group(); grp2.position.set(0.86 * bw * s, 1.6, 0);
+        var pd = dome(0.5, metalD); pd.scale.set(1.05, 0.62, 1.05); pd.position.y = 0.02; grp2.add(pd);   // flatter steel pauldron
+        var r = ring(0.46, 0.06, trim); r.rotation.x = Math.PI / 2; r.position.y = -0.02; grp2.add(r);    // gold ridge
+        grp2.add(box(0.66, 0.12, 0.66, trim, 0, 0.16, 0));                                                 // crest plate
+        torsoPivot.add(grp2); });
     }
 
     function arm(side) {
@@ -393,6 +398,15 @@
     else if (elf && heavy) { headPivot.add(ring(headR + 0.02, 0.05, trim).rotateX(Math.PI / 2).translateY(0.42));
       headPivot.add(crescent(0.2, 0.05, metal).translateY(0.66).translateZ(headR * 0.3));
       if (role === 'hero') [-1, 1].forEach(function (s) { var fin = cone(0.12, 0.6, 4, metal); fin.position.set(0.3 * s, 0.55, -0.2); fin.rotation.z = s * 0.9; fin.rotation.x = -0.5; headPivot.add(fin); }); }
+    else if (caster) {
+      if (crown) { var wh = cone(headR + 0.1, 1.5, 8, cloth2); wh.position.y = 0.95; wh.rotation.z = 0.08; headPivot.add(wh);
+        headPivot.add(cyl(headR + 0.16, headR + 0.16, 0.12, 8, cloth2).translateY(0.42)); headPivot.add(box(0.18, 0.18, 0.08, M(Pal.gem, { emissive: Pal.gem, emissiveIntensity: .8 }), 0, 0.55, headR * 0.55)); }
+      else if (orc) { headPivot.add(box(headR * 1.9, 0.22, headR * 1.9, leather, 0, 0.5, 0));
+        [-0.3, -0.1, 0.1, 0.3].forEach(function (o) { var fe = box(0.05, 0.6, 0.14, o < 0 ? warpaint : M(0xd84a3a), o, 0.85, -0.1); fe.rotation.z = o * 0.6; fe.rotation.x = -0.3; headPivot.add(fe); });
+        [-1, 1].forEach(function (s) { headPivot.add(cone(0.08, 0.4, 5, bone).translateX(headR * s).translateY(0.5).rotateZ(-s * 0.9)); }); }
+      else { headPivot.add(dome(headR + 0.06, cloth).translateY(0.34)); headPivot.add(box(0.5, 1.3, 0.16, hairM, 0, -0.1, -headR * 0.7));
+        headPivot.add(crescent(0.2, 0.05, trim).translateY(0.7).translateZ(headR * 0.2)); headPivot.add(box(0.16, 0.16, 0.08, M(Pal.gem, { emissive: Pal.gem, emissiveIntensity: .8 }), 0, 0.4, headR * 0.62)); }
+    }
     else if (role === 'archer' && !troll) { var hd = cone(headR + 0.14, 0.8, 8, elf ? M(Pal.leaf) : cloth2); hd.position.y = 0.52; headPivot.add(hd);
       headPivot.add(box(headR * 1.7, 0.6, 0.2, elf ? M(Pal.leaf) : cloth2, 0, 0.2, -headR * 0.7));
       if (elf) headPivot.add(crescent(0.14, 0.04, trim).translateY(0.5).translateZ(headR * 0.5)); }
@@ -409,9 +423,34 @@
     } else if (role === 'warrior') {
       if (orc) { var axe = new THREE.Group(); axe.add(cyl(0.11, 0.11, 2.1, 6, leather)); axe.add(box(0.22, 1.0, 1.1, metalD, 0, 0.9, 0.32)); axe.add(box(0.22, 0.5, 0.5, metalD, 0, 1.35, 0.62)); axe.add(box(0.24, 0.95, 0.16, bone, 0, 0.85, -0.2)); holdR(axe); axe.rotation.z = 0.32;
         var oshield = box(0.16, 1.1, 0.95, metalD, -0.05, -0.4, 0.2); lfore.add(oshield); lfore.add(box(0.2, 0.3, 0.3, bone, 0, -0.4, 0.28)); armL.rotation.x = -0.4; }
-      else if (elf) { var gl = new THREE.Group(); gl.add(cyl(0.07, 0.07, 2.4, 6, leather).translateY(0.1)); gl.add(crescent(0.5, 0.07, metal).translateY(1.35)); holdR(gl); gl.rotation.z = 0.1; armR.rotation.x = -0.15; }
+      else if (elf) { var gl = new THREE.Group(); gl.add(cyl(0.07, 0.07, 2.4, 6, leather).translateY(0.1)); gl.add(crescent(0.5, 0.07, metal).translateY(1.35)); holdR(gl); gl.rotation.z = 0.1; armR.rotation.x = -0.15;
+        var leafShield = new THREE.Group(); var lblade = cone(0.62, 1.5, 5, M(Pal.leaf)); lblade.scale.set(1, 1, 0.16); leafShield.add(lblade);
+        leafShield.add(box(0.06, 1.35, 0.05, M(Pal.cloth2), 0, 0, 0.05)); leafShield.add(box(0.16, 0.16, 0.08, gemM, 0, 0.1, 0.06));
+        leafShield.position.set(-0.05, -0.4, 0.24); lfore.add(leafShield); armL.rotation.x = -0.45; }
       else { var sw = new THREE.Group(); sw.add(box(0.13, 1.8, 0.14, metal, 0, 0.6, 0)); sw.add(box(0.6, 0.16, 0.18, trim, 0, -0.2, 0)); sw.add(box(0.16, 0.4, 0.16, leather, 0, -0.5, 0)); sw.add(sph(0.13, trim).translateY(-0.74)); holdR(sw); sw.rotation.z = 0.18;
         var shield = plate(0.14, 1.2, 0.95, M(Pal.cloth), trim, -0.05, -0.4, 0.22); lfore.add(shield); lfore.add(box(0.16, 0.4, 0.34, gemM, 0, -0.4, 0.3)); armL.rotation.x = -0.45; }
+    } else if (role === 'lancer') {
+      var lance = new THREE.Group(); lance.add(cyl(0.06, 0.06, 3.7, 6, leather).translateY(0.2));
+      lance.add(cone(0.13, 0.72, 6, metal).translateY(2.1)); lance.add(ring(0.15, 0.05, trim).rotateX(Math.PI / 2).translateY(1.55));
+      lance.add(box(0.46, 0.36, 0.03, M(Pal.cape), 0.27, 1.6, 0));          // pennon
+      holdR(lance); lance.rotation.z = 0.05; armR.rotation.x = -0.12;
+      if (elf) { var lsE = new THREE.Group(); var lbE = cone(0.6, 1.4, 5, M(Pal.leaf)); lbE.scale.set(1, 1, 0.16); lsE.add(lbE); lsE.add(box(0.05, 1.25, 0.05, M(Pal.cloth2), 0, 0, 0.05)); lsE.position.set(-0.05, -0.4, 0.24); lfore.add(lsE); }
+      else { var lsh = plate(0.14, 1.25, 0.82, M(Pal.cloth), trim, -0.05, -0.4, 0.22); lfore.add(lsh); lfore.add(box(0.14, 0.36, 0.3, gemM, 0, -0.4, 0.3)); }
+      armL.rotation.x = -0.45;
+    } else if (caster) {
+      var gemBright = M(Pal.gem, { emissive: Pal.gem, emissiveIntensity: .95, roughness: .25 });
+      var staff = new THREE.Group(); staff.add(cyl(0.06, 0.06, 2.9, 6, leather).translateY(0.1));
+      if (crown) { staff.add(ring(0.22, 0.05, trim).rotateX(Math.PI / 2).translateY(1.55)); staff.add(sph(0.18, gemBright).translateY(1.55)); }
+      else if (orc) { var skull = sph(0.2, bone); skull.scale.set(1, 1.1, 0.9); skull.position.y = 1.55; staff.add(skull);
+        [-1, 1].forEach(function (s) { staff.add(cone(0.07, 0.32, 4, bone).translateX(0.16 * s).translateY(1.78).rotateZ(-s * 0.5)); });
+        [-1, 1].forEach(function (s) { var fe = box(0.05, 0.42, 0.12, warpaint, 0.06 * s, 1.3, 0); fe.rotation.z = s * 0.3; staff.add(fe); }); staff.add(sph(0.09, gemBright).translateY(1.55).translateZ(0.16)); }
+      else { staff.add(crescent(0.34, 0.06, metal).translateY(1.5)); staff.add(sph(0.15, gemBright).translateY(1.52)); }
+      holdR(staff); staff.rotation.z = 0.04; armR.rotation.x = -0.12;
+      // flowing robe over the legs
+      var robeMat = crown ? cloth : orc ? leather : cloth;
+      var robe = cyl(0.5 * bw, 1.0 * bw, 2.5, 9, robeMat); robe.position.y = 1.55; g.add(robe);
+      g.add(cyl(1.0 * bw, 1.0 * bw, 0.16, 9, elf ? M(Pal.gem, { emissive: Pal.gem, emissiveIntensity: .5 }) : trim).translateY(0.34));   // hem band
+      torsoPivot.add(box(0.34, 0.32, 0.1, gemBright, 0, 0.5, 0.34));        // chest gem clasp
     } else if (role === 'archer') {
       if (troll) {
         var mkSpear = function () { var sp = new THREE.Group(); sp.add(cyl(0.05, 0.05, 2.6, 6, leather)); sp.add(cone(0.12, 0.5, 4, bone).translateY(1.45)); sp.add(box(0.16, 0.14, 0.14, M(0xd84a3a), 0, 1.05, 0)); return sp; };
@@ -493,7 +532,9 @@
     var r = u.role;
     if (r === 'pawn' || r === 'worker') return 'worker';
     if (r === 'archer') return 'archer';
-    return 'warrior';   // warrior/lancer/monk → detailed warrior body for now
+    if (r === 'monk' || r === 'priest' || r === 'caster') return 'caster';   // mage/shaman/priestess
+    if (r === 'lancer') return 'lancer';
+    return 'warrior';
   }
   function unitTemplate(race, role) {
     var key = race + ':' + role;
