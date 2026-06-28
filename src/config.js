@@ -177,6 +177,8 @@
 
     separation:           150,
     pawnSeparationMul:    0.28,
+    moveAccelRate:        9,      // velocity easing: fraction-of-speed/sec ramp (≈0.11s to full speed); higher = snappier
+    turnRate:             11,     // renderer facing smoothing, radians/sec (≈0.28s for a half-turn)
     unitCollisionGap:     4,
     pawnCollisionGap:     -6,
     unitOverlapIterations: 3,

@@ -726,11 +726,18 @@
     if (entry) return makeModelMesh(entry, race, role, u);
     var tmpl = unitTemplate(race, role);
     var g = tmpl.clone();
-    g.userData = {
+    var ud = {
       legL: g.getObjectByName('legL'), legR: g.getObjectByName('legR'),
       shinL: g.getObjectByName('shinL'), shinR: g.getObjectByName('shinR'),
+      armL: g.getObjectByName('armL'), armR: g.getObjectByName('armR'),
+      torso: g.getObjectByName('torso'),
       isArcher: role === 'archer'
     };
+    // arms carry a weapon pose (rotation.x set at build) — remember it so the
+    // walk cycle can swing AROUND the pose instead of overwriting it.
+    if (ud.armL) ud.armLBase = ud.armL.rotation.x;
+    if (ud.armR) ud.armRBase = ud.armR.rotation.x;
+    g.userData = ud;
     return g;
   }
 
@@ -1047,9 +1054,15 @@
       }
       if (kind === 'unit') {
         var ud = o.userData;
-        o.rotation.y = -(e.facing || 0) + Math.PI / 2 + ((ud && ud.yaw) || 0);
-        // walk cycle: swing legs (+ bend knees) while moving; relax on idle
-        var moving = e.moveTo || (Math.abs(e.vx || 0) + Math.abs(e.vy || 0) > 4);
+        // facing: ease the rendered yaw toward the sim facing at a max turn-rate
+        // so units arc into turns instead of snapping (sim aim stays instant).
+        var targetYaw = -(e.facing || 0) + Math.PI / 2 + ((ud && ud.yaw) || 0);
+        if (slot._yaw === undefined) slot._yaw = targetYaw;
+        slot._yaw = approachAngle(slot._yaw, targetYaw, (RTS.Config.turnRate || 11) * R.renderDt);
+        o.rotation.y = slot._yaw;
+        // locomotion: cadence tracks ground speed so feet don't slide
+        var spd = Math.sqrt((e.vx || 0) * (e.vx || 0) + (e.vy || 0) * (e.vy || 0));
+        var moving = e.moveTo || spd > 4;
         if (ud && ud.model && ud.actions) {           // glTF model: crossfade idle<->walk clips
           var want = moving && ud.actions.walk ? 'walk' : 'idle';
           if (ud.cur !== want && ud.actions[want]) {
@@ -1059,13 +1072,25 @@
             ud.cur = want;
           }
         } else if (ud && ud.legL) {
+          // advance the stride by DISTANCE travelled (phase per world-unit), so
+          // a faster unit strides faster and a stopped unit's feet are planted.
+          slot._stride = (slot._stride || 0) + (moving ? spd * R.renderDt * 0.135 : 0);
+          var ph = slot._stride, amp = Math.min(1, spd / 70), bob = (slot.topY || 40);
           if (moving) {
-            var sw = Math.sin((performance.now() * 0.001) * 9 + (e._idlePhase || 0) * 6) * 0.5;
+            var sw = Math.sin(ph) * 0.7 * amp;
             ud.legL.rotation.x = sw; ud.legR.rotation.x = -sw;
-            if (ud.shinL) { ud.shinL.rotation.x = Math.max(0, -sw * 0.7); ud.shinR.rotation.x = Math.max(0, sw * 0.7); }
+            if (ud.shinL) { ud.shinL.rotation.x = Math.max(0, -sw) * 0.9; ud.shinR.rotation.x = Math.max(0, sw) * 0.9; }
+            if (ud.armL) ud.armL.rotation.x = (ud.armLBase || 0) - sw * 0.55;   // arms counter-swing the legs
+            if (ud.armR) ud.armR.rotation.x = (ud.armRBase || 0) + sw * 0.40;
+            if (ud.torso) ud.torso.rotation.y = sw * 0.12;                      // slight torso counter-twist
+            o.position.y += Math.abs(Math.sin(ph)) * bob * 0.03 * amp;          // body bob (two steps / cycle)
           } else {
             ud.legL.rotation.x *= 0.8; ud.legR.rotation.x *= 0.8;
             if (ud.shinL) { ud.shinL.rotation.x *= 0.8; ud.shinR.rotation.x *= 0.8; }
+            if (ud.armL) ud.armL.rotation.x += ((ud.armLBase || 0) - ud.armL.rotation.x) * 0.18;
+            if (ud.armR) ud.armR.rotation.x += ((ud.armRBase || 0) - ud.armR.rotation.x) * 0.18;
+            if (ud.torso) ud.torso.rotation.y *= 0.8;
+            o.position.y += Math.sin(performance.now() * 0.0018 + (e._idlePhase || 0)) * bob * 0.006;   // idle breathing
           }
         }
         // hit reaction: a brief scale-pop (per-instance; can't tint shared mats)
@@ -1236,9 +1261,20 @@
   /* ===========================================================================
    * Public: render one frame (called from the game loop when enabled)
    * ========================================================================= */
+  // shortest-arc angle approach: move `cur` toward `target` by at most `maxStep`
+  function approachAngle(cur, target, maxStep) {
+    var d = target - cur;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    if (d > maxStep) d = maxStep; else if (d < -maxStep) d = -maxStep;
+    return cur + d;
+  }
   function render(s) {
     if (!R.enabled) return;
     if (!R.inited && !init()) return;
+    var _now = performance.now();
+    R.renderDt = R._lastT ? Math.min(0.05, (_now - R._lastT) / 1000) : 0.016;
+    R._lastT = _now;
     var mid = s.mapId + ':' + ((s.map && s.map.terrainGrid && s.map.terrainGrid.cols) || 0);
     if (mid !== R.mapId) { R.mapId = mid; buildTerrain(s); }
     placeCamera(s);
@@ -1373,6 +1409,23 @@
       var g = tfTower(race, towerType);
       g.traverse(function (o) { o.castShadow = true; o.receiveShadow = true; });
       addOutline(g, 0.06);
+      return g;
+    },
+    // Debug/preview: build a unit mesh and freeze it at a stride phase so the
+    // walk pose (legs/arms swing, torso twist) is visible in a still. Harmless.
+    _previewUnit: function (faction, role, phase) {
+      THREE = THREE || window.THREE;
+      if (!P) buildPalette();
+      var g = makeUnitMesh({ faction: faction, role: role, id: 1 });
+      var ud = g.userData; var sw = Math.sin(phase || 0) * 0.7;
+      if (ud && ud.legL) {
+        ud.legL.rotation.x = sw; ud.legR.rotation.x = -sw;
+        if (ud.shinL) { ud.shinL.rotation.x = Math.max(0, -sw) * 0.9; ud.shinR.rotation.x = Math.max(0, sw) * 0.9; }
+        if (ud.armL) ud.armL.rotation.x = (ud.armLBase || 0) - sw * 0.55;
+        if (ud.armR) ud.armR.rotation.x = (ud.armRBase || 0) + sw * 0.40;
+        if (ud.torso) ud.torso.rotation.y = sw * 0.12;
+      }
+      g.traverse(function (o) { o.castShadow = true; o.receiveShadow = true; });
       return g;
     },
   };

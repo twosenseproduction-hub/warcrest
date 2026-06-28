@@ -1363,6 +1363,19 @@
     var grid = s.map && s.map.terrainGrid;
     var wasWater = grid && RTS.Terrain ? RTS.Terrain.isWater(grid, u.x, u.y) : false;
 
+    // Movement feel: ease the ACTUAL velocity toward the desired velocity the AI
+    // set this frame, so units accelerate from rest and coast to a stop instead
+    // of snapping between full speed and zero. The ramp rate scales with the
+    // unit's own speed so light and heavy units accelerate over a similar time.
+    var dvx = u.vx || 0, dvy = u.vy || 0;
+    if (u._evx === undefined) { u._evx = dvx; u._evy = dvy; }
+    var step = (RTS.Config.moveAccelRate || 9) * (u.speed || 60) * dt;
+    var ex = dvx - u._evx, ey = dvy - u._evy;
+    var el = Math.sqrt(ex * ex + ey * ey);
+    if (el > step && el > 0.0001) { var k = step / el; ex *= k; ey *= k; }
+    u._evx += ex; u._evy += ey;
+    u.vx = u._evx; u.vy = u._evy;
+
     u.x += u.vx * dt;
     u.y += u.vy * dt;
 
