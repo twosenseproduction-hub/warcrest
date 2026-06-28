@@ -31,6 +31,8 @@
       doubleTapMs:   320,
       menuHoldMs:    280,
       twoFingerTapMs: 280,
+      leftPanZone:   0.18,   // landscape: left fraction of the screen that always pans the camera
+      leftPanZoneMax: 150,   // …capped at this many px so it stays a thumb-strip on wide screens
     },
 
     // Economy

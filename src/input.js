@@ -656,8 +656,20 @@
           Math.hypot(cssX - lastTap.x, cssY - lastTap.y) < tapSlop();
       }
 
+      // Left-edge camera-pan zone, landscape only: the leftmost ~18% of the
+      // viewport (capped) is a strip where a drag scrolls the camera even with
+      // units selected. Tunable via Config.touch.leftPanZone (fraction) / -Max (px).
+      function inLeftPanZone(cssX, cssY) {
+        var W = window.innerWidth, H = window.innerHeight;
+        if (W <= H) return false;                       // landscape only
+        var t = (RTS.Config && RTS.Config.touch) || {};
+        var frac = t.leftPanZone != null ? t.leftPanZone : 0.18;
+        var max = t.leftPanZoneMax != null ? t.leftPanZoneMax : 150;
+        return cssX <= Math.min(W * frac, max);
+      }
+
       // --- single-pointer (mouse or 1 touch) ---
-      function down(cssX, cssY, shift) {
+      function down(cssX, cssY, shift, isTouch) {
         var s = st();
         if (!s || !active() || (uiBlocked(s) && s.pendingOrder !== 'move')) return;
         if (RTS.RadialMenu && RTS.RadialMenu.isOpen()) {
@@ -678,12 +690,16 @@
         var armyDouble = secondTap && isBareGround(hit) && lastTap.empty;
         var buildingDouble = secondTap && isFriendlyBuilding(hit) && lastTap.hitKind === 'building';
         var pawnDouble = secondTap && isFriendlyPawn(hit) && lastTap.hitKind === 'pawn';
+        // Left-edge camera-pan zone (landscape): a drag starting here ALWAYS pans
+        // the camera, even with units selected — so you can scroll the field with
+        // your left thumb without issuing a move. A tap (no drag) still selects.
+        var leftPan = isTouch && !boxArmed && s.inputMode !== 'place-building' && inLeftPanZone(cssX, cssY);
         s.ui.pointer = {
           cssX: cssX, cssY: cssY, startX: cssX, startY: cssY,
           wx: w.x, wy: w.y, moved: false, panning: false, boxing: false,
           longPressFired: false, lpReady: false, menuHoldFired: false, secondTap: secondTap,
           armyDouble: armyDouble, buildingDouble: buildingDouble, pawnDouble: pawnDouble,
-          onEmpty: onEmpty, useBox: onEmpty && boxArmed, shift: !!shift,
+          onEmpty: onEmpty, useBox: onEmpty && boxArmed, shift: !!shift, leftPan: leftPan,
           hitId: hit ? hit.id : null, hit: hit, menuHoldTimer: null,
         };
         if (s.inputMode === 'place-building') { updateGhost(s, w.x, w.y); return; }
@@ -697,7 +713,7 @@
               haptic(14);
             }
           }, MENU_HOLD);
-        } else if (!secondTap && !boxArmed &&
+        } else if (!leftPan && !secondTap && !boxArmed &&
             (isBareGround(hit) || unfinishedPlayerBuilding(buildHit || hit))) {
           startLongPress(s, w.x, w.y, cssX, cssY, buildHit || hit);
         }
@@ -730,6 +746,18 @@
         p.moved = true;
         clearPendingTap();
         clearMenuHold(p);
+
+        // Left-edge pan zone: drag always scrolls the camera, regardless of what
+        // is selected (takes precedence over box-select / move-on-drag).
+        if (p.leftPan) {
+          p.panning = true;
+          var prevL = RTS.Cam.screenToWorld(s, p.cssX, p.cssY);
+          s.camera.x -= (w.x - prevL.x);
+          s.camera.y -= (w.y - prevL.y);
+          RTS.Cam.clamp(s);
+          p.cssX = cssX; p.cssY = cssY;
+          return;
+        }
 
         // Long-press completed (ring filled) → dragging draws a selection box.
         if (p.lpReady) {
@@ -787,6 +815,8 @@
         var p = s.ui.pointer; s.ui.pointer = null;
         if (!p) return;
         clearMenuHold(p);
+        // A camera pan (incl. left-edge zone) must not also fire a move/select.
+        if (p.panning) { s.selectionBox = null; return; }
         if (p.boxing && s.selectionBox) {
           var b = s.selectionBox;
           RTS.selectBox(s, b.x1, b.y1, b.x2, b.y2, p.shift);
@@ -942,7 +972,7 @@
         twoFinger = null;
         pinch = null;
         var t = e.touches[0];
-        down(t.clientX - r.left, t.clientY - r.top, false);
+        down(t.clientX - r.left, t.clientY - r.top, false, true);
       }, { passive: false });
 
       canvas.addEventListener('touchmove', function (e) {
