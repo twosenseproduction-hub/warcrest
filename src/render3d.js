@@ -721,7 +721,8 @@
     var key = race + ':' + role;
     if (unitTemplates[key]) return unitTemplates[key];
     var g = buildHumanoid(race, role);   // DETAILED roster (reversed from minimal pegs)
-    fitHeight(g, role === 'hero' ? 60 : role === 'worker' ? 34 : 48);
+    // Larger so the per-race detail (antlers, glaive, tusks) reads at RTS zoom.
+    fitHeight(g, role === 'hero' ? 74 : role === 'worker' ? 44 : 60);
     unitTemplates[key] = g;
     return g;
   }
@@ -924,7 +925,7 @@
     var positions = [], normals = [], colors = [];
     // Deeper, more saturated grass so the warm daylight doesn't wash it to pale
     // yellow; per-tile jitter (below) breaks the flat single-colour look.
-    var cTop = new THREE.Color(0x4f9132), cTopHi = new THREE.Color(0x69aa3c), cCliff = new THREE.Color(0x6e5d40), cSand = new THREE.Color(0xc9b483);
+    var cTop = new THREE.Color(0x6a9f4c), cTopHi = new THREE.Color(0x7eb158), cCliff = new THREE.Color(0x6e5d40), cSand = new THREE.Color(0xc9b483);
     var _tcol = new THREE.Color();
     function quad(ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz, col) {
       // two tris a-b-c, a-c-d
@@ -949,7 +950,7 @@
         var x0 = cx * TILE, x1 = x0 + TILE, z0 = cy * TILE, z1 = z0 + TILE;
         // per-tile brightness jitter (deterministic hash) → grassy patch variation
         var hsh = Math.sin(cx * 12.9898 + cy * 78.233) * 43758.5453; hsh -= Math.floor(hsh);
-        var jit = 0.86 + hsh * 0.26;
+        var jit = 0.9 + hsh * 0.1;   // darken-only patch variation (never brightens to white)
         _tcol.copy(h >= 1 ? cTopHi : cTop).multiplyScalar(jit);
         // CCW-from-above winding so the top-face normal points UP (sun-lit)
         quad(x0, y, z0, x0, y, z1, x1, y, z1, x1, y, z0, _tcol);
@@ -1040,13 +1041,13 @@
     // Fog pushed well past the play field (camera sits ~2000+ units out): the old
     // 1400→3600 fog washed the whole board into a pale haze. Now only the far
     // horizon fades, so the field reads crisp and saturated.
-    R.scene.fog = new THREE.Fog(0xc6dccf, 3400, 8500);
+    R.scene.fog = new THREE.Fog(0xcfe0d6, 4200, 9500);     // faint, far — soft depth only
     R.camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 8, 9000);
-    // Lower fill ambient + a stronger directional sun = more contrast and richer
-    // colour (high flat ambient was the other half of the washed-out look).
-    R.amb = new THREE.AmbientLight(0xfff3df, 0.26); R.scene.add(R.amb);
-    R.hemi = new THREE.HemisphereLight(0xeaf2ff, 0x49532e, 0.22); R.scene.add(R.hemi);
-    R.sun = new THREE.DirectionalLight(0xfff6e6, 2.0);
+    // Soft daylight: a NEUTRAL fill (the old warm fill is what yellow-washed the
+    // grass) + a gently warm key sun, so colours read true — not washed, not garish.
+    R.amb = new THREE.AmbientLight(0xeef1f4, 0.30); R.scene.add(R.amb);
+    R.hemi = new THREE.HemisphereLight(0xcfe2ff, 0x49532e, 0.28); R.scene.add(R.hemi);
+    R.sun = new THREE.DirectionalLight(0xfff3e2, 1.55);
     R.sun.castShadow = true; R.sun.shadow.mapSize.set(IS_MOBILE ? 1024 : 2048, IS_MOBILE ? 1024 : 2048);
     var sc = R.sun.shadow.camera; sc.near = 50; sc.far = 2600; sc.left = -900; sc.right = 900; sc.top = 900; sc.bottom = -900;
     R.sun.shadow.bias = -0.0006;
