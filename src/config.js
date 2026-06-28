@@ -32,8 +32,8 @@
       doubleTapMs:   320,
       menuHoldMs:    280,
       twoFingerTapMs: 280,
-      leftPanZone:   0.18,   // landscape: left fraction of the screen that drives the camera joystick
-      leftPanZoneMax: 150,   // …capped at this many px so it stays a thumb-strip on wide screens
+      leftPanZone:   0.24,   // landscape: left fraction of the screen that drives the camera joystick
+      leftPanZoneMax: 380,   // …capped at this many px (a generous left thumb-band, not a thin edge)
       joyRadiusPx:    70,    // finger travel from the press point for full joystick deflection
     },
 

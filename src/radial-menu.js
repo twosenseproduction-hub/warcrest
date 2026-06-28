@@ -127,6 +127,34 @@
       });
     }
 
+    // Tier / core upgrade (e.g. Keep → Citadel) as a radial option.
+    if (RTS.Config.canUpgrade && RTS.Config.canUpgrade(building)) {
+      var upCost = RTS.Config.upgradeCost ? RTS.Config.upgradeCost(building) : 0;
+      var upLabel = 'UPGRADE';
+      if (building.type === 'core') {
+        var cspec = RTS.Buildings.core;
+        upLabel = 'BUILD ' + ((cspec && cspec.tierName && cspec.tierName[(building.level || 1)]) || 'KEEP').toUpperCase();
+      }
+      out.push({
+        id: 'upgrade-' + building.id, kind: 'upgrade', bid: building.id,
+        label: upLabel, avatar: (UI().iconUrl && UI().iconUrl('upgrade')) || HAMMER_ICON,
+        cost: upCost, disabled: s.res.player.halcite < upCost || !!building.upgrading,
+      });
+    }
+
+    // Guard-tower specialisation — a base turret can research into its faction's lines.
+    if (building.type === 'turret' && !building.towerType && !building.upgrading && RTS.towerUpgradesFor) {
+      var tups = RTS.towerUpgradesFor(building.faction);
+      Object.keys(tups).forEach(function (key) {
+        var def = tups[key];
+        out.push({
+          id: 'tower-' + key + '-' + building.id, kind: 'upgrade-tower', bid: building.id, variant: key,
+          label: def.label.toUpperCase(), avatar: (UI().iconUrl && UI().iconUrl('upgrade')) || HAMMER_ICON,
+          cost: def.cost, disabled: s.res.player.halcite < def.cost,
+        });
+      });
+    }
+
     if (RTS.activeWorkers(s).length && building.built &&
         (building.type === 'core' || building.type === 'outpost')) {
       (RTS.buildMenuFor ? RTS.buildMenuFor(fid) : RTS.BuildMenu).forEach(function (type) {
@@ -336,6 +364,12 @@
         break;
       case 'automine':
         data = { act: 'toggle-automine', bid: item.bid };
+        break;
+      case 'upgrade':
+        data = { act: 'upgrade', bid: item.bid };
+        break;
+      case 'upgrade-tower':
+        data = { act: 'upgrade-tower', bid: item.bid, variant: item.variant };
         break;
       default:
         return;
