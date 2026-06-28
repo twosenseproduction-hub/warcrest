@@ -54,7 +54,7 @@
   if (useBloom && THREE.EffectComposer && THREE.UnrealBloomPass) {
     composer = new THREE.EffectComposer(renderer);
     composer.addPass(new THREE.RenderPass(scene, camera));
-    var bloom = new THREE.UnrealBloomPass(new THREE.Vector2(W, H), 0.7, 0.5, 0.92); // strength, radius, threshold
+    var bloom = new THREE.UnrealBloomPass(new THREE.Vector2(W, H), 0.45, 0.5, 0.96); // strength, radius, threshold
     composer.addPass(bloom);
   }
 

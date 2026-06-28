@@ -17,9 +17,9 @@
     return tex;
   };
   LPF.RAMP = {
-    skin: LPF.makeRamp([55, 115, 180, 230]),   // soft 4-step, tops below full so color stays saturated
-    cloth: LPF.makeRamp([38, 200]),            // crisp two-tone, deep shadow
-    metal: LPF.makeRamp([45, 110, 180, 235, 255]),
+    skin: LPF.makeRamp([50, 110, 170, 215]),   // soft 4-step, tops below full so color stays saturated
+    cloth: LPF.makeRamp([34, 190]),            // crisp two-tone, deep shadow
+    metal: LPF.makeRamp([40, 100, 170, 225, 250]),
   };
 
   // Toon material with a gradient ramp + optional fresnel rim injected.

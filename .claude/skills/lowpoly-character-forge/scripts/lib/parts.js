@@ -62,6 +62,19 @@
     g.center(); return g;
   };
 
+  // Faceted crystal/gem (octahedron, stretched) — shade with LPF.facet for hard edges.
+  P.crystalGeo = function (r, stretch) {
+    var g = new THREE.OctahedronGeometry(r || 0.3, 0);
+    g.scale(1, stretch || 1.5, 1); g.center(); return g;
+  };
+  // Faceted leaf-gem: a flattened pointed crystal (the green shoulder/accent gem).
+  P.leafGemGeo = function (len, w) {
+    var g = new THREE.OctahedronGeometry((len || 0.5) * 0.6, 0);
+    g.scale(w || 0.7, (len || 0.5) / 0.3, 0.4); g.center(); return g;
+  };
+  // Orc tusk: a short upward-curving cone.
+  P.tuskGeo = function (r, len) { var g = new THREE.ConeGeometry(r || 0.06, len || 0.3, 5); g.center(); return g; };
+
   // Convenience: build a posable joint group at a position.
   P.joint = function (x, y, z) { var j = new THREE.Group(); j.position.set(x || 0, y || 0, z || 0); return j; };
 })(typeof window !== 'undefined' ? window : globalThis);
