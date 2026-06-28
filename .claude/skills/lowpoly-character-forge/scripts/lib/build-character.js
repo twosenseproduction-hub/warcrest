@@ -83,8 +83,8 @@
   }
 
   var ELF = {
-    palette: { skin: 0x564a98, cloth: 0x244a4a, accent: 0xf2c14e, gem: 0x57c23a, blade: 0x8fe66a,
-      hair: 0xede8da, hairTip: 0xf2c14e, eye: 0x76e85a, sash: 0xcf5c86, antler: 0x6e4a2a, wood: 0x7a5a38 },
+    palette: { skin: 0x564a98, cloth: 0x163433, accent: 0xf2c14e, gem: 0x57c23a, blade: 0x8fe66a,
+      hair: 0xede8da, hairTip: 0xf2c14e, eye: 0x76e85a, sash: 0xa84768, antler: 0x6e4a2a, wood: 0x7a5a38 },
     headScale: 1.2, earLen: 0.85, torsoH: 1.25, limbLen: 0.9, outline: 0.028,
   };
   LPF.buildElf = function (params) {
@@ -170,8 +170,12 @@
 
     var headY = shoulderY + 0.5 * p.headScale;
     var headR = buildHead(torsoPivot, { skin: skin, headY: headY, headScale: p.headScale, earLen: p.earLen, earDroop: p.earDroop, eye: pal.eye, brow: true, taper: 0.05 });
-    torsoPivot.add(at(smoothMesh(new THREE.BoxGeometry(0.5 * p.headScale, 0.26, 0.4), skin), 0, headY - 0.28, 0.3));
-    [-1, 1].forEach(function (s) { var tk = facetMesh(P.tuskGeo(0.1, 0.55), bone); at(tk, 0.2 * s, headY - 0.2, 0.52); tk.rotation.x = -0.15; tk.rotation.z = -s * 0.22; torsoPivot.add(tk); });
+    torsoPivot.add(at(smoothMesh(new THREE.BoxGeometry(0.52 * p.headScale, 0.3, 0.42), skin), 0, headY - 0.28, 0.3));
+    // dark mouth — the tusks emerge from here, not from thin air
+    var mouthM = LPF.toon(0x3a1410, { ramp: LPF.RAMP.cloth, rim: false });
+    torsoPivot.add(at(smoothMesh(new THREE.BoxGeometry(0.34 * p.headScale, 0.14, 0.12), mouthM), 0, headY - 0.24, 0.47));
+    // tusks rooted in the jaw/mouth (base embedded), jutting up past the lip
+    [-1, 1].forEach(function (s) { var tk = facetMesh(P.tuskGeo(0.1, 0.5), bone); at(tk, 0.15 * s, headY - 0.06, 0.45); tk.rotation.x = -0.1; tk.rotation.z = -s * 0.16; torsoPivot.add(tk); });
     torsoPivot.add(at(smoothMesh(new THREE.SphereGeometry(0.16, 8, 6), hair), 0, headY + 0.5 * p.headScale, -0.05));
 
     // floating hands + role weapon
