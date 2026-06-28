@@ -603,12 +603,20 @@
       else { var sw = new THREE.Group(); sw.add(box(0.13, 1.8, 0.14, metal, 0, 0.6, 0)); sw.add(box(0.6, 0.16, 0.18, trim, 0, -0.2, 0)); sw.add(box(0.16, 0.4, 0.16, leather, 0, -0.5, 0)); sw.add(sph(0.13, trim).translateY(-0.74)); holdR(sw); sw.rotation.z = 0.18;
         var shield = plate(0.14, 1.2, 0.95, M(Pal.cloth), trim, -0.05, -0.4, 0.22); lfore.add(shield); lfore.add(box(0.16, 0.4, 0.34, gemM, 0, -0.4, 0.3)); armL.rotation.x = -0.45; }
     } else if (role === 'lancer') {
-      var lance = new THREE.Group(); lance.add(cyl(0.06, 0.06, 3.7, 6, leather).translateY(0.2));
-      lance.add(cone(0.13, 0.72, 6, metal).translateY(2.1)); lance.add(ring(0.15, 0.05, trim).rotateX(Math.PI / 2).translateY(1.55));
-      lance.add(box(0.46, 0.36, 0.03, M(Pal.cape), 0.27, 1.6, 0));          // pennon
-      holdR(lance); lance.rotation.z = 0.05; armR.rotation.x = -0.12;
-      if (elf) { var lsE = new THREE.Group(); var lbE = cone(0.6, 1.4, 5, M(Pal.leaf)); lbE.scale.set(1, 1, 0.16); lsE.add(lbE); lsE.add(box(0.05, 1.25, 0.05, M(Pal.cloth2), 0, 0, 0.05)); lsE.position.set(-0.05, -0.4, 0.24); lfore.add(lsE); }
-      else { var lsh = plate(0.14, 1.25, 0.82, M(Pal.cloth), trim, -0.05, -0.4, 0.22); lfore.add(lsh); lfore.add(box(0.14, 0.36, 0.3, gemM, 0, -0.4, 0.3)); }
+      if (elf) {
+        // Huntress — wields a moon glaive (crescent blade), not a lance/spear
+        var hgl = new THREE.Group(); hgl.add(cyl(0.07, 0.07, 2.8, 6, leather).translateY(0.15));
+        hgl.add(crescent(0.56, 0.08, metal).translateY(1.5));
+        var hgo = sph(0.14, M(Pal.gem, { emissive: Pal.gem, emissiveIntensity: .7, roughness: .3 })); hgo.position.y = 1.5; hgl.add(hgo);
+        holdR(hgl); hgl.rotation.z = 0.08; armR.rotation.x = -0.15;
+        var lsE = new THREE.Group(); var lbE = cone(0.6, 1.4, 5, M(Pal.leaf)); lbE.scale.set(1, 1, 0.16); lsE.add(lbE); lsE.add(box(0.05, 1.25, 0.05, M(Pal.cloth2), 0, 0, 0.05)); lsE.position.set(-0.05, -0.4, 0.24); lfore.add(lsE);
+      } else {
+        var lance = new THREE.Group(); lance.add(cyl(0.06, 0.06, 3.7, 6, leather).translateY(0.2));
+        lance.add(cone(0.13, 0.72, 6, metal).translateY(2.1)); lance.add(ring(0.15, 0.05, trim).rotateX(Math.PI / 2).translateY(1.55));
+        lance.add(box(0.46, 0.36, 0.03, M(Pal.cape), 0.27, 1.6, 0));          // pennon
+        holdR(lance); lance.rotation.z = 0.05; armR.rotation.x = -0.12;
+        var lsh = plate(0.14, 1.25, 0.82, M(Pal.cloth), trim, -0.05, -0.4, 0.22); lfore.add(lsh); lfore.add(box(0.14, 0.36, 0.3, gemM, 0, -0.4, 0.3));
+      }
       armL.rotation.x = -0.45;
     } else if (caster) {
       var gemBright = M(Pal.gem, { emissive: Pal.gem, emissiveIntensity: .95, roughness: .25 });
