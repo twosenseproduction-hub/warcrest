@@ -262,7 +262,13 @@
     // tribal markings: teal cheek flashes + back stripes (elf) / red war-paint (orc)
     [-1, 1].forEach(function (s) { var mk = facetMesh(new THREE.ConeGeometry(0.05, 0.22, 3), markM); at(mk, 0.21 * s, mHeadY - 0.02, mHeadZ + 0.16); mk.rotation.x = 1.4; mk.rotation.z = s * 0.5; g.add(mk); });
     [-0.78, 0.5].forEach(function (z) { var st = facetMesh(new THREE.BoxGeometry(0.46, 0.05, 0.14), markM); at(st, 0, bodyY + 0.44, z); g.add(st); });
-    var tail = smoothMesh(P.limbGeo(0.07, 0.9), elf ? fur : furD); at(tail, 0, bodyY + 0.2, -1.4); tail.rotation.x = -0.7; g.add(tail);
+    // curved, tufted tail (segments arc up; tip tuft)
+    var tail = new THREE.Group();
+    tail.add(at(smoothMesh(P.limbGeo(0.08, 0.42), elf ? fur : furD), 0, 0, 0));
+    var ts2 = smoothMesh(P.limbGeo(0.06, 0.4), elf ? fur : furD); at(ts2, 0, 0.36, -0.1); ts2.rotation.x = -0.6; tail.add(ts2);
+    var ts3 = smoothMesh(P.limbGeo(0.045, 0.36), elf ? fur : furD); at(ts3, 0, 0.6, -0.34); ts3.rotation.x = -1.15; tail.add(ts3);
+    tail.add(at(facetMesh(new THREE.SphereGeometry(0.1, 7, 6), elf ? markM : furD), 0, 0.66, -0.6));
+    at(tail, 0, bodyY + 0.18, -1.32); tail.rotation.x = 0.55; g.add(tail);
 
     // ---- rider (own group, seated back on the saddle) ----
     var rider = new THREE.Group();
