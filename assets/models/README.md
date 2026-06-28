@@ -39,3 +39,22 @@ Open the game with `?models=demo` in the URL to render every unit from
 
 `RobotExpressive.glb` is a CC0 Three.js sample model kept here as the pipeline
 test/demo asset; it is not used by the game unless `?models=demo` is set.
+
+## Default roster — KayKit Adventurers (CC0)
+
+`kaykit/` holds the default unit models: **KayKit "Character Pack: Adventurers"**
+by Kay Lousberg (https://kaylousberg.com), CC0 / public domain, no attribution
+required. Five stylized low-poly characters (Barbarian, Knight, Mage, Rogue,
+Rogue_Hooded), each with 76 baked animation clips, mapped per race/role in
+`KAYKIT_ROSTER` in `render3d.js`:
+
+- **crown** (human): Knight (warrior/lancer/hero), Mage (caster), Rogue (worker/archer)
+- **horde** (orc): Barbarian (melee/hero), Mage (caster), Rogue (archer)
+- **elf**  (night elf): Rogue_Hooded (warrior/lancer/hero), Mage (caster), Rogue (worker/archer)
+
+Each `.glb` is ~3.6 MB (the 76 clips dominate). To slim the mobile payload,
+strip unused animation tracks down to idle/walk/attack/death with a glTF tool
+(e.g. `gltf-transform`).
+
+Next refinements: per-race skin tint (green orcs / purple-skinned elves) and
+race-specific orc/elf models to better match the reference art.

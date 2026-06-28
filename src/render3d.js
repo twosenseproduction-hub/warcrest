@@ -560,6 +560,15 @@
     return null;
   }
   function registerUnitModel(key, cfg) { UNIT_MODELS[key] = cfg; }
+  var _urlCache = {};
+  function loadOne(url) {
+    if (_urlCache[url]) return _urlCache[url];   // each .glb fetched/decoded once, reused across keys
+    _urlCache[url] = new Promise(function (res) {
+      _gltf.load(url, function (gltf) { res({ scene: gltf.scene, clips: gltf.animations || [] }); },
+        undefined, function () { res(null); });   // on error → null → procedural fallback
+    });
+    return _urlCache[url];
+  }
   function loadUnitModels() {
     THREE = THREE || window.THREE;
     if (!THREE || !THREE.GLTFLoader) return Promise.resolve(false);
@@ -567,14 +576,43 @@
     var keys = Object.keys(UNIT_MODELS);
     return Promise.all(keys.map(function (k) {
       if (modelProtos[k]) return Promise.resolve();
-      var cfg = UNIT_MODELS[k];
-      return new Promise(function (res) {
-        _gltf.load(cfg.url, function (gltf) {
-          modelProtos[k] = { scene: gltf.scene, clips: gltf.animations || [] };
-          res();
-        }, undefined, function () { res(); });   // on error, leave unregistered → procedural fallback
-      });
+      return loadOne(UNIT_MODELS[k].url).then(function (p) { if (p) modelProtos[k] = p; });
     })).then(function () { return true; });
+  }
+  // when models finish loading mid-match, drop existing unit meshes (without
+  // disposing shared procedural geometry) so syncList rebuilds them as models
+  function rebuildUnitMeshes() {
+    for (var id in R.pool) {
+      var sl = R.pool[id];
+      if (sl && sl.kind === 'unit') { R.scene.remove(sl.obj); if (sl.hp) R.scene.remove(sl.hp); delete R.pool[id]; }
+    }
+  }
+  /* Default roster: KayKit "Adventurers" (CC0, stylized low-poly) mapped per
+   * race/role for silhouette variety. 5 models reused across keys (loaded once).
+   * Closest free match to the sculpted reference look; real per-race orc/elf
+   * assets can override any key later. */
+  var KK = 'assets/models/kaykit/';
+  var KK_ANIM = { idle: 'Idle', walk: 'Walking_C', death: 'Death_A' };
+  function kk(name, role) {
+    var atk = role === 'caster' ? 'Spellcast_Shoot' : role === 'archer' ? '1H_Ranged_Shoot' : '1H_Melee_Attack_Slice_Diagonal';
+    return { url: KK + name + '.glb', yaw: Math.PI, height: role === 'hero' ? 62 : role === 'worker' ? 38 : 50,
+      anims: { idle: KK_ANIM.idle, walk: KK_ANIM.walk, death: KK_ANIM.death, attack: atk } };
+  }
+  var KAYKIT_ROSTER = {
+    'crown:worker': kk('Rogue', 'worker'), 'crown:warrior': kk('Knight', 'warrior'), 'crown:lancer': kk('Knight', 'lancer'),
+    'crown:archer': kk('Rogue', 'archer'), 'crown:caster': kk('Mage', 'caster'), 'crown:hero': kk('Knight', 'hero'),
+    'horde:worker': kk('Barbarian', 'worker'), 'horde:warrior': kk('Barbarian', 'warrior'), 'horde:lancer': kk('Barbarian', 'lancer'),
+    'horde:archer': kk('Rogue', 'archer'), 'horde:caster': kk('Mage', 'caster'), 'horde:hero': kk('Barbarian', 'hero'),
+    'elf:worker': kk('Rogue', 'worker'), 'elf:warrior': kk('Rogue_Hooded', 'warrior'), 'elf:lancer': kk('Rogue_Hooded', 'lancer'),
+    'elf:archer': kk('Rogue', 'archer'), 'elf:caster': kk('Mage', 'caster'), 'elf:hero': kk('Rogue_Hooded', 'hero'),
+  };
+  var _modelsKicked = false;
+  function setupDefaultModels() {
+    if (_modelsKicked) return; _modelsKicked = true;
+    if (/[?&]models=(off|none|procedural)/.test(location.search)) return;   // escape hatch to procedural
+    if (/[?&]models=demo/.test(location.search)) { registerUnitModel('*', { url: 'assets/models/RobotExpressive.glb', height: 50, anims: { idle: 'Idle', walk: 'Walking' } }); }
+    else { for (var k in KAYKIT_ROSTER) registerUnitModel(k, KAYKIT_ROSTER[k]); }
+    loadUnitModels().then(function (ok) { if (ok && R.enabled) rebuildUnitMeshes(); });
   }
   function makeModelMesh(entry, race, role, u) {
     var cfg = entry.cfg, proto = entry.proto;
@@ -725,6 +763,7 @@
   }
 
   function disposeObj(o) {
+    if (o.userData && o.userData.model) return;   // glTF clones share prototype geometry/materials — never dispose
     o.traverse && o.traverse(function (c) {
       if (c.geometry) c.geometry.dispose();
     });
@@ -1210,12 +1249,9 @@
     resize();
     installCamOverride(s);
     R.mapId = null; // force terrain rebuild
-    // opt-in live preview of the modeled-unit pipeline: ?models=demo renders every
-    // unit from a real .glb (smooth/rigged) instead of procedural primitives.
-    if (/[?&]models=demo/.test(location.search) && !Object.keys(UNIT_MODELS).length) {
-      registerUnitModel('*', { url: 'assets/models/RobotExpressive.glb', height: 50, anims: { idle: 'Idle', walk: 'Walking' } });
-      loadUnitModels();
-    }
+    // render units from modeled .glb assets (KayKit Adventurers by default);
+    // ?models=demo for the sample robot, ?models=off to force procedural bodies.
+    setupDefaultModels();
     return true;
   }
   function disable() {
