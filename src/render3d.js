@@ -758,6 +758,27 @@
     RTS.Cam.screenToWorld = savedCam.s2w; RTS.Cam.worldToScreen = savedCam.w2s; savedCam = null;
   }
 
+  // plop dust: a flat ring puffs out + fades when something is placed/spawned
+  var DUST_GEO = null, DUST_MAT = null, dustPool = [], dustActive = [];
+  function spawnDust(x, gy, z, r0) {
+    if (RTS.Config && RTS.Config.reducedMotion) return;
+    if (!DUST_GEO) {
+      DUST_GEO = new THREE.RingGeometry(0.62, 1, 18);
+      DUST_MAT = new THREE.MeshBasicMaterial({ color: 0xece2c2, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false });
+    }
+    var m = dustPool.pop();
+    if (!m) { m = new THREE.Mesh(DUST_GEO, DUST_MAT.clone()); m.rotation.x = -Math.PI / 2; m.renderOrder = 2; R.scene.add(m); }
+    m.visible = true; m.position.set(x, gy + 1.5, z); m.userData = { born: performance.now(), r0: r0 || 22 };
+    dustActive.push(m);
+  }
+  function updateDust() {
+    for (var i = dustActive.length - 1; i >= 0; i--) {
+      var m = dustActive[i], t = (performance.now() - m.userData.born) / 360;
+      if (t >= 1) { m.visible = false; dustActive.splice(i, 1); dustPool.push(m); continue; }
+      var r = m.userData.r0 * (0.4 + t * 1.15); m.scale.set(r, r, r); m.material.opacity = 0.6 * (1 - t);
+    }
+  }
+
   // "plop": easeOutBack scale pop when an entity first appears (Thronefall feel)
   function spawnPop(slot) {
     if (RTS.Config && RTS.Config.reducedMotion) return 1;
@@ -774,7 +795,7 @@
     if (!list) return;
     for (var i = 0; i < list.length; i++) {
       var e = list[i];
-      if (!e || e.dead) continue;
+      if (!e) continue;                 // dead units linger (corpse fade) — animate, don't skip
       R.seen[e.id] = true;
       var slot = R.pool[e.id];
       // rebuild if faction/role/type changed underneath an id (rare)
@@ -789,10 +810,20 @@
         if (!_box) _box = new THREE.Box3();
         _box.setFromObject(obj); var bs = new THREE.Vector3(); _box.getSize(bs);
         slot = R.pool[e.id] = { obj: obj, sig: sig, kind: kind, baseS: obj.scale.y, topY: bs.y, born: performance.now() };
+        spawnDust(e.x, groundYAt(s, e.x, e.y), e.y, kind === 'building' ? (e.w || 120) * 0.5 : 22);   // plop
       }
       var o = slot.obj;
       var gy = groundYAt(s, e.x, e.y);
       o.position.set(e.x, gy, e.y);
+      if (e.dead) {                       // death: topple + sink + shrink (renderer-timed)
+        if (kind === 'unit') {
+          if (!slot.deathT) slot.deathT = performance.now();
+          var dp = Math.min(1, (performance.now() - slot.deathT) / 480);
+          o.position.y = gy - dp * 4; o.rotation.z = dp * 1.5; o.scale.setScalar(slot.baseS * (1 - dp * 0.18));   // topple over, lie flat
+        }
+        if (slot.hp) slot.hp.visible = false;
+        continue;
+      }
       if (kind === 'unit') {
         o.rotation.y = -(e.facing || 0) + Math.PI / 2;
         // walk cycle: swing legs (+ bend knees) while moving; relax on idle
@@ -811,6 +842,11 @@
         // hit reaction: a brief scale-pop (per-instance; can't tint shared mats)
         var pop = e.hitFlash > 0 ? 1 + Math.min(0.16, e.hitFlash * 0.5) : 1;
         o.scale.setScalar(slot.baseS * pop * spawnPop(slot));   // + plop on spawn
+        // attack lunge: nudge forward (toward facing) on the attack frame
+        if (e.muzzleFlash > 0) {
+          var lf = Math.min(e.muzzleFlash, 0.13) * 64;
+          o.position.x += Math.cos(e.facing || 0) * lf; o.position.z += Math.sin(e.facing || 0) * lf;
+        }
       } else if (kind === 'building') {
         // rise from the ground while under construction (relative to fitted scale)
         var prog = e.built ? 1 : Math.max(0.08, e.progress || 0);
@@ -987,6 +1023,7 @@
     drawBuildPlots(s);
     drawFloats(s);
     drawMarquee(s);
+    updateDust(s);
     gc();
     // screen shake: jolt the camera (render-only; placeCamera resets next frame,
     // so picking via screenToWorld is unaffected). Driven by s.screenShake.
