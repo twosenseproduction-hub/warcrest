@@ -175,7 +175,7 @@
     var mouthM = LPF.toon(0x3a1410, { ramp: LPF.RAMP.cloth, rim: false });
     torsoPivot.add(at(smoothMesh(new THREE.BoxGeometry(0.34 * p.headScale, 0.14, 0.12), mouthM), 0, headY - 0.24, 0.47));
     // tusks rooted in the jaw/mouth (base embedded), jutting up past the lip
-    [-1, 1].forEach(function (s) { var tk = facetMesh(P.tuskGeo(0.1, 0.5), bone); at(tk, 0.15 * s, headY - 0.06, 0.45); tk.rotation.x = -0.1; tk.rotation.z = -s * 0.16; torsoPivot.add(tk); });
+    [-1, 1].forEach(function (s) { var tk = facetMesh(P.tuskGeo(0.13, 0.68), bone); at(tk, 0.16 * s, headY - 0.0, 0.45); tk.rotation.x = -0.1; tk.rotation.z = -s * 0.16; torsoPivot.add(tk); });
     torsoPivot.add(at(smoothMesh(new THREE.SphereGeometry(0.16, 8, 6), hair), 0, headY + 0.5 * p.headScale, -0.05));
 
     // floating hands + role weapon
