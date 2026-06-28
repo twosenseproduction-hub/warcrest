@@ -922,7 +922,10 @@
     if (!grid) return;
     // merge per-tile top quads + cliff side quads into one BufferGeometry
     var positions = [], normals = [], colors = [];
-    var cTop = new THREE.Color(0x5d9a3e), cTopHi = new THREE.Color(0x74b04e), cCliff = new THREE.Color(0x6e5d40), cSand = new THREE.Color(0xc9b483);
+    // Deeper, more saturated grass so the warm daylight doesn't wash it to pale
+    // yellow; per-tile jitter (below) breaks the flat single-colour look.
+    var cTop = new THREE.Color(0x4f9132), cTopHi = new THREE.Color(0x69aa3c), cCliff = new THREE.Color(0x6e5d40), cSand = new THREE.Color(0xc9b483);
+    var _tcol = new THREE.Color();
     function quad(ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz, col) {
       // two tris a-b-c, a-c-d
       var nx = 0, ny = 1, nz = 0;
@@ -944,9 +947,12 @@
         if (h < 0) continue; // water tile: leave gap, water plane shows
         var y = h >= 1 ? HIGH_RISE : 0;
         var x0 = cx * TILE, x1 = x0 + TILE, z0 = cy * TILE, z1 = z0 + TILE;
-        var topCol = h >= 1 ? cTopHi : cTop;
+        // per-tile brightness jitter (deterministic hash) → grassy patch variation
+        var hsh = Math.sin(cx * 12.9898 + cy * 78.233) * 43758.5453; hsh -= Math.floor(hsh);
+        var jit = 0.86 + hsh * 0.26;
+        _tcol.copy(h >= 1 ? cTopHi : cTop).multiplyScalar(jit);
         // CCW-from-above winding so the top-face normal points UP (sun-lit)
-        quad(x0, y, z0, x0, y, z1, x1, y, z1, x1, y, z0, topCol);
+        quad(x0, y, z0, x0, y, z1, x1, y, z1, x1, y, z0, _tcol);
         // cliff faces toward any lower neighbor (incl. water)
         var nb = [[0, -1, x0, z0, x1, z0], [1, 0, x1, z0, x1, z1], [0, 1, x1, z1, x0, z1], [-1, 0, x0, z1, x0, z0]];
         for (var k = 0; k < 4; k++) {
@@ -1038,9 +1044,9 @@
     R.camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 8, 9000);
     // Lower fill ambient + a stronger directional sun = more contrast and richer
     // colour (high flat ambient was the other half of the washed-out look).
-    R.amb = new THREE.AmbientLight(0xfff3df, 0.30); R.scene.add(R.amb);
-    R.hemi = new THREE.HemisphereLight(0xfdeecb, 0x49532e, 0.22); R.scene.add(R.hemi);
-    R.sun = new THREE.DirectionalLight(0xfff2d2, 1.9);
+    R.amb = new THREE.AmbientLight(0xfff3df, 0.26); R.scene.add(R.amb);
+    R.hemi = new THREE.HemisphereLight(0xeaf2ff, 0x49532e, 0.22); R.scene.add(R.hemi);
+    R.sun = new THREE.DirectionalLight(0xfff6e6, 2.0);
     R.sun.castShadow = true; R.sun.shadow.mapSize.set(IS_MOBILE ? 1024 : 2048, IS_MOBILE ? 1024 : 2048);
     var sc = R.sun.shadow.camera; sc.near = 50; sc.far = 2600; sc.left = -900; sc.right = 900; sc.top = 900; sc.bottom = -900;
     R.sun.shadow.bias = -0.0006;
