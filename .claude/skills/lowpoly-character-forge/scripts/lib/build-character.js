@@ -176,7 +176,7 @@
     var blade = LPF.toon(pal.blade, { ramp: LPF.RAMP.metal, emissive: pal.blade, emissiveIntensity: 1.4, rim: false }); blade.userData.glow = true;
     var mats = { accent: accent, gem: gem, blade: blade, steel: steel, wood: M(pal.wood), string: hair, sash: sashM };
     var F = { worker: { pauld: false, head: 'none' }, warrior: { pauld: true, head: 'none' }, lancer: { pauld: true, head: 'helm' },
-      archer: { pauld: false, head: 'none' }, caster: { pauld: false, head: 'none', pelt: true }, hero: { pauld: true, cape: true } }[role] || {};
+      archer: { pauld: false, head: 'none', cape: true }, caster: { pauld: false, head: 'none', pelt: true }, hero: { pauld: true, cape: true } }[role] || {};
     var g = new THREE.Group(); var glow = [];
 
     [-1, 1].forEach(function (s) { g.add(at(smoothMesh(P.limbGeo(0.16, p.limbLen), cloth), 0.17 * s, p.limbLen * 0.5, 0));
@@ -187,7 +187,7 @@
 
     var shoulderY = p.limbLen + p.torsoH;
     if (F.pauld) [-1, 1].forEach(function (s) { var pg = facetMesh(P.leafGemGeo(role === 'hero' ? 0.85 : 0.7, 0.9), gem); at(pg, 0.5 * s, shoulderY - 0.06, 0); pg.rotation.z = -s * 0.5; g.add(pg); glow.push(pg); });
-    if (F.cape) { var cp = smoothMesh(new THREE.BoxGeometry(0.95, 1.5, 0.08), sashM); at(cp, 0, p.limbLen + p.torsoH * 0.55, -0.34); cp.rotation.x = 0.12; g.add(cp); }
+    if (F.cape) { var cp = flowCape(M(role === 'hero' ? pal.cloth : pal.sash), 5, 0.5); at(cp, 0, shoulderY + 0.24, -0.12); g.add(cp); }   // back-hugging cloak
     if (F.pelt) { // druid fur mantle over the shoulders
       var pelt = smoothMesh(new THREE.SphereGeometry(0.5, 10, 7), M(pal.antler)); pelt.scale.set(1.15, 0.55, 1.0); at(pelt, 0, shoulderY - 0.02, 0); g.add(pelt); }
 
