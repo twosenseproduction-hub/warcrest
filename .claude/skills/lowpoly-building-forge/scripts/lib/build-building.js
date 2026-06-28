@@ -341,6 +341,67 @@
       var so = facet(new THREE.IcosahedronGeometry(0.12, 0), glowM(p.glow, 1.2)); K.at(so, px, y + 1.9, pz); g.add(so); glow.push(so); }
     return finishB(g, 'elf', { w: 2, d: 2 }, glow);
   }
+  // ---- HUMAN buildings (grey stone + timber framing + blue roofs + banners) ----
+  function humanBarracks() {
+    var p = FACTIONS.human, stone = M(p.stone), stoneD = M(p.stoneD), timber = M(p.timber);
+    var g = new THREE.Group(); var glow = [];
+    g.add(K.foundation(4.4, 3.2, stoneD));
+    var w = 3.8, h = 2.2, d = 2.6;
+    g.add(K.at(smooth(new THREE.BoxGeometry(w, h, d), stone), 0, h / 2, 0));
+    [-1, 1].forEach(function (s) { g.add(K.at(smooth(new THREE.BoxGeometry(0.2, h, 0.2), timber), w / 2 * s, h / 2, d / 2)); });
+    g.add(K.at(smooth(new THREE.BoxGeometry(w, 0.16, 0.16), timber), 0, h * 0.55, d / 2 + 0.02));
+    g.add(K.at(K.gableRoof(w + 0.5, d + 0.5, 1.4, M(p.roof)), 0, h, 0));
+    g.add(K.at(smooth(new THREE.BoxGeometry(w + 0.5, 0.12, d + 0.5), timber), 0, h, 0));
+    g.add(K.at(K.door(1.2, 1.5, timber), 0, 0, d / 2 + 0.02));
+    [-1, 1].forEach(function (s) { var hw = K.window(0.5, 0.7, timber, glowM(p.glow)); K.at(hw, 1.1 * s, h * 0.55, d / 2 + 0.02); g.add(hw); glow = glow.concat(hw.userData.glow); });
+    var bn = K.banner(2.4, M(p.banner), timber); K.at(bn, -w / 2 - 0.3, 0, d / 2 - 0.2); g.add(bn);
+    return finishB(g, 'human', { w: 3, d: 2 }, glow);
+  }
+  function humanTower() {
+    var p = FACTIONS.human, stone = M(p.stone), stoneD = M(p.stoneD), timber = M(p.timber);
+    var g = new THREE.Group(); var glow = [];
+    g.add(K.foundation(2.4, 2.4, stoneD));
+    var r = 1.0, h = 3.8;
+    g.add(K.at(K.tower(r, h, stone, 8), 0, h / 2, 0));
+    crenellate(g, r + 0.05, h + 0.05, stone);
+    var ch = 1.4, cone = K.coneRoof(r * 1.05, ch, M(p.roof), 8); K.at(cone, 0, h + 0.5 + ch / 2, 0); g.add(cone);
+    g.add(K.at(facet(new THREE.ConeGeometry(0.07, 0.5, 5), LPF.toon(p.accent, { ramp: LPF.RAMP.metal, rim: false })), 0, h + 0.5 + ch + 0.2, 0));
+    for (var i = 0; i < 3; i++) { var a = i / 3 * Math.PI * 2; var sl = K.window(0.22, 0.5, timber, glowM(p.glow)); K.at(sl, Math.cos(a) * r, h * 0.6, Math.sin(a) * r); sl.rotation.y = -a + Math.PI / 2; g.add(sl); glow = glow.concat(sl.userData.glow); }
+    g.add(K.at(K.door(0.9, 1.3, timber), 0, 0, r + 0.02));
+    return finishB(g, 'human', { w: 1, d: 1 }, glow);
+  }
+  // HUMAN tier-2 "Blacksmith / Mill": timber+stone hall + ember chimney + forge glow + waterwheel
+  function humanForge() {
+    var p = FACTIONS.human, stone = M(p.stone), stoneD = M(p.stoneD), timber = M(p.timber), iron = M(0x3a3d42);
+    var g = new THREE.Group(); var glow = [];
+    g.add(K.foundation(4.8, 3.6, stoneD));
+    var w = 3.2, h = 2.2, d = 2.6;
+    g.add(K.at(smooth(new THREE.BoxGeometry(w, h, d), stone), -0.4, h / 2, 0));
+    [-1, 1].forEach(function (s) { g.add(K.at(smooth(new THREE.BoxGeometry(0.2, h, 0.2), timber), -0.4 + w / 2 * s, h / 2, d / 2)); });
+    g.add(K.at(K.gableRoof(w + 0.5, d + 0.5, 1.3, M(p.roof)), -0.4, h, 0));
+    g.add(K.at(smooth(new THREE.BoxGeometry(w + 0.5, 0.12, d + 0.5), timber), -0.4, h, 0));
+    g.add(K.at(K.door(1.1, 1.5, timber), -0.4, 0, d / 2 + 0.02));
+    g.add(K.at(K.chimney(1.6, stoneD), -1.6, h + 1.0, -0.6));
+    var ember = facet(new THREE.CylinderGeometry(0.2, 0.2, 0.12, 8), glowM(0xff8a3a, 1.6)); K.at(ember, -1.6, h + 1.85, -0.6); g.add(ember); glow.push(ember);
+    var fg = K.window(0.6, 0.5, timber, glowM(0xff8a3a, 1.5)); K.at(fg, 0.7, h * 0.45, d / 2 + 0.02); g.add(fg); glow = glow.concat(fg.userData.glow);
+    g.add(K.at(K.waterwheel(1.1, timber, iron), w / 2 + 0.2, 1.1, 0.4));
+    var bn = K.banner(2.2, M(p.banner), timber); K.at(bn, -w / 2 - 0.7, 0, d / 2 - 0.2); g.add(bn);
+    return finishB(g, 'human', { w: 3, d: 2 }, glow);
+  }
+  // HUMAN research "Arcane Sanctum": stone hall + tall blue cone roof + glowing arcane orb + tall windows
+  function humanResearch() {
+    var p = FACTIONS.human, stone = M(p.stone), stoneD = M(p.stoneD), timber = M(p.timber);
+    var g = new THREE.Group(); var glow = [];
+    g.add(K.foundation(3.4, 3.0, stoneD));
+    var w = 2.6, h = 2.8, d = 2.4;
+    g.add(K.at(smooth(new THREE.BoxGeometry(w, h, d), stone), 0, h / 2, 0));
+    var ch = 1.7, cone = K.coneRoof(w * 0.64, ch, M(p.roof), 8); K.at(cone, 0, h + ch / 2, 0); g.add(cone);
+    var orb = facet(new THREE.IcosahedronGeometry(0.28, 0), glowM(0x6fb4ff, 1.6)); K.at(orb, 0, h + ch + 0.2, 0); g.add(orb); glow.push(orb);
+    g.add(K.at(K.door(1.0, 1.4, timber), 0, 0, d / 2 + 0.02));
+    [-0.7, 0.7].forEach(function (x) { var ww = K.window(0.4, 1.2, timber, glowM(0x6fb4ff, 1.0)); K.at(ww, x, h * 0.55, d / 2 + 0.02); g.add(ww); glow = glow.concat(ww.userData.glow); });
+    var bn = K.banner(2.4, M(p.banner), timber); K.at(bn, -w / 2 - 0.3, 0, d / 2 - 0.2); g.add(bn);
+    return finishB(g, 'human', { w: 2, d: 2 }, glow);
+  }
   function finishB(g, faction, fp, glow) {
     g.userData = { glowMeshes: glow, faction: faction, footprint: fp };
     LPF.outlineGroup && LPF.outlineGroup(g, 0.03, 0x1a1620);
@@ -360,6 +421,10 @@
     if (kind === 'tower' && faction === 'elf') return elfTower();
     if (kind === 'forge' && faction === 'elf') return elfForge();
     if (kind === 'research' && faction === 'elf') return elfResearch();
+    if (kind === 'barracks' && faction === 'human') return humanBarracks();
+    if (kind === 'tower' && faction === 'human') return humanTower();
+    if (kind === 'forge' && faction === 'human') return humanForge();
+    if (kind === 'research' && faction === 'human') return humanResearch();
     return buildHouse(faction);
   };
 

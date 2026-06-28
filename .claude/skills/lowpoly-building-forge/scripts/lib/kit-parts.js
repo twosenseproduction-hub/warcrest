@@ -101,5 +101,14 @@
     g.add(at(facet(new THREE.BoxGeometry(0.5, h * 0.5, 0.04), mat), 0.28, h * 0.72, 0)); return g;
   };
   K.chimney = function (h, mat) { return at(facet(new THREE.BoxGeometry(0.5, h, 0.5), mat), 0, h / 2, 0); };
+  // vertical waterwheel (in XY plane, faces ±Z): rim + spokes + paddles + hub
+  K.waterwheel = function (r, frameMat, paddleMat) {
+    var g = new THREE.Group();
+    g.add(facet(new THREE.TorusGeometry(r, 0.08, 6, 14), frameMat));
+    for (var i = 0; i < 4; i++) { var sp = facet(new THREE.BoxGeometry(0.07, r * 2, 0.07), frameMat); sp.rotation.z = i / 4 * Math.PI; g.add(sp); }
+    var n = 8; for (var j = 0; j < n; j++) { var a = j / n * Math.PI * 2; var pd = facet(new THREE.BoxGeometry(0.34, 0.34, 0.16), paddleMat); at(pd, Math.cos(a) * r, Math.sin(a) * r, 0); pd.rotation.z = a; g.add(pd); }
+    var hub = facet(new THREE.CylinderGeometry(0.14, 0.14, 0.4, 8), paddleMat); hub.rotation.x = Math.PI / 2; g.add(hub);
+    return g;
+  };
   K.beam = function (len, mat) { return facet(new THREE.BoxGeometry(0.14, 0.14, len), mat); };
 })(typeof window !== 'undefined' ? window : globalThis);
