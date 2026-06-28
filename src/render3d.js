@@ -208,6 +208,36 @@
     sideStair(g, 3.3, BP.capD);
     return g;
   }
+  // ORC core (Warren Maw): rocky mound + red tent great-hall + bone spikes/totems + forge glow
+  function tfKeepOrc(race) {
+    var g = new THREE.Group();
+    g.add(cyl(4.6, 5.2, 1.4, 9, BP.bodyD).translateY(0.7));                       // rocky mound
+    for (var i = 0; i < 10; i++) { var a = i / 10 * Math.PI * 2; var rk = sphere(0.7 + (i % 3) * 0.2, BP.bodyD); rk.position.set(Math.cos(a) * 4.6, 0.9, Math.sin(a) * 4.6); rk.scale.y = 0.7; g.add(rk); }
+    g.add(cyl(2.8, 3.2, 3.2, 8, BP.body).translateY(2.9));                        // stone drum hall
+    g.add(box(1.7, 2.1, 0.3, BP.door, 0, 1.6, 3.0));
+    var tent = cone(3.7, 3.4, 8, BP.cap); tent.position.y = 6.0; g.add(tent);     // red tent roof
+    var tent2 = cone(2.2, 2.0, 8, BP.cap); tent2.position.y = 8.1; g.add(tent2);  // stacked upper tent
+    for (var j = 0; j < 9; j++) { var a2 = j / 9 * Math.PI * 2; var sp = cone(0.3, 1.3, 5, P.bone); sp.position.set(Math.cos(a2) * 3.0, 4.6, Math.sin(a2) * 3.0); sp.rotation.z = Math.cos(a2) * 0.5; sp.rotation.x = -Math.sin(a2) * 0.5; g.add(sp); }   // bone spikes
+    [-1, 1].forEach(function (sd) { var px = sd * 4.0, pz = 3.0;                  // bone totems at the gate
+      g.add(cyl(0.18, 0.22, 2.8, 6, BP.wood).translateX(px).translateY(1.4).translateZ(pz));
+      var sk = sphere(0.55, P.bone); sk.scale.set(1, 1.1, 0.9); sk.position.set(px, 3.0, pz); g.add(sk);
+      [-1, 1].forEach(function (s2) { var hn = cone(0.12, 0.5, 5, P.bone); hn.position.set(px + 0.28 * s2, 3.2, pz); hn.rotation.z = -s2 * 0.9; g.add(hn); }); });
+    var lava = cyl(0.95, 0.95, 0.3, 9, emberMat(0xff7a18)); lava.position.set(4.3, 0.95, -2.0); g.add(lava);   // forge cauldron glow
+    return g;
+  }
+  // ELF core (Eldertree): gnarled trunk + flared roots + giant leaf canopy + climbing rune orbs + horns
+  function tfKeepElf(race) {
+    var g = new THREE.Group();
+    g.add(cyl(1.8, 2.6, 6.5, 8, P.bark).translateY(3.25));                        // gnarled trunk
+    for (var i = 0; i < 7; i++) { var a = i / 7 * Math.PI * 2; var rt = cyl(0.25, 0.8, 2.4, 6, P.bark); rt.position.set(Math.cos(a) * 2.2, 1.0, Math.sin(a) * 2.2); rt.rotation.x = -Math.sin(a) * 0.5; rt.rotation.z = Math.cos(a) * 0.5; g.add(rt); }   // flared roots
+    g.add(box(1.6, 2.2, 0.3, BP.door, 0, 1.6, 2.4));
+    for (var r = 0; r < 3; r++) { var orb = sphere(0.4, emberMat(0xffe07a, 0xd9b94a)); orb.position.set(0, 3.0 + r * 1.3, 2.55); g.add(orb); }   // rune orbs
+    var crown = new THREE.Group(); crown.position.y = 8.4; crown.add(sphere(3.7, P.leaf));   // giant canopy
+    for (var k = 0; k < 9; k++) { var a3 = k / 9 * Math.PI * 2, e = 0.2 + (k % 3) * 0.32; var b = sphere(2.0 + (k % 3) * 0.5, k % 2 ? P.leaf2 : P.leaf); b.position.set(Math.cos(a3) * Math.cos(e) * 3.4, Math.sin(e) * 2.6, Math.sin(a3) * Math.cos(e) * 3.4); crown.add(b); }
+    g.add(crown);
+    for (var h = 0; h < 5; h++) { var a4 = h / 5 * Math.PI * 2; var hn = cone(0.2, 1.6, 5, P.bark); hn.position.set(Math.cos(a4) * 3.0, 7.6, Math.sin(a4) * 3.0); hn.rotation.z = Math.cos(a4) * 0.7; hn.rotation.x = -Math.sin(a4) * 0.7; g.add(hn); }   // horns from the canopy
+    return g;
+  }
   function tfHouse(race) {
     var g = new THREE.Group();
     g.add(box(4.4, 2.2, 3.6, BP.body, 0, 1.1, 0));
@@ -281,7 +311,7 @@
     BP = bpFor(race);
     var t = b.type || '';
     var g;
-    if (/core|keep|castle|townhall|citadel|chiefs_hall/.test(t)) g = tfKeep(race);
+    if (/core|keep|castle|townhall|citadel|chiefs_hall/.test(t)) g = race === 'horde' ? tfKeepOrc(race) : race === 'elf' ? tfKeepElf(race) : tfKeep(race);
     else if (/wall|gate|rampart/.test(t)) g = tfWall();
     else if (/turret|tower/.test(t)) g = tfTower(race, b.towerType);
     else if (/forge/.test(t)) g = tfForge();
@@ -677,9 +707,17 @@
   var _modelsKicked = false;
   function setupDefaultModels() {
     if (_modelsKicked) return; _modelsKicked = true;
-    if (/[?&]models=(off|none|procedural)/.test(location.search)) return;   // escape hatch to procedural
-    if (/[?&]models=demo/.test(location.search)) { registerUnitModel('*', { url: 'assets/models/RobotExpressive.glb', height: 50, anims: { idle: 'Idle', walk: 'Walking' } }); }
-    else { for (var k in KAYKIT_ROSTER) registerUnitModel(k, KAYKIT_ROSTER[k]); }
+    var q = location.search;
+    // Default roster = the race-specific PROCEDURAL units (orc tusks, elf antlers,
+    // human knights) which face their travel direction. The generic KayKit
+    // adventurer .glb set is opt-in (?models=kaykit) and the robot is ?models=demo.
+    if (/[?&]models=demo/.test(q)) {
+      registerUnitModel('*', { url: 'assets/models/RobotExpressive.glb', height: 50, anims: { idle: 'Idle', walk: 'Walking' } });
+    } else if (/[?&]models=kaykit/.test(q)) {
+      for (var k in KAYKIT_ROSTER) registerUnitModel(k, KAYKIT_ROSTER[k]);
+    } else {
+      return;   // procedural (default + ?models=off/none/procedural) — nothing to load
+    }
     loadUnitModels().then(function (ok) { if (ok && R.enabled) rebuildUnitMeshes(); });
   }
   // tinted-material cache: one clone per (tint, original material), shared across
@@ -1570,6 +1608,11 @@
       }
       g.traverse(function (o) { o.castShadow = true; o.receiveShadow = true; });
       return g;
+    },
+    // Debug/preview: a finished building mesh for a faction (default core). Harmless.
+    _previewBuilding: function (faction, type) {
+      THREE = THREE || window.THREE; if (!P) buildPalette();
+      return makeBuildingMesh({ faction: faction, type: type || 'core', w: 256, h: 192, built: true });
     },
     // Debug/preview: a projectile mesh of a kind aimed along a climbing diagonal
     // so shape, aim (yaw+pitch) and trail are visible in a still. Harmless.

@@ -69,6 +69,17 @@
       }
     },
     updatePan: function (s, dt) {
+      // Left-edge joystick: push the stick a direction and the camera scrolls that
+      // way continuously (push right → camera moves right), velocity ∝ deflection.
+      var joy = s.camera.joystick;
+      if (joy && (joy.x || joy.y)) {
+        var jc = s.camera;
+        var spd = (RTS.Config.camera && RTS.Config.camera.joySpeed) || 1200;
+        jc.x += joy.x * spd * dt / jc.zoom;
+        jc.y += joy.y * spd * dt / jc.zoom;
+        jc.panTarget = null;
+        RTS.Cam.clamp(s);
+      }
       var pt = s.camera.panTarget;
       if (!pt) return;
       var c = s.camera;
@@ -693,6 +704,7 @@
         // Left-edge camera-pan zone (landscape): a drag starting here ALWAYS pans
         // the camera, even with units selected — so you can scroll the field with
         // your left thumb without issuing a move. A tap (no drag) still selects.
+        s.camera.joystick = null;   // fresh press resets any prior joystick deflection
         var leftPan = isTouch && !boxArmed && s.inputMode !== 'place-building' && inLeftPanZone(cssX, cssY);
         s.ui.pointer = {
           cssX: cssX, cssY: cssY, startX: cssX, startY: cssY,
@@ -747,15 +759,15 @@
         clearPendingTap();
         clearMenuHold(p);
 
-        // Left-edge pan zone: drag always scrolls the camera, regardless of what
-        // is selected (takes precedence over box-select / move-on-drag).
+        // Left-edge joystick: deflection from the touch origin sets a scroll
+        // direction (push right → camera moves right); held steady keeps scrolling.
+        // Takes precedence over box-select / move-on-drag.
         if (p.leftPan) {
           p.panning = true;
-          var prevL = RTS.Cam.screenToWorld(s, p.cssX, p.cssY);
-          s.camera.x -= (w.x - prevL.x);
-          s.camera.y -= (w.y - prevL.y);
-          RTS.Cam.clamp(s);
-          p.cssX = cssX; p.cssY = cssY;
+          var maxR = (RTS.Config.touch && RTS.Config.touch.joyRadiusPx) || 70;
+          var nx = Math.max(-1, Math.min(1, (cssX - p.startX) / maxR));
+          var ny = Math.max(-1, Math.min(1, (cssY - p.startY) / maxR));
+          s.camera.joystick = { x: nx, y: ny };
           return;
         }
 
@@ -815,8 +827,8 @@
         var p = s.ui.pointer; s.ui.pointer = null;
         if (!p) return;
         clearMenuHold(p);
-        // A camera pan (incl. left-edge zone) must not also fire a move/select.
-        if (p.panning) { s.selectionBox = null; return; }
+        // A camera pan (incl. left-edge joystick) must not also fire a move/select.
+        if (p.panning) { s.selectionBox = null; s.camera.joystick = null; return; }
         if (p.boxing && s.selectionBox) {
           var b = s.selectionBox;
           RTS.selectBox(s, b.x1, b.y1, b.x2, b.y2, p.shift);
@@ -960,7 +972,7 @@
         var s = st(); if (!s || !active()) return;
         var r = rect();
         if (e.touches.length === 2) {
-          clearLongPress(s); s.ui.pointer = null; s.selectionBox = null;
+          clearLongPress(s); s.ui.pointer = null; s.selectionBox = null; s.camera.joystick = null;
           if (RTS.RadialMenu && RTS.RadialMenu.isOpen()) RTS.RadialMenu.close();
           var fp = fingerPair(e, r);
           twoFinger = {
@@ -1021,7 +1033,7 @@
       canvas.addEventListener('touchcancel', function () {
         var s = st(); if (!s) { pinch = null; twoFinger = null; return; }
         clearPendingTap();
-        clearLongPress(s); s.ui.pointer = null; s.selectionBox = null;
+        clearLongPress(s); s.ui.pointer = null; s.selectionBox = null; s.camera.joystick = null;
         pinch = null; twoFinger = null;
         if (RTS.RadialMenu && RTS.RadialMenu.isOpen()) RTS.RadialMenu.close();
       }, { passive: true });

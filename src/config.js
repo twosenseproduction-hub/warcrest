@@ -22,6 +22,7 @@
       default: 0.5,
       lock: true,
       panInertia: 0.86,
+      joySpeed: 1200,   // left-edge joystick: camera scroll speed (world px/s at full deflection)
     },
     touch: {
       slopPx:        isMobile ? 42 : 18,
@@ -31,8 +32,9 @@
       doubleTapMs:   320,
       menuHoldMs:    280,
       twoFingerTapMs: 280,
-      leftPanZone:   0.18,   // landscape: left fraction of the screen that always pans the camera
+      leftPanZone:   0.18,   // landscape: left fraction of the screen that drives the camera joystick
       leftPanZoneMax: 150,   // …capped at this many px so it stays a thumb-strip on wide screens
+      joyRadiusPx:    70,    // finger travel from the press point for full joystick deflection
     },
 
     // Economy
