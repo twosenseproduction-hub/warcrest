@@ -43,7 +43,8 @@
   var ground = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.ShadowMaterial({ opacity: 0.22 }));
   ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
 
-  var model = LPF.buildCharacter(which);
+  var role = qs.get('role') || 'warrior';
+  var model = LPF.buildCharacter(which, { role: role });
   scene.add(model);
   var box = new THREE.Box3().setFromObject(model); var size = new THREE.Vector3(); box.getSize(size);
   var center = new THREE.Vector3(); box.getCenter(center);

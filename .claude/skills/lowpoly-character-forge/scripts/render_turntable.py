@@ -31,6 +31,7 @@ def _serve(directory):
 async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--build', default='elf')
+    ap.add_argument('--role', default='warrior')
     ap.add_argument('--angles', default='25')
     ap.add_argument('--bloom', default='1')
     ap.add_argument('--out', default=os.path.join(HERE, '..', 'renders'))
@@ -48,7 +49,7 @@ async def main():
         b = await p.chromium.launch(**launch)
         pg = await b.new_page(viewport={'width': int(args.w), 'height': int(args.h)})
         errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
-        url = f'http://127.0.0.1:{port}/render-page.html?build={args.build}&bloom={args.bloom}&w={args.w}&h={args.h}'
+        url = f'http://127.0.0.1:{port}/render-page.html?build={args.build}&role={args.role}&bloom={args.bloom}&w={args.w}&h={args.h}'
         await pg.goto(url, wait_until='load')
         await pg.wait_for_function('window.LPF_VIEW && window.LPF_VIEW.ready', timeout=15000)
         await pg.wait_for_timeout(400)
