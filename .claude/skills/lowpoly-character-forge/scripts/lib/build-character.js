@@ -275,7 +275,7 @@
     var bodyMat = role === 'caster' ? tabard : armored ? steel : leather;
     var mats = { accent: accent, gem: gem, steel: steel, blade: steel, wood: M(pal.wood), cloth: tabard, string: hair };
     var F = { worker: { head: 'cap', beard: true }, warrior: { head: 'helm', pauld: true, shield: true },
-      lancer: { head: 'helm', pauld: true, shield: true }, archer: { head: 'hood', beard: true, cape: true },
+      lancer: { head: 'helm', pauld: true, shield: true }, archer: { head: 'riflehelm', beard: true },
       caster: { head: 'wizhat', robe: true }, hero: { head: 'winghelm', pauld: true, cape: true, beard: true } }[role] || {};
     var g = new THREE.Group(); var glow = [];
 
@@ -315,6 +315,10 @@
     else if (F.head === 'hood') { // cowl over top+back, face/beard open at front
       var hood = facetMesh(new THREE.SphereGeometry(headR + 0.14, 9, 7, 0, Math.PI * 2, 0, 1.8), tabard); at(hood, 0, headY + 0.12, -0.16); hood.scale.set(1.12, 1.08, 1.22); g.add(hood);
       g.add(at(facetMesh(new THREE.ConeGeometry(0.2, 0.5, 5), tabard), 0, headY + 0.22, -0.42)); }   // hood drape/point at back
+    else if (F.head === 'riflehelm') { // WC3 dwarf blue kettle-helm: blue dome + steel brim + knob
+      var kh = facetMesh(new THREE.SphereGeometry(headR + 0.1, 9, 7, 0, Math.PI * 2, 0, 1.55), tabard); at(kh, 0, headY + 0.16, 0); kh.scale.set(1.08, 1.0, 1.08); g.add(kh);
+      var br = facetMesh(new THREE.TorusGeometry(headR + 0.07, 0.055, 5, 11), steel); br.rotation.x = Math.PI / 2; at(br, 0, headY + 0.17, 0); g.add(br);
+      g.add(at(facetMesh(new THREE.SphereGeometry(0.07, 6, 5), steel), 0, headY + 0.16 + headR + 0.06, 0)); }
     else if (F.head === 'cap') { g.add(at(smoothMesh(new THREE.SphereGeometry(headR + 0.04, 9, 6, 0, 6.3, 0, 1.5), leather), 0, headY + 0.1, 0)); }
 
     var rWeapon = role === 'caster' ? wizardStaff(mats) : role === 'worker' ? pick(mats)
