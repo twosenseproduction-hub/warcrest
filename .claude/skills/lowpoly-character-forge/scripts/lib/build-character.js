@@ -232,7 +232,8 @@
     // mount fur
     var fur = LPF.toon(elf ? 0x2c2738 : 0x7b7f86, { ramp: LPF.RAMP.skin, rim: false });
     var furD = LPF.toon(elf ? 0x1c1926 : 0x55585c, { ramp: LPF.RAMP.cloth });
-    var mEye = LPF.toon(elf ? 0x4fd6c4 : 0xe8a83a, { ramp: LPF.RAMP.metal, emissive: elf ? 0x4fd6c4 : 0xe8a83a, emissiveIntensity: 0.5, rim: false });
+    var mEye = LPF.toon(elf ? 0x5ff0dc : 0xf0b43a, { ramp: LPF.RAMP.metal, emissive: elf ? 0x5ff0dc : 0xf0b43a, emissiveIntensity: 0.85, rim: false });
+    var markM = LPF.toon(elf ? 0x4fd6c4 : 0xb5402f, { ramp: LPF.RAMP.cloth, rim: false });
     var g = new THREE.Group(); var glow = [];
     var bodyY = 1.05;
 
@@ -257,37 +258,42 @@
       [-1, 1].forEach(function (s) { g.add(at(facetMesh(new THREE.ConeGeometry(0.11, 0.26, 4), furD), 0.16 * s, mHeadY + 0.34, mHeadZ - 0.02)); });
       var mane = smoothMesh(new THREE.SphereGeometry(0.4, 9, 7), furD); at(mane, 0, mHeadY - 0.1, mHeadZ - 0.45); mane.scale.set(1.1, 1.1, 0.7); g.add(mane);
     }
-    [-1, 1].forEach(function (s) { var e = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), mEye); at(e, 0.13 * s, mHeadY + 0.05, mHeadZ + 0.26); g.add(e); glow.push(e); });
+    [-1, 1].forEach(function (s) { var e = new THREE.Mesh(new THREE.SphereGeometry(0.075, 6, 5), mEye); at(e, 0.13 * s, mHeadY + 0.05, mHeadZ + 0.26); g.add(e); glow.push(e); });
+    // tribal markings: teal cheek flashes + back stripes (elf) / red war-paint (orc)
+    [-1, 1].forEach(function (s) { var mk = facetMesh(new THREE.ConeGeometry(0.05, 0.22, 3), markM); at(mk, 0.21 * s, mHeadY - 0.02, mHeadZ + 0.16); mk.rotation.x = 1.4; mk.rotation.z = s * 0.5; g.add(mk); });
+    [-0.78, 0.5].forEach(function (z) { var st = facetMesh(new THREE.BoxGeometry(0.46, 0.05, 0.14), markM); at(st, 0, bodyY + 0.44, z); g.add(st); });
     var tail = smoothMesh(P.limbGeo(0.07, 0.9), elf ? fur : furD); at(tail, 0, bodyY + 0.2, -1.4); tail.rotation.x = -0.7; g.add(tail);
 
-    // ---- rider seated on the back ----
-    var seatY = bodyY + 0.55, hs = 0.95;
-    g.add(at(smoothMesh(P.torsoGeo(0.32, 0.42, 0.85), cloth), 0, seatY + 0.45, -0.05));
-    g.add(at(smoothMesh(P.torsoGeo(0.36, 0.36, 0.22), sashM), 0, seatY + 0.7, -0.05));
-    // bent legs gripping the flanks
-    [-1, 1].forEach(function (s) { var thigh = smoothMesh(P.limbGeo(0.13, 0.5), cloth); at(thigh, 0.34 * s, seatY + 0.2, 0.1); thigh.rotation.x = 1.1; thigh.rotation.z = -s * 0.2; g.add(thigh);
-      g.add(at(smoothMesh(P.limbGeo(0.12, 0.4), skin), 0.42 * s, seatY - 0.15, 0.4)); });
+    // ---- rider (own group, seated back on the saddle) ----
+    var rider = new THREE.Group();
+    var seatY = bodyY + 0.5, hs = 0.95;
+    rider.add(at(smoothMesh(P.torsoGeo(0.32, 0.42, 0.85), cloth), 0, seatY + 0.45, 0));
+    rider.add(at(smoothMesh(P.torsoGeo(0.36, 0.36, 0.22), sashM), 0, seatY + 0.7, 0));
+    // legs draped down the flanks
+    [-1, 1].forEach(function (s) {
+      var thigh = smoothMesh(P.limbGeo(0.13, 0.5), cloth); at(thigh, 0.34 * s, seatY + 0.08, 0.05); thigh.rotation.z = -s * 0.5; thigh.rotation.x = 0.3; rider.add(thigh);
+      var calf = smoothMesh(P.limbGeo(0.12, 0.44), skin); at(calf, 0.5 * s, seatY - 0.38, 0.12); calf.rotation.z = -s * 0.1; rider.add(calf);
+    });
     var headY = seatY + 1.05;
-    var headR = buildHead(g, { skin: skin, headY: headY, headScale: hs, earLen: elf ? 0.8 : 0.4, earDroop: elf ? 0.9 : 1.3, eye: pal.eye, brow: !elf, taper: elf ? 0.18 : 0.05 });
-    if (elf) { var hb = smoothMesh(P.headGeo(0.52 * hs, 0.12), LPF.toon(pal.hair, { ramp: LPF.RAMP.cloth })); at(hb, 0, headY + 0.06, -0.12); hb.scale.set(1.04, 1.1, 0.9); g.add(hb);
-      [-1, 1].forEach(function (s) { var a = antler(LPF.toon(pal.antler, { ramp: LPF.RAMP.cloth }), s); at(a, headR * 0.55 * s, headY + 0.3, -0.04); g.add(a); }); }
-    else { g.add(at(smoothMesh(new THREE.BoxGeometry(0.52 * hs, 0.3, 0.42), skin), 0, headY - 0.28, 0.3));
-      g.add(at(smoothMesh(new THREE.BoxGeometry(0.34 * hs, 0.14, 0.12), LPF.toon(0x3a1410, { ramp: LPF.RAMP.cloth, rim: false })), 0, headY - 0.24, 0.47));
-      [-1, 1].forEach(function (s) { var tk = facetMesh(P.tuskGeo(0.11, 0.55), LPF.toon(pal.bone, { ramp: LPF.RAMP.cloth })); at(tk, 0.15 * s, headY - 0.02, 0.45); tk.rotation.z = -s * 0.16; g.add(tk); });
-      g.add(at(smoothMesh(new THREE.SphereGeometry(0.14, 8, 6), LPF.toon(pal.hair, { ramp: LPF.RAMP.cloth })), 0, headY + 0.5 * hs, -0.05)); }
-    // floating hands + weapon (elf: moon-glaive, orc: spear)
+    var headR = buildHead(rider, { skin: skin, headY: headY, headScale: hs, earLen: elf ? 0.8 : 0.4, earDroop: elf ? 0.9 : 1.3, eye: pal.eye, brow: !elf, taper: elf ? 0.18 : 0.05 });
+    if (elf) { var hb = smoothMesh(P.headGeo(0.52 * hs, 0.12), LPF.toon(pal.hair, { ramp: LPF.RAMP.cloth })); at(hb, 0, headY + 0.06, -0.12); hb.scale.set(1.04, 1.1, 0.9); rider.add(hb);
+      [-1, 1].forEach(function (s) { var a = antler(LPF.toon(pal.antler, { ramp: LPF.RAMP.cloth }), s); at(a, headR * 0.55 * s, headY + 0.3, -0.04); rider.add(a); }); }
+    else { rider.add(at(smoothMesh(new THREE.BoxGeometry(0.52 * hs, 0.3, 0.42), skin), 0, headY - 0.28, 0.3));
+      rider.add(at(smoothMesh(new THREE.BoxGeometry(0.34 * hs, 0.14, 0.12), LPF.toon(0x3a1410, { ramp: LPF.RAMP.cloth, rim: false })), 0, headY - 0.24, 0.47));
+      [-1, 1].forEach(function (s) { var tk = facetMesh(P.tuskGeo(0.11, 0.55), LPF.toon(pal.bone, { ramp: LPF.RAMP.cloth })); at(tk, 0.15 * s, headY - 0.02, 0.45); tk.rotation.z = -s * 0.16; rider.add(tk); });
+      rider.add(at(smoothMesh(new THREE.SphereGeometry(0.14, 8, 6), LPF.toon(pal.hair, { ramp: LPF.RAMP.cloth })), 0, headY + 0.5 * hs, -0.05)); }
     var mats = { accent: accent, gem: gem, blade: blade, steel: steel, wood: LPF.toon(pal.wood, { ramp: LPF.RAMP.cloth }), sash: sashM };
-    // Huntress THROWS a glaive (ranged); Raider wields a spear
-    var wpn = elf ? throwGlaive(mats) : spear(mats, 2.5, steel);
+    var wpn = elf ? throwGlaive(mats) : spear(mats, 2.5, steel);   // Huntress throws a glaive; Raider wields a spear
     if (elf) wpn.scale.setScalar(1.25);
     var rH = at(floatingHand(skin, 0.15), 0.42, seatY + 0.35, 0.25);
     var lH = at(floatingHand(skin, 0.15), -0.42, seatY + 0.35, 0.2);
     wpn.position.copy(rH.position);
-    if (elf) { wpn.position.y += 0.25; wpn.position.z += 0.15; wpn.rotation.x = -0.2; }   // raised, cocked to throw
+    if (elf) { wpn.position.y += 0.25; wpn.position.z += 0.15; wpn.rotation.x = -0.2; }
     else { wpn.rotation.z = -0.4; wpn.rotation.x = -0.25; }
-    g.add(wpn);
+    rider.add(wpn); rider.add(rH); rider.add(lH);
     (wpn.userData.glow || []).forEach(function (x) { glow.push(x); });
-    g.add(rH); g.add(lH);
+    rider.position.set(0, -0.08, -0.34);   // seat back onto the mid-back, slightly lower
+    g.add(rider);
 
     g.userData.emissiveMeshes = glow;
     LPF.outlineGroup(g, 0.026, elf ? 0x1a1226 : 0x141008);
