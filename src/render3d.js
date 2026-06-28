@@ -80,6 +80,14 @@
   function cone(r, h, seg, mat) { var m = new THREE.Mesh(new THREE.ConeGeometry(r, h, seg), mat); m.castShadow = true; return m; }
   function cyl(r1, r2, h, seg, mat) { var m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r2, h, seg), mat); m.castShadow = true; return m; }
   function sphere(r, mat) { var m = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 0), mat); m.castShadow = true; return m; }
+  // smooth (non-faceted) material — for organic limbs/skin ported from the forge
+  function Ms(h, opts) { return new THREE.MeshStandardMaterial(Object.assign({ color: h, flatShading: false, roughness: 0.86, metalness: 0 }, opts || {})); }
+  // anatomical lathed limb from a [radius, y] silhouette (smooth normals), NOT centred
+  function prof(pts, seg) {
+    var v = pts.map(function (p) { return new THREE.Vector2(Math.max(0.001, p[0]), p[1]); });
+    var g = new THREE.LatheGeometry(v, seg || 12); g.computeVertexNormals(); return g;
+  }
+  function profMesh(pts, mat, seg) { var m = new THREE.Mesh(prof(pts, seg), mat); m.castShadow = true; m.receiveShadow = true; return m; }
 
   // The procedural builders below are authored at "race-demo" scale (a knight is
   // ~2 units tall). The world is in pixels (64px tiles), so every assembled mesh
@@ -419,8 +427,8 @@
       trim: 0x8a6a3a, trimD: 0x5e4824, leather: 0x4a3320, bone: 0xe2dcc0, fur: 0x6a5436, warpaint: 0xc23528,
       hair: 0x14100c, beard: 0x14100c, gem: 0xd8642a, cape: 0x3a2418,
       scale: 1.08, hunch: 0.34, armLen: 1.34, headR: 0.6, build: 1.55, legLen: 0.8, hand: 1.6, foot: 1.45, pauld: 1.3 },
-    elf: { skin: 0xb39bd8, skinD: 0x9c84c4, cloth: 0x2f6a5e, cloth2: 0x214b43, metal: 0xd6dde6, metalD: 0xa7b0bd,
-      trim: 0xd9c069, trimD: 0xb89a45, leather: 0x4a4030, leaf: 0x4f8a5a, hair: 0xe6e3dc, eye: 0xffd27a,
+    elf: { skin: 0xb39bd8, skinD: 0x9c84c4, cloth: 0x3c6b39, cloth2: 0x2a4f28, metal: 0xd6dde6, metalD: 0xa7b0bd,
+      trim: 0xd9c069, trimD: 0xb89a45, leather: 0x6e4a2a, leaf: 0x4f8a5a, hair: 0x9d8ad6, eye: 0xcffcff,
       beard: 0x000000, gem: 0x8fe0d6, cape: 0x2f6a4a,
       scale: 1.06, hunch: -0.04, armLen: 1.06, headR: 0.48, build: 0.86, legLen: 1.18, hand: 1.05, foot: 1.05, pauld: 0.7 },
   };
@@ -484,6 +492,9 @@
       warpaint = M(troll ? 0x2f6f8a : (Pal.warpaint || 0xc23528)),
       eyeM = elf ? M(Pal.eye, { emissive: Pal.eye, emissiveIntensity: 1.0, roughness: .4 }) : M(orc ? 0xe8c33a : 0x241f17, orc ? { emissive: 0xc28a14, emissiveIntensity: .4 } : {}),
       dark = M(0x241f17), white = M(0xeee7cf);
+    // smooth (organic) skin + cloth for the elf — ported from the forge look
+    var skSmooth = elf ? Ms(Pal.skin, { roughness: 0.82 }) : sk;
+    var clothSmooth = elf ? Ms(Pal.cloth) : cloth;
     var g = new THREE.Group();
     var bw = Pal.build, hsc = Pal.hand, fsc = Pal.foot, legLen = Pal.legLen, armLen = Pal.armLen, headR = Pal.headR, hunch = Pal.hunch;
     if (troll) { bw = 1.0; hsc = 1.05; fsc = 1.1; legLen = 1.12; armLen = 1.42; headR = 0.5; hunch = 0.18; }
@@ -492,12 +503,16 @@
       var j = new THREE.Group(); j.position.set(0.36 * bw * side, 2.5 * legLen, 0);
       if (troll) { j.add(box(0.34 * bw, 1.05 * legLen, 0.42, sk, 0, -0.5 * legLen, 0)); j.add(box(0.4 * bw, 0.32, 0.46, leather, 0, -0.72 * legLen, 0)); }
       else if (orc) { j.add(box(0.56 * bw, 1.0 * legLen, 0.6, sk, 0, -0.5 * legLen, 0)); j.add(box(0.5 * bw, 0.4, 0.62, leather, 0, -0.16 * legLen, 0)); }
-      else if (elf) { j.add(box(0.36 * bw, 1.05 * legLen, 0.4, cloth2, 0, -0.52 * legLen, 0)); }
+      else if (elf) { var TL = 1.05 * legLen;   // bare lavender thigh, tapered (lathed)
+        j.add(profMesh([[0.13 * bw, -TL], [0.19 * bw, -TL * 0.62], [0.15 * bw, -TL * 0.18], [0.17 * bw, 0]], skSmooth, 12)); }
       else { j.add(box(0.5 * bw, 1.05 * legLen, 0.54, heavy ? metalD : leather, 0, -0.52 * legLen, 0)); }
       var shin = new THREE.Group(); shin.position.y = -1.02 * legLen;
       if (troll) { shin.add(box(0.3 * bw, 0.95 * legLen, 0.34, sk, 0, -0.48 * legLen, 0)); shin.add(box(0.44 * fsc, 0.24, 0.82 * fsc, leather, 0, -0.96 * legLen, 0.18)); }
       else if (orc) { shin.add(box(0.46 * bw, 0.9 * legLen, 0.46, sk, 0, -0.45 * legLen, 0)); shin.add(box(0.6 * bw * fsc, 0.4, 0.85 * fsc, metalD, 0, -0.95 * legLen, 0.1)); shin.add(ring(0.34 * bw, 0.1, fur).rotateX(Math.PI / 2).translateY(-0.55 * legLen)); }
-      else if (elf) { shin.add(box(0.32 * bw, 0.95 * legLen, 0.36, cloth2, 0, -0.48 * legLen, 0)); shin.add(box(0.4 * fsc, 0.3, 0.72 * fsc, leather, 0, -0.96 * legLen, 0.14)); shin.add(box(0.34 * fsc, 0.12, 0.34 * fsc, metal, 0, -0.86 * legLen, 0.1)); }
+      else if (elf) { var SL = 0.95 * legLen;   // bare lavender calf (lathed) + sandal wraps
+        shin.add(profMesh([[0.085 * bw, -SL], [0.15 * bw, -SL * 0.5], [0.11 * bw, 0]], skSmooth, 12));
+        shin.add(box(0.34 * fsc, 0.22, 0.72 * fsc, leather, 0, -SL, 0.16));
+        [-0.3, -0.55, -0.8].forEach(function (f) { var w = ring(0.13 * bw, 0.03, leather); w.rotation.x = Math.PI / 2; w.position.set(0, SL * f, 0.01); shin.add(w); }); }
       else { shin.add(box(0.44 * bw, 0.95 * legLen, 0.48, heavy ? metal : leather, 0, -0.48 * legLen, 0)); shin.add(box(0.56 * bw * fsc, 0.34, 0.82 * fsc, metalD, 0, -0.98 * legLen, 0.12)); shin.add(box(0.5 * bw * fsc, 0.2, 0.34 * fsc, trim, 0, -1.0 * legLen, 0.45 * fsc)); if (heavy) { var r = ring(0.32 * bw, 0.06, trim); r.rotation.x = Math.PI / 2; r.position.y = -0.62 * legLen; shin.add(r); } }
       j.add(shin); j.userData = { shin: shin }; return j;
     }
@@ -520,7 +535,10 @@
       torsoPivot.add(box(1.45 * bw, 0.3, 0.94, leather, 0, 0.16, 0)); torsoPivot.add(box(0.32, 0.3, 0.1, bone, 0, 0.16, 0.5));
       torsoPivot.add(box(0.7, 0.95, 0.14, leather, 0, -0.3, 0.42)); torsoPivot.add(box(0.7, 0.95, 0.14, leather, 0, -0.3, -0.42));
     } else if (elf) {
-      torsoPivot.add(box(1.0 * bw, 1.5, 0.6, cloth, 0, 0.86, 0));
+      // lathed hourglass torso + hanging tabard/skirt (ported from the forge)
+      torsoPivot.add(profMesh([[0.42 * bw, 0], [0.33 * bw, 0.45], [0.46 * bw, 0.95], [0.52 * bw, 1.4], [0.42 * bw, 1.52], [0.18 * bw, 1.62]], clothSmooth, 16));
+      torsoPivot.add(profMesh([[0.62 * bw, -0.62], [0.56 * bw, -0.3], [0.42 * bw, 0.12], [0.34 * bw, 0.36]], clothSmooth, 16));
+      torsoPivot.add(box(0.2, 0.72, 0.05, M(Pal.cloth2), 0, -0.26, 0.43));   // front tabard panel
       if (heavy) { torsoPivot.add(plate(0.92 * bw, 1.05, 0.34, metal, trim, 0, 0.98, 0.34));
         torsoPivot.add(crescent(0.22, 0.05, metal).translateY(1.05).translateZ(0.56)); torsoPivot.add(box(0.2, 0.2, 0.1, gemM, 0, 0.75, 0.56));
         [-1, 1].forEach(function (s) { var lf = cone(0.16, 0.5, 4, M(Pal.leaf)); lf.position.set(0.32 * s, 1.45, 0.2); lf.rotation.z = s * 0.5; torsoPivot.add(lf); }); }
@@ -558,12 +576,16 @@
       var j = new THREE.Group(); j.position.set((troll ? 0.58 : orc ? 0.86 : 0.78) * bw * side, 1.42, 0);
       if (troll) { j.add(box(0.3, 1.0 * armLen, 0.32, sk, 0, -0.48 * armLen, 0)); j.add(ring(0.22, 0.05, bone).rotateX(Math.PI / 2).translateY(-0.2)); }
       else if (orc) { j.add(box(0.48, 1.0 * armLen, 0.5, sk, 0, -0.48 * armLen, 0)); j.add(ring(0.28, 0.07, bone).rotateX(Math.PI / 2).translateY(-0.2)); }
-      else if (elf) { j.add(box(0.32, 1.0 * armLen, 0.34, heavy ? metal : M(Pal.cloth), 0, -0.48 * armLen, 0)); }
+      else if (elf) { var UA = 1.0 * armLen;   // lathed upper arm (bare skin or sleeve)
+        j.add(profMesh([[0.1, -UA], [0.14, -UA * 0.5], [0.12, 0]], heavy ? Ms(Pal.metal, { metalness: .35, roughness: .5 }) : skSmooth, 10)); }
       else { j.add(box(0.4, 1.0 * armLen, 0.44, heavy ? metal : M(Pal.cloth), 0, -0.48 * armLen, 0)); }
       var fore = new THREE.Group(); fore.position.y = -0.94 * armLen;
       if (troll) { fore.add(box(0.26, 0.84 * armLen, 0.28, sk, 0, -0.4 * armLen, 0)); fore.add(box(0.3, 0.3, 0.3, leather, 0, -0.62 * armLen, 0)); fore.add(box(0.34 * hsc, 0.34, 0.34 * hsc, sk, 0, -0.84 * armLen, 0.04)); }
       else if (orc) { fore.add(box(0.42, 0.8 * armLen, 0.44, sk, 0, -0.4 * armLen, 0)); fore.add(box(0.46, 0.34, 0.46, leather, 0, -0.66 * armLen, 0)); fore.add(box(0.54 * hsc, 0.42, 0.54 * hsc, sk, 0, -0.85 * armLen, 0.04)); }
-      else if (elf) { fore.add(box(0.28, 0.82 * armLen, 0.3, sk, 0, -0.4 * armLen, 0)); fore.add(box(0.34, 0.4, 0.34, leather, 0, -0.6 * armLen, 0)); fore.add(box(0.36 * hsc, 0.34, 0.36 * hsc, leather, 0, -0.84 * armLen, 0.04)); }
+      else if (elf) { var FA = 0.82 * armLen;   // lathed forearm + bracer ring + hand
+        fore.add(profMesh([[0.075, -FA], [0.11, -FA * 0.5], [0.095, 0]], skSmooth, 10));
+        var brc = ring(0.13, 0.035, leather); brc.rotation.x = Math.PI / 2; brc.position.y = -0.5 * FA; fore.add(brc);
+        fore.add(sph(0.13 * hsc, skSmooth).translateY(-0.86 * armLen).translateZ(0.04)); }
       else { fore.add(box(0.36, 0.82 * armLen, 0.38, heavy ? metalD : sk, 0, -0.4 * armLen, 0)); fore.add(box(0.5 * hsc, 0.42, 0.5 * hsc, heavy ? metal : leather, 0, -0.82 * armLen, 0.04)); if (heavy) fore.add(box(0.5 * hsc, 0.12, 0.5 * hsc, trim, 0, -0.66 * armLen, 0.04)); }
       j.add(fore); j.userData = { fore: fore }; return j;
     }
@@ -590,20 +612,20 @@
       headPivot.add(cone(0.12, 0.34, 4, skD).translateX(-headR * 0.94).translateY(0.34).rotateZ(0.4)); headPivot.add(cone(0.12, 0.34, 4, skD).translateX(headR * 0.94).translateY(0.34).rotateZ(-0.4));
       if (heavy) { headPivot.add(ring(headR + 0.04, 0.06, bone).rotateX(Math.PI / 2).translateY(0.4)); }
     } else if (elf) {
-      headPivot.add(box(0.16, 0.1, 0.06, eyeM, -0.15, 0.36, headR * 0.84)); headPivot.add(box(0.16, 0.1, 0.06, eyeM, 0.15, 0.36, headR * 0.84));
-      headPivot.add(cone(0.09, 0.5, 4, sk).translateX(-headR * 0.92).translateY(0.34).rotateZ(0.5)); headPivot.add(cone(0.09, 0.5, 4, sk).translateX(headR * 0.92).translateY(0.34).rotateZ(-0.5));
-      if (role !== 'archer') { headPivot.add(box(0.56, 1.3, 0.16, hairM, 0, -0.1, -headR * 0.7));
-        headPivot.add(box(0.2, 1.4, 0.14, hairM, -0.34, -0.15, -headR * 0.4)); headPivot.add(box(0.2, 1.4, 0.14, hairM, 0.34, -0.15, -headR * 0.4));
-        headPivot.add(dome(headR + 0.04, hairM).translateY(0.34)); }
-      // brown branch antlers sweeping up + back from the brow (both sides)
-      var antlerM = M(0x6e4a2a);
-      [-1, 1].forEach(function (s) {
-        var an = new THREE.Group(); an.position.set(headR * 0.5 * s, 0.5, -0.04); an.rotation.z = s * 0.5; an.rotation.x = -0.35;
-        an.add(cone(0.06, 0.8, 4, antlerM).translateY(0.4));                         // main beam
-        var t1 = cone(0.045, 0.42, 4, antlerM); t1.position.set(s * 0.16, 0.46, 0); t1.rotation.z = s * 0.8; an.add(t1);   // lower tine
-        var t2 = cone(0.04, 0.34, 4, antlerM); t2.position.set(s * 0.1, 0.72, 0.06); t2.rotation.z = s * 0.35; t2.rotation.x = -0.3; an.add(t2);   // upper tine
-        headPivot.add(an);
-      });
+      // glowing eyes + angled brows + nose
+      headPivot.add(box(0.13, 0.08, 0.06, eyeM, -0.14, 0.34, headR * 0.86)); headPivot.add(box(0.13, 0.08, 0.06, eyeM, 0.14, 0.34, headR * 0.86));
+      [-1, 1].forEach(function (s) { var bw2 = box(0.16, 0.05, 0.08, sk, 0.14 * s, 0.46, headR * 0.8); bw2.rotation.z = s * 0.18; headPivot.add(bw2); });
+      var nz = cone(0.05, 0.16, 5, sk); nz.rotation.x = Math.PI * 0.5; nz.position.set(0, 0.28, headR * 0.92); headPivot.add(nz);
+      // long swept ears
+      headPivot.add(cone(0.09, 0.55, 4, sk).translateX(-headR * 0.92).translateY(0.34).rotateZ(0.55)); headPivot.add(cone(0.09, 0.55, 4, sk).translateX(headR * 0.92).translateY(0.34).rotateZ(-0.55));
+      // lavender hair: swept-back volume + top-knot + face-frame locks + back braids (no antlers, per reference)
+      headPivot.add(dome(headR + 0.05, hairM).translateY(0.34).translateZ(-0.05));
+      headPivot.add(box(0.52, 0.5, 0.42, hairM, 0, 0.22, -headR * 0.6));
+      headPivot.add(sph(0.16, hairM).translateY(0.62).translateZ(-0.08));
+      headPivot.add(cone(0.13, 0.26, 5, hairM).translateY(0.5).translateZ(headR * 0.5));
+      [-1, 1].forEach(function (s) { headPivot.add(profMesh([[0.04, -0.5], [0.085, -0.2], [0.05, 0]], hairM, 6).translateX(headR * 0.9 * s).translateY(0.32).translateZ(headR * 0.28)); });
+      [-1, 1].forEach(function (s) { headPivot.add(cyl(0.05, 0.04, 0.62, 5, hairM).translateX(headR * 0.5 * s).translateY(-0.12).translateZ(-headR * 0.6));
+        headPivot.add(sph(0.05, hairM).translateX(headR * 0.5 * s).translateY(-0.42).translateZ(-headR * 0.6)); });
     } else {
       headPivot.add(box(0.46, 0.1, 0.06, dark, 0, 0.4, headR * 0.86));
       headPivot.add(box(0.62, 0.6, 0.42, beardM, 0, 0.02, headR * 0.5)); headPivot.add(box(0.5, 0.5, 0.36, beardM, 0, -0.34, headR * 0.55)); headPivot.add(box(0.32, 0.36, 0.26, beardM, 0, -0.72, headR * 0.5));
