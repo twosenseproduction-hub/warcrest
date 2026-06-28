@@ -69,13 +69,15 @@
     g.add(at(smoothMesh(new THREE.BoxGeometry(0.1, 0.9, 0.1), m.wood || m.accent), 0, 0.1, 0));   // stock
     g.add(at(facetMesh(new THREE.BoxGeometry(1.05, 0.08, 0.1), m.steel), 0, 0.45, 0.06));        // limbs
     g.add(at(smoothMesh(new THREE.BoxGeometry(0.02, 0.02, 0.6), m.steel), 0, 0.45, 0.3)); return g; }
-  // Rifleman musket: long steel barrel + wooden stock + muzzle + hammer/sight (points +Z).
+  // Rifleman DOUBLE-BARREL musket: two steel barrels + wooden stock + muzzles + hammer.
   function rifle(m) { var g = new THREE.Group();
-    var barrel = facetMesh(new THREE.CylinderGeometry(0.05, 0.06, 1.7, 7), m.steel); barrel.rotation.x = Math.PI / 2; at(barrel, 0, 0.06, 0.95); g.add(barrel);
-    g.add(at(smoothMesh(new THREE.BoxGeometry(0.13, 0.24, 0.75), m.wood || m.accent), 0, -0.03, 0.12));        // stock
-    g.add(at(smoothMesh(new THREE.BoxGeometry(0.12, 0.12, 0.7), m.wood || m.accent), 0, 0.04, 0.55));          // fore-grip
-    var muzzle = facetMesh(new THREE.CylinderGeometry(0.085, 0.085, 0.16, 7), m.steel); muzzle.rotation.x = Math.PI / 2; at(muzzle, 0, 0.06, 1.78); g.add(muzzle);
-    g.add(at(facetMesh(new THREE.BoxGeometry(0.06, 0.16, 0.08), m.steel), 0, 0.17, 0.32));                     // hammer/sight
+    [-1, 1].forEach(function (s) {
+      var barrel = facetMesh(new THREE.CylinderGeometry(0.045, 0.05, 1.7, 7), m.steel); barrel.rotation.x = Math.PI / 2; at(barrel, 0.075 * s, 0.06, 0.95); g.add(barrel);
+      var muzzle = facetMesh(new THREE.CylinderGeometry(0.075, 0.075, 0.18, 7), m.steel); muzzle.rotation.x = Math.PI / 2; at(muzzle, 0.075 * s, 0.06, 1.78); g.add(muzzle);
+    });
+    g.add(at(smoothMesh(new THREE.BoxGeometry(0.22, 0.26, 0.78), m.wood || m.accent), 0, -0.04, 0.12));        // stock
+    g.add(at(smoothMesh(new THREE.BoxGeometry(0.24, 0.13, 0.7), m.wood || m.accent), 0, 0.03, 0.55));          // fore-grip (spans both barrels)
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.07, 0.17, 0.08), m.steel), 0, 0.18, 0.34));                     // hammer
     return g; }
   function holyMace(m) { var g = new THREE.Group(); g.add(smoothMesh(P.limbGeo(0.05, 1.4), m.wood || m.accent));
     var head = facetMesh(new THREE.SphereGeometry(0.2, 7, 6), m.accent); at(head, 0, 0.75, 0); g.add(head);
@@ -273,7 +275,7 @@
     var bodyMat = role === 'caster' ? tabard : armored ? steel : leather;
     var mats = { accent: accent, gem: gem, steel: steel, blade: steel, wood: M(pal.wood), cloth: tabard, string: hair };
     var F = { worker: { head: 'cap', beard: true }, warrior: { head: 'helm', pauld: true, shield: true },
-      lancer: { head: 'helm', pauld: true, shield: true }, archer: { head: 'dwarfhelm', beard: true },
+      lancer: { head: 'helm', pauld: true, shield: true }, archer: { head: 'hood', beard: true, cape: true },
       caster: { head: 'wizhat', robe: true }, hero: { head: 'winghelm', pauld: true, cape: true, beard: true } }[role] || {};
     var g = new THREE.Group(); var glow = [];
 
@@ -293,7 +295,7 @@
     var shoulderY = limbLen + torsoH;
     if (F.pauld) [-1, 1].forEach(function (s) { var pd = facetMesh(new THREE.SphereGeometry(0.32, 9, 7), steel); pd.scale.y = 0.7; at(pd, 0.54 * bw * s, shoulderY - 0.02, 0); g.add(pd);
       var r = facetMesh(new THREE.TorusGeometry(0.28, 0.05, 5, 8), accent); r.rotation.x = Math.PI / 2; at(r, 0.54 * bw * s, shoulderY - 0.05, 0); g.add(r); });
-    if (F.cape) { var cp = smoothMesh(new THREE.BoxGeometry(0.95, 1.5, 0.08), M(0x9c2b2b)); at(cp, 0, shoulderY - 0.1, -0.34); cp.rotation.x = 0.12; g.add(cp); }
+    if (F.cape) { var cp = smoothMesh(new THREE.BoxGeometry(0.9 * bw, dwarf ? 1.0 : 1.5, 0.08), M(role === 'hero' ? 0x9c2b2b : pal.cloth)); at(cp, 0, shoulderY - (dwarf ? 0.35 : 0.1), -0.34 * bw); cp.rotation.x = 0.12; g.add(cp); }
 
     var headY = shoulderY + 0.5 * headScale;
     var headR = buildHead(g, { skin: skin, headY: headY, headScale: headScale, eye: pal.eye, eyeGlow: false, ears: 'round', taper: 0.16 });
@@ -310,6 +312,9 @@
     else if (F.head === 'dwarfhelm') { g.add(at(facetMesh(new THREE.SphereGeometry(headR + 0.08, 9, 6, 0, 6.3, 0, 1.55), steel), 0, headY + 0.14, 0));
       var brim = facetMesh(new THREE.TorusGeometry(headR + 0.04, 0.06, 5, 10), accent); brim.rotation.x = Math.PI / 2; at(brim, 0, headY + 0.2, 0); g.add(brim);
       g.add(at(facetMesh(new THREE.BoxGeometry(0.1, 0.34, 0.12), steel), 0, headY + 0.0, headR * 0.95)); }
+    else if (F.head === 'hood') { // cowl over top+back, face/beard open at front
+      var hood = facetMesh(new THREE.SphereGeometry(headR + 0.14, 9, 7, 0, Math.PI * 2, 0, 1.8), tabard); at(hood, 0, headY + 0.12, -0.16); hood.scale.set(1.12, 1.08, 1.22); g.add(hood);
+      g.add(at(facetMesh(new THREE.ConeGeometry(0.2, 0.5, 5), tabard), 0, headY + 0.22, -0.42)); }   // hood drape/point at back
     else if (F.head === 'cap') { g.add(at(smoothMesh(new THREE.SphereGeometry(headR + 0.04, 9, 6, 0, 6.3, 0, 1.5), leather), 0, headY + 0.1, 0)); }
 
     var rWeapon = role === 'caster' ? wizardStaff(mats) : role === 'worker' ? pick(mats)
