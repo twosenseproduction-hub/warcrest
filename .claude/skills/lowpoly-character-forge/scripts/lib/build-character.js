@@ -141,9 +141,9 @@
         g.add(at(facetMesh(new THREE.ConeGeometry(0.08, 0.45, 4), accent), 0, headY + 0.62 * p.headScale, 0)); } }
 
     var rWeapon = role === 'caster' ? druidStaff(mats) : role === 'worker' ? gemTool(mats)
-      : role === 'archer' ? throwGlaive(mats) : role === 'hero' ? gemGlaive(mats, 2.3)
+      : role === 'archer' ? null : role === 'hero' ? gemGlaive(mats, 2.3)
       : moonPolearm(mats);   // warrior = Sentinel moon-polearm
-    var hands = { right: rWeapon, left: null, rTilt: role === 'archer' ? -0.3 : 0, lRot: 0.2 };
+    var hands = { right: rWeapon, left: role === 'archer' ? bow(mats) : null, rTilt: 0, lRot: 0.2 };
     var handY = p.limbLen + p.torsoH * 0.22;
     glow = glow.concat(placeHands(g, g, skin, handY, 0.52, 0.16, hands));
 
@@ -277,10 +277,15 @@
       g.add(at(smoothMesh(new THREE.SphereGeometry(0.14, 8, 6), LPF.toon(pal.hair, { ramp: LPF.RAMP.cloth })), 0, headY + 0.5 * hs, -0.05)); }
     // floating hands + weapon (elf: moon-glaive, orc: spear)
     var mats = { accent: accent, gem: gem, blade: blade, steel: steel, wood: LPF.toon(pal.wood, { ramp: LPF.RAMP.cloth }), sash: sashM };
-    var wpn = elf ? gemGlaive(mats, 2.0) : spear(mats, 2.5, steel);
+    // Huntress THROWS a glaive (ranged); Raider wields a spear
+    var wpn = elf ? throwGlaive(mats) : spear(mats, 2.5, steel);
+    if (elf) wpn.scale.setScalar(1.25);
     var rH = at(floatingHand(skin, 0.15), 0.42, seatY + 0.35, 0.25);
     var lH = at(floatingHand(skin, 0.15), -0.42, seatY + 0.35, 0.2);
-    wpn.position.copy(rH.position); wpn.rotation.z = -0.4; wpn.rotation.x = -0.25; g.add(wpn);
+    wpn.position.copy(rH.position);
+    if (elf) { wpn.position.y += 0.25; wpn.position.z += 0.15; wpn.rotation.x = -0.2; }   // raised, cocked to throw
+    else { wpn.rotation.z = -0.4; wpn.rotation.x = -0.25; }
+    g.add(wpn);
     (wpn.userData.glow || []).forEach(function (x) { glow.push(x); });
     g.add(rH); g.add(lH);
 
