@@ -1023,11 +1023,16 @@
     if ('outputEncoding' in R.renderer && THREE.sRGBEncoding) R.renderer.outputEncoding = THREE.sRGBEncoding;
     R.scene = new THREE.Scene();
     R.scene.background = new THREE.Color(0xbfd8e6);
-    R.scene.fog = new THREE.Fog(0xc8dcc6, 1400, 3600);
+    // Fog pushed well past the play field (camera sits ~2000+ units out): the old
+    // 1400→3600 fog washed the whole board into a pale haze. Now only the far
+    // horizon fades, so the field reads crisp and saturated.
+    R.scene.fog = new THREE.Fog(0xc6dccf, 3400, 8500);
     R.camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 8, 9000);
-    R.amb = new THREE.AmbientLight(0xfff3df, 0.42); R.scene.add(R.amb);
-    R.hemi = new THREE.HemisphereLight(0xfdeecb, 0x4a5230, 0.2); R.scene.add(R.hemi);
-    R.sun = new THREE.DirectionalLight(0xfff0cf, 1.6);
+    // Lower fill ambient + a stronger directional sun = more contrast and richer
+    // colour (high flat ambient was the other half of the washed-out look).
+    R.amb = new THREE.AmbientLight(0xfff3df, 0.30); R.scene.add(R.amb);
+    R.hemi = new THREE.HemisphereLight(0xfdeecb, 0x49532e, 0.22); R.scene.add(R.hemi);
+    R.sun = new THREE.DirectionalLight(0xfff2d2, 1.9);
     R.sun.castShadow = true; R.sun.shadow.mapSize.set(IS_MOBILE ? 1024 : 2048, IS_MOBILE ? 1024 : 2048);
     var sc = R.sun.shadow.camera; sc.near = 50; sc.far = 2600; sc.left = -900; sc.right = 900; sc.top = 900; sc.bottom = -900;
     R.sun.shadow.bias = -0.0006;
@@ -1229,18 +1234,43 @@
         // hit reaction: a brief scale-pop (per-instance; can't tint shared mats)
         var pop = e.hitFlash > 0 ? 1 + Math.min(0.16, e.hitFlash * 0.5) : 1;
         o.scale.setScalar(slot.baseS * pop * spawnPop(slot));   // + plop on spawn
-        // attack lunge: nudge forward (toward facing) on the attack frame
-        if (e.muzzleFlash > 0) {
-          var lf = Math.min(e.muzzleFlash, 0.13) * 64;
-          o.position.x += Math.cos(e.facing || 0) * lf; o.position.z += Math.sin(e.facing || 0) * lf;
-        }
-        // rising edge of muzzleFlash = a fresh attack → spawn a flash/slash burst
+        // rising edge of muzzleFlash = a fresh attack → kick off an arm swing + flash
         if ((e.muzzleFlash || 0) > (slot._mf || 0) + 1e-4) {
+          slot._atk = 0; slot._atkMelee = !e.ranged;
           var fa = e.facing || 0, fh = gy + (slot.topY || 40) * 0.52;
           if (e.ranged) fxFlash(e.x + Math.cos(fa) * 17, fh, e.y + Math.sin(fa) * 17, 0xffe6a0, 0.8, 0.1);
-          else fxFlash(e.x + Math.cos(fa) * 16, fh, e.y + Math.sin(fa) * 16, 0xfff0d8, 1.0, 0.12);   // melee slash spark
+          else fxFlash(e.x + Math.cos(fa) * 16, fh, e.y + Math.sin(fa) * 16, 0xfff0d8, 1.0, 0.12);
         }
         slot._mf = e.muzzleFlash || 0;
+        // attack swing: drive the WEAPON arm (+ a little torso lean & step) over
+        // ~0.3s so a strike reads as an arm swing, not a full-body jerk. Runs after
+        // the walk pose so it overrides the weapon arm for the swing window.
+        if (ud && ud.legL && slot._atk != null && slot._atk >= 0) {
+          var AD = 0.30; slot._atk += R.renderDt;
+          var ap = slot._atk / AD;
+          var tb = ud._torsoBaseX; if (tb === undefined) tb = ud._torsoBaseX = (ud.torso ? ud.torso.rotation.x : 0);
+          if (ap >= 1) {
+            slot._atk = -1;
+            if (ud.armR) ud.armR.rotation.x = (ud.armRBase || 0);
+            if (ud.torso) ud.torso.rotation.x = tb;
+          } else {
+            var swingR, lean;
+            if (slot._atkMelee) {
+              if (ap < 0.28) swingR = -1.5 * (ap / 0.28);                          // wind up (raise)
+              else if (ap < 0.55) swingR = -1.5 + 2.4 * ((ap - 0.28) / 0.27);      // strike down/forward
+              else swingR = 0.9 * (1 - (ap - 0.55) / 0.45);                        // recover
+              lean = Math.sin(ap * Math.PI) * 0.13;
+            } else {
+              swingR = (ap < 0.5) ? 0.6 * (ap / 0.5) : 0.6 * (1 - (ap - 0.5) / 0.5);   // draw → release
+              lean = Math.sin(ap * Math.PI) * 0.05;
+              if (ud.armL) ud.armL.rotation.x = (ud.armLBase || 0) - 0.15 * Math.sin(ap * Math.PI);
+            }
+            if (ud.armR) ud.armR.rotation.x = (ud.armRBase || 0) + swingR;
+            if (ud.torso) ud.torso.rotation.x = tb + lean;
+            o.position.x += Math.cos(e.facing || 0) * lean * 26;                   // gentle step into the blow
+            o.position.z += Math.sin(e.facing || 0) * lean * 26;
+          }
+        }
       } else if (kind === 'building') {
         // rise from the ground while under construction (relative to fitted scale)
         var prog = e.built ? 1 : Math.max(0.08, e.progress || 0);
