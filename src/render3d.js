@@ -252,7 +252,7 @@
       hair: 0x14100c, beard: 0x14100c, gem: 0xd8642a, cape: 0x3a2418,
       scale: 1.08, hunch: 0.34, armLen: 1.34, headR: 0.6, build: 1.55, legLen: 0.8, hand: 1.6, foot: 1.45, pauld: 1.3 },
     elf: { skin: 0xb39bd8, skinD: 0x9c84c4, cloth: 0x2f6a5e, cloth2: 0x214b43, metal: 0xd6dde6, metalD: 0xa7b0bd,
-      trim: 0xd9c069, trimD: 0xb89a45, leather: 0x4a4030, leaf: 0x4f8a5a, hair: 0x3a6b62, eye: 0xffd27a,
+      trim: 0xd9c069, trimD: 0xb89a45, leather: 0x4a4030, leaf: 0x4f8a5a, hair: 0xe6e3dc, eye: 0xffd27a,
       beard: 0x000000, gem: 0x8fe0d6, cape: 0x2f6a4a,
       scale: 1.06, hunch: -0.04, armLen: 1.06, headR: 0.48, build: 0.86, legLen: 1.18, hand: 1.05, foot: 1.05, pauld: 0.7 },
   };
@@ -493,14 +493,13 @@
     var r = u.role;
     if (r === 'pawn' || r === 'worker') return 'worker';
     if (r === 'archer') return 'archer';
-    if (r === 'monk' || r === 'caster') return 'monk';
-    return 'warrior';
+    return 'warrior';   // warrior/lancer/monk → detailed warrior body for now
   }
   function unitTemplate(race, role) {
     var key = race + ':' + role;
     if (unitTemplates[key]) return unitTemplates[key];
-    var g = buildMinimalUnit(race, role);
-    fitHeight(g, role === 'hero' ? 52 : role === 'worker' ? 32 : 40);
+    var g = buildHumanoid(race, role);   // DETAILED roster (reversed from minimal pegs)
+    fitHeight(g, role === 'hero' ? 60 : role === 'worker' ? 34 : 48);
     unitTemplates[key] = g;
     return g;
   }
@@ -510,6 +509,7 @@
     var g = tmpl.clone();
     g.userData = {
       legL: g.getObjectByName('legL'), legR: g.getObjectByName('legR'),
+      shinL: g.getObjectByName('shinL'), shinR: g.getObjectByName('shinR'),
       isArcher: role === 'archer'
     };
     return g;
