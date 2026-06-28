@@ -93,15 +93,20 @@
     [-1, 1].forEach(function (s) { var bar = facetMesh(new THREE.BoxGeometry(0.07, 0.46, 0.06), m.steel); at(bar, 0.14 * s, 0.06, 0.09); bar.rotation.z = s * 0.6; g.add(bar); });  // white chevron
     return g; }
 
-  // Long flowing cape: a jointed chain of cloth segments that drape down, curve
-  // back, and flare wider toward the hem (so it reads as flowing, not a stiff board).
-  function flowCape(mat, segs, baseW) {
-    var g = new THREE.Group(); var seg = g; var segLen = 0.42;
+  // Long flowing cape that WRAPS the body: curved shell segments (open partial
+  // cylinders centered on the back) + a shoulder mantle over the shoulders, each
+  // segment curving back and flaring wider toward the hem.
+  function flowCape(mat, segs, baseR) {
+    mat.side = THREE.DoubleSide;   // open shells — show the inner face too
+    var g = new THREE.Group(); var arc = 2.95, segLen = 0.42, t0 = -Math.PI / 2 - arc / 2;
+    // shoulder mantle: a shorter, wider shell wrapping over the shoulders
+    g.add(at(new THREE.Mesh(LPF.facet(new THREE.CylinderGeometry(baseR * 1.18, baseR * 1.06, 0.36, 12, 1, true, -Math.PI / 2 - arc * 0.62, arc * 1.24)), mat), 0, -0.06, 0));
+    var chain = new THREE.Group(); chain.position.y = -0.22; g.add(chain); var node = chain;
     for (var i = 0; i < segs; i++) {
-      var j = new THREE.Group(); j.rotation.x = 0.08 + i * 0.07; if (i > 0) j.position.y = -segLen;
-      var w = baseW * (1 + i * 0.14);
-      j.add(at(smoothMesh(new THREE.BoxGeometry(w, segLen * 1.04, 0.05), mat), 0, -segLen * 0.5, 0));
-      seg.add(j); seg = j;
+      var j = new THREE.Group(); j.rotation.x = 0.06 + i * 0.06; if (i > 0) j.position.y = -segLen;
+      var r = baseR * (1 + i * 0.17);
+      j.add(at(new THREE.Mesh(LPF.facet(new THREE.CylinderGeometry(r, r * 1.05, segLen * 1.04, 12, 1, true, t0, arc)), mat), 0, -segLen * 0.5, 0));
+      node.add(j); node = j;
     }
     return g;
   }
@@ -308,7 +313,8 @@
     var shoulderY = limbLen + torsoH;
     if (F.pauld) [-1, 1].forEach(function (s) { var pd = facetMesh(new THREE.SphereGeometry(0.32, 9, 7), steel); pd.scale.y = 0.7; at(pd, 0.54 * bw * s, shoulderY - 0.02, 0); g.add(pd);
       var r = facetMesh(new THREE.TorusGeometry(0.28, 0.05, 5, 8), accent); r.rotation.x = Math.PI / 2; at(r, 0.54 * bw * s, shoulderY - 0.05, 0); g.add(r); });
-    if (F.cape) { var cp = flowCape(M(role === 'hero' ? 0x9c2b2b : pal.cloth), 5, 0.72 * bw); at(cp, 0, shoulderY + 0.12, -0.32 * bw); g.add(cp); }
+    if (F.cape) { var cp = flowCape(M(role === 'hero' ? 0x9c2b2b : pal.cloth), 5, 0.5 * bw); at(cp, 0, shoulderY + 0.24, -0.04 * bw); g.add(cp);
+      g.add(at(facetMesh(new THREE.SphereGeometry(0.1, 6, 5), accent), 0, shoulderY + 0.18, 0.32 * bw)); }   // gold throat clasp
 
     var headY = shoulderY + 0.5 * headScale;
     var headR = buildHead(g, { skin: skin, headY: headY, headScale: headScale, eye: pal.eye, eyeGlow: false, ears: 'round', taper: 0.16 });
