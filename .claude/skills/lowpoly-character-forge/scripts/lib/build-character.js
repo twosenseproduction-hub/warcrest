@@ -69,6 +69,14 @@
     g.add(at(smoothMesh(new THREE.BoxGeometry(0.1, 0.9, 0.1), m.wood || m.accent), 0, 0.1, 0));   // stock
     g.add(at(facetMesh(new THREE.BoxGeometry(1.05, 0.08, 0.1), m.steel), 0, 0.45, 0.06));        // limbs
     g.add(at(smoothMesh(new THREE.BoxGeometry(0.02, 0.02, 0.6), m.steel), 0, 0.45, 0.3)); return g; }
+  // Rifleman musket: long steel barrel + wooden stock + muzzle + hammer/sight (points +Z).
+  function rifle(m) { var g = new THREE.Group();
+    var barrel = facetMesh(new THREE.CylinderGeometry(0.05, 0.06, 1.7, 7), m.steel); barrel.rotation.x = Math.PI / 2; at(barrel, 0, 0.06, 0.95); g.add(barrel);
+    g.add(at(smoothMesh(new THREE.BoxGeometry(0.13, 0.24, 0.75), m.wood || m.accent), 0, -0.03, 0.12));        // stock
+    g.add(at(smoothMesh(new THREE.BoxGeometry(0.12, 0.12, 0.7), m.wood || m.accent), 0, 0.04, 0.55));          // fore-grip
+    var muzzle = facetMesh(new THREE.CylinderGeometry(0.085, 0.085, 0.16, 7), m.steel); muzzle.rotation.x = Math.PI / 2; at(muzzle, 0, 0.06, 1.78); g.add(muzzle);
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.06, 0.16, 0.08), m.steel), 0, 0.17, 0.32));                     // hammer/sight
+    return g; }
   function holyMace(m) { var g = new THREE.Group(); g.add(smoothMesh(P.limbGeo(0.05, 1.4), m.wood || m.accent));
     var head = facetMesh(new THREE.SphereGeometry(0.2, 7, 6), m.accent); at(head, 0, 0.75, 0); g.add(head);
     g.add(at(facetMesh(P.crystalGeo(0.13, 1.3), m.gem), 0, 0.92, 0)); g.userData.glow = [g.children[g.children.length - 1]]; return g; }
@@ -265,7 +273,7 @@
     var bodyMat = role === 'caster' ? tabard : armored ? steel : leather;
     var mats = { accent: accent, gem: gem, steel: steel, blade: steel, wood: M(pal.wood), cloth: tabard, string: hair };
     var F = { worker: { head: 'cap', beard: true }, warrior: { head: 'helm', pauld: true, shield: true },
-      lancer: { head: 'helm', pauld: true, shield: true }, archer: { head: 'cap', quiver: true },
+      lancer: { head: 'helm', pauld: true, shield: true }, archer: { head: 'cap' },
       caster: { head: 'wizhat', robe: true }, hero: { head: 'winghelm', pauld: true, cape: true, beard: true } }[role] || {};
     var g = new THREE.Group(); var glow = [];
 
@@ -296,10 +304,10 @@
 
     if (F.quiver) { var q = quiver(mats); at(q, -0.1, shoulderY - 0.3, -0.4); q.rotation.x = 0.3; q.rotation.z = -0.4; g.add(q); }
     var rWeapon = role === 'caster' ? wizardStaff(mats) : role === 'worker' ? pick(mats)
-      : role === 'archer' ? crossbow(mats) : role === 'hero' ? warhammer(mats)
+      : role === 'archer' ? rifle(mats) : role === 'hero' ? warhammer(mats)
       : role === 'lancer' ? spear(mats, 2.5, steel) : sword(mats, 1.7);
     var leftItem = F.shield ? kiteShield(mats) : null;
-    var hands = { right: rWeapon, left: leftItem, rRotZ: role === 'archer' ? -0.05 : undefined };
+    var hands = { right: rWeapon, left: leftItem, rRotZ: role === 'archer' ? 0 : undefined, rTilt: role === 'archer' ? -0.12 : 0 };
     var handY = p.limbLen + p.torsoH * 0.22;
     glow = glow.concat(placeHands(g, g, skin, handY, 0.52, 0.16, hands));
 
