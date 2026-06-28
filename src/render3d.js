@@ -497,7 +497,7 @@
     return g;
   }
 
-  function buildHumanoid(race, role) {
+  function buildHumanoid(race, role, heroId) {
     var Pal = RACEDEF[race];
     var heavy = (role === 'warrior' || role === 'hero' || role === 'lancer');
     var caster = (role === 'caster');                   // mage / shaman / priestess (gem staff + robe)
@@ -762,6 +762,27 @@
         hm.add(box(0.78, 0.95, 0.7, metal, 0, 1.5, 0)); hm.add(box(0.86, 0.3, 0.78, trim, 0, 1.18, 0)); hm.add(box(0.86, 0.3, 0.78, trim, 0, 1.82, 0)); hm.add(box(0.2, 0.4, 0.2, gemM, 0, 1.5, 0.4)); holdR(hm); hm.rotation.z = 0.18; armR.rotation.x = -0.2; }
       else if (orc) { var axe2 = new THREE.Group(); axe2.add(cyl(0.13, 0.13, 2.5, 6, leather));
         axe2.add(box(0.22, 1.05, 1.15, metalD, 0, 1.05, 0.36)); axe2.add(box(0.22, 1.05, 1.15, metalD, 0, 1.05, -0.36)); axe2.add(sph(0.22, bone).translateY(-1.15)); axe2.add(box(0.18, 0.4, 0.18, warpaint, 0, 1.05, 0)); holdR(axe2); axe2.rotation.z = 0.28; }
+      else if (heroId === 'aelindra') {
+        // Aelindra the Wild Rider — mounted moonfire archer. Great recurved
+        // moonbow in the bow hand, nocked moonfire arrow, astride a war-panther.
+        var mbow = new THREE.Group();
+        mbow.add(box(0.05, 1.9, 0.06, metal, 0, -0.5, 0.3));
+        mbow.add(crescent(0.42, 0.06, metal).translateY(0.32).translateZ(0.3));
+        mbow.add(crescent(0.42, 0.06, metal).translateY(-1.32).translateZ(0.3).rotateZ(Math.PI));
+        var moonglow = M(Pal.gem, { emissive: Pal.gem, emissiveIntensity: .9, roughness: .3 });
+        mbow.add(box(0.02, 2.3, 0.02, moonglow, 0, -0.5, 0.3));   // glowing string
+        mbow.add(sph(0.1, moonglow).translateY(-0.5).translateZ(0.3));   // nocked moonfire mote
+        lfore.add(mbow); armL.rotation.x = -0.5; armR.rotation.x = -0.62; armR.rotation.z = 0.12;
+        // moonfire quiver on the back
+        torsoPivot.add(cyl(0.18, 0.18, 0.95, 8, leather).translateX(-0.44).translateY(1.2).translateZ(-0.38));
+        [0, 0.11, -0.11].forEach(function (o) { torsoPivot.add(box(0.04, 0.5, 0.04, moonglow, -0.44 + o, 1.82, -0.38)); });
+        // seat her astride a war-panther, legs splayed, hidden from the walk cycle
+        g.add(buildMount(race, Pal, 2.5 * legLen));
+        legL.name = ''; legR.name = '';
+        if (legL.userData.shin) { legL.userData.shin.name = ''; legL.userData.shin.rotation.x = 0.8; }
+        if (legR.userData.shin) { legR.userData.shin.name = ''; legR.userData.shin.rotation.x = 0.8; }
+        legL.rotation.set(-0.5, 0, 0.5); legR.rotation.set(-0.5, 0, -0.5);
+      }
       else { var glaive = new THREE.Group(); glaive.add(cyl(0.08, 0.08, 2.7, 6, leather)); glaive.add(crescent(0.62, 0.08, metal).translateY(1.5));
         var orb = sph(0.16, M(Pal.gem, { emissive: Pal.gem, emissiveIntensity: .7, roughness: .3 })); orb.position.y = 1.5; glaive.add(orb); holdR(glaive); glaive.rotation.z = 0.08; }
     }
@@ -831,10 +852,10 @@
     if (r === 'lancer') return 'lancer';
     return 'warrior';
   }
-  function unitTemplate(race, role) {
-    var key = race + ':' + role;
+  function unitTemplate(race, role, heroId) {
+    var key = race + ':' + role + (heroId ? ':' + heroId : '');
     if (unitTemplates[key]) return unitTemplates[key];
-    var g = buildHumanoid(race, role);   // DETAILED roster (reversed from minimal pegs)
+    var g = buildHumanoid(race, role, heroId);   // DETAILED roster (reversed from minimal pegs)
     // Larger so the per-race detail (antlers, glaive, tusks) reads at RTS zoom.
     fitHeight(g, role === 'hero' ? 74 : role === 'worker' ? 44 : role === 'lancer' ? 74 : 60);
     unitTemplates[key] = g;
@@ -965,14 +986,14 @@
     var race = raceOf(u.faction), role = mapRole(u);
     var entry = protoFor(race, role);
     if (entry) return makeModelMesh(entry, race, role, u);
-    var tmpl = unitTemplate(race, role);
+    var tmpl = unitTemplate(race, role, u.heroId);
     var g = tmpl.clone();
     var ud = {
       legL: g.getObjectByName('legL'), legR: g.getObjectByName('legR'),
       shinL: g.getObjectByName('shinL'), shinR: g.getObjectByName('shinR'),
       armL: g.getObjectByName('armL'), armR: g.getObjectByName('armR'),
       torso: g.getObjectByName('torso'),
-      isArcher: role === 'archer'
+      isArcher: role === 'archer' || u.heroId === 'aelindra'
     };
     // arms carry a weapon pose (rotation.x set at build) — remember it so the
     // walk cycle can swing AROUND the pose instead of overwriting it.

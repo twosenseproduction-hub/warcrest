@@ -354,6 +354,10 @@
     u._lastCombatAt = s.timers.gameTime || 0;   // attacking pauses Blood Vigor regen
     var dmg = RTS.outgoingDamage ? RTS.outgoingDamage(u, u.dmg) : u.dmg;   // folds in Inner Fire etc.
     if (RTS.traitOutgoingMul) dmg *= RTS.traitOutgoingMul(s, u, target);   // sniper focus / formation / building-bane
+    if (u.heroId === 'aelindra' && target) {   // Wind Rider — long-range arrows hit harder
+      var ah = RTS.getHero && RTS.getHero('aelindra'), ap = ah && ah.passive;
+      if (ap && ap.longshotPx && Math.hypot((target.x || 0) - u.x, (target.y || 0) - u.y) > ap.longshotPx) dmg *= 1 + (ap.longshotBonus || 0);
+    }
     if (RTS.Sprites && RTS.Sprites.ready) {
       RTS.Sprites.startAttack(u, target);
       if (u.ranged) {
