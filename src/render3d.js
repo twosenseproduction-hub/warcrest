@@ -548,6 +548,15 @@
       if (role !== 'archer') { headPivot.add(box(0.56, 1.3, 0.16, hairM, 0, -0.1, -headR * 0.7));
         headPivot.add(box(0.2, 1.4, 0.14, hairM, -0.34, -0.15, -headR * 0.4)); headPivot.add(box(0.2, 1.4, 0.14, hairM, 0.34, -0.15, -headR * 0.4));
         headPivot.add(dome(headR + 0.04, hairM).translateY(0.34)); }
+      // brown branch antlers sweeping up + back from the brow (both sides)
+      var antlerM = M(0x6e4a2a);
+      [-1, 1].forEach(function (s) {
+        var an = new THREE.Group(); an.position.set(headR * 0.5 * s, 0.5, -0.04); an.rotation.z = s * 0.5; an.rotation.x = -0.35;
+        an.add(cone(0.06, 0.8, 4, antlerM).translateY(0.4));                         // main beam
+        var t1 = cone(0.045, 0.42, 4, antlerM); t1.position.set(s * 0.16, 0.46, 0); t1.rotation.z = s * 0.8; an.add(t1);   // lower tine
+        var t2 = cone(0.04, 0.34, 4, antlerM); t2.position.set(s * 0.1, 0.72, 0.06); t2.rotation.z = s * 0.35; t2.rotation.x = -0.3; an.add(t2);   // upper tine
+        headPivot.add(an);
+      });
     } else {
       headPivot.add(box(0.46, 0.1, 0.06, dark, 0, 0.4, headR * 0.86));
       headPivot.add(box(0.62, 0.6, 0.42, beardM, 0, 0.02, headR * 0.5)); headPivot.add(box(0.5, 0.5, 0.36, beardM, 0, -0.34, headR * 0.55)); headPivot.add(box(0.32, 0.36, 0.26, beardM, 0, -0.72, headR * 0.5));

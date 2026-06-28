@@ -684,12 +684,11 @@
           Math.hypot(cssX - lastTap.x, cssY - lastTap.y) < tapSlop();
       }
 
-      // Left-edge camera-pan zone, landscape only: the leftmost ~18% of the
-      // viewport (capped) is a strip where a drag scrolls the camera even with
-      // units selected. Tunable via Config.touch.leftPanZone (fraction) / -Max (px).
+      // Left-edge camera joystick zone (both orientations): the leftmost strip
+      // where a drag scrolls the camera even with units selected. Tunable via
+      // Config.touch.leftPanZone (fraction) / -Max (px).
       function inLeftPanZone(cssX, cssY) {
-        var W = window.innerWidth, H = window.innerHeight;
-        if (W <= H) return false;                       // landscape only
+        var W = window.innerWidth;
         var t = (RTS.Config && RTS.Config.touch) || {};
         var frac = t.leftPanZone != null ? t.leftPanZone : 0.18;
         var max = t.leftPanZoneMax != null ? t.leftPanZoneMax : 150;
