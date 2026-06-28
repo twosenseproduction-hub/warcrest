@@ -205,4 +205,60 @@
     u.autocast[abId] = !RTS.autocastOn(u, abId);
   };
 
+  /* ── passive combat traits ─────────────────────────────────────────────────
+   * Defined as constants in config; applied here in the damage pipeline:
+   *   archer_focus  — consecutive hits on ONE target ramp damage (sniper stacks)
+   *   building_bane — cavalry hit structures harder
+   *   formationBonus (Iron Crown / aurex) — focus-firing 3+ units = +dmg
+   *   monkAura — friendly monks nearby soak a share of incoming damage
+   *   bloodFrenzy (Raider Horde / cinder) — a death enrages nearby kin (atk speed)
+   * ------------------------------------------------------------------------- */
+  function hasTrait(u, t) { return u && u.traits && u.traits.indexOf(t) >= 0; }
+  RTS.hasTrait = hasTrait;
+  function dist2(ax, ay, bx, by) { var dx = ax - bx, dy = ay - by; return dx * dx + dy * dy; }
+
+  // outgoing damage multiplier from the ATTACKER's offensive traits (mutates sniper stacks).
+  RTS.traitOutgoingMul = function (s, u, target) {
+    if (!u || u.kind !== 'unit' || !target) return 1;
+    var C = RTS.Config, mul = 1;
+    if (hasTrait(u, 'archer_focus') && C.archerFocus) {
+      if (u.sniperTarget === target.id) u.sniperStacks = Math.min(C.archerFocus.maxStacks, (u.sniperStacks || 0) + 1);
+      else { u.sniperTarget = target.id; u.sniperStacks = 0; }
+      mul *= 1 + u.sniperStacks * C.archerFocus.dmgPerStack;
+    } else if (u.sniperTarget) { u.sniperTarget = null; u.sniperStacks = 0; }
+    if (hasTrait(u, 'building_bane') && target.kind === 'building') mul *= 1.6;
+    // Iron Crown formation focus-fire (faction-wide passive)
+    if (u.faction === 'aurex' && C.formationBonus && target.kind === 'unit') {
+      var fb = C.formationBonus, r2 = fb.radius * fb.radius, cnt = 0, arr = s.entities.units;
+      for (var i = 0; i < arr.length; i++) { var a = arr[i];
+        if (a.dead || a.team !== u.team || a.target !== target.id) continue;
+        if (dist2(a.x, a.y, target.x, target.y) <= r2) { cnt++; if (cnt >= fb.minUnits) break; } }
+      if (cnt >= fb.minUnits) mul *= 1 + fb.dmgBonus;
+    }
+    return mul;
+  };
+
+  // incoming damage multiplier from the TARGET's defensive auras (monk aura).
+  RTS.traitIncomingMul = function (s, target) {
+    var C = RTS.Config;
+    if (!C.monkAura || !target || target.kind !== 'unit') return 1;
+    var ma = C.monkAura, r2 = ma.radius * ma.radius, cnt = 0, arr = s.entities.units;
+    for (var i = 0; i < arr.length; i++) { var m = arr[i];
+      if (m.dead || m.team !== target.team || m === target) continue;
+      if (m.role !== 'monk' && !hasTrait(m, 'monk_aura')) continue;
+      if (dist2(m.x, m.y, target.x, target.y) <= r2) { cnt++; if (cnt >= 3) break; } }
+    return cnt ? (1 - Math.min(ma.maxReduction, cnt * ma.dmgReduction)) : 1;
+  };
+
+  // a unit's death enrages nearby kin (Raider Horde blood frenzy → faster attacks).
+  RTS.onUnitDeathTraits = function (s, dead) {
+    var C = RTS.Config;
+    if (!C.bloodFrenzy || !dead || dead.kind !== 'unit' || dead.faction !== 'cinder') return;
+    var bf = C.bloodFrenzy, r2 = bf.radius * bf.radius, arr = s.entities.units;
+    for (var i = 0; i < arr.length; i++) { var a = arr[i];
+      if (a.dead || a === dead || a.team !== dead.team || a.faction !== 'cinder') continue;
+      if (dist2(a.x, a.y, dead.x, dead.y) <= r2) RTS.applyBuff(s, a, { id: 'bloodfrenzy', duration: bf.duration, rofMul: bf.atkSpeedBonus, color: '#ff5a3a' });
+    }
+  };
+
 })(window.RTS = window.RTS || {});

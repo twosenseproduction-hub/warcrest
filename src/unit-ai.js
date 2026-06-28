@@ -152,6 +152,8 @@
       if (candidate.target === u.id || candidate.lastThreatId === u.id) score += 80;
       if (candidate.hp < candidate.maxHp * 0.35) score += 28;
       if (candidate.role === 'archer' || candidate.role === 'monk') score += 18;
+      // Taunt — a frontline guard yanks aggro from anyone inside its taunt radius
+      if (candidate.tauntRadius && candidate.traits && candidate.traits.indexOf('taunt') >= 0 && d <= candidate.tauntRadius) score += 120;
     }
 
     if (candidate.kind === 'building') {

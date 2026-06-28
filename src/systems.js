@@ -353,6 +353,7 @@
   function fire(s, u, target) {
     u._lastCombatAt = s.timers.gameTime || 0;   // attacking pauses Blood Vigor regen
     var dmg = RTS.outgoingDamage ? RTS.outgoingDamage(u, u.dmg) : u.dmg;   // folds in Inner Fire etc.
+    if (RTS.traitOutgoingMul) dmg *= RTS.traitOutgoingMul(s, u, target);   // sniper focus / formation / building-bane
     if (RTS.Sprites && RTS.Sprites.ready) {
       RTS.Sprites.startAttack(u, target);
       if (u.ranged) {
@@ -1099,6 +1100,7 @@
       var arm = RTS.effectiveArmor ? RTS.effectiveArmor(target) : (target.armor || 0);
       if (arm > 0) amount *= (1 - arm);
       if (RTS.incomingMul) amount *= RTS.incomingMul(target);   // Berserk etc. vulnerability
+      if (RTS.traitIncomingMul) amount *= RTS.traitIncomingMul(s, target);   // Monk damage-reduction aura
     }
     // Blood Vigor (Raider Horde) — taking damage pauses out-of-combat regen.
     if (target.kind === 'unit') target._lastCombatAt = s.timers.gameTime || 0;
@@ -1141,6 +1143,7 @@
   function killEntity(s, e, attacker) {
     e.dead = true; e.hp = 0;
     if (e.kind === 'unit') {
+      if (RTS.onUnitDeathTraits) RTS.onUnitDeathTraits(s, e);   // Blood Frenzy: enrage nearby kin
       e.corpse = RTS.Config.corpseFade;
       if (RTS.Particles && RTS.Particles.ready) {
         RTS.Particles.spawnUnitDeath(s, e.x, e.y, e.faction);

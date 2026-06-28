@@ -23,6 +23,8 @@
       // abilities + caster mana + active buffs
       mana: spec.mana || 0, maxMana: spec.mana || 0, manaRegen: spec.manaRegen || 0,
       abilities: spec.abilities ? spec.abilities.slice() : [],
+      traits: spec.traits ? spec.traits.slice() : [],   // passive combat traits
+      tauntRadius: spec.tauntRadius || 0,
       autocast: {}, _abilityCd: {},
       buffs: [], buffDmgMul: 0, buffArmorAdd: 0,
       radius: RTS.SizeRef.pxRadius(role),
