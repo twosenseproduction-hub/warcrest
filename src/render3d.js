@@ -593,18 +593,23 @@
    * assets can override any key later. */
   var KK = 'assets/models/kaykit/';
   var KK_ANIM = { idle: 'Idle', walk: 'Walking_C', death: 'Death_A' };
-  function kk(name, role) {
+  // Per-race skin/identity tint multiplied over the (human-skinned) KayKit atlas so
+  // each race reads on sight: orcs go green-skinned/savage, night elves go violet,
+  // humans stay natural. Tints are light so they shift hue without darkening much.
+  var RACE_TINT = { crown: null, horde: 0x6e9b3e, elf: 0x8a5cd0 };
+  function kk(name, role, race) {
     var atk = role === 'caster' ? 'Spellcast_Shoot' : role === 'archer' ? '1H_Ranged_Shoot' : '1H_Melee_Attack_Slice_Diagonal';
-    return { url: KK + name + '.glb', yaw: Math.PI, height: role === 'hero' ? 62 : role === 'worker' ? 38 : 50,
+    return { url: KK + name + '.glb', yaw: Math.PI, tint: RACE_TINT[race] || null,
+      height: role === 'hero' ? 62 : role === 'worker' ? 38 : (race === 'horde' ? 54 : race === 'elf' ? 50 : 50),
       anims: { idle: KK_ANIM.idle, walk: KK_ANIM.walk, death: KK_ANIM.death, attack: atk } };
   }
   var KAYKIT_ROSTER = {
-    'crown:worker': kk('Rogue', 'worker'), 'crown:warrior': kk('Knight', 'warrior'), 'crown:lancer': kk('Knight', 'lancer'),
-    'crown:archer': kk('Rogue', 'archer'), 'crown:caster': kk('Mage', 'caster'), 'crown:hero': kk('Knight', 'hero'),
-    'horde:worker': kk('Barbarian', 'worker'), 'horde:warrior': kk('Barbarian', 'warrior'), 'horde:lancer': kk('Barbarian', 'lancer'),
-    'horde:archer': kk('Rogue', 'archer'), 'horde:caster': kk('Mage', 'caster'), 'horde:hero': kk('Barbarian', 'hero'),
-    'elf:worker': kk('Rogue', 'worker'), 'elf:warrior': kk('Rogue_Hooded', 'warrior'), 'elf:lancer': kk('Rogue_Hooded', 'lancer'),
-    'elf:archer': kk('Rogue', 'archer'), 'elf:caster': kk('Mage', 'caster'), 'elf:hero': kk('Rogue_Hooded', 'hero'),
+    'crown:worker': kk('Rogue', 'worker', 'crown'), 'crown:warrior': kk('Knight', 'warrior', 'crown'), 'crown:lancer': kk('Knight', 'lancer', 'crown'),
+    'crown:archer': kk('Rogue', 'archer', 'crown'), 'crown:caster': kk('Mage', 'caster', 'crown'), 'crown:hero': kk('Knight', 'hero', 'crown'),
+    'horde:worker': kk('Barbarian', 'worker', 'horde'), 'horde:warrior': kk('Barbarian', 'warrior', 'horde'), 'horde:lancer': kk('Barbarian', 'lancer', 'horde'),
+    'horde:archer': kk('Rogue', 'archer', 'horde'), 'horde:caster': kk('Mage', 'caster', 'horde'), 'horde:hero': kk('Barbarian', 'hero', 'horde'),
+    'elf:worker': kk('Rogue', 'worker', 'elf'), 'elf:warrior': kk('Rogue_Hooded', 'warrior', 'elf'), 'elf:lancer': kk('Rogue_Hooded', 'lancer', 'elf'),
+    'elf:archer': kk('Rogue', 'archer', 'elf'), 'elf:caster': kk('Mage', 'caster', 'elf'), 'elf:hero': kk('Rogue_Hooded', 'hero', 'elf'),
   };
   var _modelsKicked = false;
   function setupDefaultModels() {
@@ -614,11 +619,29 @@
     else { for (var k in KAYKIT_ROSTER) registerUnitModel(k, KAYKIT_ROSTER[k]); }
     loadUnitModels().then(function (ok) { if (ok && R.enabled) rebuildUnitMeshes(); });
   }
+  // tinted-material cache: one clone per (tint, original material), shared across
+  // every instance of that race so we keep material sharing (no per-unit clones).
+  var _tintMats = {};
+  function tintedMaterial(orig, tintHex) {
+    var bucket = _tintMats[tintHex] || (_tintMats[tintHex] = new WeakMap());
+    if (bucket.has(orig)) return bucket.get(orig);
+    var m = orig.clone();
+    m.color = new THREE.Color(tintHex);   // multiplies the baked atlas map → race skin tint
+    bucket.set(orig, m); return m;
+  }
   function makeModelMesh(entry, race, role, u) {
     var cfg = entry.cfg, proto = entry.proto;
     var root = (THREE.SkeletonUtils ? THREE.SkeletonUtils.clone(proto.scene) : proto.scene.clone());
     var holder = new THREE.Group(); holder.add(root);
-    holder.traverse(function (o) { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    holder.traverse(function (o) {
+      if (!o.isMesh) return;
+      o.castShadow = true; o.receiveShadow = true;
+      if (cfg.tint && o.material) {
+        o.material = Array.isArray(o.material)
+          ? o.material.map(function (mm) { return tintedMaterial(mm, cfg.tint); })
+          : tintedMaterial(o.material, cfg.tint);
+      }
+    });
     fitHeight(holder, cfg.height || (role === 'hero' ? 60 : role === 'worker' ? 34 : 48));
     var ud = { model: true, isArcher: role === 'archer', yaw: cfg.yaw || 0 };
     if (proto.clips && proto.clips.length) {
