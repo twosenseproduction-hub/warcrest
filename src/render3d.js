@@ -1247,6 +1247,11 @@
       var sp = kind === 'spear';
       g.add(new THREE.Mesh(sp ? K.spearShaft : K.arrowShaft, P.wood));
       g.add(new THREE.Mesh(sp ? K.spearHead : K.arrowHead, P.steel));
+      // Thronefall-style flight streak trailing the shaft (thin, pale, fading)
+      var streak = new THREE.Mesh(K.tail, pBasic(0xfff0c8, 0.4));
+      streak.scale.set(sp ? 1.15 : 0.9, 0.32, 0.32);
+      streak.position.x = sp ? -14 : -8;
+      g.add(streak);
     }
     return g;
   }
