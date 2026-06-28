@@ -182,19 +182,41 @@
       archer: { pauld: false, head: 'hood', cape: true, shoulderPad: true }, caster: { pauld: false, head: 'none', pelt: true }, hero: { pauld: true, cape: true } }[role] || {};
     var g = new THREE.Group(); var glow = [];
 
-    [-1, 1].forEach(function (s) { g.add(at(smoothMesh(P.limbGeo(0.16, p.limbLen), cloth), 0.17 * s, p.limbLen * 0.5, 0));
-      g.add(at(smoothMesh(P.limbGeo(0.17, 0.22), accent), 0.17 * s, 0.12, 0.04)); });
-    // slender upper torso (chest→waist) + flared tabard/skirt + waist belt
-    g.add(at(smoothMesh(P.torsoGeo(0.33, 0.27, p.torsoH * 0.6), cloth), 0, p.limbLen + p.torsoH * 0.68, 0));   // chest, tapering to waist
-    g.add(at(smoothMesh(P.torsoGeo(0.27, 0.52, p.torsoH * 0.56), cloth), 0, p.limbLen + p.torsoH * 0.26, 0));  // flared skirt/tabard
-    g.add(at(smoothMesh(P.torsoGeo(0.3, 0.3, 0.2), sashM), 0, p.limbLen + p.torsoH * 0.4, 0));                  // waist belt
-    g.add(at(smoothMesh(P.torsoGeo(0.55, 0.55, 0.12), accent), 0, p.limbLen + p.torsoH * 0.02, 0));             // hem trim
+    // ── lathed anatomy (profile silhouettes, not stacked tubes) ──────────────
+    var hipX = 0.2;
+    // legs: bare lavender, tapered thigh→calf→ankle, with brown sandal wraps
+    [-1, 1].forEach(function (s) {
+      var legPts = [[0.09, 0], [0.11, 0.07], [0.155, p.limbLen * 0.34], [0.115, p.limbLen * 0.6], [0.165, p.limbLen * 0.92], [0.15, p.limbLen]];
+      g.add(at(smoothMesh(P.profileLimb(legPts, 12), skin), hipX * s, 0, 0));
+      [0.1, 0.26, 0.42].forEach(function (h) { var w = smoothMesh(new THREE.TorusGeometry(0.13, 0.035, 5, 10), accent); w.rotation.x = Math.PI / 2; at(w, hipX * s, h, 0.01); g.add(w); });
+      g.add(at(smoothMesh(new THREE.SphereGeometry(0.13, 8, 6), accent), hipX * s, 0.02, 0.06));   // foot
+    });
+    var ty0 = p.limbLen, th = p.torsoH;
+    // hourglass torso: hips → narrow waist → chest → broad shoulders → neck base
+    var torsoPts = [[0.3, 0], [0.27, th * 0.18], [0.23, th * 0.34], [0.32, th * 0.6], [0.38, th * 0.86], [0.3, th * 0.95], [0.14, th]];
+    g.add(at(smoothMesh(P.profileLimb(torsoPts, 18), cloth), 0, ty0, 0));
+    // flared tabard/skirt hanging from the waist over the thighs
+    var skirtPts = [[0.5, 0], [0.47, 0.18], [0.36, 0.42], [0.28, 0.6]];
+    g.add(at(smoothMesh(P.profileLimb(skirtPts, 18), cloth), 0, ty0 - 0.16, 0));
+    g.add(at(smoothMesh(new THREE.BoxGeometry(0.17, 0.52, 0.04), sashM), 0, ty0 + 0.06, 0.45));   // front tabard panel
+    // waist belt + glowing rune
+    g.add(at(smoothMesh(P.profileLimb([[0.29, 0], [0.31, 0.1], [0.29, 0.18]], 16), sashM), 0, ty0 + th * 0.3, 0));
+    var beltRune = facetMesh(P.crystalGeo(0.1, 1.0), gem); at(beltRune, 0, ty0 + th * 0.39, 0.3); g.add(beltRune); glow.push(beltRune);
 
-    var shoulderY = p.limbLen + p.torsoH;
-    // neck + shoulder deltoids for an adult silhouette
-    g.add(at(smoothMesh(P.limbGeo(0.11, 0.16), skin), 0, shoulderY + 0.02, 0));
-    [-1, 1].forEach(function (s) { var d = smoothMesh(new THREE.SphereGeometry(0.2, 9, 7), cloth); d.scale.set(1.1, 0.85, 1); at(d, 0.34 * s, shoulderY - 0.04, 0); g.add(d); });
-    if (F.pauld) [-1, 1].forEach(function (s) { var pg = facetMesh(P.leafGemGeo(role === 'hero' ? 0.85 : 0.7, 0.9), gem); at(pg, 0.5 * s, shoulderY - 0.06, 0); pg.rotation.z = -s * 0.5; g.add(pg); glow.push(pg); });
+    var shoulderY = ty0 + th;
+    g.add(at(smoothMesh(P.profileLimb([[0.1, 0], [0.13, 0.1], [0.1, 0.18]], 12), skin), 0, shoulderY - 0.06, 0));   // neck
+    // arms: lathed shoulder→wrist (bare skin + bracer), slight outward splay
+    var armHandY = ty0 + th * 0.22;
+    [-1, 1].forEach(function (s) {
+      var alen = (shoulderY - 0.04) - armHandY;
+      var armPts = [[0.075, 0], [0.1, alen * 0.32], [0.085, alen * 0.6], [0.135, alen * 0.92], [0.12, alen]];
+      var arm = smoothMesh(P.profileLimb(armPts, 12), skin); at(arm, 0.46 * s, armHandY, 0.02); arm.rotation.z = s * 0.07; g.add(arm);
+      var br = smoothMesh(new THREE.TorusGeometry(0.12, 0.035, 5, 10), accent); br.rotation.x = Math.PI / 2; at(br, 0.46 * s, armHandY + 0.05, 0.02); g.add(br);
+    });
+    if (F.pauld) [-1, 1].forEach(function (s) {   // brown leather pauldron + small green leaf fin (per reference)
+      var pa = smoothMesh(new THREE.SphereGeometry(role === 'hero' ? 0.26 : 0.22, 9, 7), accent); pa.scale.set(1.15, 0.72, 1.05); at(pa, 0.42 * s, shoulderY - 0.02, 0); g.add(pa);
+      var fin = facetMesh(P.leafGemGeo(0.36, 0.5), M(pal.cloth)); at(fin, 0.5 * s, shoulderY + 0.12, -0.02); fin.rotation.z = -s * 0.6; g.add(fin);
+    });
     if (F.cape) { var cp = flowCape(M(role === 'hero' ? pal.cloth : pal.sash), 5, 0.5); at(cp, 0, shoulderY + 0.24, -0.12); g.add(cp); }   // back-hugging cloak
     if (F.shoulderPad) [-1, 1].forEach(function (s) {   // WC3 Night Elf Archer: big upswept pauldrons
       var base = facetMesh(new THREE.SphereGeometry(0.27, 9, 7), M(pal.cloth)); base.scale.set(1.15, 0.72, 1.05); at(base, 0.46 * s, shoulderY + 0.02, 0); g.add(base);

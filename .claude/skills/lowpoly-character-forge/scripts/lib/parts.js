@@ -51,6 +51,15 @@
     var g = new THREE.LatheGeometry(pts, seg || 10); g.center(); return g;
   };
 
+  // Anatomical body part from a silhouette profile: pts = [[radius, y], ...] from
+  // bottom to top. Unlike P.lathe it is NOT centred — the profile's own y values
+  // are kept so you can position the part by its base. This is what gives limbs a
+  // real taper (calf bulge, narrow waist, broad shoulders) instead of a tube.
+  P.profileLimb = function (pts, seg) {
+    var v = pts.map(function (p) { return new THREE.Vector2(Math.max(0.001, p[0]), p[1]); });
+    return new THREE.LatheGeometry(v, seg || 14);
+  };
+
   // Curved emissive blade: a tapered extruded crescent.
   P.bladeGeo = function (len, w) {
     len = len || 1.4; w = w || 0.22;
