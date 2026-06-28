@@ -113,9 +113,9 @@
   // flies a faction banner for side identity.
   // Reference-matched: light STONE walls (body) + faction-colored ROOF/cap.
   var RACETINT = {
-    crown: { body: 0xc7bc9f, bodyD: 0x9f9478, cap: 0x7c8caa, capD: 0x586585 },   // stone + blue-slate
-    horde: { body: 0xbfb086, bodyD: 0x968760, cap: 0x9c3f2c, capD: 0x6c2718 },   // stone + red
-    elf:   { body: 0xccc6ad, bodyD: 0xa49e85, cap: 0x4f9281, capD: 0x356458 },   // pale stone + teal
+    crown: { body: 0xc7bc9f, bodyD: 0x9f9478, cap: 0x3a5fae, capD: 0x274479 },   // stone + royal-blue roof
+    horde: { body: 0xbfb086, bodyD: 0x968760, cap: 0xb23a26, capD: 0x7a2415 },   // stone + deep-red roof
+    elf:   { body: 0xccc6ad, bodyD: 0xa49e85, cap: 0x2f8f7a, capD: 0x1f6253 },   // pale stone + teal roof
   };
   var BPR = {}, BP = null;
   function bpFor(race) {
@@ -136,6 +136,27 @@
     }
   }
   function sideStair(g, x, mat) { for (var i = 0; i < 6; i++) g.add(box(0.9, 0.34, 1.5, mat, x, 0.5 + i * 0.78, 0)); }
+  // pitched gable roof (ridge along Z): two sloped planes + triangular gable ends.
+  // Turns a flat-capped box into a WC3-style peaked building. base sits at y.
+  function roofGable(w, d, ph, mat, wallMat, y, overh) {
+    overh = overh == null ? 0.34 : overh;
+    var g = new THREE.Group(); g.position.y = y;
+    var halfW = w / 2 + overh, ang = Math.atan2(ph, halfW), slope = Math.hypot(halfW, ph);
+    [-1, 1].forEach(function (s) {
+      var pl = box(slope, 0.16, d + overh * 2, mat, 0, 0, 0);
+      pl.position.set(s * halfW / 2, ph / 2, 0); pl.rotation.z = -s * ang; g.add(pl);
+    });
+    var shp = new THREE.Shape(); shp.moveTo(-w / 2, 0); shp.lineTo(w / 2, 0); shp.lineTo(0, ph); shp.closePath();
+    var eg = new THREE.ExtrudeGeometry(shp, { depth: d, bevelEnabled: false }); eg.translate(0, 0, -d / 2);
+    var tg = new THREE.Mesh(eg, wallMat || mat); tg.castShadow = true; tg.receiveShadow = true; g.add(tg);
+    return g;
+  }
+  // 4-sided pyramid/hip roof (for square towers + silos). base at y.
+  function roofPyramid(w, d, ph, mat, y) {
+    var r = Math.hypot(w, d) * 0.5;
+    var c = cone(r, ph, 4, mat); c.rotation.y = Math.PI / 4;
+    c.scale.set((w * 0.72) / r, 1, (d * 0.72) / r); c.position.y = y + ph / 2; return c;
+  }
   function emberMat(c, e) { return new THREE.MeshStandardMaterial({ color: c, emissive: e || c, emissiveIntensity: 0.95, flatShading: true, roughness: 1 }); }
   // Per-race guard towers: each race gets its own silhouette (not just a recolor),
   // and an upgraded tower (towerType) adds a distinguishing topper for its line.
@@ -253,17 +274,17 @@
   function tfHouse(race) {
     var g = new THREE.Group();
     g.add(box(4.4, 2.2, 3.6, BP.body, 0, 1.1, 0));
-    g.add(box(4.8, 0.5, 4.0, BP.cap, 0, 2.25, 0));                 // cream flat top
+    g.add(roofGable(4.4, 3.6, 1.7, BP.cap, BP.bodyD, 2.2));         // pitched roof
     g.add(box(1.2, 1.5, 0.3, BP.door, 0, 0.75, 1.85));
-    g.add(box(0.8, 0.8, 0.16, BP.cap, -1.4, 1.4, 1.85));
+    g.add(box(0.8, 0.8, 0.16, BP.woodD, -1.4, 1.4, 1.85));         // shutter window
     g.add(cyl(1.0, 1.0, 2.5, 9, BP.body).translateX(3.0).translateY(1.25));   // round silo
-    g.add(cyl(1.12, 1.12, 0.4, 9, BP.cap).translateX(3.0).translateY(2.55));
+    g.add(cone(1.3, 1.4, 10, BP.cap).translateX(3.0).translateY(3.2));        // conical silo cap
     return g;
   }
   function tfBarracks(race) {
     var g = new THREE.Group();
     g.add(box(6.0, 2.3, 3.6, BP.body, 0, 1.15, 0));
-    g.add(box(6.4, 0.5, 4.0, BP.cap, 0, 2.35, 0));
+    g.add(roofGable(6.0, 3.6, 1.85, BP.cap, BP.bodyD, 2.3));
     g.add(box(1.2, 1.5, 0.3, BP.door, 0, 0.75, 1.85));
     g.add(box(0.7, 0.8, 0.16, BP.cap, -1.9, 1.4, 1.85)); g.add(box(0.7, 0.8, 0.16, BP.cap, 1.9, 1.4, 1.85));
     g.add(box(0.14, 1.7, 0.14, BP.woodD, -2.8, 3.2, 0)); g.add(box(0.95, 0.55, 0.05, factionBanner(race), -2.3, 3.7, 0));
@@ -290,7 +311,7 @@
   function tfForge() {
     var g = new THREE.Group();
     g.add(box(4.4, 2.3, 4.0, BP.body, 0, 1.15, 0));
-    g.add(box(4.8, 0.5, 4.4, BP.cap, 0, 2.35, 0));
+    g.add(roofGable(4.4, 4.0, 1.6, BP.cap, BP.bodyD, 2.3));
     g.add(cyl(0.6, 0.7, 2.8, 7, BP.bodyD).translateX(1.4).translateY(3.2).translateZ(-1.0));
     var ember = new THREE.Mesh(new THREE.IcosahedronGeometry(0.42, 0), new THREE.MeshStandardMaterial({ color: 0xff7a2a, emissive: 0xff5a1a, emissiveIntensity: 0.9, flatShading: true }));
     ember.position.set(1.4, 4.7, -1.0); g.add(ember);
@@ -330,8 +351,8 @@
   function tfBarracksOrc(race) {
     var g = new THREE.Group();
     g.add(box(6.0, 2.3, 3.4, BP.body, 0, 1.15, 0));
-    g.add(box(6.4, 0.5, 3.8, BP.cap, 0, 2.35, 0));
-    orcSpikeRidge(g, 2.9, 2.75, 0);
+    g.add(roofGable(6.0, 3.4, 1.7, BP.cap, BP.bodyD, 2.3));
+    orcSpikeRidge(g, 2.9, 3.05, 1.7);
     g.add(box(1.2, 1.5, 0.3, BP.door, 0, 0.75, 1.75));
     g.add(box(0.16, 1.7, 3.7, BP.woodD, 3.0, 1.0, 0));            // lashed beam
     g.add(box(0.14, 1.7, 0.14, BP.woodD, -2.9, 3.2, 0)); g.add(box(0.95, 0.55, 0.05, factionBanner(race), -2.4, 3.7, 0));
