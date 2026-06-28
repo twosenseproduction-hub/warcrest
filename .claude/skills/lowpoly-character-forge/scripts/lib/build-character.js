@@ -98,9 +98,10 @@
   // segment curving back and flaring wider toward the hem.
   function flowCape(mat, segs, baseR) {
     mat.side = THREE.DoubleSide;   // open shells — show the inner face too
-    var g = new THREE.Group(); var arc = 2.95, segLen = 0.42, t0 = -Math.PI / 2 - arc / 2;
-    // shoulder mantle: a shorter, wider shell wrapping over the shoulders
-    g.add(at(new THREE.Mesh(LPF.facet(new THREE.CylinderGeometry(baseR * 1.18, baseR * 1.06, 0.36, 12, 1, true, -Math.PI / 2 - arc * 0.62, arc * 1.24)), mat), 0, -0.06, 0));
+    var g = new THREE.Group(); var arc = 1.5, segLen = 0.42, t0 = -Math.PI / 2 - arc / 2;
+    // shoulder mantle over the upper back (slightly wider than the drape)
+    var mArc = 1.8;
+    g.add(at(new THREE.Mesh(LPF.facet(new THREE.CylinderGeometry(baseR * 1.16, baseR * 1.05, 0.34, 12, 1, true, -Math.PI / 2 - mArc / 2, mArc)), mat), 0, -0.06, 0));
     var chain = new THREE.Group(); chain.position.y = -0.22; g.add(chain); var node = chain;
     for (var i = 0; i < segs; i++) {
       var j = new THREE.Group(); j.rotation.x = 0.06 + i * 0.06; if (i > 0) j.position.y = -segLen;
@@ -313,8 +314,7 @@
     var shoulderY = limbLen + torsoH;
     if (F.pauld) [-1, 1].forEach(function (s) { var pd = facetMesh(new THREE.SphereGeometry(0.32, 9, 7), steel); pd.scale.y = 0.7; at(pd, 0.54 * bw * s, shoulderY - 0.02, 0); g.add(pd);
       var r = facetMesh(new THREE.TorusGeometry(0.28, 0.05, 5, 8), accent); r.rotation.x = Math.PI / 2; at(r, 0.54 * bw * s, shoulderY - 0.05, 0); g.add(r); });
-    if (F.cape) { var cp = flowCape(M(role === 'hero' ? 0x9c2b2b : pal.cloth), 5, 0.5 * bw); at(cp, 0, shoulderY + 0.24, -0.04 * bw); g.add(cp);
-      g.add(at(facetMesh(new THREE.SphereGeometry(0.1, 6, 5), accent), 0, shoulderY + 0.18, 0.32 * bw)); }   // gold throat clasp
+    if (F.cape) { var cp = flowCape(M(role === 'hero' ? 0x9c2b2b : pal.cloth), 5, 0.5 * bw); at(cp, 0, shoulderY + 0.24, -0.12 * bw); g.add(cp); }   // back-hugging cloak
 
     var headY = shoulderY + 0.5 * headScale;
     var headR = buildHead(g, { skin: skin, headY: headY, headScale: headScale, eye: pal.eye, eyeGlow: false, ears: 'round', taper: 0.16 });
