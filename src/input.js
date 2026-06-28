@@ -93,6 +93,23 @@
         c.panTarget = null;
       }
     },
+    // Thronefall-style perspective toggle: cycle between tactical (zoomed out)
+    // and close zoom levels, keeping the view centre fixed. Ignores camera.lock
+    // (which only disables pinch/wheel). The 3D renderer pulls the camera in/out
+    // because its framing is derived from camera.zoom.
+    cycleZoom: function (s) {
+      var levels = (RTS.Config.camera && RTS.Config.camera.zoomLevels) || [0.5, 0.92];
+      var c = s.camera, cv = RTS.canvas;
+      var idx = 0, best = Infinity;
+      for (var i = 0; i < levels.length; i++) { var d = Math.abs(levels[i] - c.zoom); if (d < best) { best = d; idx = i; } }
+      var next = levels[(idx + 1) % levels.length];
+      var cx = c.x + (cv.clientWidth / c.zoom) / 2, cy = c.y + (cv.clientHeight / c.zoom) / 2;
+      c.zoom = next;
+      c.x = cx - (cv.clientWidth / c.zoom) / 2;
+      c.y = cy - (cv.clientHeight / c.zoom) / 2;
+      c.panTarget = null;
+      RTS.Cam.clamp(s);
+    },
     zoomAt: function (s, factor, cssX, cssY) {
       if (RTS.Config.camera && RTS.Config.camera.lock) return;
       var c = s.camera;

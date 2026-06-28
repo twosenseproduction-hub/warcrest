@@ -66,7 +66,7 @@
   RTS.HUD = {
     init: function (getStateFn) {
       getState = getStateFn;
-      ['res-halcite', 'res-supply', 'timer', 'btn-pause', 'command-deck', 'bottom-hub',
+      ['res-halcite', 'res-supply', 'timer', 'btn-pause', 'btn-zoom', 'command-deck', 'bottom-hub',
        'selpanel', 'squad-chips', 'squad-block', 'cmd-grid', 'command-card',
        'event-log', 'toast', 'gesture-hint', 'wave-timer',
        'btn-rail-army', 'btn-rail-pawns', 'btn-rail-base',
@@ -92,6 +92,9 @@
         if (st) RTS.selectByCategory(st, btn.dataset.cat);
       });
       D['btn-pause'] && D['btn-pause'].addEventListener('click', function () { RTS.Game.togglePause(); });
+      D['btn-zoom'] && D['btn-zoom'].addEventListener('click', function () {
+        var st = getState(); if (st && RTS.Cam && RTS.Cam.cycleZoom) { RTS.Cam.cycleZoom(st); RTS.Audio.play('click'); }
+      });
 
       wireRail('btn-rail-army', function (s) { RTS.selectAllArmy(s); RTS.Audio.play('click'); });
       wireRail('btn-rail-pawns', function (s) {

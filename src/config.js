@@ -23,6 +23,7 @@
       lock: true,
       panInertia: 0.86,
       joySpeed: 1200,   // left-edge joystick: camera scroll speed (world px/s at full deflection)
+      zoomLevels: [0.5, 0.92],   // Thronefall perspective toggle: tactical ↔ close
     },
     touch: {
       slopPx:        isMobile ? 42 : 18,
