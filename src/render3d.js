@@ -40,6 +40,9 @@
     mapId: null,             // terrain rebuilt when this changes
     ray: null, ndc: null,
     night: false,
+    windUniform: { value: 0 },  // shared time uniform driving foliage sway
+    envTime: 0,                 // accumulates real time for env animation
+    waterGeo: null, motes: null,
   };
 
   /* ---- faction -> race styling ------------------------------------------ */
@@ -935,9 +938,69 @@
     TREE_PROTOS = { conifer: conifer, broad: broad };
     return TREE_PROTOS;
   }
+  // Foliage material — vertex-coloured, flat-shaded, with a wind sway injected
+  // into the vertex shader (foliage tops sway, bases stay put). uTime is bumped
+  // each frame in updateEnv. Use ONLY on instanced meshes (reads instanceMatrix).
   function treeMat() {
-    if (!TREE_MAT) TREE_MAT = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 1, metalness: 0 });
+    if (TREE_MAT) return TREE_MAT;
+    TREE_MAT = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 1, metalness: 0 });
+    TREE_MAT.onBeforeCompile = function (sh) {
+      sh.uniforms.uTime = R.windUniform;
+      sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace(
+        '#include <begin_vertex>',
+        '#include <begin_vertex>\n' +
+        'float wph = instanceMatrix[3].x * 0.018 + instanceMatrix[3].z * 0.018;\n' +
+        'float hf = max(transformed.y, 0.0);\n' +
+        'transformed.x += sin(uTime * 1.6 + wph) * 0.11 * hf;\n' +
+        'transformed.z += cos(uTime * 1.3 + wph) * 0.08 * hf;\n'
+      );
+    };
     return TREE_MAT;
+  }
+  // Static (no-sway) vertex-coloured material for rocks/pebbles.
+  var ROCK_MAT = null;
+  function rockMat() {
+    if (!ROCK_MAT) ROCK_MAT = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 1, metalness: 0 });
+    return ROCK_MAT;
+  }
+
+  /* ---- ground decor prototypes (merged vertex-coloured geos, instanced) ----- */
+  var DECOR_PROTOS = null;
+  function decorProtos() {
+    if (DECOR_PROTOS) return DECOR_PROTOS;
+    var rockC = rgb3(0x7c786f), rockHi = rgb3(0x908b80), rockLo = rgb3(0x5d5950);
+    // boulder: a lumpy icosahedron, deformed for irregular facets
+    var rg = new THREE.IcosahedronGeometry(1, 1).toNonIndexed();
+    var rp = rg.attributes.position.array;
+    for (var i = 0; i < rp.length; i += 3) {
+      var hh = Math.sin(rp[i] * 5.1 + rp[i + 1] * 3.3 + rp[i + 2] * 4.7);
+      var f = 0.78 + (hh - Math.floor(hh)) * 0.0 + hh * 0.16;
+      rp[i] *= f * 1.15; rp[i + 1] *= f * 0.82; rp[i + 2] *= f * 1.05;
+    }
+    var rock = mergeParts([{ geo: rg, m: partMat(0, 0.7, 0), c: rockC }]);
+    // tint top facets lighter / bottom darker via a second pass on the merged colors
+    var rc = rock.attributes.color.array, rpos = rock.attributes.position.array;
+    for (var j = 0; j < rpos.length; j += 3) {
+      var up = rpos[j + 1];
+      var c = up > 0.7 ? rockHi : up < 0.2 ? rockLo : rockC;
+      rc[j] = c[0]; rc[j + 1] = c[1]; rc[j + 2] = c[2];
+    }
+    rock.computeBoundingBox();
+    // grass tuft: a few thin tapered blades fanning out
+    var leaf = rgb3(0x5a9b46), leafHi = rgb3(0x72b257);
+    var blades = [];
+    for (var b = 0; b < 5; b++) {
+      var a = b / 5 * Math.PI * 2;
+      blades.push({ geo: new THREE.ConeGeometry(0.12, 1.0, 3), m: partMat(Math.cos(a) * 0.18, 0.5, Math.sin(a) * 0.18, a, Math.cos(a) * 0.5), c: b % 2 ? leafHi : leaf });
+    }
+    var tuft = mergeParts(blades); tuft.computeBoundingBox();
+    // flower: green stem + pale head (per-instance tint colours the bloom)
+    var flower = mergeParts([
+      { geo: new THREE.CylinderGeometry(0.05, 0.07, 0.9, 4), m: partMat(0, 0.45, 0), c: rgb3(0x4f8a46) },
+      { geo: new THREE.IcosahedronGeometry(0.28, 0), m: partMat(0, 1.0, 0), c: rgb3(0xf0e8d0) },
+    ]); flower.computeBoundingBox();
+    DECOR_PROTOS = { rock: rock, tuft: tuft, flower: flower };
+    return DECOR_PROTOS;
   }
 
   /* ===========================================================================
@@ -961,6 +1024,16 @@
     var cx = Math.floor(wx / TILE), cy = Math.floor(wy / TILE);
     return Math.max(0, elevAt(grid, cx, cy)); // entities never sink into water here
   }
+  // like groundYAt but decor over deep water sits AT the water surface (so water
+  // rocks read as sea stones, not blobs floating at land level).
+  function surfaceYAt(s, wx, wy) {
+    var grid = s && s.map && s.map.terrainGrid;
+    if (!grid) return 0;
+    var cx = Math.floor(wx / TILE), cy = Math.floor(wy / TILE);
+    var e = elevAt(grid, cx, cy);
+    if (e <= WATER_DROP) return WATER_DROP + 7;
+    return Math.max(0, e);
+  }
 
   function buildTerrain(s) {
     var grid = s && s.map && s.map.terrainGrid;
@@ -970,10 +1043,15 @@
     var H = (s.map && s.map.h) || RTS.Config.world.h;
 
     // water plane spanning the whole world (shows through gaps / below cliffs)
-    var wmat = new THREE.MeshStandardMaterial({ color: 0x245a7e, roughness: 0.78, metalness: 0.0, transparent: true, opacity: 0.94 });
-    var wm = new THREE.Mesh(new THREE.PlaneGeometry(W + 800, H + 800), wmat);
+    var wmat = new THREE.MeshStandardMaterial({ color: 0x245a7e, roughness: 0.66, metalness: 0.0, transparent: true, opacity: 0.94, flatShading: true });
+    // Segmented so it can ripple; flat-shaded so the moving facets catch the sun
+    // and shimmer (low-poly water). Animated per-frame in updateEnv.
+    var wsegX = Math.max(16, Math.min(70, Math.round((W + 800) / 150)));
+    var wsegY = Math.max(16, Math.min(70, Math.round((H + 800) / 150)));
+    var wgeo = new THREE.PlaneGeometry(W + 800, H + 800, wsegX, wsegY);
+    var wm = new THREE.Mesh(wgeo, wmat);
     wm.rotation.x = -Math.PI / 2; wm.position.set(W / 2, WATER_DROP + 6, H / 2); wm.receiveShadow = true;
-    R.waterMesh = wm; R.scene.add(wm);
+    R.waterMesh = wm; R.waterGeo = wgeo; R.scene.add(wm);
 
     if (!grid) return;
     // ── Smooth heightfield terrain ────────────────────────────────────────────
@@ -1111,7 +1189,96 @@
       if (imC) R.decorGroup.add(imC);
       if (imB) R.decorGroup.add(imB);
     }
+
+    // ground decor: instanced rocks / pebbles / grass tufts / flowers — these are
+    // already generated into s.map.decor but were never drawn in 3D. One
+    // InstancedMesh per kind keeps it cheap.
+    var DP = decorProtos();
+    var FLOWER_TINTS = [0xff8a8a, 0xffe27a, 0xc69cff, 0xff9ecb, 0xfff4e0];
+    function instDecor(proto, mat, list, baseH, jitH, kindTintArr) {
+      if (!list || !list.length) return;
+      var ph = (proto.boundingBox.max.y - proto.boundingBox.min.y) || 1;
+      var im = new THREE.InstancedMesh(proto, mat, list.length);
+      im.castShadow = (mat === rockMat()); im.receiveShadow = true;
+      var dm = new THREE.Object3D(), col = new THREE.Color();
+      for (var i = 0; i < list.length; i++) {
+        var d = list[i];
+        var hsh = ((Math.floor(d.x) * 73856093) ^ (Math.floor(d.y) * 19349663)) >>> 0;
+        var th = baseH + ((hsh >>> 8) & 31) / 31 * jitH;
+        var sc = th / ph;
+        dm.position.set(d.x, surfaceYAt(s, d.x, d.y), d.y);
+        dm.rotation.set(0, ((hsh >>> 4) & 63) / 63 * Math.PI * 2, 0);
+        var sx = sc * (0.78 + ((hsh >>> 2) & 7) / 7 * 0.5);
+        var sz = sc * (0.78 + ((hsh >>> 11) & 7) / 7 * 0.5);
+        dm.scale.set(sx, sc, sz); dm.updateMatrix();
+        im.setMatrixAt(i, dm.matrix);
+        if (kindTintArr) { col.setHex(kindTintArr[hsh % kindTintArr.length]); im.setColorAt(i, col); }
+        else { var t = 0.8 + ((hsh >>> 16) & 15) / 15 * 0.16; col.setRGB(t, t, t); im.setColorAt(i, col); }
+      }
+      im.instanceMatrix.needsUpdate = true;
+      if (im.instanceColor) im.instanceColor.needsUpdate = true;
+      R.decorGroup.add(im);
+    }
+    instDecor(DP.rock, rockMat(), decor.filter(function (d) { return d.kind === 'rock'; }), 17, 14);
+    instDecor(DP.rock, rockMat(), decor.filter(function (d) { return d.kind === 'pebble'; }), 8, 5);
+    instDecor(DP.tuft, treeMat(), decor.filter(function (d) { return d.kind === 'grass'; }), 17, 10);
+    instDecor(DP.flower, treeMat(), decor.filter(function (d) { return d.kind === 'flower'; }), 19, 8, FLOWER_TINTS);
+
     R.scene.add(R.decorGroup);
+
+    // ── gradient sky dome (built once; follows the camera in updateEnv) ────────
+    if (!R.skyDome) {
+      var skyGeo = new THREE.SphereGeometry(7000, 24, 16);
+      var sp = skyGeo.attributes.position, scol = [];
+      var skyTop = new THREE.Color(0x4d88c9), skyHorizon = new THREE.Color(0xd2e4ee);
+      for (var si = 0; si < sp.count; si++) {
+        var ny = Math.max(0, sp.getY(si) / 7000);
+        var sc2 = skyHorizon.clone().lerp(skyTop, Math.pow(ny, 0.6));
+        scol.push(sc2.r, sc2.g, sc2.b);
+      }
+      skyGeo.setAttribute('color', new THREE.Float32BufferAttribute(scol, 3));
+      R.skyDome = new THREE.Mesh(skyGeo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false }));
+      R.skyDome.frustumCulled = false;
+      R.scene.add(R.skyDome);
+    }
+    R.skyDome.position.set(W / 2, 0, H / 2);
+
+    // ── ambient drifting motes (pollen) ───────────────────────────────────────
+    if (R.motes) { R.scene.remove(R.motes); R.motes.geometry.dispose(); R.motes.material.dispose(); R.motes = null; }
+    var MN = 240, mp = new Float32Array(MN * 3);
+    for (var mi = 0; mi < MN; mi++) {
+      mp[mi * 3] = Math.random() * W; mp[mi * 3 + 1] = 18 + Math.random() * 190; mp[mi * 3 + 2] = Math.random() * H;
+    }
+    var mgeo = new THREE.BufferGeometry();
+    mgeo.setAttribute('position', new THREE.Float32BufferAttribute(mp, 3));
+    var mmat = new THREE.PointsMaterial({ color: 0xfff3d6, size: 7, sizeAttenuation: true, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending });
+    R.motes = new THREE.Points(mgeo, mmat); R.motes.frustumCulled = false; R.scene.add(R.motes);
+  }
+
+  /* ---- per-frame environment animation: wind, water ripple, motes, sky ----- */
+  function updateEnv(dt) {
+    R.envTime += dt;
+    var t = R.envTime;
+    R.windUniform.value = t;
+    var g = R.waterGeo;
+    if (g) {
+      var p = g.attributes.position.array;
+      for (var i = 0; i < p.length; i += 3) {
+        var x = p[i], y = p[i + 1];
+        p[i + 2] = Math.sin(x * 0.012 + t * 1.1) * 4.0 + Math.sin(y * 0.015 - t * 0.9) * 3.4 + Math.sin((x + y) * 0.007 + t * 0.6) * 2.6;
+      }
+      g.attributes.position.needsUpdate = true;
+    }
+    if (R.motes) {
+      var mp2 = R.motes.geometry.attributes.position.array;
+      for (var j = 0; j < mp2.length; j += 3) {
+        mp2[j + 1] += dt * 7;
+        mp2[j] += Math.sin(t * 0.5 + j) * 0.18;
+        if (mp2[j + 1] > 212) mp2[j + 1] = 16;
+      }
+      R.motes.geometry.attributes.position.needsUpdate = true;
+    }
+    if (R.skyDome && R.camera) R.skyDome.position.set(R.camera.position.x, 0, R.camera.position.z);
   }
 
   function disposeObj(o) {
@@ -1721,6 +1888,7 @@
     drawMarquee(s);
     updateDust(s);
     updateFx(R.renderDt);
+    updateEnv(R.renderDt);
     gc();
     // advance any glTF skeletal animations
     if (!_clock) _clock = new THREE.Clock();
