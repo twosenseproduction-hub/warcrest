@@ -30,6 +30,14 @@
 
       wireMenus();
       window.addEventListener('resize', function () { RTS.Render.resize(state); });
+      // Orientation flips don't always fire a timely 'resize', and innerWidth can
+      // lag the event — re-fit a few times so a portrait→landscape rotate doesn't
+      // leave a half-width canvas with dead input on the right.
+      window.addEventListener('orientationchange', function () {
+        RTS.Render.resize(state);
+        setTimeout(function () { RTS.Render.resize(state); }, 120);
+        setTimeout(function () { RTS.Render.resize(state); }, 360);
+      });
       this.scene('menu');
 
       if (RTS.Assets) {

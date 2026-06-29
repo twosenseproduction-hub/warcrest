@@ -128,10 +128,15 @@
       var cv = RTS.canvas;
       var dpr = Math.min(window.devicePixelRatio || 1, 2);
       this.dpr = dpr;
-      cv.width = Math.floor(cv.clientWidth * dpr);
-      cv.height = Math.floor(cv.clientHeight * dpr);
-      cv.style.width  = cv.clientWidth + 'px';
-      cv.style.height = cv.clientHeight + 'px';
+      // The viewport is the source of truth, NOT clientWidth. The Phaser canvas
+      // runs Scale.NONE, so its style width is pinned at boot — after rotating
+      // portrait→landscape, clientWidth would stay at the portrait width, leaving
+      // a half-width canvas with dead input on the right. Drive it from innerWidth.
+      var cssW = window.innerWidth, cssH = window.innerHeight;
+      cv.style.width  = cssW + 'px';
+      cv.style.height = cssH + 'px';
+      cv.width = Math.floor(cssW * dpr);
+      cv.height = Math.floor(cssH * dpr);
       RTS.Cam.clamp(s);
       if (RTS._syncPhaserAfterResize) RTS._syncPhaserAfterResize();
       if (RTS._phaserWorldLayer && RTS._phaserWorldLayer.resize) {
