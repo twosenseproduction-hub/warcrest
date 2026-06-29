@@ -1460,3 +1460,23 @@ body.radial-open #command-deck { display: none !important; }
 .hero-banner.fac-aurex .hb-abil { background: rgba(63,99,184,.92); }
 .hero-banner.fac-cinder .hb-abil { background: rgba(181,70,47,.94); }
 .hero-banner.fac-rimwalker .hb-abil { background: rgba(63,138,106,.94); }
+
+/* ── Hero ability tooltip (long-press to inspect) ── */
+.hero-tip {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(150px + env(safe-area-inset-bottom, 0px)); z-index: 41;
+  width: min(330px, 90vw); padding: 9px 12px;
+  background: linear-gradient(180deg, rgba(32,23,12,.97), rgba(20,13,7,.98));
+  border: 2px solid rgba(228,181,58,.75); border-radius: 12px;
+  box-shadow: 0 10px 26px rgba(0,0,0,.55);
+  color: #efe3c8; font-family: 'Fredoka', system-ui, sans-serif;
+  pointer-events: none; animation: hb-rise .14s ease-out;
+}
+.hero-tip.hidden { display: none; }
+.ht-title { font-weight: 700; font-size: 14px; color: #ffe9a8; }
+.ht-meta { font-size: 10px; opacity: .78; margin: 1px 0 5px; letter-spacing: .02em; }
+.ht-desc { font-size: 11.5px; line-height: 1.34; opacity: .94; }
+.hero-tip.fac-cinder { border-color: rgba(224,160,96,.8); }
+.hero-tip.fac-cinder .ht-title { color: #ffcaa0; }
+.hero-tip.fac-rimwalker { border-color: rgba(159,232,106,.7); }
+.hero-tip.fac-rimwalker .ht-title { color: #d6f5a8; }

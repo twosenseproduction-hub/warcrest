@@ -6,6 +6,7 @@
 (function (RTS) {
   'use strict';
   var D = {}; var getState;
+  var _lpTimer = null, _lpFired = false, _tipHideTimer = null, _bannerClock = 0;
 
   // WC3-style command card: 4 columns x 3 rows. Bottom row (r3) holds the
   // movement/combat commands; upper rows hold abilities / build / management.
@@ -74,12 +75,15 @@
        'btn-hero-i1', 'btn-hero-i2', 'btn-hero-i3',
        'btn-build-hammer', 'build-panel', 'build-panel-grid', 'map-tools', 'tb-crest',
        'shop-panel', 'shop-grid', 'shop-head',
-       'hub-minimap', 'hub-right', 'hub-hero', 'hub-action-grid', 'minimap', 'hero-banner'].forEach(function (id) {
+       'hub-minimap', 'hub-right', 'hub-hero', 'hub-action-grid', 'minimap', 'hero-banner', 'hero-tip'].forEach(function (id) {
         D[id] = $(id);
       });
 
       // Hero banner ability slots cast through the same path as the I-row buttons.
+      // A long-press that opened a tooltip is swallowed so it doesn't also cast.
       wireDelegatedTap($('hero-banner'), '[data-act="hero-ability"]', function (e, btn) {
+        if (_lpFired) { _lpFired = false; scheduleTipHide(2200); return; }
+        hideHeroTip();
         var st = getState(); if (!st) return;
         var units = RTS.activeSelectedUnits ? RTS.activeSelectedUnits(st) : [];
         if (units.length === 1 && units[0].heroId) {
@@ -88,6 +92,22 @@
           RTS.HUD.sync(st);
         }
       });
+
+      // Long-press an ability or the passive chip to inspect its full text.
+      (function () {
+        var banner = $('hero-banner'); if (!banner) return;
+        banner.addEventListener('pointerdown', function (e) {
+          var card = e.target.closest('.hb-abil, .hb-passive'); if (!card) return;
+          clearTimeout(_lpTimer); _lpFired = false;
+          _lpTimer = setTimeout(function () {
+            _lpFired = true;
+            var st = getState(); if (st) showHeroTip(st, card);
+          }, 330);
+        });
+        ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) {
+          banner.addEventListener(ev, function () { clearTimeout(_lpTimer); });
+        });
+      })();
 
       ['cmd-grid', 'selpanel', 'squad-chips', 'squad-block', 'hub-action-grid', 'topbar', 'command-deck',
        'bottom-hub', 'map-tools', 'build-panel', 'btn-build-hammer', 'hub-minimap', 'type-select', 'hero-banner'].forEach(function (id) {
@@ -252,6 +272,9 @@
 
     tick: function (s, dt) {
       syncResources(s);
+      // keep the hero banner's cooldown/XP readouts live (sync is event-driven)
+      _bannerClock += dt;
+      if (_bannerClock >= 0.25) { _bannerClock = 0; if (D['hero-banner'] && !D['hero-banner'].classList.contains('hidden')) syncHeroBanner(s); }
       if (RTS.Cam && RTS.Cam.updatePan) RTS.Cam.updatePan(s, dt);
       if (D['timer']) D['timer'].textContent = fmtTime(s.timers.gameTime);
       if (D['wave-timer']) {
@@ -975,7 +998,7 @@
     var units = RTS.activeSelectedUnits ? RTS.activeSelectedUnits(s) : [];
     var u = units.length === 1 && units[0].heroId ? units[0] : null;
     var hero = u && RTS.getHero ? RTS.getHero(u.heroId) : null;
-    if (!hero) { el.classList.add('hidden'); el.setAttribute('aria-hidden', 'true'); el.innerHTML = ''; return; }
+    if (!hero) { el.classList.add('hidden'); el.setAttribute('aria-hidden', 'true'); el.innerHTML = ''; hideHeroTip(); return; }
 
     var prog = RTS.heroProgress ? RTS.heroProgress(u) : { level: u.level || 1, max: 5, atMax: false, pct: 0 };
     var now = (s.timers && s.timers.gameTime) || 0;
@@ -1021,6 +1044,39 @@
       '<div class="hb-abils">' + abils + '</div>';
   }
   function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  // Long-press tooltip for a hero ability / passive — full effect text + meta.
+  function showHeroTip(s, card) {
+    var tip = D['hero-tip']; if (!tip || !card) return;
+    var units = RTS.activeSelectedUnits ? RTS.activeSelectedUnits(s) : [];
+    var u = units.length === 1 && units[0].heroId ? units[0] : null;
+    var hero = u && RTS.getHero ? RTS.getHero(u.heroId) : null;
+    if (!hero) return;
+
+    var title, meta = '', desc;
+    if (card.classList.contains('hb-passive')) {
+      var p = hero.passive || {};
+      title = '✦ ' + (p.name || 'Passive'); meta = 'Passive — always active'; desc = p.desc || '';
+    } else {
+      var ab = (hero.abilities || [])[+card.dataset.idx]; if (!ab) return;
+      title = ab.name || 'Ability';
+      var bits = [];
+      if (ab.cooldown) bits.push(Math.round(ab.cooldown) + 's cooldown');
+      if (ab.unlockLevel) bits.push((u.level || 1) < ab.unlockLevel ? ('Unlocks at level ' + ab.unlockLevel) : ('Level ' + ab.unlockLevel));
+      if (ab.castTime) bits.push(ab.castTime + 's cast');
+      meta = bits.join(' · '); desc = ab.desc || '';
+    }
+    tip.className = 'hero-tip fac-' + (hero.faction || 'aurex');
+    tip.innerHTML =
+      '<div class="ht-title">' + esc(title) + '</div>' +
+      (meta ? '<div class="ht-meta">' + esc(meta) + '</div>' : '') +
+      '<div class="ht-desc">' + esc(desc) + '</div>';
+    tip.classList.remove('hidden');
+    scheduleTipHide(4500);                 // safety auto-dismiss (e.g. passive long-press)
+    RTS.Audio && RTS.Audio.play && RTS.Audio.play('click');
+  }
+  function hideHeroTip() { var tip = D['hero-tip']; if (tip) tip.classList.add('hidden'); clearTimeout(_tipHideTimer); }
+  function scheduleTipHide(ms) { clearTimeout(_tipHideTimer); _tipHideTimer = setTimeout(hideHeroTip, ms || 2600); }
 
   // ---- Combat mode icon sync -----------------------------------------------
   function syncCombatModeIcon(s) {
