@@ -319,6 +319,132 @@
     return finish(g);
   };
 
+  /* ============================ ARMORED ORC WARRIOR ============================
+   * Matches the Google-Flow reference: stocky black-plate orc, red spiked dome
+   * helm over a green tusked face, notched dark-iron sword, bound-plank shield. */
+  function orcSword(iron, ironD, red, bone) {
+    var g = new THREE.Group();
+    // single-edged tapered blade (built along +Y, grip at origin)
+    var bl = facetMesh(new THREE.BoxGeometry(0.17, 1.45, 0.07), iron); at(bl, 0.01, 0.95, 0); g.add(bl);
+    var tip = facetMesh(new THREE.ConeGeometry(0.14, 0.42, 4), iron); at(tip, -0.02, 1.78, 0); tip.rotation.y = Math.PI / 4; tip.rotation.z = 0.18; g.add(tip);
+    // chipped/notched back edge — a few dark angled chips
+    [0.65, 1.0, 1.34].forEach(function (y) { var n = facetMesh(new THREE.BoxGeometry(0.12, 0.13, 0.08), ironD); at(n, -0.12, y, 0); n.rotation.z = 0.6; g.add(n); });
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.44, 0.11, 0.16), ironD), 0, 0.2, 0));      // crossguard
+    g.add(smoothMesh(P.limbGeo(0.06, 0.32), red));                                          // red-wrapped grip
+    g.add(at(facetMesh(new THREE.SphereGeometry(0.09, 6, 5), ironD), 0, -0.18, 0));         // pommel
+    return g;
+  }
+  function plankShield(wood, woodD, iron) {
+    var g = new THREE.Group();
+    for (var i = -2; i <= 2; i++) { var pl = facetMesh(new THREE.BoxGeometry(0.17, 1.02, 0.09), (i % 2 ? wood : woodD)); at(pl, i * 0.175, 0, 0); g.add(pl); }
+    [-0.32, 0.32].forEach(function (y) {
+      g.add(at(facetMesh(new THREE.BoxGeometry(0.98, 0.13, 0.12), iron), 0, y, 0.01));      // iron band
+      [-0.4, 0, 0.4].forEach(function (x) { g.add(at(facetMesh(new THREE.SphereGeometry(0.038, 5, 4), iron), x, y, 0.08)); });   // rivets
+    });
+    return g;
+  }
+  LPF.buildOrcWarrior = function (params) {
+    // outline 0 by default: the inverted-hull shell bakes into the .glb as solid
+    // black backfaces that read as a blob in the game renderer (which shades the
+    // model itself). Pass outline>0 only for standalone turntable critique.
+    var p = Object.assign({ headScale: 1.0, torsoH: 1.2, limbLen: 0.92, outline: 0, legless: false }, params || {});
+    // Deep, muted palette: the 3-point rig is bright, so bases are pushed dark
+    // (near-black warm armor, deep crimson helm) to land on the reference tone.
+    var pal = Object.assign({ skin: 0x5a8a2c, armor: 0x201e22, armorD: 0x121013, helm: 0x8e2a18, helmD: 0x6e2012,
+      iron: 0x31353c, ironD: 0x1a1d22, wood: 0x6e4a2a, woodD: 0x4d3319, bone: 0xe6dcc0, red: 0x8e2a18, eye: 0x9be03a }, (params && params.palette) || {});
+    pal.helm = (params && params.palette && params.palette.helm) || 0x7c2412;   // deeper crimson so the top doesn't read orange
+    var Mc = function (c, o) { return LPF.toon(c, Object.assign({ ramp: LPF.RAMP.cloth }, o || {})); };
+    var Mm = function (c, o) { return LPF.toon(c, Object.assign({ ramp: LPF.RAMP.metal }, o || {})); };
+    var skin = LPF.toon(pal.skin, { ramp: LPF.RAMP.skin, rimColor: 0xc9e08a, rimStrength: 0.22 });
+    var armor = Mm(pal.armor, { rimColor: 0x5a606c, rimStrength: 0.16 }), armorD = Mm(pal.armorD),
+      helm = Mc(pal.helm, { rimColor: 0xc23a22, rimStrength: 0.1 }), iron = Mm(pal.iron), ironD = Mm(pal.ironD),
+      wood = Mc(pal.wood), woodD = Mc(pal.woodD), bone = Mc(pal.bone), red = Mc(pal.red),
+      mouth = LPF.toon(0x2a0e0a, { ramp: LPF.RAMP.cloth, rim: false }),
+      eye = LPF.toon(pal.eye, { ramp: LPF.RAMP.metal, emissive: pal.eye, emissiveIntensity: 0.5, rim: false });
+    var g = new THREE.Group(); var glow = [];
+    var bw = 1.45, L = p.limbLen, TH = p.torsoH, hs = p.headScale;
+
+    var hipY = L;
+    if (p.legless) {
+      // Thronefall floating torso: a tapered armored skirt → rounded base instead
+      // of legs (also dodges the static-mesh "no walk cycle" tell).
+      g.add(at(smoothMesh(P.profileLimb([[0.07, 0.05], [0.26, 0.22], [0.38, 0.5], [0.44, 0.82], [0.4, L]], 16), armor), 0, 0, 0));
+      g.add(at(facetMesh(new THREE.SphereGeometry(0.16, 9, 7), armorD), 0, 0.06, 0));               // rounded base cap
+      var hem = facetMesh(new THREE.TorusGeometry(0.36, 0.05, 6, 16), red); hem.rotation.x = Math.PI / 2; at(hem, 0, 0.16, 0); g.add(hem);   // red hem trim
+      [-1, 1].forEach(function (s) { var pl = facetMesh(new THREE.BoxGeometry(0.18, 0.6, 0.16), armorD); at(pl, 0.2 * s, L * 0.45, 0.3); g.add(pl); });   // front skirt plates
+    } else {
+      // legs: thick armored greaves + knee plates + boots, set apart
+      [-1, 1].forEach(function (s) {
+        g.add(at(smoothMesh(P.profileLimb([[0.17, 0], [0.2, 0.12], [0.17, L * 0.45], [0.22, L * 0.8], [0.19, L]], 12), armor), 0.27 * s, 0, 0));
+        g.add(at(facetMesh(new THREE.SphereGeometry(0.2, 8, 6), armorD), 0.27 * s, L * 0.5, 0.09));   // knee plate
+        g.add(at(facetMesh(new THREE.BoxGeometry(0.36, 0.22, 0.52), armorD), 0.27 * s, 0.1, 0.08));   // boot
+      });
+    }
+    // hip tassets (plate skirt over thighs)
+    [-1, 0, 1].forEach(function (i) { var t = facetMesh(new THREE.BoxGeometry(0.3, 0.44, 0.22), armorD); at(t, i * 0.27, hipY - 0.02, 0.3); t.rotation.x = -0.16; g.add(t); });
+    // ── torso cuirass: broad faceted plate + chest bevels + ab ridges ──
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.86 * bw, TH * 0.94, 0.62), armor), 0, hipY + TH * 0.5, 0));
+    [-1, 1].forEach(function (s) { var cp = facetMesh(new THREE.BoxGeometry(0.42, 0.52, 0.2), armor); at(cp, 0.24 * s, hipY + TH * 0.74, 0.31); cp.rotation.y = s * 0.2; g.add(cp); });
+    [0, 1, 2].forEach(function (i) { g.add(at(facetMesh(new THREE.BoxGeometry(0.52, 0.16, 0.18), armorD), 0, hipY + TH * 0.52 - i * 0.2, 0.35)); });
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.92 * bw, 0.2, 0.66), ironD), 0, hipY + 0.06, 0));    // belt
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.22, 0.24, 0.1), iron), 0, hipY + 0.06, 0.35));        // buckle
+    // red strap accents (a diagonal sash strip + two small studs)
+    var strap = facetMesh(new THREE.BoxGeometry(0.13, 0.7, 0.1), red); at(strap, -0.26, hipY + TH * 0.55, 0.34); strap.rotation.z = 0.22; g.add(strap);
+    [[0.36, hipY + TH * 0.82], [-0.4, hipY + TH * 0.34]].forEach(function (q) { g.add(at(facetMesh(new THREE.BoxGeometry(0.13, 0.13, 0.08), red), q[0], q[1], 0.33)); });
+
+    var shoulderY = hipY + TH;
+    // ── pauldrons: chunky dark plates + a red strap + small black spikes ──
+    [-1, 1].forEach(function (s) {
+      var x = 0.5 * bw * 0.5 * s + 0.2 * s;
+      var pd = facetMesh(new THREE.SphereGeometry(0.35, 9, 7), armor); pd.scale.set(1.12, 0.82, 1.12); at(pd, x, shoulderY + 0.02, 0); g.add(pd);
+      g.add(at(facetMesh(new THREE.BoxGeometry(0.5, 0.12, 0.5), red), x, shoulderY - 0.16, 0));   // red strap under pauldron
+      [-1, 1].forEach(function (t) { var sp = facetMesh(new THREE.ConeGeometry(0.07, 0.28, 4), armorD); at(sp, x + 0.11 * t, shoulderY + 0.2, -0.02); sp.rotation.z = t * 0.3; g.add(sp); });
+    });
+    // ── arms ──
+    var armHandY = hipY + TH * 0.2, alen = (shoulderY - 0.05) - armHandY;
+    // shield-side arm (screen-right): hangs at the side
+    g.add(at(smoothMesh(P.profileLimb([[0.12, 0], [0.15, alen * 0.4], [0.13, alen * 0.7], [0.17, alen]], 10), armor), 0.58, armHandY, 0.02));
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.28, 0.36, 0.28), armorD), 0.58, armHandY + 0.06, 0.02));
+    g.add(at(smoothMesh(new THREE.SphereGeometry(0.16, 9, 7), skin), 0.58, armHandY - 0.06, 0.13));
+    // sword-side arm (screen-left): a posed group swung OUT so the blade is held
+    // away from the body and angles down — matching the reference stance.
+    var swArm = new THREE.Group(); swArm.position.set(-0.52, shoulderY - 0.06, 0.05); swArm.rotation.z = -0.66;
+    var aL = (shoulderY - armHandY) + 0.12;
+    swArm.add(smoothMesh(P.profileLimb([[0.17, -aL], [0.13, -aL * 0.7], [0.15, -aL * 0.3], [0.12, 0]], 10), armor));
+    swArm.add(at(facetMesh(new THREE.BoxGeometry(0.28, 0.34, 0.28), armorD), 0, -aL * 0.55, 0));         // bracer
+    swArm.add(at(smoothMesh(new THREE.SphereGeometry(0.16, 9, 7), skin), 0, -aL - 0.02, 0.05));           // green fist
+    var sword = orcSword(iron, ironD, red, bone); at(sword, 0, -aL - 0.04, 0.08); sword.rotation.z = Math.PI; sword.rotation.x = 0.2; swArm.add(sword);
+    g.add(swArm);
+
+    // ── green tusked head set deep under the helm ──
+    var headY = shoulderY + 0.4 * hs, headR = 0.5 * hs;
+    var head = smoothMesh(P.headGeo(headR, 0.06), skin); at(head, 0, headY, 0.03); head.scale.set(1.06, 0.94, 1.0); g.add(head);
+    g.add(at(smoothMesh(new THREE.BoxGeometry(0.62 * hs, 0.14, 0.2), skin), 0, headY + 0.1, headR * 0.78));      // heavy brow
+    [-1, 1].forEach(function (s) { g.add(at(facetMesh(new THREE.SphereGeometry(0.06, 7, 6), eye), 0.16 * s, headY + 0.01, headR * 0.82)); glow.push(g.children[g.children.length - 1]); });
+    g.add(at(smoothMesh(new THREE.BoxGeometry(0.5 * hs, 0.28, 0.32), skin), 0, headY - 0.26, headR * 0.6));      // jutting jaw
+    g.add(at(smoothMesh(new THREE.BoxGeometry(0.4, 0.12, 0.14), mouth), 0, headY - 0.2, headR * 0.8));           // snarl
+    [-0.12, 0, 0.12].forEach(function (x) { g.add(at(facetMesh(new THREE.BoxGeometry(0.06, 0.09, 0.06), bone), x, headY - 0.15, headR * 0.82)); });   // upper teeth
+    [-1, 1].forEach(function (s) { var tk = facetMesh(P.tuskGeo(0.09, 0.52), bone); at(tk, 0.19 * s, headY - 0.2, headR * 0.88); tk.rotation.x = -0.18; tk.rotation.z = s * 0.16; g.add(tk); });   // lower tusks jutting up past the lip
+
+    // ── red dome helm (open face) + dark brow rim + jagged crest of spikes ──
+    var dome = facetMesh(new THREE.SphereGeometry(headR + 0.11, 10, 8, 0, Math.PI * 2, 0, 1.62), helm); at(dome, 0, headY + 0.17, -0.03); dome.scale.set(1.08, 1.02, 1.14); g.add(dome);
+    var rim = facetMesh(new THREE.TorusGeometry(headR + 0.12, 0.07, 6, 16), armorD); rim.rotation.x = Math.PI / 2; at(rim, 0, headY + 0.16, -0.03); rim.scale.set(1.06, 1.12, 1); g.add(rim);   // dark helmet rim band
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.7 * hs, 0.1, 0.16), armorD), 0, headY + 0.22, headR * 0.66));    // dark face-guard brow
+    // jagged crest: a ridge of dark spikes rising up + back along the dome top
+    [-0.26, -0.13, 0, 0.13, 0.26].forEach(function (x) {
+      var tall = 0.34 + (0.18 * (1 - Math.abs(x) / 0.26));
+      var sp = facetMesh(new THREE.ConeGeometry(0.085, tall, 4), armorD); at(sp, x, headY + 0.46 * hs, 0.02); sp.rotation.x = -0.62; sp.rotation.z = x * 0.4; g.add(sp);
+    });
+    [-1, 1].forEach(function (s) { var sp = facetMesh(new THREE.ConeGeometry(0.08, 0.34, 4), armorD); at(sp, (headR + 0.05) * s, headY + 0.32, -0.1); sp.rotation.z = s * 0.8; sp.rotation.x = -0.25; g.add(sp); });   // side spikes
+
+    // ── bound-plank shield on the screen-right (orc's left), at hip/forearm ──
+    var shield = plankShield(wood, woodD, iron); at(shield, 0.66, hipY + TH * 0.28, 0.16); shield.rotation.y = -0.25; shield.rotation.z = -0.08; g.add(shield);
+
+    g.userData.emissiveMeshes = glow;
+    if (p.outline) LPF.outlineGroup(g, p.outline, 0x100d08);
+    return finish(g);
+  };
+
   /* ============================ IRON CROWN (HUMAN) ============================ */
   var HUMAN = {
     palette: { skin: 0xe6b07a, cloth: 0x2f5aa8, accent: 0xe4b53a, steel: 0xc2ccd8, leather: 0x6b4a2a,
@@ -561,6 +687,7 @@
       var skinM = LPF.toon(0x8f7ad0, { ramp: LPF.RAMP.skin, rimColor: 0xbfa0ff, rimStrength: 0.25 });
       return finish(LPF.metaballSkin(LPF.elfSkeletonBalls(), skinM, { res: 96, isolation: 40, height: 3.4 }));
     }
+    if (name === 'orcwar') return LPF.buildOrcWarrior(params);
     if (role === 'lancer') return LPF.buildMounted(name, params);
     if (name === 'human') return LPF.buildHuman(params);
     if (name === 'orc') return LPF.buildOrc(params);

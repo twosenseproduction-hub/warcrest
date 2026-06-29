@@ -993,7 +993,11 @@
     } else if (/[?&]models=kaykit/.test(q)) {
       for (var k in KAYKIT_ROSTER) registerUnitModel(k, KAYKIT_ROSTER[k]);
     } else {
-      return;   // procedural (default + ?models=off/none/procedural) — nothing to load
+      // Default = procedural, EXCEPT the cinder (orc) warrior, which uses the
+      // forged armored-orc .glb built to match the reference art.
+      registerUnitModel('horde:warrior', { url: 'assets/models/cinder_warrior.glb?v=20260629b', height: 58, yaw: Math.PI });
+      loadUnitModels().then(function (ok) { if (ok && R.enabled) rebuildUnitMeshes(); });
+      return;
     }
     loadUnitModels().then(function (ok) { if (ok && R.enabled) rebuildUnitMeshes(); });
   }
