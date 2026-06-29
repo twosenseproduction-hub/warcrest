@@ -18,6 +18,16 @@
   function nova(s, x, y, maxR, color, life) {
     RTS.addEffect(s, { kind: 'nova', x: x, y: y, r: 8, maxR: maxR, life: life || 0.6, max: life || 0.6, color: color });
   }
+  // richer 3D-rendered VFX primitives (see render3d syncEffects)
+  function beam(s, x, y, x2, y2, color, w, life) {
+    RTS.addEffect(s, { kind: 'beam', x: x, y: y, x2: x2, y2: y2, color: color, w: w || 12, hy: 16, life: life || 0.4, max: life || 0.4 });
+  }
+  function pillar(s, x, y, color, r, hgt, life) {
+    RTS.addEffect(s, { kind: 'pillar', x: x, y: y, color: color, r: r || 22, hgt: hgt || 72, life: life || 0.75, max: life || 0.75 });
+  }
+  function burst(s, x, y, color, maxR, life) {
+    RTS.addEffect(s, { kind: 'burst', x: x, y: y, color: color, maxR: maxR || 44, hy: 18, life: life || 0.42, max: life || 0.42 });
+  }
   function scatter(s, sheet, cx, cy, radius, count, scale, life) {
     for (var i = 0; i < count; i++) {
       var ang = rand() * Math.PI * 2, rr = Math.sqrt(rand()) * radius * 0.92;
@@ -68,6 +78,7 @@
     verdant_pulse: function (s, u, ab) {
       var R = ab.radius || 300, heal = ab.healAmt || 45, dmg = ab.dmgAmt || 45;
       nova(s, u.x, u.y, R, '#8dff7a', 0.7);
+      pillar(s, u.x, u.y, '#8dff7a', 24, 72, 0.7);
       scatter(s, 'sprout_heal', u.x, u.y, R, 7, 2.6);
       (s.entities.units || []).forEach(function (t) {
         if (t.dead || dist(t.x, t.y, u.x, u.y) > R) return;
@@ -143,9 +154,11 @@
           if (!isWaterAt(s, kx, ky)) { e.x = kx; e.y = ky; e._evx = 0; e._evy = 0; }
         }
       });
+      beam(s, sx, sy, ex, ey, '#cfe0ff', 20, 0.45);   // charge streak
       u.x = ex; u.y = ey; u.facing = ang; u._evx = 0; u._evy = 0; u.moveTo = null; u.vx = 0; u.vy = 0;
       nova(s, sx, sy, 50, '#cfe0ff', 0.4);
       nova(s, ex, ey, 70, '#cfe0ff', 0.5);
+      burst(s, ex, ey, '#dfe9ff', 34, 0.4);
       s.screenShake = Math.max(s.screenShake || 0, 5);
       return true;
     },
@@ -155,6 +168,7 @@
     iron_edict: function (s, u, ab) {
       var R = ab.radius || 240, dur = ab.duration || 10, n = 0;
       nova(s, u.x, u.y, R, '#ffd98a', 0.8);
+      pillar(s, u.x, u.y, '#ffd98a', 26, 84, 0.85);   // banner of light
       (s.entities.units || []).forEach(function (a) {
         if (a.dead || a.team !== u.team || dist(a.x, a.y, u.x, u.y) > R) return;
         if (RTS.applyBuff) RTS.applyBuff(s, a, { id: 'iron_edict_ward', wardLethal: true, duration: dur, color: '#ffd98a' });
@@ -191,6 +205,7 @@
         duration: ab.duration || 5, color: '#b05ad0',
       });
       nova(s, t.x, t.y, 44, '#b05ad0', 0.6);
+      burst(s, t.x, t.y, '#b05ad0', 40, 0.42);
       scatter(s, 'leaf_fall', t.x, t.y, 30, 3, 2.0, 0.8);
       float(s, t.x, t.y - (t.radius || 12), 'hexed', '#d68fff');
       return true;
@@ -201,9 +216,11 @@
       var t = enemyTarget(s, u, 360);
       if (!t) { RTS.toast && RTS.toast(s, 'Death Coil — no target'); return false; }
       var dmg = ab.dmg || 120, heal = ab.selfHeal || 60;
+      beam(s, u.x, u.y, t.x, t.y, '#4cff6b', 10, 0.4);   // spirit-fire bolt
       RTS.applyDamage && RTS.applyDamage(s, t, dmg, u);
       float(s, t.x, t.y - (t.radius || 12), '-' + dmg, '#6cff8a');
       nova(s, t.x, t.y, 50, '#4cff6b', 0.6);
+      burst(s, t.x, t.y, '#4cff6b', 36, 0.4);
       if (u.hp < u.maxHp) { u.hp = Math.min(u.maxHp, u.hp + heal); float(s, u.x, u.y - (u.radius || 14), '+' + heal, '#6cff8a'); }
       RTS.SkillVFX && RTS.SkillVFX.spawn(s, 'sprout_heal', u.x, u.y - (u.radius || 14), { scale: 2.4 });
       return true;
@@ -230,6 +247,7 @@
         sp.attackMove = true; sp.commandMode = 'attackMove';
         if (tgt && !tgt.dead) { sp.moveTo = { x: tgt.x, y: tgt.y }; }
         RTS.SkillVFX && RTS.SkillVFX.spawn(s, 'levelup_aura', sx, sy - 12, { scale: 2.4, life: 0.8 });
+        pillar(s, sx, sy, '#6cff8a', 15, 56, 0.7);   // a spirit rises
         made++;
       }
       if (!made) return false;
@@ -249,6 +267,7 @@
         duration: ab.duration || 7, color: '#cfe6ff',
       });
       nova(s, t.x, t.y, 40, '#cfe6ff', 0.6);
+      pillar(s, t.x, t.y, '#cfe6ff', 18, 62, 0.7);
       RTS.SkillVFX && RTS.SkillVFX.spawn(s, 'levelup_aura', t.x, t.y - (t.radius || 12), { scale: 2.2, life: 0.8 });
       float(s, t.x, t.y - (t.radius || 12), 'attuned', '#cfe6ff');
       return true;
@@ -258,6 +277,7 @@
     shatter: function (s, u, ab) {
       var R = ab.radius || 180, dmg = ab.dmg || 80, sil = ab.silenceDuration || 3.5;
       nova(s, u.x, u.y, R, '#bcdcff', 0.7);
+      burst(s, u.x, u.y, '#bcdcff', R * 0.7, 0.5);
       scatter(s, 'leaf_fall', u.x, u.y, R, 6, 2.2, 0.8);
       (s.entities.units || []).forEach(function (e) {
         if (e.dead || e.team === u.team || e.kind !== 'unit' || dist(e.x, e.y, u.x, u.y) > R) return;
@@ -272,6 +292,7 @@
     verdant_surge: function (s, u, ab) {
       var n = 0;
       nova(s, u.x, u.y, 240, '#9bff8a', 0.9);
+      pillar(s, u.x, u.y, '#9bff8a', 28, 90, 0.95);
       (s.entities.units || []).forEach(function (a) {
         if (a.dead || a.team !== u.team || a.kind !== 'unit') return;
         RTS.applyBuff && RTS.applyBuff(s, a, {
@@ -314,6 +335,7 @@
       t._charmUntil = now(s) + (ab.duration || 4);
       t.target = null; t.moveTo = null; t.commandMode = 'attackMove'; t.attackMove = true;
       nova(s, t.x, t.y, 46, '#ff7a2a', 0.7);
+      pillar(s, t.x, t.y, '#ff9a3c', 18, 62, 0.7);
       RTS.SkillVFX && RTS.SkillVFX.spawn(s, 'levelup_aura', t.x, t.y - (t.radius || 12), { scale: 2.4, life: 0.8 });
       float(s, t.x, t.y - (t.radius || 12), 'turned', '#ffae6a');
       return true;
@@ -323,6 +345,7 @@
     bedlam: function (s, u, ab) {
       var R = ab.radius || 280, dur = ab.duration || 6, n = 0;
       nova(s, u.x, u.y, R, '#ff5a3c', 0.8);
+      burst(s, u.x, u.y, '#ff5a3c', R * 0.6, 0.55);
       (s.entities.units || []).forEach(function (e) {
         if (e.dead || e.team === u.team || e.kind !== 'unit' || dist(e.x, e.y, u.x, u.y) > R) return;
         RTS.applyBuff && RTS.applyBuff(s, e, { id: 'bedlam', disabled: true, moveMul: -0.6, duration: dur, color: '#ff5a3c' });
@@ -343,6 +366,7 @@
       var t = enemyTarget(s, u, 200);
       if (!t) { RTS.toast && RTS.toast(s, 'Thorn Cut — no target'); return false; }
       var per = ab.dmgPerStrike || 38, strikes = ab.strikes || 3, total = per * strikes;
+      beam(s, u.x, u.y, t.x, t.y, '#d6f5a8', 9, 0.32);   // slash arc
       RTS.applyDamage && RTS.applyDamage(s, t, total, u);
       float(s, t.x, t.y - (t.radius || 12), '-' + total, '#ff8a6a');
       nova(s, t.x, t.y, 38, '#bfe86a', 0.5);
@@ -365,7 +389,9 @@
       var bx = u.x + ux * reach, by = u.y + uy * reach;
       if (isWaterAt(s, bx, by)) { bx = t.x - ux * 30; by = t.y - uy * 30; }
       nova(s, u.x, u.y, 36, '#bfe86a', 0.4);
+      burst(s, u.x, u.y, '#bfe86a', 30, 0.3);            // vanish puff
       u.x = bx; u.y = by; u._evx = 0; u._evy = 0; u.vx = 0; u.vy = 0;
+      burst(s, bx, by, '#d6f5a8', 38, 0.4);              // reappear flash
       u.facing = Math.atan2(t.y - by, t.x - bx);
       u._empowerUntil = now(s) + (ab.bonusWindow || 3);
       u._empowerMul = ab.bonusDmgPct || 0.80;
@@ -425,7 +451,7 @@
     // Valdris — The Last Wall: hold position, burn nearby foes, end in a shockwave.
     if (c.abId === 'the_last_wall') {
       u.x = c.x; u.y = c.y;   // immovable
-      if (t >= c.nextRing) { c.nextRing = t + 0.5; nova(s, c.x, c.y, c.auraR, '#9fc0ff', 0.5); }
+      if (t >= c.nextRing) { c.nextRing = t + 0.5; nova(s, c.x, c.y, c.auraR, '#9fc0ff', 0.5); pillar(s, c.x, c.y, '#9fc0ff', 24, 86, 0.55); }
       if (t >= c.nextTick) {
         c.nextTick = t + 0.5;   // apply the per-second aura in half-second chunks
         (s.entities.units || []).forEach(function (e) {
@@ -436,6 +462,7 @@
       if (t >= c.endsAt) {
         u._invuln = false;
         nova(s, c.x, c.y, c.shockR, '#dfe9ff', 0.7);
+        burst(s, c.x, c.y, '#dfe9ff', c.shockR, 0.6);   // shockwave
         s.screenShake = Math.max(s.screenShake || 0, 8);
         (s.entities.units || []).forEach(function (e) {
           if (e.dead || e.team === u.team || e.kind !== 'unit' || dist(e.x, e.y, c.x, c.y) > c.shockR) return;
@@ -462,6 +489,7 @@
       }
       if (t >= c.endsAt) {
         for (var q = 0; q <= 10; q++) RTS.SkillVFX && RTS.SkillVFX.spawn(s, 'spike_vine', c.x + dx * (c.len * q / 10), c.y + dy * (c.len * q / 10), { scale: 2.2, life: 0.6 });
+        beam(s, c.x, c.y, c.x + dx * c.len, c.y + dy * c.len, '#d6f5a8', 22, 0.5);   // the long cut
         s.screenShake = Math.max(s.screenShake || 0, 6);
         (s.entities.units || []).forEach(function (e) {
           if (e.dead || e.team === u.team || e.kind !== 'unit') return;
@@ -485,6 +513,8 @@
     }
     if (t >= c.endsAt) {
       nova(s, c.x, c.y, c.radius, '#c7e85a', 0.8);
+      pillar(s, c.x, c.y, '#c7e85a', 32, 96, 0.85);
+      burst(s, c.x, c.y, '#c7e85a', c.radius, 0.6);
       scatter(s, 'leaf_fall', c.x, c.y, c.radius, 10, 2.8, 1.0);
       (s.entities.units || []).forEach(function (e) {
         if (e.dead || e.team === u.team || dist(e.x, e.y, c.x, c.y) > c.radius) return;
@@ -600,6 +630,7 @@
       if (t < b.at) continue;
       list.splice(i, 1);
       RTS.spawnExplosion && RTS.spawnExplosion(s, b.x, b.y, b.radius, '#ffb24d');
+      burst(s, b.x, b.y, '#ffb24d', b.radius + 8, 0.4);
       s.screenShake = Math.max(s.screenShake || 0, 3);
       (s.entities.units || []).forEach(function (e) {
         if (e.dead || e.team === b.team || e.team === RTS.TEAM.NEUTRAL || e.kind !== 'unit') return;

@@ -2006,14 +2006,50 @@
   }
 
   /* ---- effects: impact bursts + ground shock rings ----------------------- */
-  var ringGeo = null, sparkGeo = null;
+  var ringGeo = null, sparkGeo = null, beamGeo = null, pillarGeo = null, burstGeo = null;
   function syncEffects(s) {
     var list = s.entities && s.entities.effects; if (!list) return;
     if (!ringGeo) ringGeo = new THREE.RingGeometry(0.55, 1, 18);
     if (!sparkGeo) sparkGeo = new THREE.IcosahedronGeometry(4, 0);
+    if (!beamGeo) beamGeo = new THREE.BoxGeometry(1, 1, 1);
+    if (!pillarGeo) pillarGeo = new THREE.CylinderGeometry(1, 1, 1, 14, 1, true);
+    if (!burstGeo) burstGeo = new THREE.IcosahedronGeometry(1, 0);
     for (var i = 0; i < list.length; i++) {
       var e = list[i]; if (!e) continue;
       var k = e.kind;
+      if (k === 'beam' || k === 'pillar' || k === 'burst') {        // richer ability VFX
+        R.eseen[e.id] = true;
+        var bsl = R.epool[e.id];
+        var bgy = groundYAt(s, e.x, e.y);
+        if (!bsl) {
+          var bcol = 0xffffff; try { bcol = new THREE.Color(e.color || '#ffffff').getHex(); } catch (er2) {}
+          var geo = k === 'beam' ? beamGeo : k === 'pillar' ? pillarGeo : burstGeo;
+          var bm = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: bcol, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+          R.scene.add(bm); bsl = R.epool[e.id] = { m: bm, k: k };
+        }
+        var bp = e.max ? 1 - Math.max(0, (e.life || 0) / e.max) : 1;   // 0→1 over life
+        var bmm = bsl.m;
+        if (k === 'beam') {
+          var x2 = e.x2 != null ? e.x2 : e.x, y2 = e.y2 != null ? e.y2 : e.y;
+          var dx = x2 - e.x, dz = y2 - e.y, len = Math.hypot(dx, dz) || 1;
+          bmm.position.set((e.x + x2) / 2, bgy + (e.hy || 14), (e.y + y2) / 2);
+          bmm.rotation.y = Math.atan2(dx, dz);
+          var bw = (e.w || 10) * (1 - bp * 0.4);
+          bmm.scale.set(bw, bw, len);
+          bmm.material.opacity = (1 - bp) * 0.9;
+        } else if (k === 'pillar') {
+          var ph = e.hgt || 70, pr = e.r || 22;
+          bmm.position.set(e.x, bgy + ph * 0.5, e.y);
+          bmm.scale.set(pr, ph, pr);
+          bmm.material.opacity = Math.sin(Math.min(1, bp) * Math.PI) * 0.6;
+        } else {                                                       // burst
+          var br = (e.maxR || 40) * (0.3 + bp * 1.05);
+          bmm.position.set(e.x, bgy + (e.hy || 16), e.y);
+          bmm.scale.setScalar(br);
+          bmm.material.opacity = (1 - bp) * 0.85;
+        }
+        continue;
+      }
       if (k === 'skillfx') {                                    // billboarded ability sprite
         R.eseen[e.id] = true;
         var base = skillTexture(e.sheet);
