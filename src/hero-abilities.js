@@ -40,6 +40,18 @@
     });
     return best;
   }
+  // Nearest friendly fighter (skips workers) that lacks the named buff.
+  function allyTarget(s, u, range, buffId) {
+    var best = null, bestD = range;
+    (s.entities.units || []).forEach(function (a) {
+      if (a.dead || a.team !== u.team || a === u || a.kind !== 'unit') return;
+      if (a.role === 'pawn' || a.heal > 0) return;
+      if (buffId && a.buffs && a.buffs.some(function (b) { return b.id === buffId; })) return;
+      var d = dist(a.x, a.y, u.x, u.y);
+      if (d < bestD) { bestD = d; best = a; }
+    });
+    return best;
+  }
   function isWaterAt(s, x, y) {
     var grid = s.map && s.map.terrainGrid;
     return grid && RTS.Terrain ? RTS.Terrain.isWater(grid, x, y) : false;
@@ -226,6 +238,157 @@
       RTS.toast && RTS.toast(s, "Ancestor's Fury — " + made + ' spirits rise');
       return true;
     },
+
+    // ── Seraphine the Channeler (aurex) ─────────────────────────────────────
+    // Attunement — bless an ally with attack-speed and move-speed for a while.
+    attunement: function (s, u, ab) {
+      var t = allyTarget(s, u, 280, 'attunement');
+      if (!t) { RTS.toast && RTS.toast(s, 'Attunement — no ally'); return false; }
+      RTS.applyBuff && RTS.applyBuff(s, t, {
+        id: 'attunement', rofMul: ab.atkSpeedBonus || 0.40, moveMul: ab.moveSpeedBonus || 0.25,
+        duration: ab.duration || 7, color: '#cfe6ff',
+      });
+      nova(s, t.x, t.y, 40, '#cfe6ff', 0.6);
+      RTS.SkillVFX && RTS.SkillVFX.spawn(s, 'levelup_aura', t.x, t.y - (t.radius || 12), { scale: 2.2, life: 0.8 });
+      float(s, t.x, t.y - (t.radius || 12), 'attuned', '#cfe6ff');
+      return true;
+    },
+
+    // Shatter — burst of broken resonance: enemies in radius silenced + damaged.
+    shatter: function (s, u, ab) {
+      var R = ab.radius || 180, dmg = ab.dmg || 80, sil = ab.silenceDuration || 3.5;
+      nova(s, u.x, u.y, R, '#bcdcff', 0.7);
+      scatter(s, 'leaf_fall', u.x, u.y, R, 6, 2.2, 0.8);
+      (s.entities.units || []).forEach(function (e) {
+        if (e.dead || e.team === u.team || e.kind !== 'unit' || dist(e.x, e.y, u.x, u.y) > R) return;
+        RTS.applyDamage && RTS.applyDamage(s, e, dmg, u);
+        RTS.applyBuff && RTS.applyBuff(s, e, { id: 'shatter_silence', disabled: true, duration: sil, color: '#bcdcff' });
+        float(s, e.x, e.y - (e.radius || 12), '-' + dmg, '#ff8a6a');
+      });
+      return true;
+    },
+
+    // Verdant Surge — map-wide blessing: every ally gains damage + regen.
+    verdant_surge: function (s, u, ab) {
+      var n = 0;
+      nova(s, u.x, u.y, 240, '#9bff8a', 0.9);
+      (s.entities.units || []).forEach(function (a) {
+        if (a.dead || a.team !== u.team || a.kind !== 'unit') return;
+        RTS.applyBuff && RTS.applyBuff(s, a, {
+          id: 'verdant_surge', dmgMul: ab.dmgBonus || 0.20, healPerSec: ab.regenPerSec || 4,
+          duration: ab.duration || 8, color: '#9bff8a',
+        });
+        n++;
+      });
+      RTS.toast && RTS.toast(s, 'Verdant Surge — ' + n + ' allies empowered');
+      return true;
+    },
+
+    // ── Skrix the Saboteur (cinder) ─────────────────────────────────────────
+    // Scatter Charge — a fan of timed bombs in front of Skrix that detonate
+    // after a short fuse, forcing the enemy line to break apart.
+    scatter_charge: function (s, u, ab) {
+      var count = ab.bombCount || 4, dmg = ab.dmgPerBomb || 55, fuse = ab.fuseDelay || 0.8;
+      var spread = (ab.spreadAngle || 60) * Math.PI / 180;
+      var ang = u.facing == null ? 0 : u.facing;
+      var tgt = u.target ? RTS.getById(s, u.target) : null;
+      if (tgt && !tgt.dead) ang = Math.atan2(tgt.y - u.y, tgt.x - u.x);
+      s._timedBlasts = s._timedBlasts || [];
+      for (var i = 0; i < count; i++) {
+        var f = count > 1 ? (i / (count - 1)) - 0.5 : 0;
+        var a = ang + f * spread, rr = 90 + (i % 2) * 50;
+        var bx = u.x + Math.cos(a) * rr, by = u.y + Math.sin(a) * rr;
+        s._timedBlasts.push({ x: bx, y: by, at: now(s) + fuse, dmg: dmg, radius: 48, team: u.team });
+        nova(s, bx, by, 14, '#ffb24d', fuse);
+      }
+      RTS.Audio && RTS.Audio.play && RTS.Audio.play('shot');
+      return true;
+    },
+
+    // Unravel — turn a non-hero enemy to the Horde's side for a few seconds.
+    unravel: function (s, u, ab) {
+      var t = enemyTarget(s, u, 320);
+      if (!t) { RTS.toast && RTS.toast(s, 'Unravel — no target'); return false; }
+      if (t.isHero) { RTS.toast && RTS.toast(s, 'Unravel — heroes resist'); return false; }
+      t._origTeam = t.team; t.team = u.team;
+      t._charmUntil = now(s) + (ab.duration || 4);
+      t.target = null; t.moveTo = null; t.commandMode = 'attackMove'; t.attackMove = true;
+      nova(s, t.x, t.y, 46, '#ff7a2a', 0.7);
+      RTS.SkillVFX && RTS.SkillVFX.spawn(s, 'levelup_aura', t.x, t.y - (t.radius || 12), { scale: 2.4, life: 0.8 });
+      float(s, t.x, t.y - (t.radius || 12), 'turned', '#ffae6a');
+      return true;
+    },
+
+    // Bedlam — sow confusion: enemies in radius are scattered and cannot fight.
+    bedlam: function (s, u, ab) {
+      var R = ab.radius || 280, dur = ab.duration || 6, n = 0;
+      nova(s, u.x, u.y, R, '#ff5a3c', 0.8);
+      (s.entities.units || []).forEach(function (e) {
+        if (e.dead || e.team === u.team || e.kind !== 'unit' || dist(e.x, e.y, u.x, u.y) > R) return;
+        RTS.applyBuff && RTS.applyBuff(s, e, { id: 'bedlam', disabled: true, moveMul: -0.6, duration: dur, color: '#ff5a3c' });
+        e.target = null;
+        var a = rand() * Math.PI * 2, rr = 50 + rand() * 70;
+        var sx = e.x + Math.cos(a) * rr, sy = e.y + Math.sin(a) * rr;
+        if (!isWaterAt(s, sx, sy)) { e.moveTo = { x: sx, y: sy }; e.commandMode = 'move'; e.attackMove = false; }
+        nova(s, e.x, e.y, 16, '#ff5a3c', 0.4);
+        n++;
+      });
+      RTS.toast && RTS.toast(s, 'Bedlam — ' + n + ' enemies reel');
+      return true;
+    },
+
+    // ── Thoryn the Bladedrifter (rimwalker) ─────────────────────────────────
+    // Thorn Cut — three rapid slashes; the last opens a bleeding wound (DoT).
+    thorn_cut: function (s, u, ab) {
+      var t = enemyTarget(s, u, 200);
+      if (!t) { RTS.toast && RTS.toast(s, 'Thorn Cut — no target'); return false; }
+      var per = ab.dmgPerStrike || 38, strikes = ab.strikes || 3, total = per * strikes;
+      RTS.applyDamage && RTS.applyDamage(s, t, total, u);
+      float(s, t.x, t.y - (t.radius || 12), '-' + total, '#ff8a6a');
+      nova(s, t.x, t.y, 38, '#bfe86a', 0.5);
+      scatter(s, 'spike_vine', t.x, t.y, 20, 3, 1.8, 0.6);
+      if (!t.dead) {
+        s._dots = s._dots || [];
+        s._dots.push({ targetId: t.id, dps: ab.bleedDmgPerSec || 12, until: now(s) + (ab.bleedDuration || 4),
+          team: u.team, attackerId: u.id, next: now(s) + 0.5 });
+      }
+      return true;
+    },
+
+    // Vanishing Step — blink behind the target; the next strike lands empowered.
+    vanishing_step: function (s, u, ab) {
+      var t = enemyTarget(s, u, 420);
+      if (!t) { RTS.toast && RTS.toast(s, 'Vanishing Step — no target'); return false; }
+      var dx = t.x - u.x, dy = t.y - u.y, d = Math.sqrt(dx * dx + dy * dy) || 1;
+      var ux = dx / d, uy = dy / d;
+      var reach = Math.min(ab.blinkPx || 200, d + 40);
+      var bx = u.x + ux * reach, by = u.y + uy * reach;
+      if (isWaterAt(s, bx, by)) { bx = t.x - ux * 30; by = t.y - uy * 30; }
+      nova(s, u.x, u.y, 36, '#bfe86a', 0.4);
+      u.x = bx; u.y = by; u._evx = 0; u._evy = 0; u.vx = 0; u.vy = 0;
+      u.facing = Math.atan2(t.y - by, t.x - bx);
+      u._empowerUntil = now(s) + (ab.bonusWindow || 3);
+      u._empowerMul = ab.bonusDmgPct || 0.80;
+      nova(s, bx, by, 44, '#bfe86a', 0.5);
+      RTS.SkillVFX && RTS.SkillVFX.spawn(s, 'spike_vine', bx, by, { scale: 2.4, life: 0.7 });
+      return true;
+    },
+
+    // Ashfall Draw — a held draw, then one long cut across a line, damaging and
+    // slowing everyone caught. Channelled (see tickHeroChannel branch below).
+    ashfall_draw: function (s, u, ab) {
+      var ang = u.facing == null ? 0 : u.facing;
+      var tgt = u.target ? RTS.getById(s, u.target) : null;
+      if (tgt && !tgt.dead) ang = Math.atan2(tgt.y - u.y, tgt.x - u.x);
+      u._channel = {
+        abId: ab.id, x: u.x, y: u.y, ang: ang,
+        len: ab.linePx || 260, dmg: ab.dmg || 280,
+        slow: ab.slowPct || 0.50, slowDur: ab.slowDuration || 2.5,
+        endsAt: now(s) + (ab.castTime || 1.5), nextSpark: 0,
+      };
+      RTS.toast && RTS.toast(s, 'Thoryn draws the Ashfall…');
+      return true;
+    },
   };
 
   RTS.triggerHeroAbility = function (s, uid, index) {
@@ -248,6 +411,7 @@
     if (!fn) { RTS.toast && RTS.toast(s, ab.name + ' not implemented yet'); return false; }
     if (fn(s, u, ab) === false) return false;
     u._abilityCd[ab.id] = t + (ab.cooldown || 10);
+    if (RTS.chaosTaxPenalty) u._abilityCd[ab.id] += RTS.chaosTaxPenalty(s, u);   // Skrix taxes nearby casts
     return true;
   };
 
@@ -282,6 +446,32 @@
             var kx = e.x + Math.cos(a) * 60, ky = e.y + Math.sin(a) * 60;
             if (!isWaterAt(s, kx, ky)) { e.x = kx; e.y = ky; e._evx = 0; e._evy = 0; }
           }
+        });
+        u._channel = null;
+      }
+      return true;
+    }
+
+    // Thoryn — Ashfall Draw: hold the draw, then one line-cut that damages + slows.
+    if (c.abId === 'ashfall_draw') {
+      var dx = Math.cos(c.ang), dy = Math.sin(c.ang), nx = -dy, ny = dx;
+      if (t >= c.nextSpark) {
+        c.nextSpark = t + 0.1;
+        var fr = (rand()) * c.len;
+        RTS.SkillVFX && RTS.SkillVFX.spawn(s, 'leaf_fall', c.x + dx * fr, c.y + dy * fr, { scale: 1.4, life: 0.4 });
+      }
+      if (t >= c.endsAt) {
+        for (var q = 0; q <= 10; q++) RTS.SkillVFX && RTS.SkillVFX.spawn(s, 'spike_vine', c.x + dx * (c.len * q / 10), c.y + dy * (c.len * q / 10), { scale: 2.2, life: 0.6 });
+        s.screenShake = Math.max(s.screenShake || 0, 6);
+        (s.entities.units || []).forEach(function (e) {
+          if (e.dead || e.team === u.team || e.kind !== 'unit') return;
+          var rx = e.x - c.x, ry = e.y - c.y;
+          var along = rx * dx + ry * dy;
+          if (along < -20 || along > c.len + 20) return;
+          if (Math.abs(rx * nx + ry * ny) > 50) return;
+          RTS.applyDamage && RTS.applyDamage(s, e, c.dmg, u);
+          RTS.applyBuff && RTS.applyBuff(s, e, { id: 'ashfall_slow', moveMul: -c.slow, duration: c.slowDur, color: '#bfe86a' });
+          float(s, e.x, e.y - (e.radius || 12), '-' + c.dmg, '#ff8a6a');
         });
         u._channel = null;
       }
@@ -347,6 +537,99 @@
     var nm = (RTS.getHero && RTS.getHero(h.heroId) || {}).shortName || 'Hero';
     RTS.toast && RTS.toast(s, nm + ' reached level ' + h.level + '!');
     RTS.log && RTS.log(s, nm + ' is now level ' + h.level, 'good');
+  };
+
+  // ── attacker-side hero passives, run once per landed attack from fire() ────
+  RTS.heroOnHit = function (s, u, target) {
+    if (!u || u.kind !== 'unit' || !target) return;
+    // Thoryn — Spine's Edge: consecutive hits on ONE target ramp attack speed.
+    if (u.heroId === 'thoryn') {
+      var hero = RTS.getHero && RTS.getHero('thoryn'), p = hero && hero.passive;
+      if (p) {
+        if (u._spineTarget === target.id) u._spineStacks = Math.min(p.maxStacks || 3, (u._spineStacks || 0) + 1);
+        else { u._spineTarget = target.id; u._spineStacks = 1; }
+        u.buffs = (u.buffs || []).filter(function (b) { return b.id !== 'spine_edge'; });
+        RTS.applyBuff(s, u, { id: 'spine_edge', rofMul: u._spineStacks * (p.stackAtkSpeed || 0.12),
+          duration: p.decaySec || 2, color: '#bfe86a' });
+      }
+    }
+    // Seraphine — Resonance Field: any allied hit near her also slows the target.
+    if (target.kind === 'unit' && target.team !== u.team) {
+      var hero2 = RTS.getHero && RTS.getHero('seraphine'), p2 = hero2 && hero2.passive;
+      if (p2) {
+        var ser = (s.entities.units || []).find(function (h) {
+          return !h.dead && h.heroId === 'seraphine' && h.team === u.team && dist(h.x, h.y, u.x, u.y) <= (p2.radius || 160);
+        });
+        if (ser) RTS.applyBuff(s, target, { id: 'resonance_slow', moveMul: -(p2.slowPct || 0.20),
+          duration: p2.slowDuration || 1.0, color: '#aef0ff' });
+      }
+    }
+  };
+
+  // Skrix — Chaos Tax: a cast made within range of an enemy Skrix costs extra cd.
+  RTS.chaosTaxPenalty = function (s, caster) {
+    if (!caster || caster.heroId === 'skrix') return 0;
+    var hero = RTS.getHero && RTS.getHero('skrix'), p = hero && hero.passive;
+    if (!p) return 0;
+    var r = p.radius || 320, pen = 0;
+    (s.entities.units || []).forEach(function (k) {
+      if (k.dead || k.heroId !== 'skrix' || k.team === caster.team) return;
+      if (dist(k.x, k.y, caster.x, caster.y) <= r) {
+        pen = p.cooldownPenalty || 2;
+        float(s, caster.x, caster.y - (caster.radius || 14), '+' + pen + 's', '#ffd27a');
+      }
+    });
+    return pen;
+  };
+
+  // Scatter Charge fuses — detonate timed ground blasts when their fuse elapses.
+  RTS.tickTimedBlasts = function (s, dt) {
+    var list = s._timedBlasts;
+    if (!list || !list.length) return;
+    var t = now(s);
+    for (var i = list.length - 1; i >= 0; i--) {
+      var b = list[i];
+      if (t < b.at) continue;
+      list.splice(i, 1);
+      RTS.spawnExplosion && RTS.spawnExplosion(s, b.x, b.y, b.radius, '#ffb24d');
+      s.screenShake = Math.max(s.screenShake || 0, 3);
+      (s.entities.units || []).forEach(function (e) {
+        if (e.dead || e.team === b.team || e.team === RTS.TEAM.NEUTRAL || e.kind !== 'unit') return;
+        var d = dist(e.x, e.y, b.x, b.y);
+        if (d > b.radius + (e.radius || 12)) return;
+        RTS.applyDamage && RTS.applyDamage(s, e, b.dmg * (0.5 + 0.5 * (1 - d / (b.radius + 12))), { team: b.team });
+      });
+    }
+  };
+
+  // Bleed / damage-over-time effects (e.g. Thorn Cut), applied in half-second ticks.
+  RTS.tickDots = function (s, dt) {
+    var list = s._dots;
+    if (!list || !list.length) return;
+    var t = now(s);
+    for (var i = list.length - 1; i >= 0; i--) {
+      var d = list[i];
+      var tgt = RTS.getById(s, d.targetId);
+      if (!tgt || tgt.dead || t >= d.until) { list.splice(i, 1); continue; }
+      if (t >= d.next) {
+        d.next = t + 0.5;
+        var atk = RTS.getById(s, d.attackerId) || { team: d.team };
+        RTS.applyDamage && RTS.applyDamage(s, tgt, d.dps * 0.5, atk);
+      }
+    }
+  };
+
+  // Unravel — revert charmed units to their original side when the spell lapses.
+  RTS.tickCharms = function (s, dt) {
+    var t = now(s);
+    (s.entities.units || []).forEach(function (u) {
+      if (u._charmUntil == null || u.dead) return;
+      if (t >= u._charmUntil) {
+        u.team = u._origTeam; u._charmUntil = null; u._origTeam = null;
+        u.target = null; u.moveTo = null; u.commandMode = 'idle'; u.attackMove = false;
+        nova(s, u.x, u.y, 40, '#caa15a', 0.5);
+      }
+    });
   };
 
   // Thornwall upkeep — root enemies caught in any active wall band; cull expired.

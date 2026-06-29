@@ -182,6 +182,7 @@
     }
     u.mana = Math.max(0, (u.mana || 0) - ab.manaCost);
     u._abilityCd[abId] = now + ab.cooldown;
+    if (RTS.chaosTaxPenalty) u._abilityCd[abId] += RTS.chaosTaxPenalty(s, u);   // Skrix taxes nearby casts
     if (ab.buff && target) applyBuff(s, target, ab.buff);
     var fx = target || u;
     if (RTS.addEffect) RTS.addEffect(s, { kind: 'heal', x: fx.x, y: fx.y, life: 0.45, max: 0.45, color: ab.vfxColor || '#ffd27a' });

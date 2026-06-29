@@ -190,6 +190,9 @@
     updateProjectiles(s, dt);
     updateEffects(s, dt);
     if (RTS.tickThornwalls) RTS.tickThornwalls(s, dt);
+    if (RTS.tickTimedBlasts) RTS.tickTimedBlasts(s, dt);   // Skrix scatter charges
+    if (RTS.tickDots) RTS.tickDots(s, dt);                 // bleeds (Thorn Cut)
+    if (RTS.tickCharms) RTS.tickCharms(s, dt);             // Unravel allegiance revert
     tickAutoMine(s, dt);
     if (!(s.map && s.map.sandbox)) RTS.AI.update(s, dt);
 
@@ -366,6 +369,12 @@
       var ah = RTS.getHero && RTS.getHero('aelindra'), ap = ah && ah.passive;
       if (ap && ap.longshotPx && Math.hypot((target.x || 0) - u.x, (target.y || 0) - u.y) > ap.longshotPx) dmg *= 1 + (ap.longshotBonus || 0);
     }
+    // Vanishing Step — Thoryn's empowered strike consumes on the next hit.
+    if (u._empowerUntil && (s.timers.gameTime || 0) <= u._empowerUntil) {
+      dmg *= 1 + (u._empowerMul || 0); u._empowerUntil = 0;
+    }
+    // attacker-side hero passives (Thoryn spine tempo, Seraphine resonance slow)
+    if (RTS.heroOnHit && target) RTS.heroOnHit(s, u, target);
     if (RTS.Sprites && RTS.Sprites.ready) {
       RTS.Sprites.startAttack(u, target);
       if (u.ranged) {
