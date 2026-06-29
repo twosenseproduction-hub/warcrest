@@ -225,18 +225,44 @@
     return true;
   };
 
-  // Type-select bar: Worker | Melee | Ranged | Caster.
+  // Select only the player's hero and snap the camera to it (WC3 F1 / MOBA
+  // hero-focus). Double duty: pick the hero out of a mob AND locate it.
+  RTS.playerHero = function (s) {
+    return s.entities.units.find(function (u) {
+      return u.team === RTS.TEAM.PLAYER && !u.dead && u.heroId;
+    }) || null;
+  };
+  RTS.selectHero = function (s) {
+    var h = RTS.playerHero(s);
+    if (!h) {
+      if (RTS.toast) RTS.toast(s, 'No hero on the field');
+      if (RTS.Audio) RTS.Audio.play('deny');
+      return false;
+    }
+    RTS.clearMacroGroups && RTS.clearMacroGroups(s);
+    if (s.ui) s.ui.selectionFilter = 'all';
+    s.selectedIds = [h.id];
+    if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
+    RTS.refreshMode(s);
+    if (RTS.Cam) { if (RTS.Cam.panTo) RTS.Cam.panTo(s, h.x, h.y, true); else if (RTS.Cam.centerOn) RTS.Cam.centerOn(s, h.x, h.y); }
+    RTS.HUD.sync(s);
+    if (RTS.Audio) RTS.Audio.play('ready');
+    return true;
+  };
+
+  // Type-select bar: Worker | Melee | Ranged | Caster. (The hero gets its own
+  // dedicated button, so it is not folded into 'caster' here.)
   RTS.CATEGORY_ROLES = {
     worker: ['pawn'],
     melee:  ['lancer', 'warrior'],
     ranged: ['archer'],
-    caster: ['monk', 'hero'],
+    caster: ['monk'],
   };
   RTS.unitsOfCategory = function (s, cat) {
     var roles = RTS.CATEGORY_ROLES[cat] || [];
     return s.entities.units.filter(function (u) {
-      return u.team === RTS.TEAM.PLAYER && !u.dead &&
-        (roles.indexOf(u.role) >= 0 || (cat === 'caster' && u.heroId));
+      return u.team === RTS.TEAM.PLAYER && !u.dead && !u.heroId &&
+        roles.indexOf(u.role) >= 0;
     });
   };
   RTS.selectByCategory = function (s, cat) {

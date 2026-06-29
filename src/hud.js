@@ -75,9 +75,12 @@
        'btn-hero-i1', 'btn-hero-i2', 'btn-hero-i3',
        'btn-build-hammer', 'build-panel', 'build-panel-grid', 'map-tools', 'tb-crest',
        'shop-panel', 'shop-grid', 'shop-head',
-       'hub-minimap', 'hub-right', 'hub-hero', 'hub-action-grid', 'minimap', 'hero-banner', 'hero-tip'].forEach(function (id) {
+       'hub-minimap', 'hub-right', 'hub-hero', 'hub-action-grid', 'minimap', 'hero-banner', 'hero-tip',
+       'btn-hero-select'].forEach(function (id) {
         D[id] = $(id);
       });
+
+      wireRail('btn-hero-select', function (s) { RTS.selectHero && RTS.selectHero(s); });
 
       // Hero banner ability slots cast through the same path as the I-row buttons.
       // A long-press that opened a tooltip is swallowed so it doesn't also cast.
@@ -110,7 +113,7 @@
       })();
 
       ['cmd-grid', 'selpanel', 'squad-chips', 'squad-block', 'hub-action-grid', 'topbar', 'command-deck',
-       'bottom-hub', 'map-tools', 'build-panel', 'btn-build-hammer', 'hub-minimap', 'type-select', 'hero-banner'].forEach(function (id) {
+       'bottom-hub', 'map-tools', 'build-panel', 'btn-build-hammer', 'hub-minimap', 'type-select', 'hero-banner', 'btn-hero-select'].forEach(function (id) {
         var el = document.getElementById(id);
         if (!el) return;
         el.addEventListener('pointerdown', markUi, true);
@@ -237,6 +240,7 @@
       if (D['btn-combat-atk']) D['btn-combat-atk'].classList.toggle('active', !!s.attackMoveArmed);
       syncAbilitySlots(s);
       syncHeroBanner(s);
+      syncHeroJump(s);
 
       if (D['btn-build-hammer']) {
         D['btn-build-hammer'].classList.toggle('active', !!s.ui.buildPanelOpen);
@@ -274,7 +278,9 @@
       syncResources(s);
       // keep the hero banner's cooldown/XP readouts live (sync is event-driven)
       _bannerClock += dt;
-      if (_bannerClock >= 0.25) { _bannerClock = 0; if (D['hero-banner'] && !D['hero-banner'].classList.contains('hidden')) syncHeroBanner(s); }
+      if (_bannerClock >= 0.25) { _bannerClock = 0;
+        if (D['hero-banner'] && !D['hero-banner'].classList.contains('hidden')) syncHeroBanner(s);
+        syncHeroJump(s); }
       if (RTS.Cam && RTS.Cam.updatePan) RTS.Cam.updatePan(s, dt);
       if (D['timer']) D['timer'].textContent = fmtTime(s.timers.gameTime);
       if (D['wave-timer']) {
@@ -1044,6 +1050,28 @@
       '<div class="hb-abils">' + abils + '</div>';
   }
   function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  // Always-visible hero jump button: portrait + level, lit when the hero is the
+  // current selection. Tap selects only the hero and pans the camera to it.
+  function syncHeroJump(s) {
+    var el = D['btn-hero-select']; if (!el) return;
+    var h = RTS.playerHero ? RTS.playerHero(s) : null;
+    if (!h) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+    var hero = RTS.getHero && RTS.getHero(h.heroId);
+    var sel = s.selectedIds && s.selectedIds.length === 1 && s.selectedIds[0] === h.id;
+    if (el._heroId !== h.id) {                    // rebuild portrait only when the hero changes
+      el._heroId = h.id;
+      var initial = esc(((hero && (hero.shortName || hero.name)) || '?').charAt(0));
+      var pimg = (UI().heroPortraitHtml ? UI().heroPortraitHtml(h.heroId) : '').replace('<img ', '<img onerror="this.remove()" ');
+      el.innerHTML = '<span class="hj-glyph">' + initial + '</span>' + pimg + '<span class="hj-lvl"></span>';
+    }
+    var lv = el.querySelector('.hj-lvl'); if (lv) lv.textContent = h.level || 1;
+    var hpPct = Math.max(0, Math.min(1, h.hp / Math.max(1, h.maxHp)));
+    el.style.setProperty('--hp', hpPct);
+    el.classList.toggle('low', hpPct < 0.35);
+    el.classList.toggle('active', !!sel);
+    el.classList.remove('hidden');
+  }
 
   // Long-press tooltip for a hero ability / passive — full effect text + meta.
   function showHeroTip(s, card) {

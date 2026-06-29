@@ -1480,3 +1480,31 @@ body.radial-open #command-deck { display: none !important; }
 .hero-tip.fac-cinder .ht-title { color: #ffcaa0; }
 .hero-tip.fac-rimwalker { border-color: rgba(159,232,106,.7); }
 .hero-tip.fac-rimwalker .ht-title { color: #d6f5a8; }
+
+/* ── Hero jump button: select-only-hero + pan to it (left edge, always on) ── */
+.hero-jump {
+  position: fixed; left: 10px; top: 50%; transform: translateY(-50%); z-index: 39;
+  width: 58px; height: 58px; border-radius: 50%; padding: 0; cursor: pointer;
+  border: 2.5px solid rgba(228,181,58,.85); overflow: hidden;
+  background: radial-gradient(circle at 50% 38%, rgba(63,99,184,.55), rgba(18,12,6,.9));
+  box-shadow: 0 4px 14px rgba(0,0,0,.5), 0 0 0 3px rgba(0,0,0,.35);
+  /* HP ring drawn as a conic sweep behind the portrait (--hp set from JS) */
+}
+.hero-jump.hidden { display: none; }
+.hero-jump::before {
+  content: ''; position: absolute; inset: -2.5px; border-radius: 50%; z-index: 0;
+  background: conic-gradient(#5fd06a calc(var(--hp,1) * 360deg), rgba(0,0,0,.45) 0);
+  -webkit-mask: radial-gradient(circle, transparent 25px, #000 26px);
+          mask: radial-gradient(circle, transparent 25px, #000 26px);
+}
+.hero-jump.low::before { background: conic-gradient(#e0533a calc(var(--hp,1) * 360deg), rgba(0,0,0,.5) 0); }
+.hero-jump .hj-glyph { position: absolute; inset: 4px; z-index: 1; display: flex; align-items: center; justify-content: center;
+  font-family: 'Fredoka', system-ui, sans-serif; font-weight: 700; font-size: 24px; color: #ffe9a8; }
+.hero-jump img { position: absolute; inset: 4px; z-index: 2; width: calc(100% - 8px); height: calc(100% - 8px); border-radius: 50%; object-fit: cover; }
+.hero-jump .hj-lvl {
+  position: absolute; right: -2px; bottom: -2px; z-index: 3; min-width: 18px; height: 18px; padding: 0 3px;
+  border-radius: 9px; background: #e4b53a; color: #2a1c08; border: 1.5px solid rgba(0,0,0,.4);
+  font-family: 'Fredoka', system-ui, sans-serif; font-weight: 700; font-size: 11px; line-height: 18px; text-align: center;
+}
+.hero-jump.active { border-color: #ffe9a8; box-shadow: 0 0 0 3px rgba(255,233,168,.6), 0 4px 16px rgba(0,0,0,.5); }
+.hero-jump:active { transform: translateY(-50%) scale(.93); }
