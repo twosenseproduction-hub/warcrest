@@ -232,7 +232,9 @@
       return u.team === RTS.TEAM.PLAYER && !u.dead && u.heroId;
     }) || null;
   };
-  RTS.selectHero = function (s) {
+  // opts.center (default true) pans the camera to the hero. The hero-jump button
+  // passes center:false on a single tap (select only) and centers on double-tap.
+  RTS.selectHero = function (s, opts) {
     var h = RTS.playerHero(s);
     if (!h) {
       if (RTS.toast) RTS.toast(s, 'No hero on the field');
@@ -244,9 +246,17 @@
     s.selectedIds = [h.id];
     if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
     RTS.refreshMode(s);
-    if (RTS.Cam) { if (RTS.Cam.panTo) RTS.Cam.panTo(s, h.x, h.y, true); else if (RTS.Cam.centerOn) RTS.Cam.centerOn(s, h.x, h.y); }
+    if ((!opts || opts.center !== false)) RTS.centerOnHero(s, h);
     RTS.HUD.sync(s);
     if (RTS.Audio) RTS.Audio.play('ready');
+    return true;
+  };
+  // Pan the camera to the hero without touching the selection (double-tap jump).
+  RTS.centerOnHero = function (s, h) {
+    h = h || RTS.playerHero(s);
+    if (!h || !RTS.Cam) return false;
+    if (RTS.Cam.panTo) RTS.Cam.panTo(s, h.x, h.y, true);
+    else if (RTS.Cam.centerOn) RTS.Cam.centerOn(s, h.x, h.y);
     return true;
   };
 

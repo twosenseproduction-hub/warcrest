@@ -80,7 +80,21 @@
         D[id] = $(id);
       });
 
-      wireRail('btn-hero-select', function (s) { RTS.selectHero && RTS.selectHero(s); });
+      // Hero jump: a single tap selects only the hero (no camera move); a quick
+      // second tap jumps the camera to it (WC3 portrait convention). pointerup
+      // only, so the pointerdown→click pair isn't mistaken for a double-tap.
+      (function () {
+        var el = D['btn-hero-select']; if (!el) return;
+        var lastAt = 0;
+        el.addEventListener('pointerdown', markUi, true);
+        el.addEventListener('pointerup', function (e) {
+          if (e.pointerType === 'mouse' && e.button !== 0) return;
+          var s = getState(); if (!s) return;
+          var now = performance.now();
+          if (now - lastAt < 340) { lastAt = 0; RTS.centerOnHero && RTS.centerOnHero(s); }   // double tap → jump
+          else { lastAt = now; RTS.selectHero && RTS.selectHero(s, { center: false }); }      // single tap → select
+        });
+      })();
 
       // Hero banner ability slots cast through the same path as the I-row buttons.
       // A long-press that opened a tooltip is swallowed so it doesn't also cast.

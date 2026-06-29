@@ -1090,6 +1090,12 @@
           if (RTS.activeCombatUnits(s).length) RTS.toast(s, 'Click ground to move');
         }
         if (e.key === 's' || e.key === 'S') { RTS.orderStop(s, RTS.activeSelectedUnits(s)); }
+        // Hero focus: select the hero + jump the camera (WC3 F1). Tap H twice to
+        // re-center if already selected — selectHero always pans here.
+        if (e.key === 'F1' || e.key === 'h' || e.key === 'H') {
+          e.preventDefault();
+          if (RTS.selectHero) RTS.selectHero(s);
+        }
       });
     },
   };
