@@ -42,8 +42,65 @@
         s.timers.waveNumber++;
         s.timers.nextWave = s.timers.gameTime + cfg.waveInterval;
       }
+
+      updateEnemyHero(s, dt);   // summon + pilot the enemy champion
     },
   };
+
+  // ---- Enemy champion: summon mid-game, then cast abilities in the thick of it.
+  function updateEnemyHero(s, dt) {
+    var cfg = RTS.Config.ai;
+    if (cfg.spawnHero === false || !RTS.makeHero || !RTS.getHeroesForFaction) return;
+
+    var heroes = enemyUnits(s).filter(function (u) { return u.heroId; });
+    if (!heroes.length) {
+      if (s.ai._heroSpawned) return;                                  // one champion per match
+      var heroAt = cfg.heroAt != null ? cfg.heroAt : 80;
+      if (s.timers.gameTime < heroAt || !enemyBuilding(s, 'foundry')) return;
+      var core = enemyCastle(s); if (!core) return;
+      var roster = RTS.getHeroesForFaction(s.enemyFaction);
+      if (!roster.length) return;
+      var def = roster[0];
+      var h = RTS.makeHero(s, def.id, TEAM.ENEMY, core.x + 44, core.y + 44, s.enemyFaction);
+      if (h) {
+        s.ai._heroSpawned = true;
+        RTS.log(s, RTS.Factions[s.enemyFaction].name + ' champion ' + (def.shortName || def.name) + ' takes the field', 'bad');
+      }
+      return;
+    }
+    heroes.forEach(function (h) { aiHeroCast(s, h); });
+  }
+
+  // Cast the best ready ability when the champion is in a fight. Self-throttled
+  // so it spends one ability at a time rather than dumping its whole kit.
+  function aiHeroCast(s, h) {
+    if (h.dead || h._channel) return;
+    var now = s.timers.gameTime;
+    if ((h._aiCastCd || 0) > now) return;
+    var hero = RTS.getHero && RTS.getHero(h.heroId);
+    if (!hero || !hero.abilities) return;
+
+    var foes = 0, nearest = Infinity, arr = s.entities.units;
+    for (var i = 0; i < arr.length; i++) {
+      var e = arr[i];
+      if (e.dead || e.kind !== 'unit' || e.team === h.team || e.team === TEAM.NEUTRAL) continue;
+      var d = RTS.dist(e.x, e.y, h.x, h.y);
+      if (d < 320) { foes++; if (d < nearest) nearest = d; }
+    }
+    if (!foes) return;
+
+    // prefer the higher-tier ability; save big AoE ultimates for a real cluster.
+    for (var k = hero.abilities.length - 1; k >= 0; k--) {
+      var ab = hero.abilities[k];
+      if (ab.unlockLevel && (h.level || 1) < ab.unlockLevel) continue;
+      if (h._abilityCd && (h._abilityCd[ab.id] || 0) > now) continue;
+      if (k === 2 && foes < 2) continue;                              // hold the ultimate for 2+ targets
+      if (RTS.triggerHeroAbility && RTS.triggerHeroAbility(s, h.id, k)) {
+        h._aiCastCd = now + 2.2;
+        return;
+      }
+    }
+  }
 
   function initAiState(s) {
     if (!s.ai) {
