@@ -74,12 +74,23 @@
        'btn-hero-i1', 'btn-hero-i2', 'btn-hero-i3',
        'btn-build-hammer', 'build-panel', 'build-panel-grid', 'map-tools', 'tb-crest',
        'shop-panel', 'shop-grid', 'shop-head',
-       'hub-minimap', 'hub-right', 'hub-hero', 'hub-action-grid', 'minimap'].forEach(function (id) {
+       'hub-minimap', 'hub-right', 'hub-hero', 'hub-action-grid', 'minimap', 'hero-banner'].forEach(function (id) {
         D[id] = $(id);
       });
 
+      // Hero banner ability slots cast through the same path as the I-row buttons.
+      wireDelegatedTap($('hero-banner'), '[data-act="hero-ability"]', function (e, btn) {
+        var st = getState(); if (!st) return;
+        var units = RTS.activeSelectedUnits ? RTS.activeSelectedUnits(st) : [];
+        if (units.length === 1 && units[0].heroId) {
+          var ok = RTS.triggerHeroAbility && RTS.triggerHeroAbility(st, units[0].id, +btn.dataset.idx);
+          RTS.Audio.play(ok ? 'click' : 'deny');
+          RTS.HUD.sync(st);
+        }
+      });
+
       ['cmd-grid', 'selpanel', 'squad-chips', 'squad-block', 'hub-action-grid', 'topbar', 'command-deck',
-       'bottom-hub', 'map-tools', 'build-panel', 'btn-build-hammer', 'hub-minimap', 'type-select'].forEach(function (id) {
+       'bottom-hub', 'map-tools', 'build-panel', 'btn-build-hammer', 'hub-minimap', 'type-select', 'hero-banner'].forEach(function (id) {
         var el = document.getElementById(id);
         if (!el) return;
         el.addEventListener('pointerdown', markUi, true);
@@ -205,6 +216,7 @@
 
       if (D['btn-combat-atk']) D['btn-combat-atk'].classList.toggle('active', !!s.attackMoveArmed);
       syncAbilitySlots(s);
+      syncHeroBanner(s);
 
       if (D['btn-build-hammer']) {
         D['btn-build-hammer'].classList.toggle('active', !!s.ui.buildPanelOpen);
@@ -956,6 +968,59 @@
       }
     });
   }
+
+  // ---- Hero banner: identity + level/XP + tappable ability bar --------------
+  function syncHeroBanner(s) {
+    var el = D['hero-banner']; if (!el) return;
+    var units = RTS.activeSelectedUnits ? RTS.activeSelectedUnits(s) : [];
+    var u = units.length === 1 && units[0].heroId ? units[0] : null;
+    var hero = u && RTS.getHero ? RTS.getHero(u.heroId) : null;
+    if (!hero) { el.classList.add('hidden'); el.setAttribute('aria-hidden', 'true'); el.innerHTML = ''; return; }
+
+    var prog = RTS.heroProgress ? RTS.heroProgress(u) : { level: u.level || 1, max: 5, atMax: false, pct: 0 };
+    var now = (s.timers && s.timers.gameTime) || 0;
+
+    var pips = '';
+    for (var i = 1; i <= prog.max; i++) pips += '<i class="' + (i <= prog.level ? 'on' : '') + '"></i>';
+    var xpHtml = prog.atMax
+      ? '<span class="hb-max">MAX</span>'
+      : '<span class="hb-xp" title="' + prog.xp + ' / ' + prog.next + ' XP"><b style="width:' + Math.round(prog.pct * 100) + '%"></b></span>';
+
+    // glyph sits behind the portrait; if the portrait PNG 404s, onerror removes it
+    // and the glyph shows through — every hero gets a clean badge either way.
+    var initial = esc((hero.shortName || hero.name || '?').charAt(0));
+    var pimg = (UI().heroPortraitHtml ? UI().heroPortraitHtml(hero.id) : '').replace('<img ', '<img onerror="this.remove()" ');
+    var portrait = '<span class="hb-glyph hb-pglyph">' + initial + '</span>' + pimg;
+
+    var abils = (hero.abilities || []).slice(0, 3).map(function (ab, idx) {
+      var cd = (u._abilityCd && u._abilityCd[ab.id]) ? Math.max(0, u._abilityCd[ab.id] - now) : 0;
+      var locked = ab.unlockLevel && (u.level || 1) < ab.unlockLevel;
+      var busy = !!u._channel;
+      var cls = 'hb-abil' + (locked ? ' hb-locked' : '') + (cd > 0 ? ' hb-cd' : '');
+      var dis = (locked || cd > 0 || busy) ? ' disabled' : '';
+      var style = cd > 0 && ab.cooldown ? ' style="--cd:' + (cd / ab.cooldown) + '"' : '';
+      return '<button class="' + cls + '"' + style + dis + ' data-act="hero-ability" data-idx="' + idx + '" aria-label="' + esc(ab.name) + '">' +
+        '<span class="hb-glyph">' + esc((ab.name || '?').charAt(0)) + '</span>' +
+        (locked ? '<span class="hb-badge">L' + ab.unlockLevel + '</span>' : (cd > 0 ? '<span class="hb-badge">' + Math.ceil(cd) + '</span>' : '')) +
+        '<span class="hb-cap">' + esc(ab.name) + '</span>' +
+      '</button>';
+    }).join('');
+
+    var passive = hero.passive && hero.passive.name
+      ? '<span class="hb-passive" title="' + esc(hero.passive.desc || '') + '">✦ ' + esc(hero.passive.name) + '</span>' : '';
+
+    el.className = 'hero-banner fac-' + (hero.faction || 'aurex');
+    el.setAttribute('aria-hidden', 'false');
+    el.innerHTML =
+      '<div class="hb-portrait unit-portrait-fill">' + portrait + '</div>' +
+      '<div class="hb-mid">' +
+        '<div class="hb-name">' + esc(hero.name || hero.shortName || 'Hero') + '</div>' +
+        '<div class="hb-sub">' + esc(hero.class || 'Hero') + passive + '</div>' +
+        '<div class="hb-lvl"><span class="hb-pips">' + pips + '</span>' + xpHtml + '</div>' +
+      '</div>' +
+      '<div class="hb-abils">' + abils + '</div>';
+  }
+  function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
   // ---- Combat mode icon sync -----------------------------------------------
   function syncCombatModeIcon(s) {

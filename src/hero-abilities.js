@@ -518,6 +518,14 @@
     });
   };
 
+  // UI helper — a hero's level/XP snapshot for the hero banner.
+  RTS.heroProgress = function (h) {
+    var lvl = (h && h.level) || 1;
+    if (lvl >= MAX_LEVEL) return { level: lvl, max: MAX_LEVEL, atMax: true, pct: 1, xp: 0, next: 0 };
+    var need = xpToNext(lvl);
+    return { level: lvl, max: MAX_LEVEL, atMax: false, pct: Math.max(0, Math.min(1, ((h && h.xp) || 0) / need)), xp: (h && h.xp) || 0, next: need };
+  };
+
   RTS.heroLevelUp = function (s, h) {
     h.level = (h.level || 1) + 1;
     // Bump the base snapshot so equipped-item recompute keeps the level gains.

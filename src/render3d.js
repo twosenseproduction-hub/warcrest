@@ -396,6 +396,59 @@
     g.add(box(1.2, 1.6, 0.3, BP.door, 0, 0.8, 1.7));
     return g;
   }
+  // ── per-race conduit / supply building (the "farm" slot) ───────────────────
+  // CROWN: tilled field + stone granary (handled by tfFarm above).
+  // ORC: a raw war-pen — churned earth, lashed-log fence, a meat-drying rack.
+  function tfFarmOrc() {
+    var g = new THREE.Group();
+    g.add(cyl(3.0, 3.2, 0.2, 9, BP.bodyD).translateY(0.1));                       // churned earth pad
+    for (var i = -2; i <= 2; i++) g.add(cyl(0.12, 0.16, 1.3, 5, BP.wood).translateX(i * 1.2).translateY(0.65).translateZ(-2.6));   // fence posts
+    g.add(box(5.2, 0.14, 0.14, BP.woodD, 0, 1.0, -2.6));                          // top rail
+    [-1, 1].forEach(function (s) { g.add(cyl(0.13, 0.16, 2.1, 5, BP.wood).translateX(s * 1.7).translateY(1.05).translateZ(0.5)); });   // rack uprights
+    var pole = cyl(0.1, 0.1, 3.6, 5, BP.woodD); pole.rotation.z = Math.PI / 2; pole.position.set(0, 2.0, 0.5); g.add(pole);          // rack pole
+    for (var k = -1; k <= 1; k++) g.add(box(0.36, 0.72, 0.08, M(0x7a3b2a), k * 0.95, 1.5, 0.5));   // hanging meat strips
+    var hut = new THREE.Group(); hut.position.set(-2.2, 0, -1.6);
+    hut.add(cyl(1.0, 1.2, 1.3, 7, BP.body).translateY(0.65)); hut.add(cone(1.5, 1.1, 7, BP.cap).translateY(1.7)); g.add(hut);
+    orcSpikeRidge(g, 1.0, 0.78, 2.8);
+    return g;
+  }
+  // ELF: a moonwell grove — glowing pool ringed by mossy stones + canopy saplings.
+  function tfFarmElf() {
+    var g = new THREE.Group();
+    g.add(cyl(2.9, 3.1, 0.42, 12, BP.bodyD).translateY(0.21));                    // mossy stone ring
+    var pool = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.0, 0.16, 16), new THREE.MeshStandardMaterial({ color: 0x6fe0d6, emissive: 0x3fbfb0, emissiveIntensity: 0.85, flatShading: true }));
+    pool.position.y = 0.48; g.add(pool);                                          // glowing moonwell
+    for (var i = 0; i < 8; i++) { var a = i / 8 * Math.PI * 2; var st = sphere(0.34, BP.body); st.scale.y = 0.8; st.position.set(Math.cos(a) * 2.5, 0.5, Math.sin(a) * 2.5); g.add(st); }   // ring stones
+    elfCanopy(g, 1.3, -2.3, 1.7, -1.5); elfCanopy(g, 1.05, 2.3, 1.4, 1.6);
+    g.add(cyl(0.14, 0.3, 1.7, 6, P.bark).translateX(-2.3).translateY(0.85).translateZ(-1.5));
+    g.add(cyl(0.12, 0.26, 1.4, 6, P.bark).translateX(2.3).translateY(0.7).translateZ(1.6));
+    var moon = new THREE.Mesh(new THREE.IcosahedronGeometry(0.34, 0), new THREE.MeshStandardMaterial({ color: 0xd8e6ff, emissive: 0x8fb6ff, emissiveIntensity: 0.95, flatShading: true }));
+    moon.position.set(0, 1.7, 0); g.add(moon);                                    // floating moon mote over the well
+    return g;
+  }
+  // ── per-race wall ─────────────────────────────────────────────────────────
+  // CROWN: stone crenellated rampart (tfWall above).
+  // ORC: sharpened-log palisade on an earthen berm, lashed with a crossbeam.
+  function tfWallOrc() {
+    var g = new THREE.Group();
+    g.add(box(5.4, 1.0, 1.5, BP.bodyD, 0, 0.5, 0));                               // earthen berm
+    for (var x = -2.4; x <= 2.41; x += 0.6) {
+      g.add(cyl(0.26, 0.3, 2.2, 6, BP.wood).translateX(x).translateY(1.45).translateZ(0));   // log
+      g.add(cone(0.27, 0.5, 6, BP.woodD).translateX(x).translateY(2.75));                    // sharpened tip
+    }
+    g.add(box(5.2, 0.2, 0.18, BP.woodD, 0, 1.85, 0.55));                          // lashing crossbeam
+    orcSpikeRidge(g, 1.5, 2.95, -0.45);                                           // bone trophies
+    return g;
+  }
+  // ELF: a living hedgerow — low stone base, bark posts, a leafy thorned crest.
+  function tfWallElf() {
+    var g = new THREE.Group();
+    g.add(box(5.2, 1.2, 1.3, BP.body, 0, 0.6, 0));                                // low stone base
+    for (var x = -2.0; x <= 2.01; x += 1.0) g.add(cyl(0.2, 0.28, 1.9, 6, P.bark).translateX(x).translateY(1.45));   // bark posts
+    for (var x2 = -2.3; x2 <= 2.31; x2 += 0.66) { var lf = sphere(0.72, (Math.round(x2) % 2 ? P.leaf2 : P.leaf)); lf.scale.set(1.0, 0.85, 1.0); lf.position.set(x2, 2.3, 0); g.add(lf); }   // leafy crest
+    for (var t = -2.1; t <= 2.11; t += 0.7) { var th = cone(0.1, 0.6, 5, P.woodD); th.position.set(t, 2.5, 0.5); th.rotation.x = 0.7; g.add(th); }   // thorns
+    return g;
+  }
   // inverted-hull toon outline (works with the core three build; no post-pass):
   // a back-faced black shell slightly larger than each mesh reads as a dark edge.
   var OUTLINE_MAT = null;
@@ -416,11 +469,11 @@
     var t = b.type || '';
     var g;
     if (/core|keep|castle|townhall|citadel|chiefs_hall/.test(t)) g = race === 'horde' ? tfKeepOrc(race) : race === 'elf' ? tfKeepElf(race) : tfKeep(race);
-    else if (/wall|gate|rampart/.test(t)) g = tfWall();
+    else if (/wall|gate|rampart/.test(t)) g = race === 'horde' ? tfWallOrc() : race === 'elf' ? tfWallElf() : tfWall();
     else if (/turret|tower/.test(t)) g = tfTower(race, b.towerType);
     else if (/forge/.test(t)) g = race === 'horde' ? tfForgeOrc() : race === 'elf' ? tfForgeElf() : tfForge();
     else if (/foundry|barrack/.test(t)) g = race === 'horde' ? tfBarracksOrc(race) : race === 'elf' ? tfBarracksElf() : tfBarracks(race);
-    else if (/conduit|sheep|farm|pen/.test(t)) g = tfFarm();
+    else if (/conduit|sheep|farm|pen/.test(t)) g = race === 'horde' ? tfFarmOrc() : race === 'elf' ? tfFarmElf() : tfFarm();
     else if (/windmill|mill|merchant|market/.test(t)) g = tfWindmill(race);
     else g = race === 'horde' ? tfHouseOrc() : race === 'elf' ? tfHouseElf() : tfHouse(race);
     g.traverse(function (o) { o.castShadow = true; o.receiveShadow = true; });
