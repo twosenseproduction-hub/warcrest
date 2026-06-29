@@ -1986,6 +1986,25 @@
     R.pseen = {};
   }
 
+  /* ---- skill-VFX sprite sheets as 3D billboards -------------------------
+   * The 2D SkillVFX (vines, leaves, heal sprouts, auras) draw on the hidden
+   * 2D canvas, so ability casts were invisible in 3D. Load each sheet once and
+   * billboard it as a camera-facing Sprite, advancing the frame strip off the
+   * effect's elapsed life — so every ability's animation now reads in 3D. */
+  var _skillTex = {};
+  function skillTexture(sheet) {
+    if (_skillTex[sheet] !== undefined) return _skillTex[sheet] || null;
+    _skillTex[sheet] = null;   // pending
+    try {
+      new THREE.TextureLoader().load('assets/skills/' + sheet + '.png?v=20260626a', function (tex) {
+        tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter;
+        tex.generateMipmaps = false; tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+        _skillTex[sheet] = tex;
+      }, undefined, function () { _skillTex[sheet] = false; });
+    } catch (er) { _skillTex[sheet] = false; }
+    return null;
+  }
+
   /* ---- effects: impact bursts + ground shock rings ----------------------- */
   var ringGeo = null, sparkGeo = null;
   function syncEffects(s) {
@@ -1995,6 +2014,30 @@
     for (var i = 0; i < list.length; i++) {
       var e = list[i]; if (!e) continue;
       var k = e.kind;
+      if (k === 'skillfx') {                                    // billboarded ability sprite
+        R.eseen[e.id] = true;
+        var base = skillTexture(e.sheet);
+        if (!base) continue;
+        var ssl = R.epool[e.id];
+        if (!ssl) {
+          var frames = e.frames || 1;
+          var tx = base.clone(); tx.needsUpdate = true; tx.repeat.x = 1 / frames;
+          var smat = new THREE.SpriteMaterial({ map: tx, transparent: true, depthWrite: false, depthTest: false });
+          var spr = new THREE.Sprite(smat);
+          var scl = (e.scale || 3) * 5.5;
+          spr.scale.set(scl, scl * ((e.fh || 16) / (e.fw || 16)), 1);
+          R.scene.add(spr);
+          ssl = R.epool[e.id] = { m: spr, k: k, frames: frames, fps: e.fps || 16, tex: tx, scl: scl, texMat: smat };
+        }
+        var elp = (e.max || 1) - (e.life || 0);
+        var fi = Math.floor(elp * ssl.fps);
+        fi = e.loop ? (fi % ssl.frames) : Math.min(ssl.frames - 1, fi);
+        ssl.tex.offset.x = fi / ssl.frames;
+        var sgy = groundYAt(s, e.x, e.y);
+        ssl.m.position.set(e.x, sgy + ssl.scl * 0.45, e.y);
+        ssl.m.material.opacity = e.hold ? 1 : Math.min(1, (e.life / (e.max || 1)) * 2.0 + 0.15);
+        continue;
+      }
       if (k !== 'boom' && k !== 'nova' && k !== 'ring' && k !== 'spark') continue;
       R.eseen[e.id] = true;
       var sl = R.epool[e.id];
@@ -2017,7 +2060,7 @@
       else { var rr = sl.baseR * (0.4 + prog * 1.7); m.scale.set(rr, rr, rr); m.material.opacity = (1 - prog) * 0.8; }
     }
     for (var id in R.epool) {
-      if (!R.eseen[id]) { var s3 = R.epool[id]; R.scene.remove(s3.m); s3.m.material.dispose(); delete R.epool[id]; }
+      if (!R.eseen[id]) { var s3 = R.epool[id]; R.scene.remove(s3.m); s3.m.material.dispose(); if (s3.tex) s3.tex.dispose(); delete R.epool[id]; }
     }
     R.eseen = {};
   }
