@@ -1002,7 +1002,7 @@
       // on attack we raise the arms into an aim pose sampled from the shoot clip and
       // let the projectile system fire the arrow.
       registerUnitModel('elf:archer', { url: 'assets/models/rim_archer_rigged.glb?v=20260630a', height: 60, yaw: -Math.PI / 2,
-        anims: { idle: 'NlaTrack' },
+        anims: { idle: 'NlaTrack', walk: 'NlaTrack.001' }, stripRootMotion: true,
         aim: { clip: 'NlaTrack.002', time: 0.9, hold: 0.55, bones: ['L_Clavicle', 'R_Clavicle', 'L_Upperarm', 'R_Upperarm', 'L_Forearm', 'R_Forearm', 'L_Hand', 'R_Hand'] } });
       // Tripo image-to-model statics (front = +X, so yaw = -PI/2 to face travel dir)
       registerUnitModel('elf:lancer', { url: 'assets/models/rim_huntress.glb?v=20260630a', height: 66, yaw: -Math.PI / 2 });
@@ -1051,6 +1051,12 @@
         // attack clips can be long preset motions — trim to a short brace/loose window
         if (k === 'attack' && cfg.attackTrim && THREE.AnimationUtils && THREE.AnimationUtils.subclip) {
           clip = THREE.AnimationUtils.subclip(clip, 'attack', Math.round(cfg.attackTrim[0] * 30), Math.round(cfg.attackTrim[1] * 30), 30);
+        }
+        // strip root/translation so the clip plays IN PLACE (the game drives world
+        // position; retargeted clips otherwise carry root motion that drifts/spazzes)
+        if (cfg.stripRootMotion) {
+          var kept = clip.tracks.filter(function (t) { return !/\.position$/.test(t.name); });
+          clip = new THREE.AnimationClip(clip.name, clip.duration, kept);
         }
         var act = mixer.clipAction(clip);
         if (k === 'attack') { act.setLoop(THREE.LoopOnce, 1); act.clampWhenFinished = true; }
