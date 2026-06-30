@@ -1017,7 +1017,7 @@
       // Dryad/centaur was modeled facing +Z (not +X like the others), so yaw = 0 to face travel dir.
       registerUnitModel('elf:caster', { url: 'assets/models/rim_dryad.glb?v=20260630b', height: 64, yaw: 0 });
       registerUnitModel('elf:siege', { url: 'assets/models/rim_glaive_thrower.glb?v=20260630b', height: 54, yaw: -Math.PI / 2, noBob: true });
-      registerUnitModel('elf:worker', { url: 'assets/models/rim_wisp.glb?v=20260630b', height: 30, yaw: -Math.PI / 2, glow: 0x9fe6ff, glowI: 1.7, hover: 16 });
+      registerUnitModel('elf:worker', { url: 'assets/models/rim_wisp.glb?v=20260630b', height: 30, yaw: -Math.PI / 2, glow: 0x9fe6ff, glowI: 0.45, glowSize: 1.1, hover: 16 });
       // Thoryn the Bladedrifter — bespoke Demon Hunter model (front = +X).
       registerUnitModel('hero:thoryn', { url: 'assets/models/demon_hunter.glb?v=20260630e', height: 78, yaw: -Math.PI / 2 });
       loadUnitModels().then(function (ok) { if (ok && R.enabled) rebuildUnitMeshes(); });
