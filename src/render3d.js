@@ -1009,6 +1009,7 @@
       registerUnitModel('elf:lancer', { url: 'assets/models/rim_huntress.glb?v=20260630b', height: 66, yaw: -Math.PI / 2 });
       registerUnitModel('elf:caster', { url: 'assets/models/rim_dryad.glb?v=20260630b', height: 64, yaw: -Math.PI / 2 });
       registerUnitModel('elf:siege', { url: 'assets/models/rim_glaive_thrower.glb?v=20260630b', height: 54, yaw: -Math.PI / 2, noBob: true });
+      registerUnitModel('elf:worker', { url: 'assets/models/rim_wisp.glb?v=20260630b', height: 30, yaw: -Math.PI / 2, glow: 0x9fe6ff, glowI: 1.7, hover: 16 });
       loadUnitModels().then(function (ok) { if (ok && R.enabled) rebuildUnitMeshes(); });
       return;
     }
@@ -1023,6 +1024,18 @@
     var m = orig.clone();
     m.color = new THREE.Color(tintHex);   // multiplies the baked atlas map → race skin tint
     bucket.set(orig, m); return m;
+  }
+  // Soft additive glow halo (WC3 wisp aura): a cached radial-gradient sprite.
+  var _glowTex = null;
+  function glowSprite(colHex, size) {
+    if (!_glowTex && typeof document !== 'undefined') {
+      var c = document.createElement('canvas'); c.width = c.height = 64; var x = c.getContext('2d');
+      var g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+      g.addColorStop(0, 'rgba(255,255,255,0.95)'); g.addColorStop(0.45, 'rgba(255,255,255,0.33)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+      x.fillStyle = g; x.fillRect(0, 0, 64, 64); _glowTex = new THREE.CanvasTexture(c);
+    }
+    var m = new THREE.SpriteMaterial({ map: _glowTex, color: colHex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+    var s = new THREE.Sprite(m); s.scale.set(size, size, 1); return s;
   }
   function makeModelMesh(entry, race, role, u) {
     var cfg = entry.cfg, proto = entry.proto;
@@ -1041,9 +1054,19 @@
     // Generated (Tripo) meshes aren't authored centered, so without this they render
     // offset from the unit's logical position and swing around when the unit turns.
     var _rb = new THREE.Box3().setFromObject(root), _rc = new THREE.Vector3(); _rb.getCenter(_rc);
+    var _sz = new THREE.Vector3(); _rb.getSize(_sz);
     root.position.x -= _rc.x; root.position.z -= _rc.z; root.position.y -= _rb.min.y;
     fitHeight(holder, cfg.height || (role === 'hero' ? 60 : role === 'worker' ? 34 : 48));
-    var ud = { model: true, isArcher: role === 'archer', yaw: cfg.yaw || 0, noBob: !!cfg.noBob };
+    // glow (WC3 wisp): make the mesh emissive + add a soft additive halo at its
+    // center. Added after fitHeight so the big halo doesn't skew the height fit.
+    if (cfg.glow) {
+      var gcol = new THREE.Color(cfg.glow);
+      root.traverse(function (o) { if (o.isMesh && o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(function (mm) {
+        if ('emissive' in mm) { mm.emissive = gcol; mm.emissiveIntensity = cfg.glowI || 1.4; }
+      }); });
+      var halo = glowSprite(cfg.glow, _sz.y * (cfg.glowSize || 2.3)); halo.position.set(0, _sz.y * 0.5, 0); holder.add(halo);
+    }
+    var ud = { model: true, isArcher: role === 'archer', yaw: cfg.yaw || 0, noBob: !!cfg.noBob, hover: cfg.hover || 0 };
     if (proto.clips && proto.clips.length) {
       var mixer = new THREE.AnimationMixer(root); var actions = {};
       var an = cfg.anims || {};
@@ -1816,6 +1839,7 @@
           // whose legs are hidden, e.g. the Huntress and Aelindra): a gentle life
           // bob so they aren't frozen — a saddle sway while moving, breathing at rest.
           // (skipped for machines like the Glaive Thrower — noBob)
+          o.position.y += ud.hover || 0;   // floaters (Wisp) hover off the ground
           var bobH = slot.topY || 40;
           if (moving) {
             slot._bob = (slot._bob || 0) + spd * R.renderDt * 0.11;

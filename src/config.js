@@ -574,7 +574,7 @@
         ancestor_shrine: 'Elder Sanctum',
         turret:      'Canopy Spire',
         outpost:     'Grove Cache',
-        pawn:        'Grove Hand',
+        pawn:        'Wisp',
         lancer:      'Huntress',
         archer:      'Bark Archer',
         monk:        'Dryad',
