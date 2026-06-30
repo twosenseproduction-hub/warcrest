@@ -1001,12 +1001,12 @@
       // idle-only body (the retargeted walk/shoot clips drift the root + look bad);
       // on attack we raise the arms into an aim pose sampled from the shoot clip and
       // let the projectile system fire the arrow.
-      registerUnitModel('elf:archer', { url: 'assets/models/rim_archer_rigged.glb?v=20260630a', height: 60, yaw: -Math.PI / 2,
+      registerUnitModel('elf:archer', { url: 'assets/models/rim_archer_rigged.glb?v=20260630b', height: 60, yaw: -Math.PI / 2,
         anims: { idle: 'NlaTrack', walk: 'NlaTrack.001' }, stripRootMotion: true,
         aim: { clip: 'NlaTrack.002', time: 0.9, hold: 0.55, bones: ['L_Clavicle', 'R_Clavicle', 'L_Upperarm', 'R_Upperarm', 'L_Forearm', 'R_Forearm', 'L_Hand', 'R_Hand'] } });
       // Tripo image-to-model statics (front = +X, so yaw = -PI/2 to face travel dir)
-      registerUnitModel('elf:lancer', { url: 'assets/models/rim_huntress.glb?v=20260630a', height: 66, yaw: -Math.PI / 2 });
-      registerUnitModel('elf:caster', { url: 'assets/models/rim_dryad.glb?v=20260630a', height: 64, yaw: -Math.PI / 2 });
+      registerUnitModel('elf:lancer', { url: 'assets/models/rim_huntress.glb?v=20260630b', height: 66, yaw: -Math.PI / 2 });
+      registerUnitModel('elf:caster', { url: 'assets/models/rim_dryad.glb?v=20260630b', height: 64, yaw: -Math.PI / 2 });
       loadUnitModels().then(function (ok) { if (ok && R.enabled) rebuildUnitMeshes(); });
       return;
     }
