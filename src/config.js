@@ -330,8 +330,8 @@
       warrior: { hp: 150, speed: 95, dmg: 15, range: 48, rof: 1.0, armor: 0, evade: 0.20, cost: 110, supply: 2 },
       // Bark Archer — the backbone: long reach, fast loose, cheap, slippery. Searing Arrows toggle.
       archer:  { hp: 70, speed: 115, dmg: 16, range: 168, rof: 0.62, ranged: true, evade: 0.25, cost: 115, supply: 2, abilities: ['searing_arrows'] },
-      // Huntress — fast ranged glaive skirmisher (mobile cavalry).
-      lancer:  { hp: 150, speed: 188, dmg: 18, range: 150, rof: 0.8, ranged: true, armor: 0, evade: 0.22, cost: 165, supply: 3 },
+      // Huntress — fast ranged glaive skirmisher; basic barracks unit beside the Bark Archer.
+      lancer:  { hp: 150, speed: 188, dmg: 18, range: 150, rof: 0.8, ranged: true, armor: 0, evade: 0.22, cost: 165, supply: 3, tier: 1 },
       // Sapling Mystic — ranged healer/caster, also evasive. Autocasts Rejuvenation.
       monk:    { hp: 85, speed: 112, dmg: 6, range: 132, rof: 0.7, heal: 12, ranged: true, evade: 0.20, cost: 130, supply: 2, mana: 110, manaRegen: 8, abilities: ['rejuvenation'] },
     },
@@ -548,6 +548,12 @@
       passiveTrait: 'wild_grace',
       resource:   'Thornstone',
       units: ['pawn', 'lancer', 'archer', 'monk', 'warrior'],
+      // Per-faction roster: the Warden Lodge (barracks) trains the Bark Archer and
+      // the Huntress; the Dryad caster moves to the Root Forge.
+      trains: {
+        foundry: ['archer', 'lancer'],
+        forge:   ['monk', 'warrior'],
+      },
       names: {
         core:        'Roothold',
         conduit:     'Briar Fold',
@@ -560,7 +566,7 @@
         pawn:        'Grove Hand',
         lancer:      'Huntress',
         archer:      'Bark Archer',
-        monk:        'Sapling Mystic',
+        monk:        'Dryad',
         warrior:     'Thornguard',
       },
     },
@@ -582,9 +588,13 @@
   RTS.Config.getTrainableUnits = function (fid, buildingType) {
     var spec = RTS.Buildings[buildingType];
     if (!spec || !spec.trains) return [];
+    // Per-faction roster override: a faction may train a different unit set out of
+    // a shared building (e.g. Rimwalkers train the Huntress out of the Warden Lodge).
+    var fac = RTS.Factions[fid];
+    var list = (fac && fac.trains && fac.trains[buildingType]) || spec.trains;
     // Hero roles are faction-specific (e.g. the Ancestor's Shrine lists every
     // hero) — only show the ones belonging to this faction.
-    return spec.trains.filter(function (role) {
+    return list.filter(function (role) {
       if (RTS.isHeroRole && RTS.isHeroRole(role)) {
         var h = RTS.getHero(role);
         return !!h && h.faction === fid;
