@@ -924,9 +924,16 @@
   var UNIT_MODELS = {};        // 'crown:warrior' -> { url, height, yaw, anims:{idle,walk,attack,death} }
   var modelProtos = {};        // key -> { scene, clips }
   var _gltf = null, _clock = null;
-  function modelKeys(race, role) { return [race + ':' + role, race + ':*', '*']; }
-  function protoFor(race, role) {
-    var ks = modelKeys(race, role);
+  // A specific hero may carry its own bespoke model ('hero:thoryn'), which wins
+  // over the generic race:role lookup; otherwise fall back to race-wide keys.
+  function modelKeys(race, role, heroId) {
+    var ks = [];
+    if (heroId) ks.push('hero:' + heroId);
+    ks.push(race + ':' + role, race + ':*', '*');
+    return ks;
+  }
+  function protoFor(race, role, heroId) {
+    var ks = modelKeys(race, role, heroId);
     for (var i = 0; i < ks.length; i++) if (modelProtos[ks[i]]) return { proto: modelProtos[ks[i]], cfg: UNIT_MODELS[ks[i]] };
     return null;
   }
@@ -1011,6 +1018,8 @@
       registerUnitModel('elf:caster', { url: 'assets/models/rim_dryad.glb?v=20260630b', height: 64, yaw: 0 });
       registerUnitModel('elf:siege', { url: 'assets/models/rim_glaive_thrower.glb?v=20260630b', height: 54, yaw: -Math.PI / 2, noBob: true });
       registerUnitModel('elf:worker', { url: 'assets/models/rim_wisp.glb?v=20260630b', height: 30, yaw: -Math.PI / 2, glow: 0x9fe6ff, glowI: 1.7, hover: 16 });
+      // Thoryn the Bladedrifter — bespoke Demon Hunter model (front = +X).
+      registerUnitModel('hero:thoryn', { url: 'assets/models/demon_hunter.glb?v=20260630e', height: 78, yaw: -Math.PI / 2 });
       loadUnitModels().then(function (ok) { if (ok && R.enabled) rebuildUnitMeshes(); });
       return;
     }
@@ -1111,7 +1120,7 @@
   }
   function makeUnitMesh(u) {
     var race = raceOf(u.faction), role = mapRole(u);
-    var entry = protoFor(race, role);
+    var entry = protoFor(race, role, u.heroId);
     if (entry) return makeModelMesh(entry, race, role, u);
     var tmpl = unitTemplate(race, role, u.heroId);
     var g = tmpl.clone();
