@@ -49,8 +49,10 @@
   scene.add(model);
   var box = new THREE.Box3().setFromObject(model); var size = new THREE.Vector3(); box.getSize(size);
   var center = new THREE.Vector3(); box.getCenter(center);
-  var radius = Math.max(size.x, size.y) * 1.5;
+  var radius = Math.max(size.x, size.y) * 1.7;
   var camY = center.y;
+  // elev = camera height as a fraction of radius (0.18 ~ near-level, 0.7 ~ top-down iso)
+  var elev = +(qs.get('elev') || 0.18);
 
   var composer = null;
   if (useBloom && THREE.EffectComposer && THREE.UnrealBloomPass) {
@@ -63,7 +65,7 @@
   var angleDeg = +(qs.get('angle') || 25);
   function place() {
     var a = angleDeg * Math.PI / 180;
-    camera.position.set(Math.sin(a) * radius, camY + size.y * 0.18, Math.cos(a) * radius);
+    camera.position.set(Math.sin(a) * radius, camY + radius * elev, Math.cos(a) * radius);
     camera.lookAt(center.x, camY, center.z);
   }
   function frame() {

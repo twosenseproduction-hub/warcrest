@@ -37,6 +37,7 @@ async def main():
     ap.add_argument('--out', default=os.path.join(HERE, '..', 'renders'))
     ap.add_argument('--export', dest='export_path', default='')
     ap.add_argument('--w', default='720'); ap.add_argument('--h', default='900')
+    ap.add_argument('--elev', default='0.18')
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
 
@@ -49,7 +50,7 @@ async def main():
         b = await p.chromium.launch(**launch)
         pg = await b.new_page(viewport={'width': int(args.w), 'height': int(args.h)})
         errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
-        url = f'http://127.0.0.1:{port}/render-page.html?build={args.build}&role={args.role}&bloom={args.bloom}&w={args.w}&h={args.h}'
+        url = f'http://127.0.0.1:{port}/render-page.html?build={args.build}&role={args.role}&bloom={args.bloom}&w={args.w}&h={args.h}&elev={args.elev}'
         await pg.goto(url, wait_until='load')
         await pg.wait_for_function('window.LPF_VIEW && window.LPF_VIEW.ready', timeout=15000)
         await pg.wait_for_timeout(400)

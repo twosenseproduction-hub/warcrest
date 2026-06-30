@@ -730,18 +730,24 @@
     // ── body: a smooth rounded grey barrel with a domed shoulder top ──
     var torso = smoothMesh(P.profileLimb([[0.46, 0], [0.6, TH * 0.46], [0.6, TH * 0.78], [0.46, TH]], 20), body);
     torso.scale.set(1.0, 1.0, 0.92); at(torso, 0, hipY + 0.02, 0); g.add(torso);
-    var shoulders = smoothMesh(new THREE.SphereGeometry(0.58, 18, 14), body); shoulders.scale.set(1.04, 0.66, 0.96); at(shoulders, 0, shoulderY - 0.06, 0); g.add(shoulders);
+    var shoulders = smoothMesh(new THREE.SphereGeometry(0.5, 18, 14), body); shoulders.scale.set(1.0, 0.46, 0.9); at(shoulders, 0, shoulderY - 0.02, 0); g.add(shoulders);   // subtle shoulder cap (not a balloon)
+    var collar = smoothMesh(new THREE.SphereGeometry(0.39, 18, 13), body); collar.scale.set(1.02, 0.58, 0.96); at(collar, 0, shoulderY + 0.1, 0); g.add(collar);   // rounded neck collar the head sits in
     // (red accents are gauntlet cuffs at the wrists — built with the arms below)
 
-    // ── head: pale face block under a TALL smooth red dome helm. The dome caps the
-    //    crown + back + upper sides; the pale face stays exposed below the brow,
-    //    framed by red helm sides, with a small nose poking from the slot. ──
-    var headR = 0.38, headY = shoulderY + headR * 0.62;
-    g.add(at(facetMesh(new THREE.BoxGeometry(headR * 1.4, headR * 1.5, headR * 1.18), face), 0, headY, 0.05));  // pale face
-    var helm = smoothMesh(new THREE.SphereGeometry(headR + 0.06, 20, 15, 0, Math.PI * 2, 0, 1.58), red);
-    at(helm, 0, headY + 0.15, -0.02); helm.scale.set(1.12, 1.32, 1.12); g.add(helm);                            // tall smooth red dome
-    [-1, 1].forEach(function (s) { var ch = facetMesh(new THREE.BoxGeometry(0.1, headR * 1.3, headR * 1.12), red); at(ch, headR * 0.7 * s, headY - 0.02, 0.0); g.add(ch); });   // red helm sides framing the face
-    g.add(at(facetMesh(new THREE.BoxGeometry(0.12, 0.14, 0.14), face), 0, headY - 0.05, headR * 0.84));         // small nose poking from the slot
+    // ── head: a rounded RED BOB (the whole head) with a pale FACE PANEL inset in
+    //    the front. Red reads as the fringe (top), side flaps, and a little chin;
+    //    the pale panel carries a nose + two dark eye dots. ──
+    var headR = 0.34, headY = shoulderY + 0.26 + headR;
+    var ink = Mc(0x241f1b);
+    var bob = smoothMesh(new THREE.SphereGeometry(headR, 22, 16), red); bob.scale.set(1.18, 1.3, 1.14); at(bob, 0, headY, -0.06); g.add(bob);   // red bob head
+    // pale face panel fronting the head, with the red bob's fringe + side flaps laid
+    // IN FRONT of its edges so the face reads inset (not a floating mask)
+    var ff = headR * 0.72;
+    g.add(at(facetMesh(new THREE.BoxGeometry(headR * 1.16, headR * 1.5, 0.12), face), 0, headY - 0.02, ff));   // pale face panel
+    g.add(at(facetMesh(new THREE.BoxGeometry(headR * 1.34, headR * 0.46, 0.12), red), 0, headY + headR * 0.62, ff + 0.05));   // fringe over the forehead
+    [-1, 1].forEach(function (s) { g.add(at(facetMesh(new THREE.BoxGeometry(0.11, headR * 1.4, 0.13), red), headR * 0.64 * s, headY - 0.04, ff + 0.03)); });   // side flaps over the cheeks
+    var nose = facetMesh(new THREE.ConeGeometry(0.05, 0.11, 4), face); nose.rotation.x = Math.PI / 2; at(nose, 0, headY - 0.06, ff + 0.09); g.add(nose);   // small nose
+    [-1, 1].forEach(function (s) { g.add(at(facetMesh(new THREE.BoxGeometry(0.045, 0.07, 0.04), ink), 0.09 * s, headY + 0.04, ff + 0.08)); });   // eye dots
 
     // ── left arm + sword: short grey stub, RED gauntlet cuff at the wrist ──
     g.add(at(facetMesh(new THREE.BoxGeometry(0.2, 0.42, 0.22), body), -0.52, hipY + TH * 0.52, 0.04));         // short upper arm
