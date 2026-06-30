@@ -406,30 +406,23 @@
     var axe = warAxe(wood, iron, ironD); at(axe, 0, -aL - 0.05, 0.1); axe.rotation.z = Math.PI; axe.rotation.x = 0.16; axArm.add(axe);
     g.add(axArm);
 
-    // ── head: green, clean angular planes — brow ridge, forward jaw wedge, deep
-    //    eyes, a snarl with two tusks jutting UP from the lower jaw ──
+    // ── head: a big ROUNDED chibi orc head, SMOOTH-shaded (matches the smooth
+    //    low-poly style pack — no boxy facets, no flat disc). Heavy rounded jaw for
+    //    the orc read. Face features omitted for now — shaping head + hood first. ──
     var headY = shoulderY + 0.42 * hs, headR = 0.5 * hs;
-    // FLAT head: squashed front-to-back (scale.z 0.72) so it reads as a flat orc
-    // mug, not a round ball. Face features (eyes/mouth/tusks) intentionally omitted
-    // for now — getting the head + hood SHAPE right first.
-    var head = smoothMesh(P.headGeo(headR, 0.05), skin); at(head, 0, headY, 0.02); head.scale.set(1.12, 0.96, 0.72); g.add(head);
-    var fz = headR * 0.72;
-    g.add(at(facetMesh(new THREE.BoxGeometry(0.66 * hs, 0.15, 0.12), skin), 0, headY + 0.1, fz + 0.04));       // brow ridge (flat)
-    [-1, 1].forEach(function (s) { g.add(at(facetMesh(new THREE.BoxGeometry(0.2, 0.26, 0.12), skin), 0.28 * hs * s, headY - 0.06, fz - 0.02)); });   // cheekbones (face width, flat)
-    g.add(at(facetMesh(new THREE.BoxGeometry(0.5 * hs, 0.26, 0.18), skin), 0, headY - 0.27, fz));              // lower jaw (flat, not jutting)
+    var head = smoothMesh(P.headGeo(headR, 0.04), skin); at(head, 0, headY, 0.02); head.scale.set(1.05, 1.06, 0.96); g.add(head);
+    var jaw = smoothMesh(new THREE.SphereGeometry(headR * 0.84, 14, 10), skin); jaw.scale.set(1.0, 0.62, 0.92); at(jaw, 0, headY - 0.26, 0.06); g.add(jaw);   // heavy rounded orc jaw
 
-    // ── HOOD: a THIN red shell that TRACES the head — a close-fitting cowl the same
-    //    flattened shape as the head, only a hair larger (~0.05 offset), covering the
-    //    top/back/sides and open at the face. Hugs the skull, no standoff bulk. ──
-    var hood = facetMesh(new THREE.SphereGeometry(headR + 0.05, 12, 9, 0, Math.PI * 2, 0, 2.1), helm);
-    at(hood, 0, headY - 0.02, -0.03); hood.scale.set(1.14, 0.98, 0.78); g.add(hood);                           // skull-tracing cowl (sits on the head)
-    var nape = facetMesh(new THREE.SphereGeometry(headR + 0.05, 12, 9, 0, Math.PI * 2, 1.4, 1.0), hoodD);
-    at(nape, 0, headY - 0.02, -0.03); nape.scale.set(1.14, 0.98, 0.78); g.add(nape);                           // thin nape band wrapping the lower back
-    // ── CROWN: a thin near-black jagged crown tracing the hood — a low brow band +
-    //    raked spikes (3 front raked back, 2 at the rear) ──
-    var band = facetMesh(new THREE.CylinderGeometry(headR + 0.1, headR + 0.12, 0.1, 10), crown); at(band, 0, headY + 0.18, -0.03); band.scale.set(1.08, 1, 0.82); g.add(band);
-    [-0.22, 0, 0.22].forEach(function (x, i) { var sp = facetMesh(new THREE.ConeGeometry(0.09, i === 1 ? 0.5 : 0.38, 4), crown); at(sp, x, headY + 0.56 + (i === 1 ? 0.06 : 0), -0.1); sp.rotation.z = x * 0.5; sp.rotation.x = 0.34; g.add(sp); });   // 3 raked top spikes
-    [-1, 1].forEach(function (s) { var sp = facetMesh(new THREE.ConeGeometry(0.07, 0.34, 4), crown); at(sp, headR * 0.58 * s, headY + 0.34, -0.2); sp.rotation.z = s * 0.5; sp.rotation.x = -0.5; g.add(sp); });   // 2 rear spikes
+    // ── HOOD: a SMOOTH, thin red cowl hugging the head and sweeping BACK to a point
+    //    (teardrop), like the reference topology. Smooth-shaded, traces the skull,
+    //    open at the face. ──
+    var hood = smoothMesh(new THREE.SphereGeometry(headR + 0.06, 18, 13, 0, Math.PI * 2, 0, 1.95), helm);
+    at(hood, 0, headY + 0.05, -0.05); hood.scale.set(1.08, 1.06, 1.02); g.add(hood);                           // skull-hugging cowl
+    var peak = smoothMesh(new THREE.SphereGeometry(0.24 * hs, 14, 10), helm); peak.scale.set(0.62, 0.58, 1.8);
+    at(peak, 0, headY + 0.32 * hs, -0.52 * hs); peak.rotation.x = -0.62; g.add(peak);                          // swept-back hood peak
+    // thin black rim band at the brow + a black crown spike riding the swept peak
+    var band = smoothMesh(new THREE.TorusGeometry(headR + 0.05, 0.045, 8, 18), crown); band.rotation.x = Math.PI / 2; at(band, 0, headY + 0.2, -0.02); band.scale.set(1.04, 1.0, 1.04); g.add(band);
+    var cspike = facetMesh(new THREE.ConeGeometry(0.1, 0.46, 5), crown); at(cspike, 0, headY + 0.5 * hs, -0.5 * hs); cspike.rotation.x = -0.62; g.add(cspike);
 
     g.userData.emissiveMeshes = glow;
     if (p.outline) LPF.outlineGroup(g, p.outline, 0x0f0c08);

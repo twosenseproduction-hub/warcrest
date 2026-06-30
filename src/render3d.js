@@ -995,7 +995,7 @@
     } else {
       // Default = procedural, EXCEPT the cinder (orc) warrior, which uses the
       // forged armored-orc .glb built to match the reference art.
-      registerUnitModel('horde:warrior', { url: 'assets/models/cinder_warrior.glb?v=20260630b', height: 58, yaw: Math.PI });
+      registerUnitModel('horde:warrior', { url: 'assets/models/cinder_warrior.glb?v=20260630c', height: 58, yaw: Math.PI });
       loadUnitModels().then(function (ok) { if (ok && R.enabled) rebuildUnitMeshes(); });
       return;
     }
