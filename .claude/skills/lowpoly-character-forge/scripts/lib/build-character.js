@@ -731,31 +731,29 @@
     var torso = smoothMesh(P.profileLimb([[0.46, 0], [0.6, TH * 0.46], [0.6, TH * 0.78], [0.46, TH]], 20), body);
     torso.scale.set(1.0, 1.0, 0.92); at(torso, 0, hipY + 0.02, 0); g.add(torso);
     var shoulders = smoothMesh(new THREE.SphereGeometry(0.58, 18, 14), body); shoulders.scale.set(1.04, 0.66, 0.96); at(shoulders, 0, shoulderY - 0.06, 0); g.add(shoulders);
-    g.add(at(facetMesh(new THREE.BoxGeometry(0.16, 0.3, 0.3), red), -0.5, hipY + TH * 0.46, 0.0));            // left hip/belt accent
-    g.add(at(facetMesh(new THREE.BoxGeometry(0.16, 0.3, 0.3), red), 0.5, hipY + TH * 0.2, 0.0));              // right hip accent
+    // (red accents are gauntlet cuffs at the wrists — built with the arms below)
 
-    // ── shoulder pads: small red blocks ──
-    [-1, 1].forEach(function (s) { g.add(at(facetMesh(new THREE.BoxGeometry(0.18, 0.24, 0.34), red), 0.52 * s, shoulderY - 0.04, 0)); });
-
-    // ── head: pale face block under a smooth red dome helm. The dome caps the
+    // ── head: pale face block under a TALL smooth red dome helm. The dome caps the
     //    crown + back + upper sides; the pale face stays exposed below the brow,
-    //    framed by red cheek guards + a left front bar (per the concept). ──
+    //    framed by red helm sides, with a small nose poking from the slot. ──
     var headR = 0.38, headY = shoulderY + headR * 0.62;
     g.add(at(facetMesh(new THREE.BoxGeometry(headR * 1.4, headR * 1.5, headR * 1.18), face), 0, headY, 0.05));  // pale face
-    var helm = smoothMesh(new THREE.SphereGeometry(headR + 0.06, 20, 15, 0, Math.PI * 2, 0, 1.55), red);
-    at(helm, 0, headY + 0.13, -0.02); helm.scale.set(1.1, 1.2, 1.1); g.add(helm);                               // smooth red crown dome (tight, rounded)
-    [-1, 1].forEach(function (s) { var ch = facetMesh(new THREE.BoxGeometry(0.1, headR * 1.2, headR * 1.1), red); at(ch, headR * 0.66 * s, headY - 0.04, 0.02); g.add(ch); });   // red cheek guards (sides of the face)
-    g.add(at(facetMesh(new THREE.BoxGeometry(0.1, headR * 1.4, 0.12), red), -headR * 0.36, headY - 0.04, headR * 0.74));   // left front bar across the face slot
+    var helm = smoothMesh(new THREE.SphereGeometry(headR + 0.06, 20, 15, 0, Math.PI * 2, 0, 1.58), red);
+    at(helm, 0, headY + 0.15, -0.02); helm.scale.set(1.12, 1.32, 1.12); g.add(helm);                            // tall smooth red dome
+    [-1, 1].forEach(function (s) { var ch = facetMesh(new THREE.BoxGeometry(0.1, headR * 1.3, headR * 1.12), red); at(ch, headR * 0.7 * s, headY - 0.02, 0.0); g.add(ch); });   // red helm sides framing the face
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.12, 0.14, 0.14), face), 0, headY - 0.05, headR * 0.84));         // small nose poking from the slot
 
-    // ── left arm + sword (flat blade angled down-out) ──
-    g.add(at(facetMesh(new THREE.BoxGeometry(0.16, 0.5, 0.18), body), -0.56, hipY + TH * 0.42, 0.06));         // forearm
-    var sword = new THREE.Group(); sword.position.set(-0.66, hipY + TH * 0.3, 0.12); sword.rotation.z = 0.62;
-    sword.add(at(facetMesh(new THREE.BoxGeometry(0.12, 1.1, 0.05), steel), 0, -0.6, 0));                        // blade
-    sword.add(at(facetMesh(new THREE.BoxGeometry(0.26, 0.08, 0.1), steelD), 0, -0.04, 0));                      // crossguard
+    // ── left arm + sword: short grey stub, RED gauntlet cuff at the wrist ──
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.2, 0.42, 0.22), body), -0.52, hipY + TH * 0.52, 0.04));         // short upper arm
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.22, 0.24, 0.26), red), -0.62, hipY + TH * 0.32, 0.1));          // red gauntlet
+    var sword = new THREE.Group(); sword.position.set(-0.66, hipY + TH * 0.3, 0.14); sword.rotation.z = 0.66;
+    sword.add(at(facetMesh(new THREE.BoxGeometry(0.12, 1.05, 0.05), steel), 0, -0.58, 0));                      // blade
+    sword.add(at(facetMesh(new THREE.BoxGeometry(0.26, 0.08, 0.1), steelD), 0, -0.02, 0));                      // crossguard
     g.add(sword);
-    // ── right arm + square shield ──
-    g.add(at(facetMesh(new THREE.BoxGeometry(0.16, 0.5, 0.18), body), 0.56, hipY + TH * 0.34, 0.06));          // forearm
-    var shield = facetMesh(new THREE.BoxGeometry(0.5, 0.62, 0.08), steel); at(shield, 0.74, hipY + TH * 0.18, 0.2); shield.rotation.y = -0.3; g.add(shield);
+    // ── right arm + shield: short grey stub, RED gauntlet cuff, flat slab shield ──
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.2, 0.42, 0.22), body), 0.52, hipY + TH * 0.5, 0.04));           // short upper arm
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.22, 0.24, 0.26), red), 0.6, hipY + TH * 0.3, 0.12));            // red gauntlet
+    var shield = facetMesh(new THREE.BoxGeometry(0.46, 0.6, 0.09), steel); at(shield, 0.74, hipY + TH * 0.2, 0.18); shield.rotation.y = -0.26; g.add(shield);
 
     g.userData.emissiveMeshes = [];
     if (p.outline) LPF.outlineGroup(g, p.outline, 0x3a322a);
