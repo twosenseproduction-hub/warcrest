@@ -1809,6 +1809,17 @@
             if (ud.torso) ud.torso.rotation.y *= 0.8;
             o.position.y += Math.sin(performance.now() * 0.0018 + (e._idlePhase || 0)) * bob * 0.006;   // idle breathing
           }
+        } else if (ud) {
+          // no clip rig and no procedural legs (static glTF units + mounted units
+          // whose legs are hidden, e.g. the Huntress and Aelindra): a gentle life
+          // bob so they aren't frozen — a saddle sway while moving, breathing at rest.
+          var bobH = slot.topY || 40;
+          if (moving) {
+            slot._bob = (slot._bob || 0) + spd * R.renderDt * 0.11;
+            o.position.y += Math.abs(Math.sin(slot._bob)) * bobH * 0.02;
+          } else {
+            o.position.y += Math.sin(performance.now() * 0.0017 + (e._idlePhase || 0)) * bobH * 0.006;
+          }
         }
         // hit reaction: a brief scale-pop (per-instance; can't tint shared mats)
         var pop = e.hitFlash > 0 ? 1 + Math.min(0.16, e.hitFlash * 0.5) : 1;
