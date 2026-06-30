@@ -361,38 +361,28 @@
     var g = new THREE.Group(); var glow = [];
     var bw = 1.45, L = p.limbLen, TH = p.torsoH, hs = p.headScale, hipY = L;
 
-    // ── legs: bare green thighs + chunky dark boots, short + sturdy, set apart ──
+    // ── legs: bare green thighs + chunky ROUNDED boots, all smooth-shaded ──
     [-1, 1].forEach(function (s) {
-      g.add(at(smoothMesh(P.profileLimb([[0.2, 0.3], [0.24, 0.46], [0.19, L]], 10), skin), 0.27 * s, 0, 0));   // green thigh
-      g.add(at(facetMesh(new THREE.BoxGeometry(0.42, 0.46, 0.46), leatherD), 0.27 * s, 0.22, 0.0));            // v3: chunkier boot shaft
-      g.add(at(facetMesh(new THREE.BoxGeometry(0.4, 0.22, 0.36), leatherD), 0.27 * s, 0.11, 0.34));            // boot toe (forward step)
-      g.add(at(facetMesh(new THREE.BoxGeometry(0.48, 0.12, 0.62), crown), 0.27 * s, 0.0, 0.14));               // v3: protruding black sole
-      g.add(at(facetMesh(new THREE.BoxGeometry(0.46, 0.16, 0.5), leather), 0.27 * s, L * 0.42, 0.02));         // v3: leather shin cuff band
-      g.add(at(facetMesh(new THREE.SphereGeometry(0.21, 7, 6), skin), 0.27 * s, L * 0.58, 0.08));              // green knee
+      g.add(at(smoothMesh(P.profileLimb([[0.21, 0.26], [0.25, 0.46], [0.2, L]], 12), skin), 0.27 * s, 0, 0));    // green thigh
+      var boot = smoothMesh(new THREE.SphereGeometry(0.27, 14, 10), leatherD); boot.scale.set(1.0, 0.94, 1.42); at(boot, 0.27 * s, 0.17, 0.12); g.add(boot);   // rounded chunky boot
+      g.add(at(smoothMesh(new THREE.SphereGeometry(0.21, 12, 9), skin), 0.27 * s, L * 0.56, 0.06));              // green knee
     });
-    // ── hip leather skirt / tassets ──
-    [-1, 0, 1].forEach(function (i) { var t = facetMesh(new THREE.BoxGeometry(0.34, 0.52, 0.24), leatherD); at(t, i * 0.27, hipY - 0.04, 0.28); t.rotation.x = -0.12; g.add(t);
-      g.add(at(facetMesh(new THREE.SphereGeometry(0.035, 5, 4), iron), i * 0.27, hipY - 0.16, 0.42)); });       // skirt stud
+    // ── hip: a short smooth leather skirt flaring over the thighs ──
+    g.add(at(smoothMesh(P.profileLimb([[0.5, 0], [0.44, 0.2], [0.36, 0.38]], 18), leatherD), 0, hipY - 0.28, 0));
 
-    // ── torso: brown leather cuirass + laced central panel + straps + rivets ──
-    g.add(at(facetMesh(new THREE.BoxGeometry(0.82 * bw, TH * 0.98, 0.6), leather), 0, hipY + TH * 0.52, 0));
-    [-1, 1].forEach(function (s) { var cp = facetMesh(new THREE.BoxGeometry(0.4, 0.5, 0.18), leather); at(cp, 0.26 * s, hipY + TH * 0.74, 0.3); cp.rotation.y = s * 0.22; g.add(cp); });   // chest plates
-    g.add(at(facetMesh(new THREE.BoxGeometry(0.36, TH * 0.84, 0.14), leatherD), 0, hipY + TH * 0.54, 0.31));    // central laced panel
-    [0, 1, 2, 3].forEach(function (i) { g.add(at(facetMesh(new THREE.BoxGeometry(0.3, 0.045, 0.1), lace), 0, hipY + TH * 0.82 - i * 0.2, 0.39)); });   // lace rungs
-    [-1, 1].forEach(function (s) { var st = facetMesh(new THREE.BoxGeometry(0.12, 0.74, 0.1), leatherD); at(st, 0.17 * s, hipY + TH * 0.64, 0.32); st.rotation.z = s * 0.26; g.add(st); });   // crossing shoulder straps
-    [[0.32, 0.82], [-0.32, 0.82], [0.32, 0.32], [-0.32, 0.32]].forEach(function (q) { g.add(at(facetMesh(new THREE.SphereGeometry(0.036, 5, 4), iron), q[0], hipY + TH * q[1], 0.37)); });   // rivets
-    g.add(at(facetMesh(new THREE.BoxGeometry(0.86 * bw, 0.2, 0.62), leatherD), 0, hipY + 0.05, 0));            // belt
-    g.add(at(facetMesh(new THREE.BoxGeometry(0.22, 0.24, 0.1), iron), 0, hipY + 0.05, 0.33));                   // buckle
+    // ── torso: a smooth rounded leather barrel + a simple darker central placket ──
+    var torso = smoothMesh(P.profileLimb([[0.42, 0], [0.52, TH * 0.45], [0.48, TH * 0.82], [0.34, TH]], 18), leather);
+    torso.scale.set(1.16, 1.0, 0.82); at(torso, 0, hipY + 0.04, 0); g.add(torso);
+    g.add(at(smoothMesh(P.limbGeo(0.09, TH * 0.66), leatherD), 0, hipY + TH * 0.5, 0.32));                       // central placket (smooth)
+    var belt = smoothMesh(new THREE.CylinderGeometry(0.5, 0.52, 0.2, 18), crown); belt.scale.set(1.16, 1, 0.84); at(belt, 0, hipY + 0.04, 0); g.add(belt);   // smooth rounded belt
 
     var shoulderY = hipY + TH;
-    // ── pauldrons: broad leather caps (axe shoulder a touch bigger = asymmetry) ──
+    // ── pauldrons: smooth rounded leather caps (axe shoulder a touch bigger = asym) ──
     [-1, 1].forEach(function (s) {
-      var sz = s < 0 ? 0.42 : 0.37, x = 0.5 * bw * 0.5 * s + 0.22 * s;
-      var pd = facetMesh(new THREE.SphereGeometry(sz, 7, 6), leather); pd.scale.set(1.16, 0.82, 1.1); at(pd, x, shoulderY + 0.04, 0); g.add(pd);
-      g.add(at(facetMesh(new THREE.BoxGeometry(sz * 1.7, 0.16, sz * 1.6), leatherD), x, shoulderY + 0.2, 0));   // cap plate
-      g.add(at(facetMesh(new THREE.SphereGeometry(0.04, 5, 4), iron), x, shoulderY + 0.12, 0.26));              // stud
+      var sz = s < 0 ? 0.4 : 0.35, x = 0.5 * bw * 0.5 * s + 0.2 * s;
+      var pd = smoothMesh(new THREE.SphereGeometry(sz, 14, 10), leather); pd.scale.set(1.16, 0.92, 1.12); at(pd, x, shoulderY + 0.02, 0); g.add(pd);
     });
-    if (true) { var lsp = facetMesh(new THREE.ConeGeometry(0.1, 0.32, 4), crown); at(lsp, -0.6, shoulderY + 0.26, -0.04); lsp.rotation.z = 0.4; g.add(lsp); }   // one shoulder spike (asym)
+    var lsp = facetMesh(new THREE.ConeGeometry(0.1, 0.34, 5), crown); at(lsp, -0.62, shoulderY + 0.2, -0.04); lsp.rotation.z = 0.42; g.add(lsp);   // one shoulder spike (asym, kept)
 
     // ── arms: BARE GREEN, chunky, big fists. Simple stance (pose left as-is —
     //    look first): right arm hangs, left holds the war-axe low at the side. ──
