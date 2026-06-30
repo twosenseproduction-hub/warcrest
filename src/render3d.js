@@ -1020,7 +1020,7 @@
       //    mounted on a hand bone. All bodies front = +X, so yaw = -PI/2.
       // Bark Archer: rigged idle/walk, elven longbow in the left hand; the
       // projectile system fires the arrow.
-      registerUnitModel('elf:archer', { url: 'assets/models/rim_archer_rigged.glb?v=20260630i', height: 60, yaw: -Math.PI / 2,
+      registerUnitModel('elf:archer', { url: 'assets/models/rim_archer_rigged.glb?v=20260630i', height: 74, yaw: -Math.PI / 2,
         anims: { idle: 'NlaTrack', walk: 'NlaTrack.001' }, stripRootMotion: true,
         weapon: { url: 'assets/models/w_longbow.glb?v=20260630i', bone: 'L_Hand', scale: 0.7 } });
       // Huntress: panther rider (static bob — centaur can't auto-rig) + moon glaive.
@@ -1031,7 +1031,7 @@
         weapon: { url: 'assets/models/w_leafspear.glb?v=20260630i', scale: 0.45, pos: [0.18, 0.05, 0] } });
       // Druid (of the Claw): rigged idle/walk + bear-claw gauntlet on the right
       // hand. Fills the melee/warrior slot, replacing the procedural Thornguard.
-      registerUnitModel('elf:warrior', { url: 'assets/models/rim_druid.glb?v=20260630i', height: 62, yaw: -Math.PI / 2,
+      registerUnitModel('elf:warrior', { url: 'assets/models/rim_druid.glb?v=20260630i', height: 76, yaw: -Math.PI / 2,
         anims: { idle: 'NlaTrack', walk: 'NlaTrack.001' }, stripRootMotion: true,
         weapon: { url: 'assets/models/w_bearclaw.glb?v=20260630i', bone: 'R_Hand', scale: 0.5 } });
       registerUnitModel('elf:siege', { url: 'assets/models/rim_glaive_thrower.glb?v=20260630b', height: 54, yaw: -Math.PI / 2, noBob: true });
