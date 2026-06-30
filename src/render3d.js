@@ -903,6 +903,7 @@
     if (r === 'archer') return 'archer';
     if (r === 'monk' || r === 'priest' || r === 'caster') return 'caster';   // mage/shaman/priestess
     if (r === 'lancer') return 'lancer';
+    if (r === 'siege') return 'siege';
     return 'warrior';
   }
   function unitTemplate(race, role, heroId) {
@@ -1007,6 +1008,7 @@
       // Tripo image-to-model statics (front = +X, so yaw = -PI/2 to face travel dir)
       registerUnitModel('elf:lancer', { url: 'assets/models/rim_huntress.glb?v=20260630b', height: 66, yaw: -Math.PI / 2 });
       registerUnitModel('elf:caster', { url: 'assets/models/rim_dryad.glb?v=20260630b', height: 64, yaw: -Math.PI / 2 });
+      registerUnitModel('elf:siege', { url: 'assets/models/rim_glaive_thrower.glb?v=20260630b', height: 54, yaw: -Math.PI / 2, noBob: true });
       loadUnitModels().then(function (ok) { if (ok && R.enabled) rebuildUnitMeshes(); });
       return;
     }
@@ -1041,7 +1043,7 @@
     var _rb = new THREE.Box3().setFromObject(root), _rc = new THREE.Vector3(); _rb.getCenter(_rc);
     root.position.x -= _rc.x; root.position.z -= _rc.z; root.position.y -= _rb.min.y;
     fitHeight(holder, cfg.height || (role === 'hero' ? 60 : role === 'worker' ? 34 : 48));
-    var ud = { model: true, isArcher: role === 'archer', yaw: cfg.yaw || 0 };
+    var ud = { model: true, isArcher: role === 'archer', yaw: cfg.yaw || 0, noBob: !!cfg.noBob };
     if (proto.clips && proto.clips.length) {
       var mixer = new THREE.AnimationMixer(root); var actions = {};
       var an = cfg.anims || {};
@@ -1809,10 +1811,11 @@
             if (ud.torso) ud.torso.rotation.y *= 0.8;
             o.position.y += Math.sin(performance.now() * 0.0018 + (e._idlePhase || 0)) * bob * 0.006;   // idle breathing
           }
-        } else if (ud) {
+        } else if (ud && !ud.noBob) {
           // no clip rig and no procedural legs (static glTF units + mounted units
           // whose legs are hidden, e.g. the Huntress and Aelindra): a gentle life
           // bob so they aren't frozen — a saddle sway while moving, breathing at rest.
+          // (skipped for machines like the Glaive Thrower — noBob)
           var bobH = slot.topY || 40;
           if (moving) {
             slot._bob = (slot._bob || 0) + spd * R.renderDt * 0.11;
@@ -1981,8 +1984,8 @@
   }
   function projKind(p) {
     if (p.heroId || p.role === 'monk' || p.role === 'caster' || p.role === 'priest') return 'magic';
+    if (p.faction === 'rimwalker' && (p.role === 'lancer' || p.role === 'siege')) return 'glaive';   // Huntress + Glaive Thrower hurl spinning glaives
     if (p.splash > 0) return 'siege';
-    if (p.faction === 'rimwalker' && p.role === 'lancer') return 'glaive';   // Huntress throws a spinning moon-glaive
     if (p.faction === 'cinder' && p.role === 'archer') return 'spear';
     return 'arrow';
   }

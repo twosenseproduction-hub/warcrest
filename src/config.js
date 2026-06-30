@@ -313,6 +313,16 @@
       desc: 'The strongest healer in the Reach. Autocasts Inner Fire (+dmg/+armor). Requires a Keep.',
     },
 
+    // Glaive Thrower — mobile siege engine. Hurls spinning glaives that cleave
+    // clustered foes and rend structures. Tier 2: needs a Keep.
+    siege: {
+      role: 'siege', label: 'Glaive Thrower', glyph: 'tri', faction: 'rimwalker',
+      hp: 130, speed: 72, dmg: 42, range: 165, rof: 1.6, tier: 2,
+      cost: 165, supply: 3, build: 0, ranged: true, splash: 44, buildingDmgBonus: 0.45,
+      traits: ['building_bane'],
+      desc: 'Mobile siege — hurls spinning glaives that cleave clustered foes and shatter buildings. Requires a Keep.',
+    },
+
   };
 
   // ---- Per-faction unit stat overrides -------------------------------------
@@ -547,12 +557,13 @@
       shapeStyle: 'organic',
       passiveTrait: 'wild_grace',
       resource:   'Thornstone',
-      units: ['pawn', 'lancer', 'archer', 'monk', 'warrior'],
+      units: ['pawn', 'lancer', 'archer', 'monk', 'warrior', 'siege'],
       // Per-faction roster: the Warden Lodge (barracks) trains the Bark Archer and
-      // the Huntress; the Dryad caster moves to the Root Forge.
+      // the Huntress; the Root Forge trains the Dryad caster, Thornguard, and the
+      // Glaive Thrower siege engine.
       trains: {
         foundry: ['archer', 'lancer'],
-        forge:   ['monk', 'warrior'],
+        forge:   ['monk', 'warrior', 'siege'],
       },
       names: {
         core:        'Roothold',
@@ -568,6 +579,7 @@
         archer:      'Bark Archer',
         monk:        'Dryad',
         warrior:     'Thornguard',
+        siege:       'Glaive Thrower',
       },
     },
   };
