@@ -215,6 +215,12 @@
 
     RTS.recalcSupply(s, TEAM.PLAYER);
     RTS.recalcSupply(s, TEAM.ENEMY);
+    // Creator mode (sandbox): keep the player's coffers full and lift the supply
+    // cap so nothing gates building. Done AFTER recalcSupply so it isn't undone.
+    if (RTS.Config.creatorMode && s.res && s.res.player) {
+      s.res.player.halcite = Math.max(s.res.player.halcite, 100000);
+      s.res.player.supplyCap = Math.max(s.res.player.supplyCap, s.res.player.supplyUsed + 40);
+    }
     checkEndGame(s);
   };
 
@@ -822,6 +828,8 @@
     }
 
     if (!b.built) {
+      // Creator mode: player structures raise instantly, no worker trek needed.
+      if (RTS.Config.creatorMode && b.team === TEAM.PLAYER) b.progress = 1;
       syncBuilderLink(s, b);
       if (!b.builderId && RTS.assignBuilder) RTS.assignBuilder(s, b);
       b.hp = Math.max(b.hp, b.maxHp * (0.08 + 0.92 * b.progress));
@@ -890,7 +898,8 @@
     if (b.queue.length) {
       var job = b.queue[0];
       b.train = job;
-      job.remaining -= dt;
+      // Creator mode: player units pop out the instant they're queued.
+      job.remaining -= (RTS.Config.creatorMode && b.team === TEAM.PLAYER) ? job.remaining : dt;
       if (job.remaining <= 0) {
         b.queue.shift();
         if (job.role === '_livestock') {

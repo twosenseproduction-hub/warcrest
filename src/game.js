@@ -276,6 +276,12 @@
       r3d.checked = !!(RTS.Config && RTS.Config.render3d);
       r3d.addEventListener('change', function () { if (RTS.setRender3D) RTS.setRender3D(r3d.checked); });
     }
+    // Creator mode (sandbox) toggle — reflects the persisted flag, applies live.
+    var creator = $('set-creator');
+    if (creator) {
+      creator.checked = !!(RTS.Config && RTS.Config.creatorMode);
+      creator.addEventListener('change', function () { if (RTS.setCreatorMode) RTS.setCreatorMode(creator.checked); });
+    }
     // Collapsible macro unit-select (Thronefall look): toggle fans the chips
     // open; picking a type collapses it again.
     var selToggle = $('tf-sel-toggle');

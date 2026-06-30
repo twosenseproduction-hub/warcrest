@@ -212,6 +212,12 @@
         return v === null ? true : v === '1';
       } catch (e) { return true; }
     })(),
+    // Creator mode (sandbox): the PLAYER gets unlimited resources, no supply
+    // cap, and structures + units finish instantly. The enemy is unaffected.
+    // Off by default; persisted in localStorage; toggled in Settings.
+    creatorMode: (function () {
+      try { return localStorage.getItem('wc_creator') === '1'; } catch (e) { return false; }
+    })(),
   };
 
   // Toggle the 3D engine. Flips the flag, persists it, and enables/disables the
@@ -222,6 +228,17 @@
     if (!RTS.Render3D) return;
     var st = RTS.Game && RTS.Game.state;
     if (on) RTS.Render3D.enable(st); else RTS.Render3D.disable();
+  };
+
+  // Toggle Creator mode (sandbox). Flips the flag and persists it; the actual
+  // effects (unlimited resources, no supply cap, instant build/train) are
+  // applied live each frame by RTS.update / updateBuilding while it's on.
+  RTS.setCreatorMode = function (on) {
+    RTS.Config.creatorMode = !!on;
+    try { localStorage.setItem('wc_creator', on ? '1' : '0'); } catch (e) {}
+    var st = RTS.Game && RTS.Game.state;
+    if (st && on && st.res && st.res.player) st.res.player.halcite = Math.max(st.res.player.halcite, 100000);
+    if (st && RTS.HUD && RTS.HUD.sync && st.scene === 'playing') RTS.HUD.sync(st);
   };
 
   // Toggle the Thronefall look: flips the flag, the <body> skin class, persists
