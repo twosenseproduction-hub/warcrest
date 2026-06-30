@@ -707,9 +707,65 @@
     return finish(g);
   };
 
+  /* ===================== MINIMALIST RED-HELM WARRIOR =====================
+   * Matches the clean iso concept: a SMOOTH red dome helm with a pale face slot,
+   * a chunky rounded grey body, small red shoulder/hip accents, a flat sword in
+   * the left hand + a square shield in the right, and blocky grey legs with
+   * L-feet. Soft matte flat colours. Rounded masses, simple blocky limbs/props. */
+  LPF.buildRedWarrior = function (params) {
+    var p = Object.assign({ outline: 0 }, params || {});
+    var pal = Object.assign({ red: 0xb14a3c, redD: 0x8f3a2e, body: 0x9c988c, bodyD: 0x827d70,
+      face: 0xece1cb, steel: 0xa9a399, steelD: 0x8b857a }, (params && params.palette) || {});
+    var Mc = function (c, o) { return LPF.toon(c, Object.assign({ ramp: LPF.RAMP.cloth, rim: false }, o || {})); };
+    var red = Mc(pal.red), redD = Mc(pal.redD), body = Mc(pal.body), bodyD = Mc(pal.bodyD),
+      face = Mc(pal.face), steel = Mc(pal.steel), steelD = Mc(pal.steelD);
+    var g = new THREE.Group();
+    var hipY = 0.72, TH = 1.02, shoulderY = hipY + TH;
+
+    // ── legs: thick grey blocks + forward L-feet ──
+    [-1, 1].forEach(function (s) {
+      g.add(at(facetMesh(new THREE.BoxGeometry(0.32, hipY, 0.34), body), 0.24 * s, hipY * 0.5, 0));
+      g.add(at(facetMesh(new THREE.BoxGeometry(0.34, 0.18, 0.5), body), 0.24 * s, 0.09, 0.12));
+    });
+    // ── body: a smooth rounded grey barrel with a domed shoulder top ──
+    var torso = smoothMesh(P.profileLimb([[0.46, 0], [0.6, TH * 0.46], [0.6, TH * 0.78], [0.46, TH]], 20), body);
+    torso.scale.set(1.0, 1.0, 0.92); at(torso, 0, hipY + 0.02, 0); g.add(torso);
+    var shoulders = smoothMesh(new THREE.SphereGeometry(0.58, 18, 14), body); shoulders.scale.set(1.04, 0.66, 0.96); at(shoulders, 0, shoulderY - 0.06, 0); g.add(shoulders);
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.16, 0.3, 0.3), red), -0.5, hipY + TH * 0.46, 0.0));            // left hip/belt accent
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.16, 0.3, 0.3), red), 0.5, hipY + TH * 0.2, 0.0));              // right hip accent
+
+    // ── shoulder pads: small red blocks ──
+    [-1, 1].forEach(function (s) { g.add(at(facetMesh(new THREE.BoxGeometry(0.18, 0.24, 0.34), red), 0.52 * s, shoulderY - 0.04, 0)); });
+
+    // ── head: pale face block under a smooth red dome helm. The dome caps the
+    //    crown + back + upper sides; the pale face stays exposed below the brow,
+    //    framed by red cheek guards + a left front bar (per the concept). ──
+    var headR = 0.38, headY = shoulderY + headR * 0.62;
+    g.add(at(facetMesh(new THREE.BoxGeometry(headR * 1.4, headR * 1.5, headR * 1.18), face), 0, headY, 0.05));  // pale face
+    var helm = smoothMesh(new THREE.SphereGeometry(headR + 0.06, 20, 15, 0, Math.PI * 2, 0, 1.55), red);
+    at(helm, 0, headY + 0.13, -0.02); helm.scale.set(1.1, 1.2, 1.1); g.add(helm);                               // smooth red crown dome (tight, rounded)
+    [-1, 1].forEach(function (s) { var ch = facetMesh(new THREE.BoxGeometry(0.1, headR * 1.2, headR * 1.1), red); at(ch, headR * 0.66 * s, headY - 0.04, 0.02); g.add(ch); });   // red cheek guards (sides of the face)
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.1, headR * 1.4, 0.12), red), -headR * 0.36, headY - 0.04, headR * 0.74));   // left front bar across the face slot
+
+    // ── left arm + sword (flat blade angled down-out) ──
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.16, 0.5, 0.18), body), -0.56, hipY + TH * 0.42, 0.06));         // forearm
+    var sword = new THREE.Group(); sword.position.set(-0.66, hipY + TH * 0.3, 0.12); sword.rotation.z = 0.62;
+    sword.add(at(facetMesh(new THREE.BoxGeometry(0.12, 1.1, 0.05), steel), 0, -0.6, 0));                        // blade
+    sword.add(at(facetMesh(new THREE.BoxGeometry(0.26, 0.08, 0.1), steelD), 0, -0.04, 0));                      // crossguard
+    g.add(sword);
+    // ── right arm + square shield ──
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.16, 0.5, 0.18), body), 0.56, hipY + TH * 0.34, 0.06));          // forearm
+    var shield = facetMesh(new THREE.BoxGeometry(0.5, 0.62, 0.08), steel); at(shield, 0.74, hipY + TH * 0.18, 0.2); shield.rotation.y = -0.3; g.add(shield);
+
+    g.userData.emissiveMeshes = [];
+    if (p.outline) LPF.outlineGroup(g, p.outline, 0x3a322a);
+    return finish(g);
+  };
+
   LPF.buildCharacter = function (name, params) {
     var role = params && params.role;
     if (name === 'nightelf') return LPF.buildNightElf(params);
+    if (name === 'redwarrior') return LPF.buildRedWarrior(params);
     if (name === 'meta') {   // metaball-skin proof (organic body, no armor)
       var skinM = LPF.toon(0x8f7ad0, { ramp: LPF.RAMP.skin, rimColor: 0xbfa0ff, rimStrength: 0.25 });
       return finish(LPF.metaballSkin(LPF.elfSkeletonBalls(), skinM, { res: 96, isolation: 40, height: 3.4 }));
