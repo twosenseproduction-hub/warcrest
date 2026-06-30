@@ -343,8 +343,10 @@
     var p = Object.assign({ headScale: 1.18, torsoH: 1.0, limbLen: 0.74, outline: 0 }, params || {});
     // Leather-grunt palette: brown laced leather over lots of green skin, a red +
     // near-black angular helm, dark-iron axe. Bases pushed dark for the bright rig.
-    var pal = Object.assign({ skin: 0x5f8f30, skinD: 0x3f6420, leather: 0x5a3c22, leatherD: 0x382410,
-      lace: 0xb0905a, helm: 0x8c2417, crown: 0x171320, iron: 0x2b2f38, ironD: 0x191b22,
+    // Base colours set to the reference's measured per-region targets (with the
+    // forge rig dimmed so previews render near these values). ΔE-calibrated.
+    var pal = Object.assign({ skin: 0x537d22, skinD: 0x3a5a1a, leather: 0x5a3d24, leatherD: 0x38240f,
+      lace: 0xb89a62, helm: 0x762012, crown: 0x1a1620, iron: 0x3a3f47, ironD: 0x23262c,
       wood: 0x6e4a2a, bone: 0xe6dcc0, eye: 0x9be03a }, (params && params.palette) || {});
     var Mc = function (c, o) { return LPF.toon(c, Object.assign({ ramp: LPF.RAMP.cloth }, o || {})); };
     var Mm = function (c, o) { return LPF.toon(c, Object.assign({ ramp: LPF.RAMP.metal }, o || {})); };
