@@ -655,8 +655,61 @@
     return b;
   };
 
+  /* ===================== BLOCKY NIGHT ELF (archer concept) =====================
+   * Matches the moody low-poly concept: a faceted CUBE head with pointed ears, a
+   * jagged pale crown and a top spike, a slim robed body with a belt and a raised
+   * back collar, thin straight legs, and a stepped C-curve bow held to the side.
+   * Deliberately ANGULAR / flat-shaded (not the smooth heroic elf). */
+  LPF.buildNightElf = function (params) {
+    var p = Object.assign({ outline: 0 }, params || {});
+    var pal = Object.assign({ skin: 0x8d88c6, skinD: 0x6f6aa6, robe: 0x2c2c4e, robeD: 0x1c1c34,
+      boot: 0x121023, crown: 0xd9d4ea, bow: 0x9a93c6, eye: 0xbfeaff }, (params && params.palette) || {});
+    var Mc = function (c, o) { return LPF.toon(c, Object.assign({ ramp: LPF.RAMP.cloth }, o || {})); };
+    var Mm = function (c, o) { return LPF.toon(c, Object.assign({ ramp: LPF.RAMP.metal }, o || {})); };
+    var skin = LPF.toon(pal.skin, { ramp: LPF.RAMP.skin, rimColor: 0xb6a6ff, rimStrength: 0.2 });
+    var skinD = Mc(pal.skinD), robe = Mc(pal.robe), robeD = Mc(pal.robeD), boot = Mc(pal.boot),
+      crown = Mm(pal.crown, { rimColor: 0xffffff, rimStrength: 0.2 }), bowM = Mm(pal.bow),
+      eye = LPF.toon(pal.eye, { ramp: LPF.RAMP.metal, emissive: pal.eye, emissiveIntensity: 0.6, rim: false });
+    var g = new THREE.Group(); var glow = [];
+    var hipY = 0.92, TH = 1.02, shoulderY = hipY + TH;
+
+    // ── legs: thin straight, simple forward feet ──
+    [-1, 1].forEach(function (s) {
+      g.add(at(facetMesh(new THREE.BoxGeometry(0.2, hipY, 0.22), boot), 0.17 * s, hipY * 0.5, 0));
+      g.add(at(facetMesh(new THREE.BoxGeometry(0.24, 0.16, 0.36), boot), 0.17 * s, 0.07, 0.09));
+    });
+    // ── torso: slim tapered robe + belt + raised back collar ──
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.6, TH, 0.42), robe), 0, hipY + TH * 0.5, 0));
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.64, 0.14, 0.46), robeD), 0, hipY + 0.05, 0));            // belt
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.5, 0.52, 0.16), robeD), 0, shoulderY - 0.08, -0.22));    // back collar/cloak
+    [-1, 1].forEach(function (s) { g.add(at(facetMesh(new THREE.BoxGeometry(0.24, 0.24, 0.36), robe), 0.34 * s, shoulderY - 0.05, 0)); });   // shoulders
+    // ── arms: thin (left hangs; right will hold the bow) ──
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.15, TH * 0.74, 0.17), skin), -0.42, hipY + TH * 0.46, 0.04));
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.15, TH * 0.66, 0.17), skin), 0.42, hipY + TH * 0.5, 0.12));
+
+    // ── head: a faceted CUBE with pointed ears, a top spike, a jagged pale crown ──
+    var headR = 0.5, headY = shoulderY + 0.14 + headR;
+    g.add(at(facetMesh(new THREE.BoxGeometry(headR * 2, headR * 2, headR * 1.92), skin), 0, headY, 0.02));
+    [-1, 1].forEach(function (s) { var ear = facetMesh(new THREE.ConeGeometry(0.12, 0.46, 4), skin); at(ear, headR * 1.02 * s, headY + 0.06, -0.06); ear.rotation.z = s * 1.15; ear.rotation.y = s * 0.4; g.add(ear); });   // pointed ears
+    var spk = facetMesh(new THREE.ConeGeometry(0.09, 0.34, 4), skinD); at(spk, 0.22, headY + headR + 0.12, -0.08); spk.rotation.z = -0.32; g.add(spk);   // top spike
+    [-0.34, -0.12, 0.12, 0.34].forEach(function (x, i) { var c = facetMesh(new THREE.ConeGeometry(0.08, i % 2 ? 0.3 : 0.2, 4), crown); at(c, x, headY + headR * 0.62 + (i % 2 ? 0.05 : 0), headR * 0.78); g.add(c); });   // jagged pale crown
+    [-1, 1].forEach(function (s) { var e = at(facetMesh(new THREE.BoxGeometry(0.14, 0.06, 0.04), eye), 0.18 * s, headY + 0.02, headR * 0.97); g.add(e); glow.push(e); });   // glowing eyes
+
+    // ── bow: a stepped C-curve (low-seg faceted arc) + string, held to the right ──
+    var bowGrp = new THREE.Group();
+    var arc = new THREE.Mesh(LPF.facet(new THREE.TorusGeometry(0.52, 0.05, 4, 7, Math.PI * 1.15)), bowM); arc.rotation.z = -Math.PI / 2; bowGrp.add(arc);
+    bowGrp.add(at(facetMesh(new THREE.BoxGeometry(0.025, 0.98, 0.025), crown), 0.0, 0, 0));   // string
+    at(bowGrp, 0.56, hipY + TH * 0.5, 0.16);
+    g.add(bowGrp);
+
+    g.userData.emissiveMeshes = glow;
+    if (p.outline) LPF.outlineGroup(g, p.outline, 0x0c0a18);
+    return finish(g);
+  };
+
   LPF.buildCharacter = function (name, params) {
     var role = params && params.role;
+    if (name === 'nightelf') return LPF.buildNightElf(params);
     if (name === 'meta') {   // metaball-skin proof (organic body, no armor)
       var skinM = LPF.toon(0x8f7ad0, { ramp: LPF.RAMP.skin, rimColor: 0xbfa0ff, rimStrength: 0.25 });
       return finish(LPF.metaballSkin(LPF.elfSkeletonBalls(), skinM, { res: 96, isolation: 40, height: 3.4 }));
