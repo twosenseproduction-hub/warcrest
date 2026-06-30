@@ -65,8 +65,8 @@ body.tf-look #tf-vignette { opacity: 0.5 !important; }   /* lighter corner darke
   flex-direction: column;
   align-items: flex-end;
   gap: 10px;
-  --cmd-slot: 52px;
-  --act-slot: 46px;
+  --cmd-slot: 54px;
+  --act-slot: 50px;
 }
 .deck-center { display: none !important; }   /* drop the big selection parchment — minimal */
 .deck-left {
@@ -99,7 +99,8 @@ body.tf-look #tf-vignette { opacity: 0.5 !important; }   /* lighter corner darke
   box-shadow: inset 0 0 0 2px var(--tf-ring-hot), 0 0 10px rgba(245,205,90,.5) !important;
 }
 .deck-left .cmd-slot.slot-hidden,
-.deck-left .cmd-slot.act-slot-empty { display: none !important; }
+.deck-left .cmd-slot.act-slot-empty,
+.deck-left .act-slot.act-slot-empty { display: none !important; }   /* drop empty discs entirely — clean field */
 .deck-left .ts-chip:active,
 .deck-left .cmd-slot:active,
 .deck-left .act-slot:active { transform: scale(0.92); }
@@ -131,6 +132,10 @@ body.tf-look #tf-vignette { opacity: 0.5 !important; }   /* lighter corner darke
   gap: 8px;
   order: 2;
 }
+/* …but with nothing selected there is nothing to command — hide the whole row
+ * rather than float a strip of dead, dimmed discs (Thronefall keeps the field
+ * clean and only surfaces controls that actually do something). */
+.deck-left .hub-action-grid.no-selection { display: none !important; }
 
 /* A thin separating breath between macro, commands and combat controls */
 #command-card:not(:empty) { margin-top: 2px; }
