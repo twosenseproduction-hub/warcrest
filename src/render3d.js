@@ -998,8 +998,12 @@
       // image-to-model from the Rimwalker concept art (model front = +X, so
       // yaw = +PI/2 to match the +Z-front convention used by registerUnitModel).
       registerUnitModel('horde:warrior', { url: 'assets/models/cinder_warrior.glb?v=20260630d', height: 58, yaw: Math.PI });
+      // idle-only body (the retargeted walk/shoot clips drift the root + look bad);
+      // on attack we raise the arms into an aim pose sampled from the shoot clip and
+      // let the projectile system fire the arrow.
       registerUnitModel('elf:archer', { url: 'assets/models/rim_archer_rigged.glb?v=20260630a', height: 60, yaw: Math.PI / 2,
-        anims: { idle: 'NlaTrack', walk: 'NlaTrack.001', attack: 'NlaTrack.002' }, attackTrim: [0, 1.5], attackRate: 1.1 });
+        anims: { idle: 'NlaTrack' },
+        aim: { clip: 'NlaTrack.002', time: 0.9, hold: 0.55, bones: ['L_Clavicle', 'R_Clavicle', 'L_Upperarm', 'R_Upperarm', 'L_Forearm', 'R_Forearm', 'L_Hand', 'R_Hand'] } });
       loadUnitModels().then(function (ok) { if (ok && R.enabled) rebuildUnitMeshes(); });
       return;
     }
@@ -1028,6 +1032,11 @@
           : tintedMaterial(o.material, cfg.tint);
       }
     });
+    // recenter so the unit pivot sits at ground-center: X/Z centered, feet at y=0.
+    // Generated (Tripo) meshes aren't authored centered, so without this they render
+    // offset from the unit's logical position and swing around when the unit turns.
+    var _rb = new THREE.Box3().setFromObject(root), _rc = new THREE.Vector3(); _rb.getCenter(_rc);
+    root.position.x -= _rc.x; root.position.z -= _rc.z; root.position.y -= _rb.min.y;
     fitHeight(holder, cfg.height || (role === 'hero' ? 60 : role === 'worker' ? 34 : 48));
     var ud = { model: true, isArcher: role === 'archer', yaw: cfg.yaw || 0 };
     if (proto.clips && proto.clips.length) {
@@ -1047,6 +1056,20 @@
       if (actions.idle) actions.idle.play();
       if (actions.attack) mixer.addEventListener('finished', function (ev) { if (ev.action === actions.attack) ud._atkPlaying = false; });
       ud.mixer = mixer; ud.actions = actions; ud.cur = 'idle'; ud._atkRate = cfg.attackRate || 1.2;
+      // aim overlay: sample arm-bone rotations from a named clip at one instant
+      // (without playing it), so on attack we raise the arms into an aim pose
+      // rather than running the long preset clip (which spazzes + drifts the root).
+      if (cfg.aim) {
+        var aclip = THREE.AnimationClip.findByName(proto.clips, cfg.aim.clip);
+        if (aclip) {
+          ud.aimBones = []; ud._aim = 0; ud._aimHold = cfg.aim.hold || 0.5;
+          (cfg.aim.bones || []).forEach(function (bn) {
+            var bone = root.getObjectByName(bn), trk = null;
+            for (var ti = 0; ti < aclip.tracks.length; ti++) if (aclip.tracks[ti].name === bn + '.quaternion') trk = aclip.tracks[ti];
+            if (bone && trk) { var v = trk.createInterpolant().evaluate(cfg.aim.time || 0); ud.aimBones.push({ b: bone, q: new THREE.Quaternion(v[0], v[1], v[2], v[3]) }); }
+          });
+        }
+      }
     }
     holder.userData = ud;
     return holder;
@@ -1738,12 +1761,14 @@
         var moving = e.moveTo || spd > 4;
         if (ud && ud.model && ud.actions) {           // glTF model: idle<->walk + one-shot attack clip
           var atkA = ud.actions.attack;
-          if (atkA && (e.muzzleFlash || 0) > (ud._mfA || 0) + 1e-4) {   // fresh attack → play the shoot clip once
+          var freshAtk = (e.muzzleFlash || 0) > (ud._mfA || 0) + 1e-4;
+          if (freshAtk && atkA) {                      // fresh attack → play the shoot clip once
             var fromA = ud.actions[ud.cur];
             atkA.reset(); atkA.timeScale = ud._atkRate || 1.2; atkA.play();
             if (fromA && fromA !== atkA) atkA.crossFadeFrom(fromA, 0.1, false);
             ud.cur = 'attack'; ud._atkPlaying = true;
           }
+          if (freshAtk && ud.aimBones) ud._aim = 1;    // fresh attack → raise arms into the aim pose
           ud._mfA = e.muzzleFlash || 0;
           if (!ud._atkPlaying) {                       // not mid-shot: crossfade idle<->walk
             var want = moving && ud.actions.walk ? 'walk' : 'idle';
@@ -2209,7 +2234,16 @@
     // advance any glTF skeletal animations
     if (!_clock) _clock = new THREE.Clock();
     var dt = _clock.getDelta();
-    for (var pid in R.pool) { var psl = R.pool[pid]; if (psl && psl.obj && psl.obj.userData && psl.obj.userData.mixer) psl.obj.userData.mixer.update(dt); }
+    for (var pid in R.pool) {
+      var psl = R.pool[pid]; if (!(psl && psl.obj && psl.obj.userData && psl.obj.userData.mixer)) continue;
+      var pud = psl.obj.userData; pud.mixer.update(dt);
+      // aim overlay: after the mixer poses the body (idle), bend the arm bones toward
+      // the cached aim pose by a weight that snaps up on attack and eases back down.
+      if (pud.aimBones && pud._aim > 0) {
+        for (var ai = 0; ai < pud.aimBones.length; ai++) pud.aimBones[ai].b.quaternion.slerp(pud.aimBones[ai].q, pud._aim);
+        pud._aim = Math.max(0, pud._aim - dt / (pud._aimHold || 0.5));
+      }
+    }
     // screen shake: jolt the camera (render-only; placeCamera resets next frame,
     // so picking via screenToWorld is unaffected). Driven by s.screenShake.
     if (s.screenShake > 0 && !(RTS.Config && RTS.Config.reducedMotion)) {
