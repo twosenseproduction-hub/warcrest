@@ -1040,7 +1040,7 @@
       // hand. Fills the melee/warrior slot, replacing the procedural Thornguard.
       registerUnitModel('elf:warrior', { url: 'assets/models/rim_druid.glb?v=20260630i', height: 76, yaw: -Math.PI / 2,
         anims: { idle: 'NlaTrack', walk: 'NlaTrack.001' }, stripRootMotion: true,
-        weapon: { url: 'assets/models/w_bearclaw.glb?v=20260630k', bone: 'R_Hand', scale: 0.5 } });
+        weapon: { url: 'assets/models/w_bearclaw.glb?v=20260630k', bone: 'R_Hand', scale: 0.34, rot: [0, Math.PI, 0] } });
       registerUnitModel('elf:siege', { url: 'assets/models/rim_glaive_thrower.glb?v=20260630b', height: 54, yaw: -Math.PI / 2, noBob: true });
       registerUnitModel('elf:worker', { url: 'assets/models/rim_wisp.glb?v=20260630b', height: 30, yaw: -Math.PI / 2, glow: 0x9fe6ff, glowI: 0.45, glowSize: 1.1, hover: 16 });
       // Thoryn the Bladedrifter — bespoke Demon Hunter model (front = +X).
