@@ -595,7 +595,7 @@
         lancer:      'Huntress',
         archer:      'Bark Archer',
         monk:        'Dryad',
-        warrior:     'Thornguard',
+        warrior:     'Druid',
         siege:       'Glaive Thrower',
       },
     },

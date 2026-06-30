@@ -1016,16 +1016,24 @@
       // image-to-model from the Rimwalker concept art (model front = +X, so
       // yaw = +PI/2 to match the +Z-front convention used by registerUnitModel).
       registerUnitModel('horde:warrior', { url: 'assets/models/cinder_warrior.glb?v=20260630d', height: 58, yaw: Math.PI });
-      // idle-only body (the retargeted walk/shoot clips drift the root + look bad);
-      // on attack we raise the arms into an aim pose sampled from the shoot clip and
-      // let the projectile system fire the arrow.
-      registerUnitModel('elf:archer', { url: 'assets/models/rim_archer_rigged.glb?v=20260630b', height: 60, yaw: -Math.PI / 2,
+      // ── New T-pose-authored Night Elf roster (clean rigs) + separate weapons
+      //    mounted on a hand bone. All bodies front = +X, so yaw = -PI/2.
+      // Bark Archer: rigged idle/walk, elven longbow in the left hand; the
+      // projectile system fires the arrow.
+      registerUnitModel('elf:archer', { url: 'assets/models/rim_archer_rigged.glb?v=20260630i', height: 60, yaw: -Math.PI / 2,
         anims: { idle: 'NlaTrack', walk: 'NlaTrack.001' }, stripRootMotion: true,
-        aim: { clip: 'NlaTrack.002', time: 0.9, hold: 0.55, bones: ['L_Clavicle', 'R_Clavicle', 'L_Upperarm', 'R_Upperarm', 'L_Forearm', 'R_Forearm', 'L_Hand', 'R_Hand'] } });
-      // Tripo image-to-model statics (front = +X, so yaw = -PI/2 to face travel dir)
-      registerUnitModel('elf:lancer', { url: 'assets/models/rim_huntress.glb?v=20260630b', height: 66, yaw: -Math.PI / 2 });
-      // Dryad/centaur was modeled facing +Z (not +X like the others), so yaw = 0 to face travel dir.
-      registerUnitModel('elf:caster', { url: 'assets/models/rim_dryad.glb?v=20260630b', height: 64, yaw: 0 });
+        weapon: { url: 'assets/models/w_longbow.glb?v=20260630i', bone: 'L_Hand', scale: 0.7 } });
+      // Huntress: panther rider (static bob — centaur can't auto-rig) + glaive.
+      registerUnitModel('elf:lancer', { url: 'assets/models/rim_huntress.glb?v=20260630i', height: 66, yaw: -Math.PI / 2,
+        weapon: { url: 'assets/models/w_glaive.glb?v=20260630i', scale: 0.5 } });
+      // Dryad: centaur (static bob) + leaf spear.
+      registerUnitModel('elf:caster', { url: 'assets/models/rim_dryad.glb?v=20260630i', height: 64, yaw: -Math.PI / 2,
+        weapon: { url: 'assets/models/w_leafspear.glb?v=20260630i', scale: 0.45, pos: [0.18, 0.05, 0] } });
+      // Druid: rigged idle/walk + moon-crystal staff in the right hand. Fills the
+      // melee/warrior slot, replacing the procedural Thornguard.
+      registerUnitModel('elf:warrior', { url: 'assets/models/rim_druid.glb?v=20260630i', height: 62, yaw: -Math.PI / 2,
+        anims: { idle: 'NlaTrack', walk: 'NlaTrack.001' }, stripRootMotion: true,
+        weapon: { url: 'assets/models/w_moonstaff.glb?v=20260630i', bone: 'R_Hand', scale: 0.7 } });
       registerUnitModel('elf:siege', { url: 'assets/models/rim_glaive_thrower.glb?v=20260630b', height: 54, yaw: -Math.PI / 2, noBob: true });
       registerUnitModel('elf:worker', { url: 'assets/models/rim_wisp.glb?v=20260630b', height: 30, yaw: -Math.PI / 2, glow: 0x9fe6ff, glowI: 0.45, glowSize: 1.1, hover: 16 });
       // Thoryn the Bladedrifter — bespoke Demon Hunter model (front = +X).
@@ -1069,6 +1077,15 @@
           ? o.material.map(function (mm) { return tintedMaterial(mm, cfg.tint); })
           : tintedMaterial(o.material, cfg.tint);
       }
+      // Tripo-generated meshes ship glossy PBR (low roughness / specular skin)
+      // that clashes with the game's flat-shaded look. Knock them matte: no
+      // metalness, high roughness. (Emissive glow is applied later, untouched.)
+      (Array.isArray(o.material) ? o.material : [o.material]).forEach(function (mm) {
+        if (!mm) return;
+        if ('metalness' in mm) mm.metalness = 0;
+        if ('roughness' in mm) mm.roughness = 1;
+        mm.needsUpdate = true;
+      });
     });
     // recenter so the unit pivot sits at ground-center: X/Z centered, feet at y=0.
     // Generated (Tripo) meshes aren't authored centered, so without this they render
