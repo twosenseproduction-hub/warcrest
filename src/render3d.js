@@ -1971,8 +1971,20 @@
   function projKind(p) {
     if (p.heroId || p.role === 'monk' || p.role === 'caster' || p.role === 'priest') return 'magic';
     if (p.splash > 0) return 'siege';
+    if (p.faction === 'rimwalker' && p.role === 'lancer') return 'glaive';   // Huntress throws a spinning moon-glaive
     if (p.faction === 'cinder' && p.role === 'archer') return 'spear';
     return 'arrow';
+  }
+  // Huntress moon-glaive: a camera-facing sprite that spins as it flies.
+  var _glaiveMat = null;
+  function glaiveMat() {
+    if (_glaiveMat) return _glaiveMat;
+    _glaiveMat = new THREE.SpriteMaterial({ color: 0xffffff, transparent: true, depthWrite: false, alphaTest: 0.12 });
+    new THREE.TextureLoader().load('assets/fx/glaive.png?v=20260630a', function (tex) {
+      if (THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
+      _glaiveMat.map = tex; _glaiveMat.needsUpdate = true;
+    });
+    return _glaiveMat;
   }
   // shared, cached materials so projectile cleanup is a plain scene-remove
   // (NEVER dispose — geometry + materials here are reused across all shots)
@@ -1985,7 +1997,9 @@
   }
   function makeProjMesh(kind, colHex) {
     var K = projGeoKit(), g = new THREE.Group();
-    if (kind === 'magic') {
+    if (kind === 'glaive') {
+      var spr = new THREE.Sprite(glaiveMat()); spr.scale.set(30, 30, 1); g.add(spr);
+    } else if (kind === 'magic') {
       g.add(new THREE.Mesh(K.orb, pBasic(colHex, 1)));
       g.add(new THREE.Mesh(K.tail, pBasic(colHex, 0.5)));
     } else if (kind === 'siege') {
@@ -2017,7 +2031,7 @@
         R.scene.add(m);
         // remember launch geometry so a parabolic ARC can be derived from progress
         var d0 = Math.max(1, Math.hypot((p.lastX || p.x) - p.x, (p.lastY || p.y) - p.y));
-        var H = kind === 'siege' ? Math.min(260, d0 * 0.34) : kind === 'magic' ? 0 : Math.min(70, d0 * 0.11);
+        var H = kind === 'siege' ? Math.min(260, d0 * 0.34) : kind === 'magic' ? 0 : kind === 'glaive' ? Math.min(48, d0 * 0.09) : Math.min(70, d0 * 0.11);
         sl = R.ppool[p.id] = { m: m, kind: kind, d0: d0, H: H };
       }
       var gy = groundYAt(s, p.x, p.y) + 22;
@@ -2028,6 +2042,7 @@
       sl.m.position.set(p.x, gy + h, p.y);
       sl.lx = p.x; sl.lz = p.y; sl.lgy = gy;   // remember for the impact burst on removal
       if (sl.kind === 'magic') { sl.m.rotation.y = -Math.atan2(dz, dx); }   // tail trails behind
+      else if (sl.kind === 'glaive') { glaiveMat().rotation = (performance.now() * 0.02) % (Math.PI * 2); }   // sprite billboards; spin it in-plane
       else {
         // aim along the 3D velocity (horizontal dir + arc slope) for yaw + pitch
         var slope = sl.H ? (4 * sl.H * (1 - 2 * prog)) / sl.d0 : 0;
