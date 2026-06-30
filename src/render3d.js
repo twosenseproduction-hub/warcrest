@@ -1065,6 +1065,35 @@
     var m = new THREE.SpriteMaterial({ map: _glowTex, color: colHex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
     var s = new THREE.Sprite(m); s.scale.set(size, size, 1); return s;
   }
+  // Bright toon/cel ramp (Thronefall look): a 3-step gradient kept high so the
+  // shadow bands stay light rather than muddy. Built once, shared.
+  var _toonGrad = null;
+  function toonGrad() {
+    if (_toonGrad) return _toonGrad;
+    var fmt = THREE.RedFormat || THREE.LuminanceFormat;
+    var t = new THREE.DataTexture(new Uint8Array([190, 225, 255]), 3, 1, fmt);
+    t.minFilter = t.magFilter = THREE.NearestFilter; t.needsUpdate = true;
+    return _toonGrad = t;
+  }
+  // Convert a Tripo PBR material to flat, bright cel shading that keeps the
+  // baked texture colour. A small emissive = albedo*0.12 lifts the dark side so
+  // colours read true to the concept art under the game's warm, low-ambient sun.
+  function toonify(mm) {
+    if (!mm || mm.isMeshToonMaterial) return mm;
+    var t = new THREE.MeshToonMaterial({
+      color: mm.color ? mm.color.clone() : new THREE.Color(0xffffff),
+      map: mm.map || null, gradientMap: toonGrad(),
+      transparent: !!mm.transparent, opacity: mm.opacity != null ? mm.opacity : 1,
+      alphaTest: mm.alphaTest || 0, side: mm.side,
+    });
+    if (mm.color) { t.emissive = mm.color.clone().multiplyScalar(0.12); if (mm.map) t.emissiveMap = mm.map; t.emissiveIntensity = 1; }
+    t.name = mm.name;
+    return t;
+  }
+  function toonifyMesh(o) {
+    if (!o.isMesh || !o.material) return;
+    o.material = Array.isArray(o.material) ? o.material.map(toonify) : toonify(o.material);
+  }
   function makeModelMesh(entry, race, role, u) {
     var cfg = entry.cfg, proto = entry.proto;
     var root = (THREE.SkeletonUtils ? THREE.SkeletonUtils.clone(proto.scene) : proto.scene.clone());
@@ -1077,15 +1106,10 @@
           ? o.material.map(function (mm) { return tintedMaterial(mm, cfg.tint); })
           : tintedMaterial(o.material, cfg.tint);
       }
-      // Tripo-generated meshes ship glossy PBR (low roughness / specular skin)
-      // that clashes with the game's flat-shaded look. Knock them matte: no
-      // metalness, high roughness. (Emissive glow is applied later, untouched.)
-      (Array.isArray(o.material) ? o.material : [o.material]).forEach(function (mm) {
-        if (!mm) return;
-        if ('metalness' in mm) mm.metalness = 0;
-        if ('roughness' in mm) mm.roughness = 1;
-        mm.needsUpdate = true;
-      });
+      // Tripo-generated meshes ship glossy, smooth PBR that clashes with the
+      // game's flat-shaded look. Convert to bright toon/cel shading (keeps the
+      // baked colours; matches the concept + Thronefall style).
+      toonifyMesh(o);
     });
     // recenter so the unit pivot sits at ground-center: X/Z centered, feet at y=0.
     // Generated (Tripo) meshes aren't authored centered, so without this they render
@@ -1169,7 +1193,7 @@
     if (w.scale) node.scale.setScalar(w.scale);
     if (w.pos) node.position.set(w.pos[0] || 0, w.pos[1] || 0, w.pos[2] || 0);
     if (w.rot) node.rotation.set(w.rot[0] || 0, w.rot[1] || 0, w.rot[2] || 0);
-    node.traverse(function (o) { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    node.traverse(function (o) { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; toonifyMesh(o); } });
     parent.add(node);
     if (w.detachOnFire) { ud.weapon = node; ud.weaponHome = parent; }
   }
