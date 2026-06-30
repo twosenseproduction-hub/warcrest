@@ -326,8 +326,8 @@
   // forward cutting blade, a back pick, and a top spike. Built head-up (+Y).
   function warAxe(wood, iron, ironD) {
     var g = new THREE.Group();
-    g.add(smoothMesh(P.limbGeo(0.08, 2.0), wood));                                     // haft
-    var hy = 0.92;
+    g.add(smoothMesh(P.limbGeo(0.08, 2.2), wood));                                     // haft (v3: longer for two-handed grip)
+    var hy = 1.0;
     g.add(at(facetMesh(new THREE.BoxGeometry(0.2, 0.34, 0.26), ironD), 0, hy, 0));      // iron collar/socket
     g.add(at(facetMesh(new THREE.BoxGeometry(0.16, 0.78, 0.46), iron), 0, hy, 0.36));   // blade body (forward)
     var edge = facetMesh(new THREE.ConeGeometry(0.46, 0.7, 3), iron); edge.rotation.z = Math.PI / 2; edge.rotation.y = Math.PI / 2; at(edge, 0, hy, 0.7); g.add(edge);   // tapered cutting edge
@@ -340,19 +340,21 @@
     // outline 0 by default: the inverted-hull shell bakes into the .glb as solid
     // black backfaces that read as a blob in the game renderer. Pass outline>0
     // only for standalone turntable critique.
-    var p = Object.assign({ headScale: 1.18, torsoH: 1.0, limbLen: 0.74, outline: 0 }, params || {});
+    // v3: head-to-body ratio bumped a touch (1.18→1.24) for the reference's
+    // big-headed read under the hood, without ballooning the silhouette.
+    var p = Object.assign({ headScale: 1.24, torsoH: 1.0, limbLen: 0.74, outline: 0 }, params || {});
     // Leather-grunt palette: brown laced leather over lots of green skin, a red +
     // near-black angular helm, dark-iron axe. Bases pushed dark for the bright rig.
     // Base colours set to the reference's measured per-region targets (with the
     // forge rig dimmed so previews render near these values). ΔE-calibrated.
     var pal = Object.assign({ skin: 0x537d22, skinD: 0x3a5a1a, leather: 0x5a3d24, leatherD: 0x38240f,
-      lace: 0xb89a62, helm: 0x762012, crown: 0x1a1620, iron: 0x3a3f47, ironD: 0x23262c,
+      lace: 0xb89a62, helm: 0x762012, hoodD: 0x591810, crown: 0x1a1620, iron: 0x3a3f47, ironD: 0x23262c,
       wood: 0x6e4a2a, bone: 0xe6dcc0, eye: 0x9be03a }, (params && params.palette) || {});
     var Mc = function (c, o) { return LPF.toon(c, Object.assign({ ramp: LPF.RAMP.cloth }, o || {})); };
     var Mm = function (c, o) { return LPF.toon(c, Object.assign({ ramp: LPF.RAMP.metal }, o || {})); };
     var skin = LPF.toon(pal.skin, { ramp: LPF.RAMP.skin, rimColor: 0xc9e08a, rimStrength: 0.22 });
     var leather = Mc(pal.leather), leatherD = Mc(pal.leatherD), lace = Mc(pal.lace),
-      helm = Mc(pal.helm, { rimColor: 0xd24a2a, rimStrength: 0.12 }), crown = Mm(pal.crown, { rimColor: 0x4a4652, rimStrength: 0.14 }),
+      helm = Mc(pal.helm, { rimColor: 0xd24a2a, rimStrength: 0.12 }), hoodD = Mc(pal.hoodD), crown = Mm(pal.crown, { rimColor: 0x4a4652, rimStrength: 0.14 }),
       iron = Mm(pal.iron), ironD = Mm(pal.ironD), wood = Mc(pal.wood), bone = Mc(pal.bone),
       mouth = LPF.toon(0x24120c, { ramp: LPF.RAMP.cloth, rim: false }),
       eye = LPF.toon(pal.eye, { ramp: LPF.RAMP.metal, emissive: pal.eye, emissiveIntensity: 0.5, rim: false });
@@ -362,9 +364,11 @@
     // ── legs: bare green thighs + chunky dark boots, short + sturdy, set apart ──
     [-1, 1].forEach(function (s) {
       g.add(at(smoothMesh(P.profileLimb([[0.2, 0.3], [0.24, 0.46], [0.19, L]], 10), skin), 0.27 * s, 0, 0));   // green thigh
-      g.add(at(facetMesh(new THREE.BoxGeometry(0.38, 0.42, 0.42), leatherD), 0.27 * s, 0.2, 0.0));             // boot shaft
-      g.add(at(facetMesh(new THREE.BoxGeometry(0.36, 0.2, 0.32), leatherD), 0.27 * s, 0.1, 0.32));             // boot toe (forward step)
-      g.add(at(facetMesh(new THREE.SphereGeometry(0.21, 7, 6), skin), 0.27 * s, L * 0.55, 0.08));              // green knee
+      g.add(at(facetMesh(new THREE.BoxGeometry(0.42, 0.46, 0.46), leatherD), 0.27 * s, 0.22, 0.0));            // v3: chunkier boot shaft
+      g.add(at(facetMesh(new THREE.BoxGeometry(0.4, 0.22, 0.36), leatherD), 0.27 * s, 0.11, 0.34));            // boot toe (forward step)
+      g.add(at(facetMesh(new THREE.BoxGeometry(0.48, 0.12, 0.62), crown), 0.27 * s, 0.0, 0.14));               // v3: protruding black sole
+      g.add(at(facetMesh(new THREE.BoxGeometry(0.46, 0.16, 0.5), leather), 0.27 * s, L * 0.42, 0.02));         // v3: leather shin cuff band
+      g.add(at(facetMesh(new THREE.SphereGeometry(0.21, 7, 6), skin), 0.27 * s, L * 0.58, 0.08));              // green knee
     });
     // ── hip leather skirt / tassets ──
     [-1, 0, 1].forEach(function (i) { var t = facetMesh(new THREE.BoxGeometry(0.34, 0.52, 0.24), leatherD); at(t, i * 0.27, hipY - 0.04, 0.28); t.rotation.x = -0.12; g.add(t);
@@ -390,12 +394,11 @@
     });
     if (true) { var lsp = facetMesh(new THREE.ConeGeometry(0.1, 0.32, 4), crown); at(lsp, -0.6, shoulderY + 0.26, -0.04); lsp.rotation.z = 0.4; g.add(lsp); }   // one shoulder spike (asym)
 
-    // ── arms: BARE GREEN, chunky, big fists ──
+    // ── arms: BARE GREEN, chunky, big fists. Simple stance (pose left as-is —
+    //    look first): right arm hangs, left holds the war-axe low at the side. ──
     var armHandY = hipY + TH * 0.16, alen = (shoulderY - 0.08) - armHandY;
-    // screen-right arm: hangs at the side
     g.add(at(smoothMesh(P.profileLimb([[0.17, 0], [0.21, alen * 0.42], [0.16, alen * 0.74], [0.2, alen]], 10), skin), 0.6, armHandY, 0.02));
     g.add(at(smoothMesh(new THREE.SphereGeometry(0.22, 9, 7), skin), 0.6, armHandY - 0.09, 0.12));             // big fist
-    // screen-left arm: extended OUT holding the war-axe low (reference stance)
     var axArm = new THREE.Group(); axArm.position.set(-0.56, shoulderY - 0.08, 0.05); axArm.rotation.z = -0.6;
     var aL = (shoulderY - armHandY) + 0.16;
     axArm.add(smoothMesh(P.profileLimb([[0.2, -aL], [0.16, -aL * 0.7], [0.21, -aL * 0.34], [0.16, 0]], 10), skin));
@@ -415,14 +418,18 @@
     [-0.12, 0, 0.12].forEach(function (x) { g.add(at(facetMesh(new THREE.BoxGeometry(0.06, 0.09, 0.06), bone), x, headY - 0.17, headR * 0.86)); });   // upper teeth
     [-1, 1].forEach(function (s) { var tk = facetMesh(P.tuskGeo(0.09, 0.46), bone); at(tk, 0.18 * s, headY - 0.18, headR * 0.86); tk.rotation.x = -0.16; tk.rotation.z = s * 0.16; g.add(tk); });   // tusks jutting up at the mouth corners
 
-    // ── helm: a FITTED, flatter red dome framed by a near-black angular rim band
-    //    + brow visor, topped by a bold 3-spike crest (no ugly ridge box) ──
-    var dome = facetMesh(new THREE.SphereGeometry(headR + 0.08, 7, 5, 0, Math.PI * 2, 0, 1.38), helm); at(dome, 0, headY + 0.1, -0.02); dome.scale.set(1.04, 0.94, 1.08); g.add(dome);
-    var band = facetMesh(new THREE.CylinderGeometry(headR + 0.11, headR + 0.12, 0.1, 7), crown); at(band, 0, headY + 0.18, -0.02); g.add(band);   // black hexagonal rim band
-    g.add(at(facetMesh(new THREE.BoxGeometry(0.66 * hs, 0.15, 0.2), crown), 0, headY + 0.2, headR * 0.66));     // black brow visor (front of band)
-    var nasal = facetMesh(new THREE.ConeGeometry(0.09, 0.26, 4), crown); at(nasal, 0, headY + 0.07, headR * 0.9); nasal.rotation.x = Math.PI; g.add(nasal);   // nasal guard point
-    [-0.22, 0, 0.22].forEach(function (x, i) { var sp = facetMesh(new THREE.ConeGeometry(0.1, i === 1 ? 0.58 : 0.42, 4), crown); at(sp, x, headY + 0.62 + (i === 1 ? 0.05 : 0), 0.0); sp.rotation.z = x * 0.55; sp.rotation.x = 0.2; g.add(sp); });   // 3 top spikes from the crown
-    [-1, 1].forEach(function (s) { var sp = facetMesh(new THREE.ConeGeometry(0.08, 0.36, 4), crown); at(sp, headR * 0.7 * s, headY + 0.4, -0.16); sp.rotation.z = s * 0.6; sp.rotation.x = -0.4; g.add(sp); });   // back spikes
+    // ── HOOD: a RED cowl that FRAMES the green face — a cap over the top/back, two
+    //    side panels coming down past the cheeks, and a back drape. Face stays open. ──
+    var hoodCap = facetMesh(new THREE.SphereGeometry(headR + 0.12, 9, 7, 0, Math.PI * 2, 0, 1.62), helm);
+    at(hoodCap, 0, headY + 0.14, -0.13); hoodCap.scale.set(1.14, 1.04, 1.18); g.add(hoodCap);                 // top/back cap
+    [-1, 1].forEach(function (s) { var hp = facetMesh(new THREE.BoxGeometry(0.18, 0.56, 0.5), hoodD); at(hp, (headR + 0.06) * s, headY - 0.1, -0.04); hp.rotation.z = s * 0.12; g.add(hp); });   // side panels framing the face
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.8, 0.74, 0.28), hoodD), 0, headY - 0.16, -0.46));              // back drape
+    // ── CROWN: near-black jagged crown — a low band across the hood brow + raked
+    //    spikes (3 front raked back, 2 at the rear) ──
+    var band = facetMesh(new THREE.CylinderGeometry(headR + 0.13, headR + 0.15, 0.12, 8), crown); at(band, 0, headY + 0.22, -0.05); g.add(band);
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.6 * hs, 0.16, 0.18), crown), 0, headY + 0.22, headR * 0.74));    // black brow at the band front
+    [-0.22, 0, 0.22].forEach(function (x, i) { var sp = facetMesh(new THREE.ConeGeometry(0.1, i === 1 ? 0.56 : 0.42, 4), crown); at(sp, x, headY + 0.6 + (i === 1 ? 0.06 : 0), -0.08); sp.rotation.z = x * 0.5; sp.rotation.x = 0.34; g.add(sp); });   // 3 raked top spikes
+    [-1, 1].forEach(function (s) { var sp = facetMesh(new THREE.ConeGeometry(0.08, 0.38, 4), crown); at(sp, headR * 0.6 * s, headY + 0.38, -0.24); sp.rotation.z = s * 0.5; sp.rotation.x = -0.5; g.add(sp); });   // 2 rear spikes
 
     g.userData.emissiveMeshes = glow;
     if (p.outline) LPF.outlineGroup(g, p.outline, 0x0f0c08);
