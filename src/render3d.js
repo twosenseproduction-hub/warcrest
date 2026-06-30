@@ -1023,17 +1023,17 @@
       registerUnitModel('elf:archer', { url: 'assets/models/rim_archer_rigged.glb?v=20260630i', height: 60, yaw: -Math.PI / 2,
         anims: { idle: 'NlaTrack', walk: 'NlaTrack.001' }, stripRootMotion: true,
         weapon: { url: 'assets/models/w_longbow.glb?v=20260630i', bone: 'L_Hand', scale: 0.7 } });
-      // Huntress: panther rider (static bob — centaur can't auto-rig) + glaive.
+      // Huntress: panther rider (static bob — centaur can't auto-rig) + moon glaive.
       registerUnitModel('elf:lancer', { url: 'assets/models/rim_huntress.glb?v=20260630i', height: 66, yaw: -Math.PI / 2,
-        weapon: { url: 'assets/models/w_glaive.glb?v=20260630i', scale: 0.5 } });
+        weapon: { url: 'assets/models/w_moonglaive.glb?v=20260630i', scale: 0.5 } });
       // Dryad: centaur (static bob) + leaf spear.
       registerUnitModel('elf:caster', { url: 'assets/models/rim_dryad.glb?v=20260630i', height: 64, yaw: -Math.PI / 2,
         weapon: { url: 'assets/models/w_leafspear.glb?v=20260630i', scale: 0.45, pos: [0.18, 0.05, 0] } });
-      // Druid: rigged idle/walk + moon-crystal staff in the right hand. Fills the
-      // melee/warrior slot, replacing the procedural Thornguard.
+      // Druid (of the Claw): rigged idle/walk + bear-claw gauntlet on the right
+      // hand. Fills the melee/warrior slot, replacing the procedural Thornguard.
       registerUnitModel('elf:warrior', { url: 'assets/models/rim_druid.glb?v=20260630i', height: 62, yaw: -Math.PI / 2,
         anims: { idle: 'NlaTrack', walk: 'NlaTrack.001' }, stripRootMotion: true,
-        weapon: { url: 'assets/models/w_moonstaff.glb?v=20260630i', bone: 'R_Hand', scale: 0.7 } });
+        weapon: { url: 'assets/models/w_bearclaw.glb?v=20260630i', bone: 'R_Hand', scale: 0.5 } });
       registerUnitModel('elf:siege', { url: 'assets/models/rim_glaive_thrower.glb?v=20260630b', height: 54, yaw: -Math.PI / 2, noBob: true });
       registerUnitModel('elf:worker', { url: 'assets/models/rim_wisp.glb?v=20260630b', height: 30, yaw: -Math.PI / 2, glow: 0x9fe6ff, glowI: 0.45, glowSize: 1.1, hover: 16 });
       // Thoryn the Bladedrifter — bespoke Demon Hunter model (front = +X).
