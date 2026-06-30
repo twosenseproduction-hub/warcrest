@@ -360,7 +360,8 @@
     // ── legs: bare green thighs + chunky dark boots, short + sturdy, set apart ──
     [-1, 1].forEach(function (s) {
       g.add(at(smoothMesh(P.profileLimb([[0.2, 0.3], [0.24, 0.46], [0.19, L]], 10), skin), 0.27 * s, 0, 0));   // green thigh
-      g.add(at(facetMesh(new THREE.BoxGeometry(0.38, 0.46, 0.54), leatherD), 0.27 * s, 0.18, 0.06));           // boot
+      g.add(at(facetMesh(new THREE.BoxGeometry(0.38, 0.42, 0.42), leatherD), 0.27 * s, 0.2, 0.0));             // boot shaft
+      g.add(at(facetMesh(new THREE.BoxGeometry(0.36, 0.2, 0.32), leatherD), 0.27 * s, 0.1, 0.32));             // boot toe (forward step)
       g.add(at(facetMesh(new THREE.SphereGeometry(0.21, 7, 6), skin), 0.27 * s, L * 0.55, 0.08));              // green knee
     });
     // ── hip leather skirt / tassets ──
@@ -400,26 +401,26 @@
     var axe = warAxe(wood, iron, ironD); at(axe, 0, -aL - 0.05, 0.1); axe.rotation.z = Math.PI; axe.rotation.x = 0.16; axArm.add(axe);
     g.add(axArm);
 
-    // ── head: green, inset under the helm, strong brow/cheek/jaw/tusk planes ──
+    // ── head: green, clean angular planes — brow ridge, forward jaw wedge, deep
+    //    eyes, a snarl with two tusks jutting UP from the lower jaw ──
     var headY = shoulderY + 0.42 * hs, headR = 0.5 * hs;
-    var head = smoothMesh(P.headGeo(headR, 0.04), skin); at(head, 0, headY, 0.04); head.scale.set(1.08, 0.92, 1.0); g.add(head);
-    g.add(at(facetMesh(new THREE.BoxGeometry(0.64 * hs, 0.16, 0.22), skin), 0, headY + 0.08, headR * 0.76));   // angular brow ridge
-    [-1, 1].forEach(function (s) { g.add(at(facetMesh(new THREE.BoxGeometry(0.22, 0.32, 0.2), skin), 0.27 * hs * s, headY - 0.1, headR * 0.62)); });   // cheek planes
-    g.add(at(facetMesh(new THREE.BoxGeometry(0.54 * hs, 0.3, 0.34), skin), 0, headY - 0.3, headR * 0.58));     // heavy jaw
-    [-1, 1].forEach(function (s) { var e = at(facetMesh(new THREE.SphereGeometry(0.055, 6, 5), eye), 0.15 * s, headY - 0.01, headR * 0.86); g.add(e); glow.push(e); });   // deep eyes
-    g.add(at(facetMesh(new THREE.BoxGeometry(0.4, 0.12, 0.14), mouth), 0, headY - 0.24, headR * 0.82));        // snarl
-    [-0.12, 0, 0.12].forEach(function (x) { g.add(at(facetMesh(new THREE.BoxGeometry(0.06, 0.09, 0.06), bone), x, headY - 0.19, headR * 0.84)); });   // teeth
-    [-1, 1].forEach(function (s) { var tk = facetMesh(P.tuskGeo(0.09, 0.5), bone); at(tk, 0.2 * s, headY - 0.2, headR * 0.84); tk.rotation.x = -0.2; tk.rotation.z = s * 0.16; g.add(tk); });   // tusks
+    var head = smoothMesh(P.headGeo(headR, 0.05), skin); at(head, 0, headY, 0.04); head.scale.set(1.06, 0.94, 1.0); g.add(head);
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.62 * hs, 0.15, 0.2), skin), 0, headY + 0.1, headR * 0.74));     // brow ridge
+    [-1, 1].forEach(function (s) { g.add(at(facetMesh(new THREE.BoxGeometry(0.2, 0.26, 0.2), skin), 0.26 * hs * s, headY - 0.06, headR * 0.66)); });   // cheekbones (face width + planes)
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.46 * hs, 0.26, 0.32), skin), 0, headY - 0.27, headR * 0.6));    // lower jaw (forward, not flush)
+    [-1, 1].forEach(function (s) { var e = at(facetMesh(new THREE.SphereGeometry(0.06, 6, 5), eye), 0.16 * s, headY - 0.02, headR * 0.85); g.add(e); glow.push(e); });   // deep eyes under brow
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.4, 0.13, 0.14), mouth), 0, headY - 0.22, headR * 0.84));        // snarl
+    [-0.12, 0, 0.12].forEach(function (x) { g.add(at(facetMesh(new THREE.BoxGeometry(0.06, 0.09, 0.06), bone), x, headY - 0.17, headR * 0.86)); });   // upper teeth
+    [-1, 1].forEach(function (s) { var tk = facetMesh(P.tuskGeo(0.09, 0.46), bone); at(tk, 0.18 * s, headY - 0.18, headR * 0.86); tk.rotation.x = -0.16; tk.rotation.z = s * 0.16; g.add(tk); });   // tusks jutting up at the mouth corners
 
-    // ── helm: a FITTED red faceted dome framed by a near-black angular crown,
-    //    with a bold 3-spike crest standing clearly above the crown ──
-    var dome = facetMesh(new THREE.SphereGeometry(headR + 0.07, 7, 5, 0, Math.PI * 2, 0, 1.45), helm); at(dome, 0, headY + 0.18, -0.02); dome.scale.set(1.03, 1.0, 1.08); g.add(dome);
-    g.add(at(facetMesh(new THREE.BoxGeometry(0.74 * hs, 0.14, 0.2), crown), 0, headY + 0.24, headR * 0.6));     // black brow visor
-    var nasal = facetMesh(new THREE.ConeGeometry(0.1, 0.28, 4), crown); at(nasal, 0, headY + 0.1, headR * 0.86); nasal.rotation.x = Math.PI; g.add(nasal);   // nasal guard point
-    [-1, 1].forEach(function (s) { g.add(at(facetMesh(new THREE.BoxGeometry(0.13, 0.42, 0.3), crown), (headR + 0.04) * s, headY + 0.14, 0.04)); });   // black side guards
-    g.add(at(facetMesh(new THREE.BoxGeometry(0.14, 0.18, 0.66), crown), 0, headY + 0.7, -0.02));               // black crest ridge ON TOP of the crown
-    [-0.22, 0, 0.22].forEach(function (x, i) { var sp = facetMesh(new THREE.ConeGeometry(0.1, i === 1 ? 0.6 : 0.44, 4), crown); at(sp, x, headY + 0.82 + (i === 1 ? 0.06 : 0), -0.02); sp.rotation.z = x * 0.6; sp.rotation.x = 0.22; g.add(sp); });   // 3 top spikes above the crown
-    [-1, 1].forEach(function (s) { var sp = facetMesh(new THREE.ConeGeometry(0.08, 0.4, 4), crown); at(sp, headR * s, headY + 0.44, -0.16); sp.rotation.z = s * 0.7; sp.rotation.x = -0.4; g.add(sp); });   // back side spikes
+    // ── helm: a FITTED, flatter red dome framed by a near-black angular rim band
+    //    + brow visor, topped by a bold 3-spike crest (no ugly ridge box) ──
+    var dome = facetMesh(new THREE.SphereGeometry(headR + 0.08, 7, 5, 0, Math.PI * 2, 0, 1.38), helm); at(dome, 0, headY + 0.1, -0.02); dome.scale.set(1.04, 0.94, 1.08); g.add(dome);
+    var band = facetMesh(new THREE.CylinderGeometry(headR + 0.11, headR + 0.12, 0.1, 7), crown); at(band, 0, headY + 0.18, -0.02); g.add(band);   // black hexagonal rim band
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.66 * hs, 0.15, 0.2), crown), 0, headY + 0.2, headR * 0.66));     // black brow visor (front of band)
+    var nasal = facetMesh(new THREE.ConeGeometry(0.09, 0.26, 4), crown); at(nasal, 0, headY + 0.07, headR * 0.9); nasal.rotation.x = Math.PI; g.add(nasal);   // nasal guard point
+    [-0.22, 0, 0.22].forEach(function (x, i) { var sp = facetMesh(new THREE.ConeGeometry(0.1, i === 1 ? 0.58 : 0.42, 4), crown); at(sp, x, headY + 0.62 + (i === 1 ? 0.05 : 0), 0.0); sp.rotation.z = x * 0.55; sp.rotation.x = 0.2; g.add(sp); });   // 3 top spikes from the crown
+    [-1, 1].forEach(function (s) { var sp = facetMesh(new THREE.ConeGeometry(0.08, 0.36, 4), crown); at(sp, headR * 0.7 * s, headY + 0.4, -0.16); sp.rotation.z = s * 0.6; sp.rotation.x = -0.4; g.add(sp); });   // back spikes
 
     g.userData.emissiveMeshes = glow;
     if (p.outline) LPF.outlineGroup(g, p.outline, 0x0f0c08);
