@@ -688,7 +688,7 @@
     g.add(at(facetMesh(new THREE.BoxGeometry(0.15, TH * 0.66, 0.17), skin), 0.42, hipY + TH * 0.5, 0.12));
 
     // ── head: a faceted CUBE with pointed ears, a top spike, a jagged pale crown ──
-    var headR = 0.5, headY = shoulderY + 0.14 + headR;
+    var headR = 0.36, headY = shoulderY + 0.07 + headR;
     g.add(at(facetMesh(new THREE.BoxGeometry(headR * 2, headR * 2, headR * 1.92), skin), 0, headY, 0.02));
     [-1, 1].forEach(function (s) { var ear = facetMesh(new THREE.ConeGeometry(0.12, 0.46, 4), skin); at(ear, headR * 1.02 * s, headY + 0.06, -0.06); ear.rotation.z = s * 1.15; ear.rotation.y = s * 0.4; g.add(ear); });   // pointed ears
     var spk = facetMesh(new THREE.ConeGeometry(0.09, 0.34, 4), skinD); at(spk, 0.22, headY + headR + 0.12, -0.08); spk.rotation.z = -0.32; g.add(spk);   // top spike
