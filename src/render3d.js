@@ -998,7 +998,8 @@
       // image-to-model from the Rimwalker concept art (model front = +X, so
       // yaw = +PI/2 to match the +Z-front convention used by registerUnitModel).
       registerUnitModel('horde:warrior', { url: 'assets/models/cinder_warrior.glb?v=20260630d', height: 58, yaw: Math.PI });
-      registerUnitModel('elf:archer', { url: 'assets/models/rim_archer.glb?v=20260630a', height: 60, yaw: Math.PI / 2 });
+      registerUnitModel('elf:archer', { url: 'assets/models/rim_archer_rigged.glb?v=20260630a', height: 60, yaw: Math.PI / 2,
+        anims: { idle: 'NlaTrack', walk: 'NlaTrack.001', attack: 'NlaTrack.002' }, attackTrim: [0, 1.5], attackRate: 1.1 });
       loadUnitModels().then(function (ok) { if (ok && R.enabled) rebuildUnitMeshes(); });
       return;
     }
@@ -1034,10 +1035,18 @@
       var an = cfg.anims || {};
       ['idle', 'walk', 'attack', 'death'].forEach(function (k) {
         var clip = an[k] && THREE.AnimationClip.findByName(proto.clips, an[k]);
-        if (clip) actions[k] = mixer.clipAction(clip);
+        if (!clip) return;
+        // attack clips can be long preset motions — trim to a short brace/loose window
+        if (k === 'attack' && cfg.attackTrim && THREE.AnimationUtils && THREE.AnimationUtils.subclip) {
+          clip = THREE.AnimationUtils.subclip(clip, 'attack', Math.round(cfg.attackTrim[0] * 30), Math.round(cfg.attackTrim[1] * 30), 30);
+        }
+        var act = mixer.clipAction(clip);
+        if (k === 'attack') { act.setLoop(THREE.LoopOnce, 1); act.clampWhenFinished = true; }
+        actions[k] = act;
       });
       if (actions.idle) actions.idle.play();
-      ud.mixer = mixer; ud.actions = actions; ud.cur = 'idle';
+      if (actions.attack) mixer.addEventListener('finished', function (ev) { if (ev.action === actions.attack) ud._atkPlaying = false; });
+      ud.mixer = mixer; ud.actions = actions; ud.cur = 'idle'; ud._atkRate = cfg.attackRate || 1.2;
     }
     holder.userData = ud;
     return holder;
@@ -1727,13 +1736,23 @@
         // locomotion: cadence tracks ground speed so feet don't slide
         var spd = Math.sqrt((e.vx || 0) * (e.vx || 0) + (e.vy || 0) * (e.vy || 0));
         var moving = e.moveTo || spd > 4;
-        if (ud && ud.model && ud.actions) {           // glTF model: crossfade idle<->walk clips
-          var want = moving && ud.actions.walk ? 'walk' : 'idle';
-          if (ud.cur !== want && ud.actions[want]) {
-            var from = ud.actions[ud.cur];
-            ud.actions[want].reset().play();
-            if (from) ud.actions[want].crossFadeFrom(from, 0.2, false);
-            ud.cur = want;
+        if (ud && ud.model && ud.actions) {           // glTF model: idle<->walk + one-shot attack clip
+          var atkA = ud.actions.attack;
+          if (atkA && (e.muzzleFlash || 0) > (ud._mfA || 0) + 1e-4) {   // fresh attack → play the shoot clip once
+            var fromA = ud.actions[ud.cur];
+            atkA.reset(); atkA.timeScale = ud._atkRate || 1.2; atkA.play();
+            if (fromA && fromA !== atkA) atkA.crossFadeFrom(fromA, 0.1, false);
+            ud.cur = 'attack'; ud._atkPlaying = true;
+          }
+          ud._mfA = e.muzzleFlash || 0;
+          if (!ud._atkPlaying) {                       // not mid-shot: crossfade idle<->walk
+            var want = moving && ud.actions.walk ? 'walk' : 'idle';
+            if (ud.cur !== want && ud.actions[want]) {
+              var from = ud.actions[ud.cur];
+              ud.actions[want].reset().play();
+              if (from && from !== ud.actions[want]) ud.actions[want].crossFadeFrom(from, 0.2, false);
+              ud.cur = want;
+            }
           }
         } else if (ud && ud.legL) {
           // advance the stride by DISTANCE travelled (phase per world-unit), so
