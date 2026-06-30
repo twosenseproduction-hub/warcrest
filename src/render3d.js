@@ -923,6 +923,7 @@
    * so the game looks identical until real assets are dropped in. */
   var UNIT_MODELS = {};        // 'crown:warrior' -> { url, height, yaw, anims:{idle,walk,attack,death} }
   var modelProtos = {};        // key -> { scene, clips }
+  var weaponProtos = {};       // weapon url -> { scene } — separate-weapon GLBs, attached to a hand bone
   var _gltf = null, _clock = null;
   // A specific hero may carry its own bespoke model ('hero:thoryn'), which wins
   // over the generic race:role lookup; otherwise fall back to race-wide keys.
@@ -952,10 +953,19 @@
     if (!THREE || !THREE.GLTFLoader) return Promise.resolve(false);
     if (!_gltf) _gltf = new THREE.GLTFLoader();
     var keys = Object.keys(UNIT_MODELS);
-    return Promise.all(keys.map(function (k) {
+    var jobs = keys.map(function (k) {
       if (modelProtos[k]) return Promise.resolve();
       return loadOne(UNIT_MODELS[k].url).then(function (p) { if (p) modelProtos[k] = p; });
-    })).then(function () { return true; });
+    });
+    // Preload any separately-authored weapon meshes the same way, so they're
+    // ready to mount onto a hand bone when a unit mesh is built.
+    keys.forEach(function (k) {
+      var w = UNIT_MODELS[k].weapon;
+      if (w && w.url && !weaponProtos[w.url]) {
+        jobs.push(loadOne(w.url).then(function (p) { if (p) weaponProtos[w.url] = p; }));
+      }
+    });
+    return Promise.all(jobs).then(function () { return true; });
   }
   // when models finish loading mid-match, drop existing unit meshes (without
   // disposing shared procedural geometry) so syncList rebuilds them as models
@@ -1115,8 +1125,36 @@
         }
       }
     }
+    attachWeapon(root, cfg, ud);
     holder.userData = ud;
     return holder;
+  }
+  // Mount a separately-authored weapon GLB onto a named hand/attachment bone of
+  // the (ideally T/A-posed) body. cfg.weapon = {
+  //   url,                     // the weapon .glb (preloaded by loadUnitModels)
+  //   bone:  'R_Hand',         // bone name to parent to (falls back to body root)
+  //   pos:   [x, y, z],        // local offset within the bone (bone units)
+  //   rot:   [x, y, z],        // local euler rotation (radians)
+  //   scale: 1,                // uniform scale within the bone
+  //   detachOnFire: true,      // record the node so the fire hook can release it
+  // }
+  // Because the weapon is its own node it follows the hand through every clip and
+  // can later be detached to fly as a real projectile — neither possible when the
+  // weapon is baked into the body mesh.
+  function attachWeapon(root, cfg, ud) {
+    var w = cfg && cfg.weapon;
+    if (!w || !w.url) return;
+    var proto = weaponProtos[w.url];
+    if (!proto) return;                       // not loaded (yet) → skip, no crash
+    var parent = (w.bone && root.getObjectByName(w.bone)) || root;
+    var wm = (THREE.SkeletonUtils ? THREE.SkeletonUtils.clone(proto.scene) : proto.scene.clone());
+    var node = new THREE.Group(); node.add(wm);
+    if (w.scale) node.scale.setScalar(w.scale);
+    if (w.pos) node.position.set(w.pos[0] || 0, w.pos[1] || 0, w.pos[2] || 0);
+    if (w.rot) node.rotation.set(w.rot[0] || 0, w.rot[1] || 0, w.rot[2] || 0);
+    node.traverse(function (o) { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    parent.add(node);
+    if (w.detachOnFire) { ud.weapon = node; ud.weaponHome = parent; }
   }
   function makeUnitMesh(u) {
     var race = raceOf(u.faction), role = mapRole(u);
