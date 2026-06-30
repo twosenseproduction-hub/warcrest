@@ -409,27 +409,27 @@
     // ── head: green, clean angular planes — brow ridge, forward jaw wedge, deep
     //    eyes, a snarl with two tusks jutting UP from the lower jaw ──
     var headY = shoulderY + 0.42 * hs, headR = 0.5 * hs;
-    var head = smoothMesh(P.headGeo(headR, 0.05), skin); at(head, 0, headY, 0.04); head.scale.set(1.06, 0.94, 1.0); g.add(head);
-    g.add(at(facetMesh(new THREE.BoxGeometry(0.62 * hs, 0.15, 0.2), skin), 0, headY + 0.1, headR * 0.74));     // brow ridge
-    [-1, 1].forEach(function (s) { g.add(at(facetMesh(new THREE.BoxGeometry(0.2, 0.26, 0.2), skin), 0.26 * hs * s, headY - 0.06, headR * 0.66)); });   // cheekbones (face width + planes)
-    g.add(at(facetMesh(new THREE.BoxGeometry(0.46 * hs, 0.26, 0.32), skin), 0, headY - 0.27, headR * 0.6));    // lower jaw (forward, not flush)
-    [-1, 1].forEach(function (s) { var e = at(facetMesh(new THREE.SphereGeometry(0.06, 6, 5), eye), 0.16 * s, headY - 0.02, headR * 0.85); g.add(e); glow.push(e); });   // deep eyes under brow
-    g.add(at(facetMesh(new THREE.BoxGeometry(0.4, 0.13, 0.14), mouth), 0, headY - 0.22, headR * 0.84));        // snarl
-    [-0.12, 0, 0.12].forEach(function (x) { g.add(at(facetMesh(new THREE.BoxGeometry(0.06, 0.09, 0.06), bone), x, headY - 0.17, headR * 0.86)); });   // upper teeth
-    [-1, 1].forEach(function (s) { var tk = facetMesh(P.tuskGeo(0.09, 0.46), bone); at(tk, 0.18 * s, headY - 0.18, headR * 0.86); tk.rotation.x = -0.16; tk.rotation.z = s * 0.16; g.add(tk); });   // tusks jutting up at the mouth corners
+    // FLAT head: squashed front-to-back (scale.z 0.72) so it reads as a flat orc
+    // mug, not a round ball. Face features (eyes/mouth/tusks) intentionally omitted
+    // for now — getting the head + hood SHAPE right first.
+    var head = smoothMesh(P.headGeo(headR, 0.05), skin); at(head, 0, headY, 0.02); head.scale.set(1.12, 0.96, 0.72); g.add(head);
+    var fz = headR * 0.72;
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.66 * hs, 0.15, 0.12), skin), 0, headY + 0.1, fz + 0.04));       // brow ridge (flat)
+    [-1, 1].forEach(function (s) { g.add(at(facetMesh(new THREE.BoxGeometry(0.2, 0.26, 0.12), skin), 0.28 * hs * s, headY - 0.06, fz - 0.02)); });   // cheekbones (face width, flat)
+    g.add(at(facetMesh(new THREE.BoxGeometry(0.5 * hs, 0.26, 0.18), skin), 0, headY - 0.27, fz));              // lower jaw (flat, not jutting)
 
-    // ── HOOD: a RED cowl that FRAMES the green face — a cap over the top/back, two
-    //    side panels coming down past the cheeks, and a back drape. Face stays open. ──
-    var hoodCap = facetMesh(new THREE.SphereGeometry(headR + 0.12, 9, 7, 0, Math.PI * 2, 0, 1.62), helm);
-    at(hoodCap, 0, headY + 0.14, -0.13); hoodCap.scale.set(1.14, 1.04, 1.18); g.add(hoodCap);                 // top/back cap
-    [-1, 1].forEach(function (s) { var hp = facetMesh(new THREE.BoxGeometry(0.18, 0.56, 0.5), hoodD); at(hp, (headR + 0.06) * s, headY - 0.1, -0.04); hp.rotation.z = s * 0.12; g.add(hp); });   // side panels framing the face
-    g.add(at(facetMesh(new THREE.BoxGeometry(0.8, 0.74, 0.28), hoodD), 0, headY - 0.16, -0.46));              // back drape
-    // ── CROWN: near-black jagged crown — a low band across the hood brow + raked
-    //    spikes (3 front raked back, 2 at the rear) ──
-    var band = facetMesh(new THREE.CylinderGeometry(headR + 0.13, headR + 0.15, 0.12, 8), crown); at(band, 0, headY + 0.22, -0.05); g.add(band);
-    g.add(at(facetMesh(new THREE.BoxGeometry(0.6 * hs, 0.16, 0.18), crown), 0, headY + 0.22, headR * 0.74));    // black brow at the band front
-    [-0.22, 0, 0.22].forEach(function (x, i) { var sp = facetMesh(new THREE.ConeGeometry(0.1, i === 1 ? 0.56 : 0.42, 4), crown); at(sp, x, headY + 0.6 + (i === 1 ? 0.06 : 0), -0.08); sp.rotation.z = x * 0.5; sp.rotation.x = 0.34; g.add(sp); });   // 3 raked top spikes
-    [-1, 1].forEach(function (s) { var sp = facetMesh(new THREE.ConeGeometry(0.08, 0.38, 4), crown); at(sp, headR * 0.6 * s, headY + 0.38, -0.24); sp.rotation.z = s * 0.5; sp.rotation.x = -0.5; g.add(sp); });   // 2 rear spikes
+    // ── HOOD: a THIN red shell that TRACES the head — a close-fitting cowl the same
+    //    flattened shape as the head, only a hair larger (~0.05 offset), covering the
+    //    top/back/sides and open at the face. Hugs the skull, no standoff bulk. ──
+    var hood = facetMesh(new THREE.SphereGeometry(headR + 0.05, 12, 9, 0, Math.PI * 2, 0, 2.1), helm);
+    at(hood, 0, headY - 0.02, -0.03); hood.scale.set(1.14, 0.98, 0.78); g.add(hood);                           // skull-tracing cowl (sits on the head)
+    var nape = facetMesh(new THREE.SphereGeometry(headR + 0.05, 12, 9, 0, Math.PI * 2, 1.4, 1.0), hoodD);
+    at(nape, 0, headY - 0.02, -0.03); nape.scale.set(1.14, 0.98, 0.78); g.add(nape);                           // thin nape band wrapping the lower back
+    // ── CROWN: a thin near-black jagged crown tracing the hood — a low brow band +
+    //    raked spikes (3 front raked back, 2 at the rear) ──
+    var band = facetMesh(new THREE.CylinderGeometry(headR + 0.1, headR + 0.12, 0.1, 10), crown); at(band, 0, headY + 0.18, -0.03); band.scale.set(1.08, 1, 0.82); g.add(band);
+    [-0.22, 0, 0.22].forEach(function (x, i) { var sp = facetMesh(new THREE.ConeGeometry(0.09, i === 1 ? 0.5 : 0.38, 4), crown); at(sp, x, headY + 0.56 + (i === 1 ? 0.06 : 0), -0.1); sp.rotation.z = x * 0.5; sp.rotation.x = 0.34; g.add(sp); });   // 3 raked top spikes
+    [-1, 1].forEach(function (s) { var sp = facetMesh(new THREE.ConeGeometry(0.07, 0.34, 4), crown); at(sp, headR * 0.58 * s, headY + 0.34, -0.2); sp.rotation.z = s * 0.5; sp.rotation.x = -0.5; g.add(sp); });   // 2 rear spikes
 
     g.userData.emissiveMeshes = glow;
     if (p.outline) LPF.outlineGroup(g, p.outline, 0x0f0c08);
