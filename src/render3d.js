@@ -1023,9 +1023,13 @@
       registerUnitModel('elf:archer', { url: 'assets/models/rim_archer_rigged.glb?v=20260630i', height: 74, yaw: -Math.PI / 2,
         anims: { idle: 'NlaTrack', walk: 'NlaTrack.001' }, stripRootMotion: true,
         weapon: { url: 'assets/models/w_longbow.glb?v=20260630i', bone: 'L_Hand', scale: 0.7 } });
-      // Huntress: panther rider (static bob — centaur can't auto-rig) + moon glaive.
-      registerUnitModel('elf:lancer', { url: 'assets/models/rim_huntress.glb?v=20260630i', height: 66, yaw: -Math.PI / 2,
-        weapon: { url: 'assets/models/w_moonglaive.glb?v=20260630i', scale: 0.5 } });
+      // Huntress: panther rider, biped-rigged — her arms animate while the leg
+      // bones are frozen (stripBones) so the panther body stays intact. Moon
+      // glaive in the right hand.
+      registerUnitModel('elf:lancer', { url: 'assets/models/rim_huntress.glb?v=20260630k', height: 66, yaw: -Math.PI / 2,
+        anims: { idle: 'NlaTrack', walk: 'NlaTrack.001' }, stripRootMotion: true,
+        stripBones: 'Thigh|Calf|Foot|Toe|Pelvis|Hip|Waist|Spine',
+        weapon: { url: 'assets/models/w_moonglaive.glb?v=20260630k', bone: 'R_Hand', scale: 0.5 } });
       // Dryad: centaur (static bob) + leaf spear.
       registerUnitModel('elf:caster', { url: 'assets/models/rim_dryad.glb?v=20260630i', height: 64, yaw: -Math.PI / 2,
         weapon: { url: 'assets/models/w_leafspear.glb?v=20260630i', scale: 0.45, pos: [0.18, 0.05, 0] } });
@@ -1033,7 +1037,7 @@
       // hand. Fills the melee/warrior slot, replacing the procedural Thornguard.
       registerUnitModel('elf:warrior', { url: 'assets/models/rim_druid.glb?v=20260630i', height: 76, yaw: -Math.PI / 2,
         anims: { idle: 'NlaTrack', walk: 'NlaTrack.001' }, stripRootMotion: true,
-        weapon: { url: 'assets/models/w_bearclaw.glb?v=20260630i', bone: 'R_Hand', scale: 0.5 } });
+        weapon: { url: 'assets/models/w_bearclaw.glb?v=20260630k', bone: 'R_Hand', scale: 0.5 } });
       registerUnitModel('elf:siege', { url: 'assets/models/rim_glaive_thrower.glb?v=20260630b', height: 54, yaw: -Math.PI / 2, noBob: true });
       registerUnitModel('elf:worker', { url: 'assets/models/rim_wisp.glb?v=20260630b', height: 30, yaw: -Math.PI / 2, glow: 0x9fe6ff, glowI: 0.45, glowSize: 1.1, hover: 16 });
       // Thoryn the Bladedrifter — bespoke Demon Hunter model (front = +X).
@@ -1143,6 +1147,15 @@
         if (cfg.stripRootMotion) {
           var kept = clip.tracks.filter(function (t) { return !/\.position$/.test(t.name); });
           clip = new THREE.AnimationClip(clip.name, clip.duration, kept);
+        }
+        // Freeze named bones at their bind pose (drop their tracks). Used for the
+        // mounted Huntress: a biped rig animates her arms but folds the panther
+        // body — stripping the leg/lower-body bones keeps the mount intact while
+        // her upper body still moves.
+        if (cfg.stripBones) {
+          var reb = new RegExp(cfg.stripBones, 'i');
+          var kept2 = clip.tracks.filter(function (t) { return !reb.test(t.name); });
+          clip = new THREE.AnimationClip(clip.name, clip.duration, kept2);
         }
         var act = mixer.clipAction(clip);
         if (k === 'attack') { act.setLoop(THREE.LoopOnce, 1); act.clampWhenFinished = true; }
