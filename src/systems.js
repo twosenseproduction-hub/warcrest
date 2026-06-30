@@ -340,7 +340,7 @@
   function resolveLegacyTarget(s, u) {
     var target = u.target ? RTS.getById(s, u.target) : null;
     if (target && !RTS.canBeAttacked(target)) { u.target = null; target = null; }
-    if (!target && u.role !== 'pawn' && u.heal === 0) {
+    if (!target && u.role !== 'pawn' && (u.heal === 0 || u.dmg > 0)) {
       if (u.attackMove || u.team === TEAM.ENEMY || !u.moveTo) {
         var combat = RTS.Config.combat || {};
         var attentionMul = u.attackMove

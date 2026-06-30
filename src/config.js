@@ -306,11 +306,11 @@
     // Priest — premier healer / support caster. Tier 2: needs a Keep.
     monk: {
       role: 'monk', label: 'Priest', glyph: 'cross', faction: 'aurex',
-      hp: 95, speed: 100, dmg: 0, range: 120, rof: 0.7, heal: 14, tier: 2,
-      cost: 135, supply: 2, build: 0, healer: true,
+      hp: 95, speed: 100, dmg: 14, range: 120, rof: 0.85, heal: 14, tier: 2,
+      cost: 135, supply: 2, build: 0, healer: true, ranged: true,
       mana: 120, manaRegen: 8, abilities: ['inner_fire'],
       traits: ['monk_aura', 'inner_fire'],
-      desc: 'The strongest healer in the Reach. Autocasts Inner Fire (+dmg/+armor). Requires a Keep.',
+      desc: 'The strongest healer in the Reach. Smites foes with holy light and autocasts Inner Fire (+dmg/+armor). Requires a Keep.',
     },
 
     // Glaive Thrower — mobile siege engine. Hurls spinning glaives that cleave
@@ -343,7 +343,7 @@
       // Huntress — fast ranged glaive skirmisher; basic barracks unit beside the Bark Archer.
       lancer:  { hp: 150, speed: 188, dmg: 18, range: 150, rof: 0.8, ranged: true, armor: 0, evade: 0.22, cost: 165, supply: 3, tier: 1 },
       // Sapling Mystic — ranged healer/caster, also evasive. Autocasts Rejuvenation.
-      monk:    { hp: 85, speed: 112, dmg: 6, range: 132, rof: 0.7, heal: 12, ranged: true, evade: 0.20, cost: 130, supply: 2, mana: 110, manaRegen: 8, abilities: ['rejuvenation'] },
+      monk:    { hp: 85, speed: 112, dmg: 16, range: 132, rof: 0.85, heal: 12, ranged: true, evade: 0.20, cost: 130, supply: 2, mana: 110, manaRegen: 8, abilities: ['rejuvenation'] },
     },
 
     // ---- Raider Horde (brute attrition: cheap, high-HP melee that regens).
@@ -358,7 +358,7 @@
       // Spear Goblin — fast glass-cannon raider. Ensnare nets a fleeing target.
       lancer:  { hp: 60, speed: 195, dmg: 14, range: 55, rof: 0.55, armor: 0, regen: 2, cost: 55, supply: 1, abilities: ['ensnare'] },
       // Hex Shaman — minor ranged healer (Humans out-heal them by far). Autocasts Bloodlust.
-      monk:    { hp: 75, speed: 100, dmg: 6, range: 125, rof: 0.7, heal: 8, ranged: true, regen: 3, cost: 80, supply: 2, mana: 100, manaRegen: 7, abilities: ['bloodlust', 'hex'] },
+      monk:    { hp: 75, speed: 100, dmg: 13, range: 125, rof: 0.85, heal: 8, ranged: true, regen: 3, cost: 80, supply: 2, mana: 100, manaRegen: 7, abilities: ['bloodlust', 'hex'] },
     },
   };
 

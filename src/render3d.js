@@ -1007,7 +1007,8 @@
         aim: { clip: 'NlaTrack.002', time: 0.9, hold: 0.55, bones: ['L_Clavicle', 'R_Clavicle', 'L_Upperarm', 'R_Upperarm', 'L_Forearm', 'R_Forearm', 'L_Hand', 'R_Hand'] } });
       // Tripo image-to-model statics (front = +X, so yaw = -PI/2 to face travel dir)
       registerUnitModel('elf:lancer', { url: 'assets/models/rim_huntress.glb?v=20260630b', height: 66, yaw: -Math.PI / 2 });
-      registerUnitModel('elf:caster', { url: 'assets/models/rim_dryad.glb?v=20260630b', height: 64, yaw: -Math.PI / 2 });
+      // Dryad/centaur was modeled facing +Z (not +X like the others), so yaw = 0 to face travel dir.
+      registerUnitModel('elf:caster', { url: 'assets/models/rim_dryad.glb?v=20260630b', height: 64, yaw: 0 });
       registerUnitModel('elf:siege', { url: 'assets/models/rim_glaive_thrower.glb?v=20260630b', height: 54, yaw: -Math.PI / 2, noBob: true });
       registerUnitModel('elf:worker', { url: 'assets/models/rim_wisp.glb?v=20260630b', height: 30, yaw: -Math.PI / 2, glow: 0x9fe6ff, glowI: 1.7, hover: 16 });
       loadUnitModels().then(function (ok) { if (ok && R.enabled) rebuildUnitMeshes(); });

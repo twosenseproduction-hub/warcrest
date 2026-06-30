@@ -748,7 +748,15 @@
   }
 
   function buildBuildingCommands(s, b, model) {
-    if (!b.built) return model;
+    // Under-construction building: only offer a Cancel (refunds resources).
+    if (!b.built) {
+      if (b.team === RTS.TEAM.PLAYER) {
+        model['r3c1'] = slot('cancel-build', UI().iconUrl('cancel') || '', {
+          slotId: 'r3c1', label: 'Cancel construction (refund)', bid: b.id,
+        });
+      }
+      return model;
+    }
     var fid = s.playerFaction || 'aurex';
 
     // ── Buildable units (top rows) — what this building produces. ──
@@ -1147,6 +1155,9 @@
       RTS.trainUnit && RTS.trainUnit(s, data.bid, data.role);
     } else if (act === 'sell' && data.bid) {
       RTS.sellBuilding && RTS.sellBuilding(s, data.bid);
+    } else if (act === 'cancel-build' && data.bid) {
+      if (RTS.cancelConstruction) RTS.cancelConstruction(s, data.bid);
+      else RTS.Audio.play('deny');
     } else if (act === 'cancel-train' && data.bid) {
       var cb = (s.entities.buildings || []).find(function (x) { return x.id === data.bid; });
       if (cb && cb.queue && cb.queue.length && RTS.cancelTrainQueueItem) {

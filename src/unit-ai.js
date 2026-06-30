@@ -106,7 +106,9 @@
 
   function unitCanAutoAcquire(s, u) {
     if (u._heroTestPassive) return false;
-    if (u.heal > 0 || u.role === 'monk') return false;
+    // Healers/casters that also carry an attack (dmg > 0) may engage; pure
+    // healers (dmg 0) still hang back and only heal.
+    if ((u.heal > 0 || u.role === 'monk') && !(u.dmg > 0)) return false;
     if (u.commandMode === 'attackMove') return true;
     if (u.commandMode === 'guard' || u.commandMode === 'hold') return true;
     if (u.commandMode === 'retaliate') return true;
