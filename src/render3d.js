@@ -993,9 +993,12 @@
     } else if (/[?&]models=kaykit/.test(q)) {
       for (var k in KAYKIT_ROSTER) registerUnitModel(k, KAYKIT_ROSTER[k]);
     } else {
-      // Default = procedural, EXCEPT the cinder (orc) warrior, which uses the
-      // forged armored-orc .glb built to match the reference art.
+      // Default = procedural, EXCEPT a few hand-authored / generated .glb units.
+      // cinder (orc) warrior: forged armored-orc. rimwalker (elf) archer: Tripo3D
+      // image-to-model from the Rimwalker concept art (model front = +X, so
+      // yaw = +PI/2 to match the +Z-front convention used by registerUnitModel).
       registerUnitModel('horde:warrior', { url: 'assets/models/cinder_warrior.glb?v=20260630d', height: 58, yaw: Math.PI });
+      registerUnitModel('elf:archer', { url: 'assets/models/rim_archer.glb?v=20260630a', height: 60, yaw: Math.PI / 2 });
       loadUnitModels().then(function (ok) { if (ok && R.enabled) rebuildUnitMeshes(); });
       return;
     }
