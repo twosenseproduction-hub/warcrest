@@ -1469,7 +1469,9 @@
     // then slope down into the water (sandy beach) and the land gently domes —
     // the soft, faceted low-poly look. Flat-shaded for the facets.
     var positions = [], normals = [], colors = [];
-    var cTop = new THREE.Color(0x4c7826), cTopHi = new THREE.Color(0x5e8a2c), cSand = new THREE.Color(0x7e6438);
+    var cTop = new THREE.Color(0x4c7826), cSand = new THREE.Color(0x7e6438);
+    var cHigh = new THREE.Color(0x8a8163);      // dry highland (grass fades to this up high)
+    var cCliff = new THREE.Color(0x6f665b);     // rock/cliff tint applied to steep land faces
     var cShallow = new THREE.Color(0x2a8a9e);   // wadeable shallow-water shelf
     var cols = grid.cols, rows = grid.rows;
     function tlevel(tx, ty) {
@@ -1521,7 +1523,11 @@
       var i = vx + vy * vstride, yv = VH[i];
       if (VS[i]) { out.copy(cShallow); return; }
       var jh = Math.sin(vx * 12.9898 + vy * 78.233) * 43758.5453; jh -= Math.floor(jh);
-      if (yv > -2) out.copy(yv > 22 ? cTopHi : cTop).multiplyScalar(0.88 + jh * 0.14);
+      if (yv > -2) {
+        out.copy(cTop);
+        if (yv > 10) out.lerp(cHigh, Math.min(1, (yv - 10) / 26));     // grass → dry highland up high
+        out.multiplyScalar(0.88 + jh * 0.14);
+      }
       else if (yv > -11) out.copy(cTop).lerp(cSand, (-2 - yv) / 9);    // grass → sand beach (narrow band)
       else out.copy(cSand).multiplyScalar(0.8);                         // submerged sand
     }
@@ -1532,7 +1538,16 @@
       var l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l;
       positions.push(ax, ay, az, bx, by, bz, gx, gy, gz);
       normals.push(nx, ny, nz, nx, ny, nz, nx, ny, nz);
-      colors.push(ca.r, ca.g, ca.b, cb.r, cb.g, cb.b, cc.r, cc.g, cc.b);
+      // slope-based cliff tint (the technique from the terrain tutorials): steep LAND
+      // faces (small |ny|) blend toward rock, so hillsides and the highland rim read
+      // as cliff instead of stretched grass. Gated to land (avgY>2) so beaches stay sandy.
+      var slope = 1 - Math.abs(ny), avgY = (ay + by + gy) / 3, t = 0;
+      if (avgY > 2) { t = (slope - 0.22) / 0.33; t = t < 0 ? 0 : t > 1 ? 1 : t; t *= 0.85; }
+      var rk = cCliff.r, gk = cCliff.g, bk = cCliff.b;
+      colors.push(
+        ca.r + (rk - ca.r) * t, ca.g + (gk - ca.g) * t, ca.b + (bk - ca.b) * t,
+        cb.r + (rk - cb.r) * t, cb.g + (gk - cb.g) * t, cb.b + (bk - cb.b) * t,
+        cc.r + (rk - cc.r) * t, cc.g + (gk - cc.g) * t, cc.b + (bk - cc.b) * t);
     }
     for (var cy = 0; cy < rows; cy++) {
       for (var cx = 0; cx < cols; cx++) {
@@ -1584,8 +1599,11 @@
           dummy.scale.set(sc, sc * (0.92 + ((hsh >>> 13) & 7) / 7 * 0.2), sc);
           dummy.updateMatrix();
           im.setMatrixAt(i, dummy.matrix);
-          var tint = 0.88 + ((hsh >>> 16) & 15) / 15 * 0.2;  // subtle per-tree shade
-          tc.setRGB(tint, tint, tint);
+          // per-tree colour variety (the Object-Info→ColorRamp trick): brightness
+          // AND a warm↔cool hue skew so trees read as individuals, not clones.
+          var tb = 0.84 + ((hsh >>> 16) & 15) / 15 * 0.24;
+          var thue = (((hsh >>> 20) & 15) / 15 - 0.5) * 0.16;
+          tc.setRGB(tb * (1 + thue), tb, tb * (1 - thue));
           im.setColorAt(i, tc);
         });
         im.instanceMatrix.needsUpdate = true;
@@ -1621,7 +1639,7 @@
         dm.scale.set(sx, sc, sz); dm.updateMatrix();
         im.setMatrixAt(i, dm.matrix);
         if (kindTintArr) { col.setHex(kindTintArr[hsh % kindTintArr.length]); im.setColorAt(i, col); }
-        else { var t = 0.8 + ((hsh >>> 16) & 15) / 15 * 0.16; col.setRGB(t, t, t); im.setColorAt(i, col); }
+        else { var t = 0.78 + ((hsh >>> 16) & 15) / 15 * 0.2; var hj = (((hsh >>> 20) & 15) / 15 - 0.5) * 0.12; col.setRGB(t * (1 + hj), t, t * (1 - hj * 0.5)); im.setColorAt(i, col); }
       }
       im.instanceMatrix.needsUpdate = true;
       if (im.instanceColor) im.instanceColor.needsUpdate = true;
