@@ -1035,7 +1035,7 @@
       registerUnitModel('elf:caster', { url: 'assets/models/rim_dryad.glb?v=20260630l', height: 64, yaw: -Math.PI / 2,
         anims: { idle: 'NlaTrack', walk: 'NlaTrack.001' }, stripRootMotion: true,
         stripBones: 'Thigh|Calf|Foot|Toe|Pelvis|Hip|Waist|Spine',
-        weapon: { url: 'assets/models/w_leafspear.glb?v=20260630i', bone: 'R_Hand', scale: 0.5 } });
+        weapon: { url: 'assets/models/w_leafspear.glb?v=20260630i', bone: 'R_Hand', pos: [0.03, 0.02, -0.02], rot: [1.396, 0, 0.175], scale: 0.93 } });
       // Druid (of the Claw): rigged idle/walk + bear-claw gauntlet on the right
       // hand. Fills the melee/warrior slot, replacing the procedural Thornguard.
       registerUnitModel('elf:warrior', { url: 'assets/models/rim_druid.glb?v=20260630i', height: 76, yaw: -Math.PI / 2,
