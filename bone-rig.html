@@ -196,11 +196,21 @@ function doSkin(){
   mesh.updateWorldMatrix(true,false); geo.applyMatrix4(mesh.matrixWorld);
   const pos=geo.attributes.position; const si=[],sw=[];
   const rigid=document.getElementById('rigid').checked;   // rigid = each vertex bound 100% to its nearest bone → segments swing without deforming
+  // adjacency: each joint may only share weight with its parent + direct children.
+  // This is what stops "snake constriction" — a torso vertex can no longer borrow
+  // weight from the opposite arm/leg just because that bone happens to be close in space.
+  const adj=joints.map(()=>[]);
+  joints.forEach((j,i)=>{ if(j.parent>=0){ adj[i].push(j.parent); adj[j.parent].push(i); } });
   for(let v=0; v<pos.count; v++){ const p=new THREE.Vector3().fromBufferAttribute(pos,v);
-    const ds=joints.map((j,i)=>{ const a=j.pos, b=j.parent>=0?joints[j.parent].pos:j.pos; return [i, distSeg(p,a,b)]; });
-    ds.sort((x,y)=>x[1]-y[1]); const top=ds.slice(0, rigid?1:4);
-    let ws = rigid ? [1] : top.map(o=>1/(o[1]*o[1]+1e-4)); const sum=ws.reduce((a,b)=>a+b,0)||1; ws=ws.map(w=>w/sum);
-    const ix=[0,0,0,0],wt=[0,0,0,0]; top.forEach((o,k)=>{ix[k]=o[0];wt[k]=ws[k];}); si.push(...ix); sw.push(...wt); }
+    const dist=joints.map((j,i)=>{ const a=j.pos, b=j.parent>=0?joints[j.parent].pos:j.pos; return distSeg(p,a,b); });
+    // nearest bone
+    let best=0; for(let i=1;i<joints.length;i++) if(dist[i]<dist[best]) best=i;
+    // candidate set = nearest bone + its topological neighbours only
+    const cand = rigid ? [best] : [best, ...adj[best]];
+    // among candidates, keep the closest 4 by segment distance
+    cand.sort((x,y)=>dist[x]-dist[y]); const top=cand.slice(0,4);
+    let ws = rigid ? [1] : top.map(i=>1/(dist[i]*dist[i]+1e-4)); const sum=ws.reduce((a,b)=>a+b,0)||1; ws=ws.map(w=>w/sum);
+    const ix=[0,0,0,0],wt=[0,0,0,0]; top.forEach((i,k)=>{ix[k]=i;wt[k]=ws[k];}); si.push(...ix); sw.push(...wt); }
   geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si,4));
   geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw,4));
   // build skinned mesh in place
