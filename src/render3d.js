@@ -1020,10 +1020,6 @@
       // image-to-model from the Rimwalker concept art (model front = +X, so
       // yaw = +PI/2 to match the +Z-front convention used by registerUnitModel).
       registerUnitModel('horde:warrior', { url: 'assets/models/cinder_warrior.glb?v=20260630d', height: 58, yaw: Math.PI });
-      // Footman (crown/Human warrior): KayKit Knight — fully rigged, its GLB ships
-      // idle/walk/melee clips embedded (same skeleton as the clip names). Trial of
-      // the KayKit animated adventurers in the default roster.
-      registerUnitModel('crown:warrior', kk('Knight', 'warrior', 'crown'));
       // ── New T-pose-authored Night Elf roster (clean rigs) + separate weapons
       //    mounted on a hand bone. All bodies front = +X, so yaw = -PI/2.
       // Bark Archer: Mixamo auto-rigged (clean deformation) with real idle/run/
