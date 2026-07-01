@@ -142,8 +142,12 @@ function exampleSkeleton(){
   const neck=J('Neck',P(0.82,0),chest);
   J('Head',P(0.92,0),neck);
   // arms — horizontal (T-pose): constant height, increasing spread
-  const lsh=J('L_Shoulder',P(0.73,+0.14*Wd),chest); const lel=J('L_Elbow',P(0.73,+0.28*Wd),lsh); J('L_Hand',P(0.73,+0.42*Wd),lel);
-  const rsh=J('R_Shoulder',P(0.73,-0.14*Wd),chest); const rel=J('R_Elbow',P(0.73,-0.28*Wd),rsh); J('R_Hand',P(0.73,-0.42*Wd),rel);
+  const lsh=J('L_Shoulder',P(0.73,+0.14*Wd),chest); const lel=J('L_Elbow',P(0.73,+0.28*Wd),lsh); const lhand=J('L_Hand',P(0.73,+0.40*Wd),lel);
+  const rsh=J('R_Shoulder',P(0.73,-0.14*Wd),chest); const rel=J('R_Elbow',P(0.73,-0.28*Wd),rsh); const rhand=J('R_Hand',P(0.73,-0.40*Wd),rel);
+  // hands — a fingers "mitt" bone continues past the wrist and a thumb sits just below it.
+  // Curl L_Fingers/R_Fingers toward the palm to close the hand into a grip (weapon hold).
+  J('L_Fingers',P(0.73,+0.46*Wd),lhand); J('L_Thumb',P(0.71,+0.43*Wd,0.03),lhand);
+  J('R_Fingers',P(0.73,-0.46*Wd),rhand); J('R_Thumb',P(0.71,-0.43*Wd,0.03),rhand);
   // legs
   // knees nudged slightly forward (fwd arg) so the joint knows which way to fold — "keep a slight bend to indicate direction"
   const lhip=J('L_Hip',P(0.48,+0.10*Wd),hips); const lkn=J('L_Knee',P(0.26,+0.10*Wd,0.05),lhip); J('L_Foot',P(0.04,+0.10*Wd),lkn);

@@ -33,6 +33,12 @@ This is the 3D equivalent of the 2D sprite workflow (each limb on its own layer)
 - "Heat" error on auto-weights = loose/duplicate verts → Merge by Distance / Weld.
   (Our distance skinning doesn't have this failure mode, so no weld step needed.)
 
+## Hands — closeable grip
+The example skeleton includes a `*_Fingers` "mitt" bone (past the wrist) and a
+`*_Thumb` bone per hand. Curl the Fingers bone about its **X axis** (~1.5 rad) to
+close the hand into a grip — useful for wrapping the hand around a weapon haft.
+Low-poly hands are mittens, so this is a whole-hand curl, not per-finger articulation.
+
 ## Bone placement details (Rigify video)
 - Character faces +Y, apply all transforms (scale 1 / rot 0 / loc 0). Our GLBs bake
   world transforms in the tool before skinning.
