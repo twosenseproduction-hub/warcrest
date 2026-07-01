@@ -1022,7 +1022,7 @@
       // projectile system fires the arrow.
       registerUnitModel('elf:archer', { url: 'assets/models/rim_archer_rigged.glb?v=20260630i', height: 74, yaw: -Math.PI / 2,
         anims: { idle: 'NlaTrack', walk: 'NlaTrack.001' }, stripRootMotion: true,
-        weapon: { url: 'assets/models/w_longbow.glb?v=20260630i', bone: 'L_Hand', scale: 0.7 } });
+        weapon: { url: 'assets/models/w_longbow.glb?v=20260630i', bone: 'L_Hand', pos: [-0.025, 0.055, 0.01], rot: [1.658, 1.92, 0.175], scale: 1.08 } });
       // Huntress: panther rider, biped-rigged — her arms animate while the leg
       // bones are frozen (stripBones) so the panther body stays intact. Moon
       // glaive in the right hand.
