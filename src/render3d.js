@@ -960,10 +960,14 @@
     // Preload any separately-authored weapon meshes the same way, so they're
     // ready to mount onto a hand bone when a unit mesh is built.
     keys.forEach(function (k) {
-      var w = UNIT_MODELS[k].weapon;
-      if (w && w.url && !weaponProtos[w.url]) {
-        jobs.push(loadOne(w.url).then(function (p) { if (p) weaponProtos[w.url] = p; }));
-      }
+      var specs = [];
+      if (UNIT_MODELS[k].weapon) specs.push(UNIT_MODELS[k].weapon);
+      if (UNIT_MODELS[k].attachments) specs = specs.concat(UNIT_MODELS[k].attachments);
+      specs.forEach(function (w) {
+        if (w && w.url && !weaponProtos[w.url]) {
+          jobs.push(loadOne(w.url).then(function (p) { if (p) weaponProtos[w.url] = p; }));
+        }
+      });
     });
     return Promise.all(jobs).then(function () { return true; });
   }
@@ -1207,11 +1211,11 @@
   // Because the weapon is its own node it follows the hand through every clip and
   // can later be detached to fly as a real projectile — neither possible when the
   // weapon is baked into the body mesh.
-  function attachWeapon(root, cfg, ud) {
-    var w = cfg && cfg.weapon;
-    if (!w || !w.url) return;
+  // Mount ONE prop (weapon/shield/quiver/effect) spec onto a bone. Returns the node.
+  function attachOne(root, w, ud) {
+    if (!w || !w.url) return null;
     var proto = weaponProtos[w.url];
-    if (!proto) return;                       // not loaded (yet) → skip, no crash
+    if (!proto) return null;                  // not loaded (yet) → skip, no crash
     var parent = (w.bone && root.getObjectByName(w.bone)) || root;
     var wm = (THREE.SkeletonUtils ? THREE.SkeletonUtils.clone(proto.scene) : proto.scene.clone());
     var node = new THREE.Group(); node.add(wm);
@@ -1221,6 +1225,16 @@
     node.traverse(function (o) { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; toonifyMesh(o); } });
     parent.add(node);
     if (w.detachOnFire) { ud.weapon = node; ud.weaponHome = parent; }
+    return node;
+  }
+  // cfg.weapon = a single held weapon (back-compat). cfg.attachments = an array of
+  // extra mounts (shields, quivers, back-slung weapons, effect anchors) — each the
+  // same {url,bone,pos,rot,scale} spec, authored via the weapon-editor.
+  function attachWeapon(root, cfg, ud) {
+    if (cfg && cfg.weapon) attachOne(root, cfg.weapon, ud);
+    if (cfg && cfg.attachments && cfg.attachments.length) {
+      for (var i = 0; i < cfg.attachments.length; i++) attachOne(root, cfg.attachments[i], ud);
+    }
   }
   function makeUnitMesh(u) {
     var race = raceOf(u.faction), role = mapRole(u);
