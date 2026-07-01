@@ -1525,10 +1525,13 @@
         var vi = vx + vy * vstride;
         VH[vi] = yv;
         VS[vi] = anySh ? 1 : 0;
-        // keep the outer map border un-jittered (no cracks at the world edge)
+        // keep the outer map border un-jittered (no cracks at the world edge);
+        // also calm the jitter on water-adjacent corners so the waterline reads as
+        // a smooth shore instead of a lacy sawtooth (inland stays organic).
         var edge = (vx === 0 || vy === 0 || vx === cols || vy === rows);
-        VJX[vi] = edge ? 0 : (rndAt(vx, vy) - 0.5) * 2 * JIT;
-        VJZ[vi] = edge ? 0 : (rndAt(vx + 7.3, vy + 1.9) - 0.5) * 2 * JIT;
+        var jam = allLand ? 1 : 0.3;
+        VJX[vi] = edge ? 0 : (rndAt(vx, vy) - 0.5) * 2 * JIT * jam;
+        VJZ[vi] = edge ? 0 : (rndAt(vx + 7.3, vy + 1.9) - 0.5) * 2 * JIT * jam;
       }
     }
     function vcol(vx, vy, out) {
@@ -1566,14 +1569,21 @@
         var h00 = VH[cx + cy * vstride], h10 = VH[cx + 1 + cy * vstride];
         var h01 = VH[cx + (cy + 1) * vstride], h11 = VH[cx + 1 + (cy + 1) * vstride];
         if (Math.max(h00, h10, h01, h11) <= WATER_DROP + 1) continue;  // deep water → gap (water plane shows)
+        // Kill the shoreline "lace": clamp drawn corners to sit a touch ABOVE the
+        // water surface (WATER_DROP+6) so the terrain never crosses the water plane
+        // and z-fights it. Deep-water quads are already skipped above (gap), so the
+        // water plane still shows; the beach edge just meets it cleanly. Clamp is
+        // per-vertex-deterministic, so shared corners stay crack-free.
+        var WL = WATER_DROP + 18;   // clamp beach edge clear of the water surface + wave peaks (~5.5)
+        var y00 = h00 < WL ? WL : h00, y10 = h10 < WL ? WL : h10, y01 = h01 < WL ? WL : h01, y11 = h11 < WL ? WL : h11;
         var i00 = cx + cy * vstride, i10 = cx + 1 + cy * vstride, i01 = cx + (cy + 1) * vstride, i11 = cx + 1 + (cy + 1) * vstride;
         var ax0 = cx * TILE + VJX[i00], az0 = cy * TILE + VJZ[i00];
         var bx0 = (cx + 1) * TILE + VJX[i10], bz0 = cy * TILE + VJZ[i10];
         var cx1 = (cx + 1) * TILE + VJX[i11], cz1 = (cy + 1) * TILE + VJZ[i11];
         var dx0 = cx * TILE + VJX[i01], dz1 = (cy + 1) * TILE + VJZ[i01];
         vcol(cx, cy, cA); vcol(cx + 1, cy, cB); vcol(cx + 1, cy + 1, cC); vcol(cx, cy + 1, cD);
-        pushTri(ax0, h00, az0, cA, dx0, h01, dz1, cD, cx1, h11, cz1, cC);
-        pushTri(ax0, h00, az0, cA, cx1, h11, cz1, cC, bx0, h10, bz0, cB);
+        pushTri(ax0, y00, az0, cA, dx0, y01, dz1, cD, cx1, y11, cz1, cC);
+        pushTri(ax0, y00, az0, cA, cx1, y11, cz1, cC, bx0, y10, bz0, cB);
       }
     }
     var geo = new THREE.BufferGeometry();
@@ -1729,7 +1739,7 @@
       var p = g.attributes.position.array;
       for (var i = 0; i < p.length; i += 3) {
         var x = p[i], y = p[i + 1];
-        p[i + 2] = Math.sin(x * 0.012 + t * 1.1) * 4.0 + Math.sin(y * 0.015 - t * 0.9) * 3.4 + Math.sin((x + y) * 0.007 + t * 0.6) * 2.6;
+        p[i + 2] = Math.sin(x * 0.012 + t * 1.1) * 2.2 + Math.sin(y * 0.015 - t * 0.9) * 1.9 + Math.sin((x + y) * 0.007 + t * 0.6) * 1.4;
       }
       g.attributes.position.needsUpdate = true;
     }
