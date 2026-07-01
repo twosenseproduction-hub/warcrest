@@ -42,6 +42,7 @@
   <label>Joints</label>
   <div id="jlist"></div>
   <div class="btns"><button onclick="addJointCenter()">+ joint at center</button><button class="warn" onclick="delJoint()">Delete sel</button></div>
+  <div class="btns"><button onclick="exampleSkeleton()">✨ Example humanoid skeleton</button></div>
 
   <div id="editj" style="display:none">
     <label>Selected joint</label>
@@ -112,6 +113,31 @@ function addJoint(pos){
   joints.push(j); rebuildVis(); select(joints.length-1); renderJList();
 }
 function addJointCenter(){ addJoint(target.clone()); }
+// Drop a ready-made humanoid skeleton fit to the model's bounding box, as a
+// worked example to study / tweak / skin. Assumes a roughly T-posed biped;
+// arms spread along whichever horizontal axis is widest (our models face +X,
+// so that's usually Z).
+function exampleSkeleton(){
+  if(!mesh||!modelRoot){alert('Load a model first');return;}
+  const box=new THREE.Box3().setFromObject(modelRoot); const c=box.getCenter(new THREE.Vector3()); const sz=box.getSize(new THREE.Vector3());
+  const H=sz.y, minY=box.min.y; const horiz=(sz.z>=sz.x)?'z':'x'; const Wd=(horiz==='z'?sz.z:sz.x);
+  function P(fy, off){ const p=new THREE.Vector3(c.x, minY+fy*H, c.z); if(off) p[horiz]+=off; return p; }
+  joints=[]; sel=-1;
+  function J(name,pos,parent){ joints.push({name:name,pos:pos,parent:parent}); return joints.length-1; }
+  const hips=J('Hips',P(0.50,0),-1);
+  const spine=J('Spine',P(0.62,0),hips);
+  const chest=J('Chest',P(0.72,0),spine);
+  const neck=J('Neck',P(0.82,0),chest);
+  J('Head',P(0.92,0),neck);
+  // arms — horizontal (T-pose): constant height, increasing spread
+  const lsh=J('L_Shoulder',P(0.73,+0.14*Wd),chest); const lel=J('L_Elbow',P(0.73,+0.28*Wd),lsh); J('L_Hand',P(0.73,+0.42*Wd),lel);
+  const rsh=J('R_Shoulder',P(0.73,-0.14*Wd),chest); const rel=J('R_Elbow',P(0.73,-0.28*Wd),rsh); J('R_Hand',P(0.73,-0.42*Wd),rel);
+  // legs
+  const lhip=J('L_Hip',P(0.48,+0.10*Wd),hips); const lkn=J('L_Knee',P(0.26,+0.10*Wd),lhip); J('L_Foot',P(0.04,+0.10*Wd),lkn);
+  const rhip=J('R_Hip',P(0.48,-0.10*Wd),hips); const rkn=J('R_Knee',P(0.26,-0.10*Wd),rhip); J('R_Foot',P(0.04,-0.10*Wd),rkn);
+  rebuildVis(); renderJList(); select(0);
+  document.getElementById('skinstatus').textContent='Example humanoid placed ('+joints.length+' joints) — tweak, then Auto-skin.';
+}
 function rebuildVis(){
   jointVis.forEach(v=>scene.remove(v)); jointVis=[];
   joints.forEach((j,i)=>{ const s=jointSphere(); s.position.copy(j.pos); scene.add(s); jointVis.push(s);

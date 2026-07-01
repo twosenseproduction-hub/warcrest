@@ -81,16 +81,31 @@
         RTS.Cam.clamp(s);
       }
       var pt = s.camera.panTarget;
-      if (!pt) return;
-      var c = s.camera;
-      var t = Math.min(1, dt * 9);
-      c.x += (pt.x - c.x) * t;
-      c.y += (pt.y - c.y) * t;
-      RTS.Cam.clamp(s);
-      if (Math.abs(pt.x - c.x) < 1.5 && Math.abs(pt.y - c.y) < 1.5) {
-        c.x = pt.x;
-        c.y = pt.y;
-        c.panTarget = null;
+      if (pt) {
+        var c = s.camera;
+        var t = Math.min(1, dt * 9);
+        c.x += (pt.x - c.x) * t;
+        c.y += (pt.y - c.y) * t;
+        RTS.Cam.clamp(s);
+        if (Math.abs(pt.x - c.x) < 1.5 && Math.abs(pt.y - c.y) < 1.5) {
+          c.x = pt.x;
+          c.y = pt.y;
+          c.panTarget = null;
+        }
+        return;
+      }
+      // Inertial glide: after a drag-pan flick, keep coasting and ease to a stop.
+      // Suppressed while a finger is actively panning or the joystick is engaged.
+      var v = s.camera._panVel;
+      var actping = s.ui.pointer && s.ui.pointer.panning;
+      if (v && !actping && !s.camera.joystick) {
+        var cc = s.camera;
+        cc.x += v.x * dt;                            // v is already in world px/s
+        cc.y += v.y * dt;
+        var fr = Math.pow(0.0022, dt);               // friction → smooth ~0.6s stop
+        v.x *= fr; v.y *= fr;
+        RTS.Cam.clamp(s);
+        if (Math.abs(v.x) < 3 && Math.abs(v.y) < 3) s.camera._panVel = null;
       }
     },
     // Thronefall-style perspective toggle: cycle between tactical (zoomed out)
@@ -721,6 +736,7 @@
         // the camera, even with units selected — so you can scroll the field with
         // your left thumb without issuing a move. A tap (no drag) still selects.
         s.camera.joystick = null;   // fresh press resets any prior joystick deflection
+        s.camera._panVel = null;    // touching down halts any inertial camera glide
         var leftPan = isTouch && !boxArmed && s.inputMode !== 'place-building' && inLeftPanZone(cssX, cssY);
         s.ui.pointer = {
           cssX: cssX, cssY: cssY, startX: cssX, startY: cssY,
@@ -809,9 +825,17 @@
         if (p.onEmpty && !RTS.activeCombatUnits(s).length) {
           p.panning = true;
           var prev = RTS.Cam.screenToWorld(s, p.cssX, p.cssY);
-          s.camera.x -= (w.x - prev.x);
-          s.camera.y -= (w.y - prev.y);
+          var ddx = w.x - prev.x, ddy = w.y - prev.y;   // world drag delta (camera moves opposite)
+          s.camera.x -= ddx;
+          s.camera.y -= ddy;
           RTS.Cam.clamp(s);
+          // track fling velocity (world px/s) so the camera can glide on release
+          var nowP = (RTS.now ? RTS.now() : Date.now());
+          var dtp = Math.max(0.008, (nowP - (p._panT || nowP)) / 1000);
+          var iv = { x: -ddx / dtp, y: -ddy / dtp };
+          var pv = s.camera._panVel;
+          s.camera._panVel = pv ? { x: pv.x * 0.35 + iv.x * 0.65, y: pv.y * 0.35 + iv.y * 0.65 } : iv;
+          p._panT = nowP;
         }
         p.cssX = cssX; p.cssY = cssY;
       }
