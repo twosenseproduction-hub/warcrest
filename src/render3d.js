@@ -1195,6 +1195,9 @@
         var bone = root.getObjectByName(bn);
         if (bone) ud.poseBones.push({ b: bone, e: cfg.pose[bn] });
       });
+      // Apply once now — clip-less rigs have no mixer, so nothing re-poses them
+      // per frame; a one-time set persists. (Mixer units get re-applied each frame.)
+      ud.poseBones.forEach(function (p) { p.b.rotation.set(p.e[0], p.e[1], p.e[2]); });
     }
     holder.userData = ud;
     return holder;
