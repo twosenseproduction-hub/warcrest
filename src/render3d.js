@@ -1022,11 +1022,13 @@
       registerUnitModel('horde:warrior', { url: 'assets/models/cinder_warrior.glb?v=20260630d', height: 58, yaw: Math.PI });
       // ── New T-pose-authored Night Elf roster (clean rigs) + separate weapons
       //    mounted on a hand bone. All bodies front = +X, so yaw = -PI/2.
-      // Bark Archer: rigged idle/walk, elven longbow in the left hand; the
-      // projectile system fires the arrow.
-      registerUnitModel('elf:archer', { url: 'assets/models/rim_archer_rigged.glb?v=20260630i', height: 74, yaw: -Math.PI / 2,
-        anims: { idle: 'NlaTrack', walk: 'NlaTrack.001' }, stripRootMotion: true,
-        weapon: { url: 'assets/models/w_longbow.glb?v=20260630i', bone: 'L_Hand', pos: [-0.025, 0.055, 0.01], rot: [1.658, 1.92, 0.175], scale: 1.08 } });
+      // Bark Archer: Mixamo auto-rigged (clean deformation) with real idle/run/
+      // bow-draw mocap; the Tripo texture atlas can't survive re-rigging so the
+      // skin is baked as vertex colours. Front = +Z (Mixamo), so yaw = 0. Elven
+      // longbow in the left hand; the draw clip drives attack, projectile fires.
+      registerUnitModel('elf:archer', { url: 'assets/models/rim_archer_mx.glb?v=20260701a', height: 74, yaw: 0,
+        anims: { idle: 'idle', walk: 'walk', attack: 'attack' }, stripRootMotion: true, attackRate: 1.1,
+        weapon: { url: 'assets/models/w_longbow.glb?v=20260701a', bone: 'mixamorigLeftHand', pos: [0.05, 0, 0.05], rot: [0, 0, 0], scale: 1.0 } });
       // Huntress: panther rider, biped-rigged — her arms animate while the leg
       // bones are frozen (stripBones) so the panther body stays intact. Moon
       // glaive in the right hand.
@@ -1089,21 +1091,25 @@
   // Convert a Tripo PBR material to flat, bright cel shading that keeps the
   // baked texture colour. A small emissive = albedo*0.12 lifts the dark side so
   // colours read true to the concept art under the game's warm, low-ambient sun.
-  function toonify(mm) {
+  function toonify(mm, vc) {
     if (!mm || mm.isMeshToonMaterial) return mm;
     var t = new THREE.MeshToonMaterial({
       color: mm.color ? mm.color.clone() : new THREE.Color(0xffffff),
       map: mm.map || null, gradientMap: toonGrad(),
       transparent: !!mm.transparent, opacity: mm.opacity != null ? mm.opacity : 1,
       alphaTest: mm.alphaTest || 0, side: mm.side,
+      vertexColors: !!vc,   // reskinned (Mixamo) units carry baked COLOR_0 vertex colours
     });
-    if (mm.color) { t.emissive = mm.color.clone().multiplyScalar(0.12); if (mm.map) t.emissiveMap = mm.map; t.emissiveIntensity = 1; }
+    // texture-lit units get an albedo emissive lift for readability; vertex-colour
+    // units already read bright off the toon ramp, so skip the flat grey lift.
+    if (mm.color && !vc) { t.emissive = mm.color.clone().multiplyScalar(0.12); if (mm.map) t.emissiveMap = mm.map; t.emissiveIntensity = 1; }
     t.name = mm.name;
     return t;
   }
   function toonifyMesh(o) {
     if (!o.isMesh || !o.material) return;
-    o.material = Array.isArray(o.material) ? o.material.map(toonify) : toonify(o.material);
+    var vc = !!(o.geometry && o.geometry.attributes && o.geometry.attributes.color);
+    o.material = Array.isArray(o.material) ? o.material.map(function (m) { return toonify(m, vc); }) : toonify(o.material, vc);
   }
   function makeModelMesh(entry, race, role, u) {
     var cfg = entry.cfg, proto = entry.proto;
