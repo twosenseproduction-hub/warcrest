@@ -7,3 +7,8 @@ __pycache__/
 .env.*
 
 node_modules/
+
+# Mixamo/Tripo pipeline intermediates (only the optimized *_mx.glb are committed)
+assets/models/*_mixamo.glb
+assets/models/*_mixamo_vc.glb
+assets/models/*_raw.glb
