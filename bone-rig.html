@@ -244,6 +244,7 @@ document.getElementById('file').onchange=e=>{ const f=e.target.files[0]; if(f) l
 window.__rig={ count:()=>joints.length, skinned:()=>!!skinned, bones:()=>skinned?skinned.skeleton.bones.length:0,
   hasSkin:()=>skinned?(!!skinned.geometry.attributes.skinIndex&&!!skinned.geometry.attributes.skinWeight):false,
   addAt:(x,y,z)=>addJoint(new THREE.Vector3(x,y,z)), doSkin:()=>doSkin(),
+  setBone:(i,x,y,z)=>{ if(skinned&&skinned.skeleton.bones[i]) skinned.skeleton.bones[i].rotation.set(x,y,z); },
   exportTest:()=>new Promise(r=>{ const obj=skinned||modelRoot; new THREE.GLTFExporter().parse(obj,res=>{
     new THREE.GLTFLoader().parse(res,'',g=>{ let sk=0,bn=0; g.scene.traverse(o=>{if(o.isSkinnedMesh){sk++;bn=o.skeleton.bones.length;}}); r({bytes:res.byteLength,skinnedMeshes:sk,bones:bn}); }, e=>r({parseErr:String(e)})); },e=>r({err:String(e)}),{binary:true}); }) };
 function resize(){renderer.setSize(innerWidth,innerHeight);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();}
