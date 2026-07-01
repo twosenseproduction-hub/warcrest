@@ -1020,6 +1020,14 @@
       // image-to-model from the Rimwalker concept art (model front = +X, so
       // yaw = +PI/2 to match the +Z-front convention used by registerUnitModel).
       registerUnitModel('horde:warrior', { url: 'assets/models/cinder_warrior.glb?v=20260630d', height: 58, yaw: Math.PI });
+      // Footman (crown/Human warrior): Tripo grey-plate knight from the user's own
+      // concept, Mixamo-rigged (idle/run/slash), vertex-colour reskin. Front = +Z
+      // (Mixamo) so yaw = 0. Steel sword in the right hand, blue cross kite-shield
+      // on the left arm — both Tripo-generated from the user's weapon concepts.
+      registerUnitModel('crown:warrior', { url: 'assets/models/footman_mx.glb?v=20260701a', height: 56, yaw: 0,
+        anims: { idle: 'idle', walk: 'walk', attack: 'attack' }, stripRootMotion: true, attackRate: 1.0,
+        weapon: { url: 'assets/models/w_footman_sword.glb?v=20260701a', bone: 'mixamorigRightHand', pos: [0, 0.06, 0], rot: [0, 0, 1.5708], scale: 0.85 },
+        attachments: [{ url: 'assets/models/w_footman_shield.glb?v=20260701a', bone: 'mixamorigLeftHand', pos: [0, 0, 0], rot: [0, 1.5708, 0], scale: 0.6 }] });
       // ── New T-pose-authored Night Elf roster (clean rigs) + separate weapons
       //    mounted on a hand bone. All bodies front = +X, so yaw = -PI/2.
       // Bark Archer: Mixamo auto-rigged (clean deformation) with real idle/run/
