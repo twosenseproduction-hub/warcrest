@@ -1183,6 +1183,15 @@
       }
     }
     attachWeapon(root, cfg, ud);
+    // Authored static arm/hand pose (from the weapon-editor): resolve each named
+    // bone to a ref + euler; the per-frame loop overrides them after the mixer.
+    if (cfg.pose) {
+      ud.poseBones = [];
+      Object.keys(cfg.pose).forEach(function (bn) {
+        var bone = root.getObjectByName(bn);
+        if (bone) ud.poseBones.push({ b: bone, e: cfg.pose[bn] });
+      });
+    }
     holder.userData = ud;
     return holder;
   }
@@ -2404,6 +2413,14 @@
     for (var pid in R.pool) {
       var psl = R.pool[pid]; if (!(psl && psl.obj && psl.obj.userData && psl.obj.userData.mixer)) continue;
       var pud = psl.obj.userData; pud.mixer.update(dt);
+      // static pose overlay: override specific bones to an authored orientation
+      // each frame (after the mixer). Lets the arms/hands be posed by hand via
+      // the weapon-editor and hold that pose on top of idle/walk.
+      if (pud.poseBones) {
+        for (var pi = 0; pi < pud.poseBones.length; pi++) {
+          var pb = pud.poseBones[pi]; pb.b.rotation.set(pb.e[0], pb.e[1], pb.e[2]);
+        }
+      }
       // aim overlay: after the mixer poses the body (idle), bend the arm bones toward
       // the cached aim pose by a weight that snaps up on attack and eases back down.
       if (pud.aimBones && pud._aim > 0) {

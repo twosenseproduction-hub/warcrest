@@ -53,7 +53,16 @@
   <label>Scale</label>
   <div class="row"><span class="nm">S</span><input id="sc" type="range" min="0.05" max="1.5" step="0.01" value="0.5"><span class="vv" id="scv">0.5</span></div>
 
-  <div class="btns"><button onclick="resetT()">Reset</button><button class="hot" onclick="copyOut()">Copy snippet</button></div>
+  <hr style="border:none;border-top:1px solid var(--line);margin:14px 0 4px">
+  <label>Pose a bone (arm / hand / torso)</label>
+  <select id="posebone"></select>
+  <div class="row"><span class="nm">X</span><input id="brx" type="range" min="-180" max="180" step="3" value="0"><span class="vv" id="brxv">0</span></div>
+  <div class="row"><span class="nm">Y</span><input id="bry" type="range" min="-180" max="180" step="3" value="0"><span class="vv" id="bryv">0</span></div>
+  <div class="row"><span class="nm">Z</span><input id="brz" type="range" min="-180" max="180" step="3" value="0"><span class="vv" id="brzv">0</span></div>
+  <div class="btns"><button onclick="clearPose()">Clear all pose</button></div>
+  <p class="hint" id="posesummary">No bones posed yet. Pick a bone, rotate it — it holds on top of the animation.</p>
+
+  <div class="btns"><button onclick="resetT()">Reset weapon</button><button class="hot" onclick="copyOut()">Copy snippet</button></div>
   <textarea id="out" readonly></textarea>
   <p class="hint">Send me the snippet (or just the pos / rot / scale numbers) and I'll wire it into the game.</p>
 </div>
@@ -125,6 +134,8 @@ async function loadBody(){
   // default to R_Hand
   const rh=[...bsel.options].find(o=>/R_Hand/i.test(o.value)) || [...bsel.options].find(o=>/Hand/i.test(o.value));
   if (rh) bsel.value=rh.value;
+  // pose bones
+  poseMap = {}; fillPoseBones(); updatePoseSummary();
   // anim
   idleClip = g.animations && (THREE.AnimationClip.findByName(g.animations,'NlaTrack')||g.animations[0]);
   if (idleClip){ mixer=new THREE.AnimationMixer(bodyObj); }
@@ -169,10 +180,37 @@ function writeOut(){
   if (pos.some(v=>v!==0)) s+=`pos: [${pos.join(', ')}], `;
   if (rot.some(v=>v!==0)) s+=`rot: [${rot.join(', ')}], `;
   s+=`scale: ${r('sc')} }`;
+  const pk=Object.keys(poseMap);
+  if (pk.length){
+    const ps=pk.map(n=>`'${n}': [${poseMap[n].map(v=>Math.round(v*1000)/1000).join(', ')}]`).join(', ');
+    s+=`,\npose: { ${ps} }`;
+  }
   document.getElementById('out').value = s;
 }
 function resetT(){ ['px','py','pz','rx','ry','rz'].forEach(id=>document.getElementById(id).value=0); document.getElementById('sc').value=0.5; updateT(); }
 function copyOut(){ const t=document.getElementById('out'); t.select(); document.execCommand('copy'); }
+
+// ---- arm/hand posing ----
+let poseMap = {};
+function poseBoneNames(){ const ns=[]; if(bodyObj) bodyObj.traverse(o=>{ if(/clav|arm|hand|spine|neck|head/i.test(o.name||'')) ns.push(o.name); }); return [...new Set(ns)].filter(Boolean); }
+function fillPoseBones(){ const sel=document.getElementById('posebone'); sel.innerHTML=''; const ns=poseBoneNames();
+  if(!ns.length){ const o=document.createElement('option'); o.textContent='(no bones — static model)'; sel.appendChild(o); return; }
+  ns.forEach(n=>{ const o=document.createElement('option'); o.value=n; o.textContent=n; sel.appendChild(o); });
+  const ru=[...sel.options].find(o=>/R_Upperarm/i.test(o.value)); if(ru) sel.value=ru.value;
+  loadPoseSliders(); }
+function loadPoseSliders(){ const name=document.getElementById('posebone').value; const b=bodyObj&&bodyObj.getObjectByName(name); if(!b) return;
+  const e = poseMap[name] || [b.rotation.x,b.rotation.y,b.rotation.z];
+  document.getElementById('brx').value=Math.round(e[0]*180/Math.PI);
+  document.getElementById('bry').value=Math.round(e[1]*180/Math.PI);
+  document.getElementById('brz').value=Math.round(e[2]*180/Math.PI);
+  ['brx','bry','brz'].forEach(id=>document.getElementById(id+'v').textContent=document.getElementById(id).value); }
+function updatePose(){ const name=document.getElementById('posebone').value; if(!name||name.startsWith('(')) return;
+  poseMap[name]=[val('brx')*Math.PI/180, val('bry')*Math.PI/180, val('brz')*Math.PI/180];
+  ['brx','bry','brz'].forEach(id=>document.getElementById(id+'v').textContent=document.getElementById(id).value);
+  updatePoseSummary(); writeOut(); }
+function updatePoseSummary(){ const ks=Object.keys(poseMap); document.getElementById('posesummary').textContent = ks.length ? ('Posed: '+ks.join(', ')) : 'No bones posed yet. Pick a bone, rotate it — it holds on top of the animation.'; }
+function clearPose(){ poseMap={}; updatePoseSummary(); loadPoseSliders(); writeOut(); }
+function applyPose(){ if(!bodyObj) return; for(const name in poseMap){ const b=bodyObj.getObjectByName(name); if(b) b.rotation.set(poseMap[name][0],poseMap[name][1],poseMap[name][2]); } }
 
 // populate dropdowns
 const bs=document.getElementById('body'); Object.keys(BODIES).forEach(k=>{const o=document.createElement('option');o.value=BODIES[k];o.textContent=k;bs.appendChild(o);});
@@ -182,12 +220,15 @@ bs.value=BODIES['Druid (rigged)']; ws.value=WEAPONS['Bear claw'];
 bs.onchange=loadBody; ws.onchange=attach; document.getElementById('bone').onchange=attach;
 document.getElementById('play').onchange=applyAnim; document.getElementById('strip').onchange=applyAnim;
 ['px','py','pz','rx','ry','rz','sc'].forEach(id=>document.getElementById(id).oninput=updateT);
+document.getElementById('posebone').onchange=loadPoseSliders;
+['brx','bry','brz'].forEach(id=>document.getElementById(id).oninput=updatePose);
 
 let last=performance.now();
 function resize(){ const w=innerWidth,h=innerHeight; renderer.setSize(w,h); cam.aspect=w/h; cam.updateProjectionMatrix(); }
 addEventListener('resize',resize); resize();
 function tick(){ requestAnimationFrame(tick); const now=performance.now(); const dt=(now-last)/1000; last=now;
   if (mixer && document.getElementById('play').checked) mixer.update(dt);
+  applyPose();
   applyCam(); renderer.render(scene,cam); }
 tick();
 loadBody();
