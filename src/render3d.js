@@ -1493,6 +1493,15 @@
     var VJZ = new Float32Array(vstride * (rows + 1));   // coastline isn't a grid zigzag
     var JIT = TILE * 0.32;
     function rndAt(a, b) { var h = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return h - Math.floor(h); }
+    // smooth value noise + a few octaves (fbm), for organic micro-elevation so
+    // flat interior land gently rolls instead of reading dead-flat. ~0..1.
+    function vnoise(x, y) {
+      var xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+      var u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+      var a = rndAt(xi, yi), b = rndAt(xi + 1, yi), c = rndAt(xi, yi + 1), d = rndAt(xi + 1, yi + 1);
+      return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+    }
+    function fbm(x, y) { var s = 0, amp = 0.5, f = 1; for (var o = 0; o < 3; o++) { s += vnoise(x * f, y * f) * amp; f *= 2; amp *= 0.5; } return s; }
     for (var vy = 0; vy <= rows; vy++) {
       for (var vx = 0; vx <= cols; vx++) {
         var sum = 0, anySh = false, allLand = true;
@@ -1508,7 +1517,10 @@
         if (anySh) yv = SHALLOW_DROP;                 // hold fords as a flat wadeable shelf
         else {
           yv = sum / 4;
-          if (allLand) yv += 1.2 + Math.sin(vx * 0.55 + 1.3) * Math.cos(vy * 0.5 + 0.7) * 2.2; // gentle dome
+          // gentle dome + multi-octave noise roll so flat land undulates naturally
+          // (small amplitude — units path on the tile grid, not this micro-relief).
+          if (allLand) yv += 1.2 + Math.sin(vx * 0.55 + 1.3) * Math.cos(vy * 0.5 + 0.7) * 2.2
+            + (fbm(vx * 0.23, vy * 0.23) - 0.45) * 8;
         }
         var vi = vx + vy * vstride;
         VH[vi] = yv;
