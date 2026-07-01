@@ -55,11 +55,19 @@ mesh. Any pose that clips a limb through the body shows as the skinned mesh poki
 past the ghost silhouette.
 → Implemented: "Ghost the original as a mold" toggle.
 
-## Wings / tails / capes / banners — FUTURE (dragon-wing video)
-Membrane modeling + cloth sim is Blender-only and out of scope for now. The reusable
-trick: **one control bone + Copy-Rotation constraints down a chain** makes the whole
-chain curl together from a single control. Applies to wings, tails, capes, tabards,
-banners, bowstrings — cheap secondary motion without keying every bone.
+## Wings / tails / capes / banners — FUTURE (dragon-wing + tail videos)
+Membrane modeling + cloth sim is Blender-only and out of scope for now. Two reusable
+tricks for chain appendages (tail, cape, tabard, banner, bowstring, hair):
+- **Curl** (wing video): one control bone + Copy-Rotation down the chain → the whole
+  chain furls from a single control.
+- **Follow-through** (tail/whip video): animate ONLY the root bone, then have each
+  bone down the chain copy the previous bone's rotation with a **time offset** (each
+  segment lags the one before it by a frame or two). That delay is what makes a tail/
+  whip/cape read as alive. Shorten bones toward the tip so the tip curls/whips more.
+  → In our engine (no Blender) this is cheap to do procedurally: drive the root, then
+    for each subsequent chain bone apply the root's rotation from N frames ago (ring
+    buffer of past rotations). No per-bone keying. Clamp tip position to avoid ground
+    clip. This is the technique to reach for when we add tails/capes to units.
 
 ## Reality check on our current assets
 The Tripo bodies (e.g. rim_archer) are a SINGLE fused, watertight mesh — one primitive,
