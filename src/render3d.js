@@ -1019,7 +1019,13 @@
       // cinder (orc) warrior: forged armored-orc. rimwalker (elf) archer: Tripo3D
       // image-to-model from the Rimwalker concept art (model front = +X, so
       // yaw = +PI/2 to match the +Z-front convention used by registerUnitModel).
-      registerUnitModel('horde:warrior', { url: 'assets/models/cinder_warrior.glb?v=20260630d', height: 58, yaw: Math.PI });
+      // Grunt (horde/Orc warrior): Tripo orc from the user's "grunt in leather armor"
+      // concept, Mixamo-rigged (idle/run/overhead-chop), vertex-colour reskin (green
+      // skin + brown armor). Front = +Z (Mixamo) so yaw = 0. Spiked orc felling-axe
+      // in the right hand, blade up. Replaces the earlier cinder_warrior orc.
+      registerUnitModel('horde:warrior', { url: 'assets/models/grunt_mx.glb?v=20260701a', height: 58, yaw: 0,
+        anims: { idle: 'idle', walk: 'walk', attack: 'attack' }, stripRootMotion: true, attackRate: 1.0,
+        weapon: { url: 'assets/models/w_orc_axe.glb?v=20260701a', bone: 'mixamorigRightHand', pos: [0.03, 0.2, 0], rot: [0, 0, 3.14159], scale: 0.8 } });
       // Footman (crown/Human warrior): Tripo grey-plate knight from the user's own
       // concept, Mixamo-rigged (idle/run/slash), vertex-colour reskin. Front = +Z
       // (Mixamo) so yaw = 0. Steel sword in the right hand, blue cross kite-shield
