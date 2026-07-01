@@ -1029,7 +1029,7 @@
       registerUnitModel('elf:lancer', { url: 'assets/models/rim_huntress.glb?v=20260630k', height: 66, yaw: -Math.PI / 2,
         anims: { idle: 'NlaTrack', walk: 'NlaTrack.001' }, stripRootMotion: true,
         stripBones: 'Thigh|Calf|Foot|Toe|Pelvis|Hip|Waist|Spine',
-        weapon: { url: 'assets/models/w_moonglaive.glb?v=20260630k', bone: 'R_Hand', scale: 0.5 } });
+        weapon: { url: 'assets/models/w_moonglaive.glb?v=20260630k', bone: 'R_Hand', pos: [0.03, 0.02, -0.02], rot: [1.396, 0, 0.175], scale: 0.45 } });
       // Dryad: centaur, biped-rigged with frozen leg bones (stripBones) so the
       // deer body stays intact while her arms animate. Leaf spear in the right hand.
       registerUnitModel('elf:caster', { url: 'assets/models/rim_dryad.glb?v=20260630l', height: 64, yaw: -Math.PI / 2,
