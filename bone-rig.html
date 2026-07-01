@@ -60,7 +60,8 @@
     </div>
   </div>
 
-  <label style="display:flex;align-items:center;gap:7px;text-transform:none;margin-top:10px"><input type="checkbox" id="rigid"> Rigid — cut at joints (parts swing without bending/pinching)</label>
+  <label style="display:flex;align-items:center;gap:7px;text-transform:none;margin-top:10px"><input type="checkbox" id="centervol" checked> Center joints in mesh volume (tap sinks the joint to the middle — cleaner bends)</label>
+  <label style="display:flex;align-items:center;gap:7px;text-transform:none;margin-top:6px"><input type="checkbox" id="rigid"> Rigid — cut at joints (parts swing without bending/pinching)</label>
   <div class="btns"><button class="hot" onclick="doSkin()">🦴 Auto-skin</button></div>
   <p class="hint" id="skinstatus">Not skinned yet. Place your joints, then Auto-skin to bind the mesh. Turn on "Rigid" for a clean cut-out look (best for low-poly).</p>
   <div class="btns"><button class="hot" onclick="doExport()">⬇ Export rigged .glb</button></div>
@@ -122,7 +123,16 @@ function exampleSkeleton(){
   if(!mesh||!modelRoot){alert('Load a model first');return;}
   const box=new THREE.Box3().setFromObject(modelRoot); const c=box.getCenter(new THREE.Vector3()); const sz=box.getSize(new THREE.Vector3());
   const H=sz.y, minY=box.min.y; const horiz=(sz.z>=sz.x)?'z':'x'; const Wd=(horiz==='z'?sz.z:sz.x);
-  function P(fy, off){ const p=new THREE.Vector3(c.x, minY+fy*H, c.z); if(off) p[horiz]+=off; return p; }
+  const face=(horiz==='z')?'x':'z';   // the axis the character faces (perpendicular to the arm spread)
+  // world-space vertex centroid within a thin horizontal slab at height y — so spine
+  // bones sit at the true middle of the body at each height, not a bounding-box guess.
+  mesh.updateWorldMatrix(true,false); const pa=mesh.geometry.attributes.position; const mw=mesh.matrixWorld;
+  function centroidAtY(y){ const band=H*0.06; let sx=0,sz2=0,n=0; const v=new THREE.Vector3();
+    for(let i=0;i<pa.count;i++){ v.set(pa.getX(i),pa.getY(i),pa.getZ(i)).applyMatrix4(mw);
+      if(Math.abs(v.y-y)<band){ sx+=v.x; sz2+=v.z; n++; } }
+    return n? {x:sx/n, z:sz2/n} : {x:c.x, z:c.z}; }
+  function P(fy, off, fwd){ const y=minY+fy*H; const ct=centroidAtY(y); const p=new THREE.Vector3(ct.x, y, ct.z);
+    if(off) p[horiz]+=off; if(fwd) p[face]+=fwd*(face==='z'?sz.z:sz.x); return p; }
   joints=[]; sel=-1;
   function J(name,pos,parent){ joints.push({name:name,pos:pos,parent:parent}); return joints.length-1; }
   const hips=J('Hips',P(0.50,0),-1);
@@ -134,8 +144,9 @@ function exampleSkeleton(){
   const lsh=J('L_Shoulder',P(0.73,+0.14*Wd),chest); const lel=J('L_Elbow',P(0.73,+0.28*Wd),lsh); J('L_Hand',P(0.73,+0.42*Wd),lel);
   const rsh=J('R_Shoulder',P(0.73,-0.14*Wd),chest); const rel=J('R_Elbow',P(0.73,-0.28*Wd),rsh); J('R_Hand',P(0.73,-0.42*Wd),rel);
   // legs
-  const lhip=J('L_Hip',P(0.48,+0.10*Wd),hips); const lkn=J('L_Knee',P(0.26,+0.10*Wd),lhip); J('L_Foot',P(0.04,+0.10*Wd),lkn);
-  const rhip=J('R_Hip',P(0.48,-0.10*Wd),hips); const rkn=J('R_Knee',P(0.26,-0.10*Wd),rhip); J('R_Foot',P(0.04,-0.10*Wd),rkn);
+  // knees nudged slightly forward (fwd arg) so the joint knows which way to fold — "keep a slight bend to indicate direction"
+  const lhip=J('L_Hip',P(0.48,+0.10*Wd),hips); const lkn=J('L_Knee',P(0.26,+0.10*Wd,0.05),lhip); J('L_Foot',P(0.04,+0.10*Wd),lkn);
+  const rhip=J('R_Hip',P(0.48,-0.10*Wd),hips); const rkn=J('R_Knee',P(0.26,-0.10*Wd,0.05),rhip); J('R_Foot',P(0.04,-0.10*Wd),rkn);
   rebuildVis(); renderJList(); select(0);
   document.getElementById('skinstatus').textContent='Example humanoid placed ('+joints.length+' joints) — tweak, then Auto-skin.';
 }
@@ -241,7 +252,17 @@ cv.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};moved=false
 cv.addEventListener('pointermove',e=>{ if(!down)return; const dx=e.clientX-down.x,dy=e.clientY-down.y; if(Math.abs(dx)+Math.abs(dy)>6)moved=true;
   camTheta-=dx*0.01; camPhi=Math.max(0.15,Math.min(3.0,camPhi-dy*0.01)); down={x:e.clientX,y:e.clientY}; });
 cv.addEventListener('pointerup',e=>{ if(down&&!moved&&mode==='place'&&mesh){ ndc.x=(e.clientX/innerWidth)*2-1; ndc.y=-(e.clientY/innerHeight)*2+1; ray.setFromCamera(ndc,cam);
-    const hits=ray.intersectObject(mesh,true); if(hits.length){ const local=(skinned||mesh).worldToLocal? hits[0].point.clone() : hits[0].point; addJoint(hits[0].point.clone()); } }
+    const hits=ray.intersectObject(mesh,true);
+    if(hits.length){
+      let p=hits[0].point.clone();
+      // "Bones go near the center of the mesh volume" (every rigging tutorial): instead of
+      // the surface hit, sink the joint to the midpoint of where the pick ray enters and
+      // exits the mesh — the center of the limb at that spot. Even influence, cleaner bends.
+      if(document.getElementById('centervol').checked && hits.length>=2){
+        p = hits[0].point.clone().add(hits[hits.length-1].point).multiplyScalar(0.5);
+      }
+      addJoint(p);
+    } }
   down=null; });
 cv.addEventListener('wheel',e=>{camR=Math.max(0.3,Math.min(14,camR+e.deltaY*0.002));e.preventDefault();},{passive:false});
 
