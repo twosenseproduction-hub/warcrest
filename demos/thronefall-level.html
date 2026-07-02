@@ -376,22 +376,26 @@ function faceTo(e,dx,dz){ if(dx||dz) e.face=Math.atan2(dx,dz); }
 // Each GLB packs the mesh once + all its clips; the clips are authored on the Bitgem
 // skeleton so they play with no retarget. Textures are embedded (palette atlas, UVs
 // pre-flipped) — we just force NearestFilter so swatches sample solid, not the black gaps.
-const RIGS={}, PROPS={}, TEXS={}; const CHAR_H={queen:4.4, archer:3.6, priestess:3.8};   // world heights (queen tallest & regal), scaled up a touch
-// hand weapons: prop FBX + hand bone + local transform (tuned in preview) + which atlas to paint it with
+const RIGS={}, PROPS={}, TEXS={}; const CHAR_H={queen:4.4, archer:3.6, priestess:3.8, warrior:3.9};   // world heights, scaled up a touch
+// hand weapons: each char has a list of props → { prop FBX, hand bone, local transform }
 const WEAPONS={
-  queen:    {file:'glaive_elf_queen', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1,   tex:'queen'},
-  archer:   {file:'bow_elf_archer',   bone:'hand_l', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1,   tex:'archer'},
-  priestess:{file:'magic_ball',       bone:'hand_r', pos:[0,4,0], rot:[0,0,0],         scl:0.6, tex:'priestess'},
+  queen:    [{file:'glaive_elf_queen', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
+  archer:   [{file:'bow_elf_archer',   bone:'hand_l', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
+  priestess:[{file:'magic_ball',       bone:'hand_r', pos:[0,4,0], rot:[0,0,0],         scl:0.6}],
+  warrior:  [{file:'sword_elf_warrior', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1},
+             {file:'shield_elf_warrior',bone:'hand_l', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
 };
+const RIG_SPECS=[['queen','elf_queen'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior']];
 function loadRig(){ return new Promise(res=>{
   const gl=new THREE.GLTFLoader(), fx=new THREE.FBXLoader(), tl=new THREE.TextureLoader();
-  const specs=[['queen','elf_queen'],['archer','elf_archer'],['priestess','elf_priestess']];
-  let n=0, need=specs.length*3; const done=()=>{ if(++n>=need) res(); };   // per char: body GLB + atlas PNG + weapon FBX
-  specs.forEach(([k,f])=>{
+  const propFiles=[...new Set(Object.values(WEAPONS).flat().map(w=>w.file))];
+  let n=0, need=RIG_SPECS.length*2 + propFiles.length; const done=()=>{ if(++n>=need) res(); };   // body GLB + atlas per char, + each prop once
+  RIG_SPECS.forEach(([k,f])=>{
     gl.load('/assets/models/'+f+'_anim.glb', g=>{ RIGS[k]={scene:g.scene,anims:g.animations}; done(); }, undefined, ()=>done());
     tl.load('/assets/models/'+f+'_tex.png', t=>{ t.flipY=true; t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter; t.generateMipmaps=false; if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; TEXS[k]=t; done(); }, undefined, ()=>done());
-    gl && fx.load('/assets/models/'+WEAPONS[k].file+'.fbx', o=>{ PROPS[k]=o; done(); }, undefined, ()=>done());
-  }); }); }
+  });
+  propFiles.forEach(f=>fx.load('/assets/models/'+f+'.fbx', o=>{ PROPS[f]=o; done(); }, undefined, ()=>done()));
+}); }
 // clone a rig (independent per unit), crisp texture, scale to target height, plant feet, wire clips
 function makeChar(key){ const src=RIGS[key]; if(!src)return null;
   const inner=THREE.SkeletonUtils.clone(src.scene), outer=new THREE.Group();
@@ -413,12 +417,11 @@ function makeChar(key){ const src=RIGS[key]; if(!src)return null;
   mixer.update(0.3); outer.updateMatrixWorld(true);          // settle idle, then plant feet + centre exactly
   const b2=new THREE.Box3().setFromObject(inner); const c2=b2.getCenter(new THREE.Vector3());
   inner.position.y-=b2.min.y/outer.scale.x; inner.position.x-=c2.x/outer.scale.x; inner.position.z-=c2.z/outer.scale.x;
-  // hand weapon — parent the prop to the hand bone (rides the animation), painted with the char atlas
-  const w=WEAPONS[key];
-  if(w && PROPS[key]){ let bone=null; inner.traverse(o=>{ if(o.isBone&&o.name===w.bone)bone=o; });
-    if(bone){ const prop=PROPS[key].clone(true), tx=TEXS[key];
+  // hand weapons — parent each prop to its hand bone (rides the animation), painted with the char atlas
+  (WEAPONS[key]||[]).forEach(w=>{ if(!PROPS[w.file])return; let bone=null; inner.traverse(o=>{ if(o.isBone&&o.name===w.bone)bone=o; });
+    if(bone){ const prop=PROPS[w.file].clone(true), tx=TEXS[key];
       prop.traverse(o=>{ if(o.isMesh){ o.material=new THREE.MeshBasicMaterial({map:tx,side:THREE.DoubleSide}); o.frustumCulled=false; } });
-      prop.position.fromArray(w.pos); prop.rotation.set(w.rot[0],w.rot[1],w.rot[2]); prop.scale.setScalar(w.scl); bone.add(prop); } }
+      prop.position.fromArray(w.pos); prop.rotation.set(w.rot[0],w.rot[1],w.rot[2]); prop.scale.setScalar(w.scl); bone.add(prop); } });
   return {g:outer,mixer,act}; }
 // generic crossfade anim setter (hero + rigged allies)
 function setAnim(e,want){ if(!e.act||e.animState===want)return; const a=e.act[want]; if(!a)return;
@@ -430,10 +433,13 @@ function spawnGame(){
   hero=mkFighter(C.hero,1.9,'hero',{hp:260,dmg:20,range:3.6,atkEvery:0.5,spd:19,aCd:0,spellCd:0});
   riggize(hero,'queen');                       // the Elf Queen — sword + spell hero
   setP(hero,2,34);
-  for(let i=0;i<8;i++){ const caster=i>=6;      // idx 6,7 = priestess casters; the rest = archers
-    const e=mkFighter(caster?C.cleric:(i%2?C.teamBlue:C.teamBlueD),1.0,'ally',{hp:caster?52:60,dmg:caster?6:10,range:caster?7:9,atkEvery:1.1,spd:15});
-    e.idx=i; e.kind=caster?'cleric':'warrior'; e.healCd=0; e.smiteCd=0;
-    riggize(e, caster?'priestess':'archer');    // tier-1 archers + priestess casters
+  // roster: 2 sword-and-shield warriors (melee front-line), 4 archers, 2 priestess casters
+  const ROSTER=['warrior','warrior','archer','archer','archer','archer','priestess','priestess'];
+  const STATS={ warrior:{hp:110,dmg:16,range:3.6,col:C.teamBlueD}, archer:{hp:60,dmg:10,range:9,col:C.teamBlue}, priestess:{hp:52,dmg:6,range:7,col:C.cleric} };
+  for(let i=0;i<8;i++){ const u=ROSTER[i], s=STATS[u];
+    const e=mkFighter(s.col,1.0,'ally',{hp:s.hp,dmg:s.dmg,range:s.range,atkEvery:u==='warrior'?0.9:1.1,spd:15});
+    e.idx=i; e.kind=(u==='priestess')?'cleric':u; e.healCd=0; e.smiteCd=0;   // 'cleric' drives the heal pass
+    riggize(e, u);
     setP(e,2+((i%4)-1.5)*3.2, 42+Math.floor(i/4)*3.6); allies.push(e); }
   rallyMarker=new THREE.Mesh(new THREE.RingGeometry(1.6,2.3,22),new THREE.MeshBasicMaterial({color:0xffe089,transparent:true,opacity:0.9,side:THREE.DoubleSide}));
   rallyMarker.rotation.x=-Math.PI/2; rallyMarker.visible=false; scene.add(rallyMarker);
@@ -574,7 +580,7 @@ function updateGame(dt){
                  else if(Math.hypot(t.px-hero.px,t.pz-hero.pz)<ENGAGE) e.target=t; } } } // following: engage foes near the hero
       if(e.target){ const t=e.target, d=Math.hypot(t.px-e.px,t.pz-e.pz);                 // committed: fight until it dies
              if(d>e.range){ e.state='move'; moveTo(e,t.px,t.pz,dt); } else { e.state='attack'; faceTo(e,t.px-e.px,t.pz-e.pz);
-               if(e.cd<=0) shootFx(e.px,e.pz,t.px,t.pz, e.kind==='cleric'?'magic':'arrow'); attack(e,t); } }
+               if(e.cd<=0 && e.kind!=='warrior') shootFx(e.px,e.pz,t.px,t.pz, e.kind==='cleric'?'magic':'arrow'); attack(e,t); } }
       else if(e.order){ // hold the commanded position
              if(Math.hypot(e.order.x-e.px,e.order.z-e.pz)>1.4){ e.state='move'; moveTo(e,e.order.x,e.order.z,dt); } else e.state='idle'; }
       else { // loose leash: idle in the hero's vicinity, only re-form once he's walked past FOLLOW_OUT
