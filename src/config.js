@@ -283,7 +283,8 @@
 
     pawn: {
       role: 'pawn', label: 'Peasant', glyph: 'circle', faction: 'aurex',
-      hp: 60, speed: 100, dmg: 5, range: 22, rof: 1.0, tier: 1,
+      // WC3 Peasant: 220 HP, 5.5 dmg, 190 move (slow), food 1.
+      hp: 65, speed: 95, dmg: 6, range: 22, rof: 1.0, tier: 1,
       cost: 45, supply: 1, build: 0, canHarvest: true, canBuild: true,
       traits: [],
       desc: 'Harvests Ironstone and raises structures.',
@@ -294,17 +295,21 @@
     // staying power far exceeds its raw HP — the anvil the Crown wins on.
     warrior: {
       role: 'warrior', label: 'Footman', glyph: 'hex', faction: 'aurex',
-      hp: 200, speed: 85, dmg: 18, range: 48, rof: 1.0, tier: 1,
-      cost: 110, supply: 2, build: 0, armor: 0.30,
+      // WC3 Footman: 420 HP, 12.5 dmg, Heavy armor, 270 move, food 2 — sturdy &
+      // armored but modest damage; wins by soaking, not hitting hard.
+      hp: 135, speed: 100, dmg: 12, range: 48, rof: 1.0, tier: 1,
+      cost: 110, supply: 2, build: 0, armor: 0.35,
       traits: ['armor', 'taunt'],
       tauntRadius: 90,
       desc: 'Armored frontline. Armor soaks 30% of damage — holds the line.',
     },
 
-    // Crossbowman — serviceable ranged backbone, but not the Crown's edge.
+    // Rifleman-class ranged backbone. WC3 Rifleman is unusually TOUGH for a
+    // ranged unit (535 HP) and hits hard (21 pierce) — a durable gun line, not
+    // fragile skirmishers.
     archer: {
       role: 'archer', label: 'Crossbowman', glyph: 'tri', faction: 'aurex',
-      hp: 80, speed: 95, dmg: 16, range: 150, rof: 0.85, tier: 1,
+      hp: 150, speed: 100, dmg: 21, range: 150, rof: 0.9, tier: 1,
       cost: 120, supply: 2, build: 0, ranged: true,
       traits: ['archer_focus'],
       desc: 'Ranged support. Slow, heavy bolts — solid, but the Crown wins in melee.',
@@ -313,8 +318,10 @@
     // Knight — mounted heavy cavalry. Tier 2: needs a Keep.
     lancer: {
       role: 'lancer', label: 'Knight', glyph: 'diamond', faction: 'aurex',
-      hp: 220, speed: 150, dmg: 26, range: 50, rof: 0.9, tier: 2,
-      cost: 170, supply: 3, build: 0, armor: 0.25,
+      // WC3 Knight: 835 HP, 34 dmg, Heavy armor, fast, food 4 — the elite anchor:
+      // top HP and top melee damage of the basic roster.
+      hp: 240, speed: 150, dmg: 32, range: 50, rof: 0.9, tier: 2,
+      cost: 170, supply: 3, build: 0, armor: 0.30,
       traits: ['armor', 'building_bane'],
       buildingDmgBonus: 0.3,
       desc: 'Mounted heavy cavalry. Armored, shatters buildings. Requires a Keep.',
@@ -323,7 +330,9 @@
     // Priest — premier healer / support caster. Tier 2: needs a Keep.
     monk: {
       role: 'monk', label: 'Priest', glyph: 'cross', faction: 'aurex',
-      hp: 95, speed: 100, dmg: 14, range: 120, rof: 0.85, heal: 14, tier: 2,
+      // WC3 Priest: 290 HP, 8.5 Magic dmg, Unarmored, 60 range — fragile, low
+      // damage, but the premier healer.
+      hp: 85, speed: 105, dmg: 10, range: 120, rof: 0.9, heal: 14, tier: 2,
       cost: 135, supply: 2, build: 0, healer: true, ranged: true,
       mana: 120, manaRegen: 8, abilities: ['inner_fire'],
       traits: ['monk_aura', 'inner_fire'],
@@ -334,7 +343,9 @@
     // clustered foes and rend structures. Tier 2: needs a Keep.
     siege: {
       role: 'siege', label: 'Glaive Thrower', glyph: 'tri', faction: 'rimwalker',
-      hp: 130, speed: 72, dmg: 42, range: 165, rof: 1.6, tier: 2,
+      // WC3 Glaive Thrower: 300 HP, 44.5 Siege dmg, 220 move (slow), food 3 —
+      // fragile, slow, but heavy cleaving siege damage.
+      hp: 90, speed: 72, dmg: 42, range: 165, rof: 1.6, tier: 2,
       cost: 165, supply: 3, build: 0, ranged: true, splash: 44, buildingDmgBonus: 0.45,
       traits: ['building_bane'],
       desc: 'Mobile siege — hurls spinning glaives that cleave clustered foes and shatter buildings. Requires a Keep.',
@@ -352,30 +363,40 @@
     // Wild Grace: combat units have a chance to evade a hit entirely. Their
     // power budget is reach + speed + dodge — caught in melee, they crumble.
     rimwalker: {
-      pawn:    { hp: 55, speed: 110, dmg: 5, cost: 45, supply: 1 },
-      // Thornguard — stopgap melee only. Evasive but weak; the grove avoids brawling.
-      warrior: { hp: 150, speed: 95, dmg: 15, range: 48, rof: 1.0, armor: 0, evade: 0.20, cost: 110, supply: 2 },
-      // Bark Archer — the backbone: long reach, fast loose, cheap, slippery. Searing Arrows toggle.
-      archer:  { hp: 70, speed: 115, dmg: 16, range: 168, rof: 0.62, ranged: true, evade: 0.25, cost: 115, supply: 2, abilities: ['searing_arrows'] },
-      // Huntress — fast ranged glaive skirmisher; basic barracks unit beside the Bark Archer.
-      lancer:  { hp: 150, speed: 188, dmg: 18, range: 150, rof: 0.8, ranged: true, armor: 0, evade: 0.22, cost: 165, supply: 3, tier: 1 },
-      // Sapling Mystic — ranged healer/caster, also evasive. Autocasts Rejuvenation.
-      monk:    { hp: 85, speed: 112, dmg: 16, range: 132, rof: 0.85, heal: 12, ranged: true, evade: 0.20, cost: 130, supply: 2, mana: 110, manaRegen: 8, abilities: ['rejuvenation'] },
+      // WC3 Wisp: 120 HP (fragile), 270 move (fast).
+      pawn:    { hp: 42, speed: 120, dmg: 5, cost: 45, supply: 1 },
+      // Thornguard — stopgap melee (NE fields no basic footman; Archer + Huntress
+      // are the line). Evasive but weak; the grove avoids brawling.
+      warrior: { hp: 110, speed: 100, dmg: 12, range: 48, rof: 1.0, armor: 0, evade: 0.20, cost: 110, supply: 2 },
+      // Bark Archer — WC3 Archer: 245 HP (fragile), 17 pierce, 50 range, 270 fast.
+      // Long reach, fast loose, slippery. Searing Arrows toggle.
+      archer:  { hp: 70, speed: 115, dmg: 17, range: 168, rof: 0.62, ranged: true, evade: 0.25, cost: 115, supply: 2, abilities: ['searing_arrows'] },
+      // Huntress — WC3 Huntress: 600 HP (tanky!), 17 bounce dmg, 350 (fastest),
+      // mounted. Here a fast, durable glaive skirmisher (ranged in our build).
+      lancer:  { hp: 175, speed: 188, dmg: 17, range: 150, rof: 0.8, ranged: true, armor: 0, evade: 0.20, cost: 165, supply: 3, tier: 1 },
+      // Sapling Mystic — WC3 Dryad (435 HP, 18 pierce) / Druid of the Talon caster.
+      // Ranged healer/caster, evasive. Autocasts Rejuvenation.
+      monk:    { hp: 95, speed: 110, dmg: 16, range: 132, rof: 0.85, heal: 12, ranged: true, evade: 0.20, cost: 130, supply: 2, mana: 110, manaRegen: 8, abilities: ['rejuvenation'] },
     },
 
     // ---- Raider Horde (brute attrition: cheap, high-HP melee that regens).
     // Blood Vigor: units regenerate HP a few seconds after leaving combat, so
     // cheap masses heal back up between fights. Weak ranged; folds to burst.
     cinder: {
-      pawn:    { hp: 50, speed: 115, dmg: 4, cost: 30, supply: 1, regen: 2 },
-      // Grunt — the brute: huge HP, slow, regenerates. The Horde's hammer.
-      warrior: { hp: 240, speed: 78, dmg: 26, range: 50, rof: 0.95, armor: 0, regen: 6, cost: 115, supply: 3 },
-      // Gnoll — cheap, weak ranged harasser; regens between skirmishes. Berserk toggle.
-      archer:  { hp: 70, speed: 118, dmg: 13, range: 130, rof: 0.7, ranged: true, regen: 3, cost: 70, supply: 2, abilities: ['berserk'] },
-      // Spear Goblin — fast glass-cannon raider. Ensnare nets a fleeing target.
-      lancer:  { hp: 60, speed: 195, dmg: 14, range: 55, rof: 0.55, armor: 0, regen: 2, cost: 55, supply: 1, abilities: ['ensnare'] },
-      // Hex Shaman — minor ranged healer (Humans out-heal them by far). Autocasts Bloodlust.
-      monk:    { hp: 75, speed: 100, dmg: 13, range: 125, rof: 0.85, heal: 8, ranged: true, regen: 3, cost: 80, supply: 2, mana: 100, manaRegen: 7, abilities: ['bloodlust', 'hex'] },
+      // WC3 Peon: 250 HP (tankiest worker), 7.5 dmg, 190 move (slow).
+      pawn:    { hp: 78, speed: 95, dmg: 7, cost: 30, supply: 1, regen: 2 },
+      // Grunt — WC3 Grunt: 700 HP (the tankiest basic melee), 19.5 dmg, 270 move
+      // (average, NOT slow). The Horde's hammer; regenerates (Blood Vigor).
+      warrior: { hp: 230, speed: 95, dmg: 20, range: 50, rof: 0.95, armor: 0, regen: 6, cost: 115, supply: 3 },
+      // Headhunter — WC3 Troll Headhunter: 350 HP, 25 pierce (hits hard), 45 range,
+      // 270 fast. A solid ranged threat, not a throwaway harasser. Berserk toggle.
+      archer:  { hp: 100, speed: 108, dmg: 20, range: 130, rof: 0.7, ranged: true, regen: 3, cost: 90, supply: 2, abilities: ['berserk'] },
+      // Raider — WC3 Raider: 610 HP (tanky!), 25 dmg, 350 (fast), Ensnare. A durable
+      // fast raider, not a glass cannon. Ensnare nets a fleeing target.
+      lancer:  { hp: 175, speed: 190, dmg: 22, range: 55, rof: 0.6, armor: 0, regen: 2, cost: 100, supply: 2, abilities: ['ensnare'] },
+      // Hex Shaman — WC3 Shaman/Witch Doctor: ~335 HP, 8.5 Magic. Minor ranged
+      // healer (Humans out-heal them). Autocasts Bloodlust.
+      monk:    { hp: 95, speed: 105, dmg: 11, range: 125, rof: 0.85, heal: 8, ranged: true, regen: 3, cost: 80, supply: 2, mana: 100, manaRegen: 7, abilities: ['bloodlust', 'hex'] },
     },
   };
 

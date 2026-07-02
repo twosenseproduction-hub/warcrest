@@ -34,13 +34,17 @@
   };
 
   /* Gameplay foot radii (collision / selection), derived from char foot. */
+  // Foot radii scaled to WC3-relative unit sizes: workers/archers/casters are
+  // small; melee (Footman/Grunt) bulkier; mounted lancers (Knight/Raider/Huntress)
+  // larger; siege (Glaive Thrower) largest of the trainables; heroes loom over all.
   var UNIT = {
-    pawn: REF.charFootR,
-    lancer: REF.charFootR * 1.08,
-    archer: REF.charFootR * 1.05,
-    monk: REF.charFootR * 1.05,
-    warrior: REF.charFootR * 1.18,
-    hero: REF.charFootR * 1.32,
+    pawn: REF.charFootR,               // Wisp / Peasant / Peon — small
+    archer: REF.charFootR * 1.02,      // Archer / Rifleman / Headhunter
+    monk: REF.charFootR * 1.02,        // Priest / Shaman / Mystic
+    warrior: REF.charFootR * 1.20,     // Footman / Grunt — bulky infantry
+    lancer: REF.charFootR * 1.30,      // Knight / Raider / Huntress — mounted
+    siege: REF.charFootR * 1.50,       // Glaive Thrower — war machine
+    hero: REF.charFootR * 1.40,
   };
 
   /* Draw size targets — width-led, height follows sprite aspect in assets.js */
