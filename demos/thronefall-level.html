@@ -14,8 +14,8 @@
 </style>
 </head>
 <body>
-<div id="tip">An <b>orc warband</b> is mustering to the east — lead your army out and crush them!</div>
-<div id="gold"><span class="c"></span>26</div>
+<div id="tip">Tap a glowing <b>plot</b> to build — <b>Houses</b> for gold, <b>Barracks</b> for troops, <b>Towers</b> for defense. Hold the line against the orc warband!</div>
+<div id="gold"><span class="c"></span><span id="goldn">140</span></div>
 <script src="/vendor/three.min.js"></script>
 <script src="/vendor/GLTFLoader.js"></script>
 <script src="/vendor/fflate.min.js"></script>
@@ -239,7 +239,12 @@ function makeHouse(){
 const BLD={};
 function loadBuildings(){ return new Promise(res=>{ new THREE.TextureLoader().load('/assets/models/elf_building_tex.png', tex=>{
   tex.flipY=true; tex.magFilter=THREE.NearestFilter; tex.minFilter=THREE.NearestFilter; tex.generateMipmaps=false; if('colorSpace'in tex)tex.colorSpace=THREE.SRGBColorSpace;
-  const fx=new THREE.FBXLoader(), files={keep:'elf_throne_Lv3',house:'elf_house_Lv2',tower:'elf_tower_Lv2',mill:'elf_woodcutter_Lv2'};
+  const fx=new THREE.FBXLoader(), files={
+    keep:'elf_throne_Lv3', house:'elf_house_Lv2', tower:'elf_tower_Lv2', mill:'elf_woodcutter_Lv2',   // legacy aliases (far-lobe scenery)
+    throne1:'elf_throne_Lv1', throne2:'elf_throne_Lv2', throne3:'elf_throne_Lv3',
+    house1:'elf_house_Lv1',   house2:'elf_house_Lv2',   house3:'elf_house_Lv3',
+    tower1:'elf_tower_Lv1',   tower2:'elf_tower_Lv2',   tower3:'elf_tower_Lv3',
+    barrack1:'elf_barrack_Lv1', barrack2:'elf_barrack_Lv2', barrack3:'elf_barrack_Lv3' };
   const ks=Object.keys(files); let n=0; const done=()=>{ if(++n>=ks.length)res(); };
   ks.forEach(k=>fx.load('/assets/buildings/'+files[k]+'.fbx', o=>{
     o.traverse(nd=>{ if(nd.isMesh){ nd.material=new THREE.MeshBasicMaterial({map:tex,side:THREE.DoubleSide}); nd.castShadow=true; nd.frustumCulled=false; } });
@@ -248,6 +253,67 @@ function loadBuildings(){ return new Promise(res=>{ new THREE.TextureLoader().lo
     const w=new THREE.Group(); w.add(o); BLD[k]={scene:w,h:Math.max(0.001,sz.y)}; done(); }, undefined, ()=>done()));
   }, undefined, ()=>res()); }); }
 function bldClone(k,H){ const e=BLD[k]; if(!e)return null; const g=e.scene.clone(true); g.scale.setScalar(H/e.h); return g; }
+
+// ================= BASE: Thronefall-style fixed build plots + passive economy =================
+let gold=140, incomeRate=1, plots=[], coreB=null, buildMenuEl=null, goldNumEl=null, menuPlot=null;
+// category → model prefix + per-level stats (index 0 = Lv1). cost[0]=build, cost[1]=→Lv2, cost[2]=→Lv3.
+const CAT={
+  economy:{ label:'🏠 House',    model:'house',   H:[5.5,6.5,7.5], cost:[40,70,120],  income:[3,6,10] },
+  army:   { label:'🗡 Barracks', model:'barrack', H:[6.5,7.5,8.5], cost:[80,130,200], every:[7,5.5,4], cap:[2,3,4] },
+  defense:{ label:'🏹 Tower',    model:'tower',   H:[8,9.5,11],    cost:[55,90,150],  dmg:[16,28,44], range:[30,34,38], rof:[1.1,0.9,0.75] },
+};
+const CORE_H=[9,10.5,12], CORE_HP=[1600,2400,3400], CORE_UP=[0,300,480];
+function recomputeIncome(){ incomeRate=1; for(const p of plots) if(p.cat==='economy') incomeRate+=CAT.economy.income[p.level-1]; }
+function placeCore(x,z){ scene.add(dirtPad(x,z,10));
+  coreB={x,z,px:x,pz:z,alive:true,level:1,hp:CORE_HP[0],max:CORE_HP[0],big:8,hitT:0,g:null,bar:makeBar(0x6fd0ff)};
+  const g=bldClone('throne1',CORE_H[0])||makeKeep(); g.position.set(x,topY(x,z),z); scene.add(g); coreB.g=g; }
+function makePlot(x,z){ scene.add(dirtPad(x,z,5.5));
+  const ring=new THREE.Mesh(new THREE.RingGeometry(2.4,3.1,26),new THREE.MeshBasicMaterial({color:0x8fe6ff,transparent:true,opacity:0.55,side:THREE.DoubleSide,depthWrite:false}));
+  ring.rotation.x=-Math.PI/2; ring.position.set(x,topY(x,z)+0.25,z); scene.add(ring);
+  const plus=new THREE.Group(), pm=new THREE.MeshBasicMaterial({color:0xe6f8ff});
+  plus.add(new THREE.Mesh(new THREE.BoxGeometry(2.0,0.35,0.55),pm), new THREE.Mesh(new THREE.BoxGeometry(0.55,0.35,2.0),pm));
+  plus.position.set(x,topY(x,z)+0.9,z); scene.add(plus);
+  const p={x,z,ring,plus,cat:null,level:0,g:null,cd:0,spawnCd:3,mine:[]}; plots.push(p); return p; }
+function buildOnPlot(p){ const c=CAT[p.cat]; if(p.g) scene.remove(p.g);
+  const g=bldClone(c.model+p.level, c.H[p.level-1]); if(g){ g.position.set(p.x,topY(p.x,p.z),p.z); g.rotation.y=rr(0,6.28); scene.add(g); p.g=g; }
+  p.ring.visible=false; p.plus.visible=false;
+  if(p.cat==='defense'){ p.dmg=c.dmg[p.level-1]; p.range=c.range[p.level-1]; p.rof=c.rof[p.level-1]; }
+  if(p.cat==='army'){ p.every=c.every[p.level-1]; p.cap=c.cap[p.level-1]; }
+  recomputeIncome(); }
+function startBuild(p,cat){ if(p.cat)return; const c=CAT[cat]; if(gold<c.cost[0])return; gold-=c.cost[0]; p.cat=cat; p.level=1; buildOnPlot(p); closeBuildMenu(); }
+function upgradePlot(p){ if(!p.cat||p.level>=3)return; const cost=CAT[p.cat].cost[p.level]; if(gold<cost)return; gold-=cost; p.level++; buildOnPlot(p); closeBuildMenu(); }
+function upgradeCore(){ if(!coreB||coreB.level>=3)return; const cost=CORE_UP[coreB.level]; if(gold<cost)return; gold-=cost; coreB.level++;
+  const add=CORE_HP[coreB.level-1]-coreB.max; coreB.max=CORE_HP[coreB.level-1]; coreB.hp+=add;
+  scene.remove(coreB.g); const g=bldClone('throne'+coreB.level,CORE_H[coreB.level-1])||makeKeep(); g.position.set(coreB.x,topY(coreB.x,coreB.z),coreB.z); scene.add(g); coreB.g=g; closeBuildMenu(); }
+function towerTick(p,dt){ p.cd-=dt; if(p.cd>0)return; let best=null,bd=p.range*p.range;
+  for(const en of enemies){ if(!en.alive)continue; const dd=(en.px-p.x)**2+(en.pz-p.z)**2; if(dd<bd){bd=dd;best=en;} }
+  if(best){ shootFx(p.x,p.z,best.px,best.pz,'arrow'); best.hp-=p.dmg; best.hitT=0.15; p.cd=p.rof; } }
+function barracksTick(p,dt){ p.mine=p.mine.filter(u=>u.alive); if(p.mine.length>=p.cap)return; p.spawnCd-=dt; if(p.spawnCd>0)return; p.spawnCd=p.every;
+  const kind=(p.level>=2 && p.mine.length%2===1)?'warrior':'archer';
+  const st=kind==='warrior'?{hp:110,dmg:16,range:3.6,col:C.teamBlueD}:{hp:60,dmg:10,range:9,col:C.teamBlue};
+  const e=mkFighter(st.col,1.0,'ally',{hp:st.hp,dmg:st.dmg,range:st.range,atkEvery:kind==='warrior'?0.9:1.1,spd:15});
+  e.idx=allies.length; e.kind=kind; e.healCd=0; e.smiteCd=0; riggize(e,kind); setP(e,p.x+rr(-2,2),p.z+rr(3,5)); allies.push(e); p.mine.push(e); }
+function baseTick(dt){ gold+=incomeRate*dt;
+  for(const p of plots){ if(p.cat==='defense') towerTick(p,dt); else if(p.cat==='army') barracksTick(p,dt); }
+  if(coreB&&coreB.bar){ const f=Math.max(0,coreB.hp/coreB.max); coreB.bar.__fl.scale.x=f; coreB.bar.__fl.position.x=-(1-f)*coreB.bar.__w/2;
+    coreB.bar.position.set(coreB.x,topY(coreB.x,coreB.z)+CORE_H[coreB.level-1]+2,coreB.z); coreB.bar.quaternion.copy(cam.quaternion); }
+  if(goldNumEl) goldNumEl.textContent=Math.floor(gold); }
+// build-menu DOM (panel built in setupHUD; these open/populate it)
+function mkBtn(label,fn,ok){ const b=document.createElement('div'); b.textContent=label;
+  b.style.cssText='padding:10px 12px;border-radius:10px;font:700 13px system-ui;text-align:center;user-select:none;box-shadow:0 3px 0 #16233d;'+(ok?'background:#2f6d4f;color:#eafff2':'background:#3a3f4a;color:#8b93a0');
+  b.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); if(ok)fn(); }); return b; }
+function menuTitle(t){ const d=document.createElement('div'); d.textContent=t; d.style.cssText='color:#cfe;font:700 12px system-ui;text-align:center;margin-bottom:2px'; return d; }
+function openPlotMenu(p){ if(!buildMenuEl)return; menuPlot=p; buildMenuEl.innerHTML=''; const g=Math.floor(gold);
+  if(!p.cat){ buildMenuEl.appendChild(menuTitle('Build on plot'));
+    for(const k of ['economy','army','defense']){ const c=CAT[k]; buildMenuEl.appendChild(mkBtn(c.label+'  '+c.cost[0]+'g',()=>startBuild(p,k),g>=c.cost[0])); } }
+  else { const c=CAT[p.cat]; buildMenuEl.appendChild(menuTitle(c.label+' Lv'+p.level));
+    if(p.level<3){ const cost=c.cost[p.level]; buildMenuEl.appendChild(mkBtn('⬆ Upgrade Lv'+(p.level+1)+'  '+cost+'g',()=>upgradePlot(p),g>=cost)); } else buildMenuEl.appendChild(mkBtn('★ Max level',null,false)); }
+  buildMenuEl.appendChild(mkBtn('✕ Close',()=>closeBuildMenu(),true)); buildMenuEl.style.display='flex'; }
+function openCoreMenu(){ if(!buildMenuEl||!coreB)return; menuPlot=null; buildMenuEl.innerHTML=''; const g=Math.floor(gold);
+  buildMenuEl.appendChild(menuTitle('Throne Lv'+coreB.level+' · '+Math.ceil(coreB.hp)+'/'+coreB.max+' HP'));
+  if(coreB.level<3){ const cost=CORE_UP[coreB.level]; buildMenuEl.appendChild(mkBtn('⬆ Reinforce Lv'+(coreB.level+1)+'  '+cost+'g',()=>upgradeCore(),g>=cost)); } else buildMenuEl.appendChild(mkBtn('★ Max level',null,false));
+  buildMenuEl.appendChild(mkBtn('✕ Close',()=>closeBuildMenu(),true)); buildMenuEl.style.display='flex'; }
+function closeBuildMenu(){ if(buildMenuEl) buildMenuEl.style.display='none'; menuPlot=null; }
 function makeKeep(){
   const b=bldClone('keep',14); if(b) return b;   // Bitgem elf throne — the heart of the settlement
   const g=new THREE.Group();
@@ -349,15 +415,10 @@ function build(){
   for(const [x,z] of [[-90,60],[70,-95],[95,80],[-70,-80],[300,55],[235,-70],[300,-60]])
     if(onIsland(x,z)) scene.add(forestClump(x,z,4,11));
 
-  // central settlement (unchanged position — the meadow just grew around it)
+  // central base — Thronefall-style: the core throne ringed by empty build plots
   const KX=-12,KZ=-2;
-  scene.add(dirtPad(KX,KZ,11)); place(makeKeep(),KX,KZ,0.3);
-  const spots=[[-34,-18],[-40,6],[-28,20],[6,-22]];
-  for(const [x,z] of spots){ scene.add(dirtPad(x,z,6)); place(makeHouse(),x,z,rr(0,6.28)); }
-  scene.add(dirtPad(2,10,6)); place(makeWatchtower(),2,10,0);
-  scene.add(dirtPad(-4,-34,7)); place(makeWindmill(),-4,-34,0.5);
-  place(makeWall(9),24,-4,0.5);
-  scene.add(dirtPad(22,4,7)); place(makeWatchtower(),22,4,-0.4); // gate tower
+  placeCore(KX,KZ);
+  const RING=21; for(let i=0;i<6;i++){ const a=i/6*Math.PI*2+0.4, x=KX+Math.cos(a)*RING, z=KZ+Math.sin(a)*RING; if(onIsland(x,z)) makePlot(x,z); }
   // forward outpost on the far lobe (gives the far end a destination to roam to)
   scene.add(dirtPad(270,-10,9)); place(makeWatchtower(),270,-10,0);
   scene.add(dirtPad(250,20,6)); place(makeHouse(),250,20,rr(0,6.28));
@@ -664,9 +725,9 @@ function updateGame(dt){
       if(e.rigged){ e.mixer.update(dt); setAnim(e, e.state==='attack'?'attack':(e.state==='move'?'run':'idle')); } }
     for(const e of enemies){ if(!e.alive)continue; e.cd-=dt;
       if(e.target && !e.target.alive) e.target=null;
-      if(!e.target){ const {t}=nearest(e.px,e.pz,[hero,...allies]); e.target=t; }   // commit to a foe until it dies
-      if(e.target){ const t=e.target, d=Math.hypot(t.px-e.px,t.pz-e.pz);
-             if(d>e.range){ e.state='move'; moveTo(e,t.px,t.pz,dt); } else { e.state='attack'; faceTo(e,t.px-e.px,t.pz-e.pz);
+      if(!e.target){ const {t}=nearest(e.px,e.pz,[hero,...allies,coreB].filter(Boolean)); e.target=t; }   // fight units, or march on the throne
+      if(e.target){ const t=e.target, reach=e.range+(t.big||0), d=Math.hypot(t.px-e.px,t.pz-e.pz);
+             if(d>reach){ e.state='move'; moveTo(e,t.px,t.pz,dt); } else { e.state='attack'; faceTo(e,t.px-e.px,t.pz-e.pz);
                if(e.ranged && e.cd<=0) shootFx(e.px,e.pz,t.px,t.pz, e.magic?'magic':'arrow'); attack(e,t); } }
       else { e.state='move'; moveTo(e,-2,0,dt); }
       if(e.rigged){ e.mixer.update(dt); setAnim(e, e.state==='attack'?'attack':(e.state==='move'?'run':'idle')); } }
@@ -677,10 +738,10 @@ function updateGame(dt){
         for(const t of [hero,...allies]){ if(!t.alive||!t.max||claims.has(t))continue; if(t.hp/t.max>=0.9)continue;
           if(Math.hypot(t.px-e.px,t.pz-e.pz)>18)continue; const def=t.max-t.hp; if(def>bestDef){bestDef=def;best=t;} }
         if(best){ best.hp=Math.min(best.max,best.hp+24); claims.add(best); e.healCd=2.8; healFx(best); } } }
-    separate(); loco(dt);
+    separate(); loco(dt); baseTick(dt);
     const reap=l=>{ for(const e of l){ if(e.alive&&e.hp<=0){ e.alive=false; scene.remove(e.g); scene.remove(e.bar); if(e.ring){scene.remove(e.ring); selected.delete(e);} if(e.team==='enemy')killed++; } } return l.filter(e=>e.alive); };
     allies=reap(allies); enemies=reap(enemies);
-    if(hero.hp<=0) endGame(false); else if(spawnLeft===0&&enemies.length===0) endGame(true);
+    if(hero.hp<=0||(coreB&&coreB.hp<=0)) endGame(false); else if(spawnLeft===0&&enemies.length===0) endGame(true);
     if(heroHpEl) heroHpEl.style.width=(Math.max(0,hero.hp)/hero.max*100)+'%';
     if(waveEl) waveEl.textContent = (enemies.length+spawnLeft>0)? 'Orc warband: '+(enemies.length+spawnLeft)+' left' : 'The horde is broken!';
     if(abilEl) abilEl.style.opacity = hero.aCd>0? 0.45 : 1;
@@ -719,6 +780,9 @@ function setupHUD(){
   resultEl=document.createElement('div'); resultEl.style.cssText='position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:#0008;color:#fff;font:600 18px system-ui;gap:12px;z-index:9';
   resultEl.innerHTML='<h1 style="font-size:48px;margin:0"></h1><div>tap to play again</div>'; resultEl.addEventListener('pointerdown',()=>location.reload()); document.body.appendChild(resultEl);
   const gold=document.getElementById('gold'); if(gold){ gold.style.right='auto'; gold.style.left='18px'; }
+  goldNumEl=document.getElementById('goldn');
+  buildMenuEl=document.createElement('div'); buildMenuEl.style.cssText='position:fixed;left:50%;bottom:120px;transform:translateX(-50%);display:none;flex-direction:column;gap:8px;min-width:190px;background:#141a22e6;padding:12px;border-radius:14px;box-shadow:0 6px 22px #000a;z-index:8';
+  buildMenuEl.addEventListener('pointerdown',ev=>ev.stopPropagation()); document.body.appendChild(buildMenuEl);
   // lasso overlay
   lcv=document.createElement('canvas'); lcv.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:4'; lcv.width=innerWidth; lcv.height=innerHeight; document.body.appendChild(lcv); lctx=lcv.getContext('2d');
   addEventListener('resize',()=>{ lcv.width=innerWidth; lcv.height=innerHeight; });
@@ -745,14 +809,18 @@ function onUp(e){
   if(cmd.active&&e.pointerId===cmd.id){ cmd.active=false;
     if(cmd.moved){ lassoSelect(cmd.pts); }                                       // drag = lasso select
     else { const nd=new THREE.Vector2((e.clientX/innerWidth)*2-1,-(e.clientY/innerHeight)*2+1); raycaster.setFromCamera(nd,cam); const hit=new THREE.Vector3();
-      if(raycaster.ray.intersectPlane(groundPlane,hit)&&onIsland(hit.x,hit.z)){                    // tap = smart command
-        if(spellArmed){ castBolt(hit.x,hit.z); }                                                   // armed hero spell → cast here
-        else if(smiteArmed){ const en=nearestEnemyTo(hit.x,hit.z,6); if(en){ smiteAt(en); if(!readyClerics())smiteArmed=false; } }  // smart-cast: one cleric per tap
-        else { const en=nearestEnemyTo(hit.x,hit.z,5);
-          if(en){ focusFire(en); }                                                                 // tapped an enemy → focus fire
-          else { rallyMarker.material.color.setHex(0x9fe0ff);                                       // tapped ground → attack-move
-            const list=selected.size? [...selected].filter(a=>a.alive) : allies.filter(a=>a.alive);
-            list.forEach((a,k)=>{ const col=((k%4)-1.5)*2.8,row=Math.floor(k/4)*2.8; a.order={x:hit.x+col,z:hit.z+row}; a.forcedTarget=null; a.target=null; a.following=false; }); } } } }
+      if(raycaster.ray.intersectPlane(groundPlane,hit)&&onIsland(hit.x,hit.z)){                    // tap
+        const pp=plots.find(p=>Math.hypot(hit.x-p.x,hit.z-p.z)<4.2);
+        if(pp){ openPlotMenu(pp); }                                                                 // tapped a build plot → build / upgrade
+        else if(coreB&&Math.hypot(hit.x-coreB.x,hit.z-coreB.z)<7){ openCoreMenu(); }                // tapped the throne → reinforce
+        else { closeBuildMenu();                                                                    // empty ground → smart command
+          if(spellArmed){ castBolt(hit.x,hit.z); }                                                  // armed hero spell → cast here
+          else if(smiteArmed){ const en=nearestEnemyTo(hit.x,hit.z,6); if(en){ smiteAt(en); if(!readyClerics())smiteArmed=false; } }  // smart-cast: one cleric per tap
+          else { const en=nearestEnemyTo(hit.x,hit.z,5);
+            if(en){ focusFire(en); }                                                                // tapped an enemy → focus fire
+            else { rallyMarker.material.color.setHex(0x9fe0ff);                                      // tapped ground → attack-move
+              const list=selected.size? [...selected].filter(a=>a.alive) : allies.filter(a=>a.alive);
+              list.forEach((a,k)=>{ const col=((k%4)-1.5)*2.8,row=Math.floor(k/4)*2.8; a.order={x:hit.x+col,z:hit.z+row}; a.forcedTarget=null; a.target=null; a.following=false; }); } } } } }
     cmd.pts=[]; if(lctx)lctx.clearRect(0,0,lcv.width,lcv.height); } }
 
 // ---------- camera / render ----------
