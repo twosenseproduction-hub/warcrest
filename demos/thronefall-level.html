@@ -176,8 +176,29 @@ function outlined(group){ // wrap: add black inverted hull for each child mesh
   return group;
 }
 
-// ---------- trees: yellow broccoli clusters ----------
+// ---------- nature pack (Quaternius CC0): real low-poly trees / rocks / bushes ----------
+const NAT={tree:[], rock:[], bush:[]};
+// Quaternius meshes are flat per-material colours on MeshPhong (with emissive → blows white
+// under lights). Re-wrap as flat MeshLambert(diffuse) so they shade cleanly in our scene.
+function natLambert(o){ o.traverse(n=>{ if(n.isMesh){ const ms=Array.isArray(n.material)?n.material:[n.material];
+  const conv=m=>new THREE.MeshLambertMaterial({color:(m&&m.color)?m.color.getHex():0x88aa66});
+  n.material=Array.isArray(n.material)?ms.map(conv):conv(ms[0]); n.castShadow=true; n.receiveShadow=false; } }); }
+// centre on X/Z, drop base to y=0, record native height → clone + scale to a target height later
+function natEntry(o){ natLambert(o); const bb=new THREE.Box3().setFromObject(o); const sz=bb.getSize(new THREE.Vector3());
+  o.position.x-=(bb.min.x+sz.x/2); o.position.z-=(bb.min.z+sz.z/2); o.position.y-=bb.min.y; o.frustumCulled=false;
+  const w=new THREE.Group(); w.add(o); return {scene:w, h:Math.max(0.001,sz.y)}; }
+function loadNature(){ return new Promise(res=>{
+  const fx=new THREE.FBXLoader();
+  const sets={ tree:['CommonTree_Autumn_1','CommonTree_Autumn_3','CommonTree_Autumn_5','CommonTree_2','CommonTree_4','PineTree_Autumn_2','PineTree_3','BirchTree_2'],
+               rock:['Rock_1','Rock_3','Rock_Moss_2'], bush:['Bush_1','BushBerries_1','Grass_2'] };
+  const jobs=[]; for(const c in sets) sets[c].forEach(nm=>jobs.push([c,nm]));
+  let n=0; const done=()=>{ if(++n>=jobs.length) res(); };
+  jobs.forEach(([c,nm])=>fx.load('/assets/nature/'+nm+'.fbx', o=>{ NAT[c].push(natEntry(o)); done(); }, undefined, ()=>done())); }); }
+function natClone(cat, minH, maxH){ const list=NAT[cat]; if(!list.length) return null;
+  const e=list[Math.floor(rnd()*list.length)]; const g=e.scene.clone(true); g.scale.setScalar((minH+rnd()*(maxH-minH))/e.h); g.rotation.y=rnd()*6.28; return g; }
+// real low-poly tree (Quaternius), falling back to the procedural blob if the pack didn't load
 function makeTree(){
+  const t=natClone('tree',8,12); if(t) return t;
   const g=new THREE.Group();
   const blobs=4+Math.floor(rnd()*4);
   const base=2.2+rnd()*1.4;
@@ -263,6 +284,7 @@ function makeWall(len){
   return outlined(g);
 }
 function makeRock(){
+  const r=natClone('rock',2,4.5); if(r) return r;
   const m=new THREE.Mesh(new THREE.IcosahedronGeometry(1.6+rnd()*1.4,0),lam(C.rock,true)); m.castShadow=true; m.receiveShadow=true;
   m.rotation.set(rnd(),rnd(),rnd()); return outlined(new THREE.Group().add(m));
 }
@@ -759,7 +781,7 @@ async function boot(){
   if('outputColorSpace' in rnd3d) rnd3d.outputColorSpace=THREE.SRGBColorSpace;
   document.body.appendChild(rnd3d.domElement);
   cam=new THREE.PerspectiveCamera(30,innerWidth/innerHeight,1,600);
-  build(); initPost(); await loadRig(); spawnGame(); setupHUD(); followCam();
+  await loadNature(); build(); initPost(); await loadRig(); spawnGame(); setupHUD(); followCam();
   addEventListener('resize',()=>{
     rnd3d.setSize(innerWidth,innerHeight); cam.aspect=innerWidth/innerHeight; cam.updateProjectionMatrix();
     rt.setSize(innerWidth*pr(),innerHeight*pr()); postMat.uniforms.uRes.value.set(innerWidth,innerHeight);
