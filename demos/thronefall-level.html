@@ -366,11 +366,16 @@ function loadRig(){ return new Promise(res=>{ const gl=new THREE.GLTFLoader(); l
   gl.load('/assets/models/elf_archer_bitgem.glb', g=>{elf=g;done();}, undefined, ()=>done());
   gl.load('/assets/models/ual_lib.glb', g=>{lib=g;done();}, undefined, ()=>done()); }); }
 function makeElf(){ const outer=new THREE.Group(), inner=RIG.scene;
-  const h=RIG.box.getSize(new THREE.Vector3()).y||180, s=ELF_H/h;
-  inner.scale.setScalar(s); inner.rotation.y=ELF_YAW; inner.position.set(0,0,0);
+  inner.rotation.y=ELF_YAW; inner.position.set(0,0,0); inner.scale.set(1,1,1);
   inner.traverse(nd=>{ if(nd.isMesh){ const map=nd.material&&nd.material.map;
-    nd.material=new THREE.MeshStandardMaterial({map:map,emissive:0xffffff,emissiveMap:map,emissiveIntensity:0.8,roughness:1,metalness:0,side:THREE.DoubleSide}); nd.castShadow=true; nd.frustumCulled=false; } });
-  outer.add(inner); const mixer=new THREE.AnimationMixer(inner); const act={};
+    if(map&&'colorSpace'in map){ map.colorSpace=THREE.SRGBColorSpace; map.needsUpdate=true; }
+    nd.material=new THREE.MeshBasicMaterial({map:map,side:THREE.DoubleSide}); nd.castShadow=true; nd.frustumCulled=false; } });
+  outer.add(inner); outer.updateMatrixWorld(true);
+  // measure the rig at native scale, then scale the OUTER wrapper (reliable for skinned meshes)
+  const bb=new THREE.Box3().setFromObject(inner); const hh=Math.max(0.001,bb.getSize(new THREE.Vector3()).y);
+  inner.position.y = -bb.min.y;              // feet to origin (native units)
+  outer.scale.setScalar(ELF_H/hh);           // whole rig scaled to ELF_H tall, feet on ground
+  const mixer=new THREE.AnimationMixer(inner); const act={};
   for(const k in RIG.clips){ if(RIG.clips[k]) act[k]=mixer.clipAction(RIG.clips[k]); }
   if(act.idle) act.idle.play(); return {g:outer,mixer,act}; }
 function setHeroAnim(want){ if(!hero.act||hero.animState===want)return; const a=hero.act[want]; if(!a)return;
