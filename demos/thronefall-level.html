@@ -317,6 +317,10 @@ function build(){
 let hero=null, allies=[], enemies=[];
 let rallyPoint=null, rallyMarker=null, gameOver=0, spawnLeft=16, spawnTimer=1.2, killed=0;
 let heroFwd={x:0,z:1};
+// loose-leash follow: units idle in your vicinity, only surge to re-form once
+// you've walked past FOLLOW_OUT, and settle again within FOLLOW_IN of their slot.
+let FOLLOW_OUT=13, FOLLOW_IN=3.5;
+window.__follow=(o,i)=>{ if(o)FOLLOW_OUT=o; if(i)FOLLOW_IN=i; return {FOLLOW_OUT,FOLLOW_IN}; };
 let keys={}, joy={active:false,nx:0,ny:0,id:null,sx:0,sy:0};
 let heroHpEl, waveEl, resultEl, abilEl, joyBase, joyKnob;
 const raycaster=new THREE.Raycaster(), groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
@@ -330,7 +334,7 @@ function makeBar(fillHex){
 }
 function mkFighter(hex,scale,team,st){
   const g=makeUnit(hex,scale); scene.add(g);
-  const e=Object.assign({g,team,alive:true,cd:0,px:0,pz:0,hitT:0,face:0,phase:Math.random()*6.28,movedThis:false,
+  const e=Object.assign({g,team,alive:true,cd:0,px:0,pz:0,hitT:0,face:0,phase:Math.random()*6.28,movedThis:false,following:false,
     rad:team==='hero'?2.0:1.4, bar:makeBar(team==='enemy'?0xd23b3b:0x4ad0e0)},st);
   e.max=st.hp; return e;
 }
@@ -403,9 +407,15 @@ function updateGame(dt){
       // only peel off for enemies that come near the hero — otherwise hold formation
       const engage = t && Math.hypot(t.px-hero.px,t.pz-hero.pz) < 16;
       if(engage){ if(d>e.range){ e.state='move'; moveTo(e,t.px,t.pz,dt); } else { e.state='attack'; faceTo(e,t.px-e.px,t.pz-e.pz); attack(e,t); } }
-      else { let tx,tz; if(rallyPoint){ const col=((e.idx%4)-1.5)*2.8, row=Math.floor(e.idx/4)*2.8; tx=rallyPoint.x+col; tz=rallyPoint.z+row; }
-             else { const col=((e.idx%4)-1.5)*2.8, back=4.5+Math.floor(e.idx/4)*3.0; tx=hero.px-ffx*back+rgx*col; tz=hero.pz-ffz*back+rgz*col; }
-             if(Math.hypot(tx-e.px,tz-e.pz)>1.4){ e.state='move'; moveTo(e,tx,tz,dt); faceTo(e,ffx,ffz); } else { e.state='idle'; faceTo(e,ffx,ffz); } } }
+      else if(rallyPoint){ // explicit rally: march to the marker and hold
+             const col=((e.idx%4)-1.5)*2.8, row=Math.floor(e.idx/4)*2.8, tx=rallyPoint.x+col, tz=rallyPoint.z+row;
+             if(Math.hypot(tx-e.px,tz-e.pz)>1.4){ e.state='move'; moveTo(e,tx,tz,dt); faceTo(e,ffx,ffz); } else { e.state='idle'; faceTo(e,ffx,ffz); } }
+      else { // loose leash: hang out near the hero, only re-form when he's walked off
+             const col=((e.idx%4)-1.5)*2.8, back=4.5+Math.floor(e.idx/4)*3.0, tx=hero.px-ffx*back+rgx*col, tz=hero.pz-ffz*back+rgz*col;
+             const distHero=Math.hypot(hero.px-e.px,hero.pz-e.pz);
+             if(!e.following && distHero>FOLLOW_OUT) e.following=true;
+             if(e.following){ e.state='move'; moveTo(e,tx,tz,dt); faceTo(e,ffx,ffz); if(Math.hypot(tx-e.px,tz-e.pz)<FOLLOW_IN) e.following=false; }
+             else { e.state='idle'; faceTo(e,ffx,ffz); } } }
     for(const e of enemies){ if(!e.alive)continue; e.cd-=dt; const {t,d}=nearest(e.px,e.pz,[hero,...allies]);
       if(t&&d<70){ if(d>e.range){ e.state='move'; moveTo(e,t.px,t.pz,dt); } else { e.state='attack'; faceTo(e,t.px-e.px,t.pz-e.pz); attack(e,t); } }
       else { e.state='move'; moveTo(e,-2,0,dt); } }
