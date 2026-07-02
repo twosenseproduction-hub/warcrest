@@ -67,6 +67,55 @@ the discipline is to keep enforcing palette + silhouette clarity. And the
 Thronefall meta-rule the studio lived by: **"not getting finished is the
 biggest threat."** Ship tiny, layer complexity onto a proven core.
 
+## The control question — the third path (chosen to explore)
+
+Pillars 1–2 above describe the *safe* answer to touch: control one hero, let
+troops auto-fight, spend no APM. But the higher-reward bet is to **not
+surrender APM at all** — to master it on mobile by inventing a control grammar
+*native* to touch instead of porting the mouse's.
+
+APM fails on phones because studios replicate mouse+keyboard on a surface that
+has none of its strengths (hover, pixel-click, right-click verbs, a keyboard of
+hotkeys). But touch has strengths the mouse doesn't: **multi-touch parallelism,
+gestures, and direct manipulation.** Build command around *those*:
+
+- **Gesture verbs** — lasso-loop to select; draw a line from a squad to a point
+  = attack-move along it; draw an arc = flank; flick a group at a target =
+  focus-fire. Drawing a flank is *faster* than mouse waypoints.
+- **Persistent squad cards = visible control groups** — the pro's 1-2-3-4
+  hotkeys, on-screen and thumb-reachable, showing status so you command a
+  squad without camera-visiting it.
+- **Hold-radial for verbs** — hold a squad, a command wheel blooms under the
+  thumb. Replaces right-click + keyboard.
+- **Two-tap ability casting (arm → target)** — the real skill ceiling
+  (blink / ensnare / storm). The APM that *matters* in Blizzard games is
+  ability micro, not move-clicks.
+- **Two-handed multi-touch** — left thumb pans/anchors, right hand commands;
+  genuine parallelism a single mouse can't do.
+- **Smart-assist** — auto-target, focus-fire, formation-hold spend the player's
+  taps on *decisions*, not busywork; raises *effective* APM.
+- **(PvE) tactical-focus time-dilation** on cooldown — a burst window so touch's
+  lower raw tap-rate still lands a dense command salvo.
+
+**Existence proof:** Bad North — gesture-command squads that auto-fight — is
+critically adored precisely because command felt *native* to touch. It used a
+fraction of this toolkit. Nobody has stacked the full grammar under
+Blizzard-depth faction armies. That gap is the game.
+
+**The synthesis (low-floor / high-ceiling):** this does *not* conflict with the
+hero. Fuse them —
+- **Floor:** steer your hero one-thumb, army auto-follows and auto-fights; a
+  newcomer plays it like Thronefall.
+- **Ceiling:** the gesture / control-group / ability grammar sits on top for
+  players who want to command the whole army with real APM.
+
+One game, playable by a newcomer and a Grandmaster — the "layer complexity onto
+a proven core" lesson applied to *controls themselves*. Highest reward, highest
+risk, unproven. De-risk it the only way that works: a **control-feel sandbox**
+(two squads, dummy enemies, no economy) with lasso-select + draw-to-attack-move
++ squad cards + one two-tap ability — then play it on a phone for ten minutes.
+If it feels fast and good, we've found the game.
+
 ## What this means for the current build
 
 Warcrest today is a symmetric skirmish RTS (two AI bases, worker harvest, tech
