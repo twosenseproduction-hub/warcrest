@@ -28,7 +28,7 @@ const C = {
   wood:       0xd98a3a, woodDark: 0xb56b28, cream: 0xece0c0, roof: 0xc25a34,
   stone:      0xe7ddc4, stoneShade: 0xcdbf9c,
   rock:       0x8f9aa0,
-  teamBlue:   0x3f74c4, teamBlueD: 0x2b57a0, hero: 0x9a5bd6, skin: 0xe0b088,
+  teamBlue:   0x3f74c4, teamBlueD: 0x2b57a0, hero: 0x9a5bd6, skin: 0xe0b088, cleric: 0xe9e2c2,
   enemyRed:   0xc23b3b,
   outline:    0x2a2018,
 };
@@ -323,7 +323,7 @@ let FOLLOW_OUT=13, FOLLOW_IN=3.5, ENGAGE=16, BREAK=24;
 window.__follow=(o,i,e,b)=>{ if(o)FOLLOW_OUT=o; if(i)FOLLOW_IN=i; if(e)ENGAGE=e; if(b)BREAK=b; return {FOLLOW_OUT,FOLLOW_IN,ENGAGE,BREAK}; };
 // command layer: lasso-select a sub-group, draw/tap to send them (attack-move)
 let selected=new Set(), lcv, lctx, cmd={active:false,id:null,pts:[],moved:false};
-let spellArmed=false, autoBolt=false, orderMarkers=[], boltEl, autoEl;
+let spellArmed=false, autoBolt=false, orderMarkers=[], boltEl, autoEl, smiteArmed=false, smiteEl;
 let keys={}, joy={active:false,nx:0,ny:0,id:null,sx:0,sy:0};
 let heroHpEl, waveEl, resultEl, abilEl, joyBase, joyKnob;
 const raycaster=new THREE.Raycaster(), groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
@@ -347,8 +347,9 @@ function setP(e,x,z){ e.px=x; e.pz=z; e.g.position.set(x,topY(x,z),z); }
 function faceTo(e,dx,dz){ if(dx||dz) e.face=Math.atan2(dx,dz); }
 function spawnGame(){
   hero=mkFighter(C.hero,1.9,'hero',{hp:260,dmg:20,range:3.6,atkEvery:0.5,spd:32,aCd:0,spellCd:0}); setP(hero,-2,8);
-  for(let i=0;i<8;i++){ const e=mkFighter(i%2?C.teamBlue:C.teamBlueD,1.0,'ally',{hp:60,dmg:10,range:3.0,atkEvery:0.8,spd:24});
-    e.idx=i; setP(e,-2+((i%4)-1.5)*3.2, 13+Math.floor(i/4)*3.6); allies.push(e); }
+  for(let i=0;i<8;i++){ const cleric=i>=6;
+    const e=mkFighter(cleric?C.cleric:(i%2?C.teamBlue:C.teamBlueD),1.0,'ally',{hp:cleric?52:60,dmg:cleric?6:10,range:3.0,atkEvery:0.8,spd:24});
+    e.idx=i; e.kind=cleric?'cleric':'warrior'; e.healCd=0; e.smiteCd=0; setP(e,-2+((i%4)-1.5)*3.2, 13+Math.floor(i/4)*3.6); allies.push(e); }
   rallyMarker=new THREE.Mesh(new THREE.RingGeometry(1.6,2.3,22),new THREE.MeshBasicMaterial({color:0xffe089,transparent:true,opacity:0.9,side:THREE.DoubleSide}));
   rallyMarker.rotation.x=-Math.PI/2; rallyMarker.visible=false; scene.add(rallyMarker);
 }
@@ -404,6 +405,14 @@ function commandTo(gx,gz){ const list=[...selected].filter(e=>e.alive); if(!list
   rallyMarker.position.set(gx,topY(gx,gz)+0.3,gz); rallyMarker.visible=true; clearTimeout(rallyMarker.__to); rallyMarker.__to=setTimeout(()=>rallyMarker.visible=false,2500); return true; }
 function recall(){ const list=[...selected].filter(e=>e.alive); (list.length?list:allies).forEach(e=>{e.order=null; e.forcedTarget=null;}); }
 function nearestEnemyTo(x,z,maxd){ let b=null,bd=maxd*maxd; for(const e of enemies){ if(!e.alive)continue; const dd=(e.px-x)**2+(e.pz-z)**2; if(dd<bd){bd=dd;b=e;} } return b; }
+function readyClerics(){ return allies.filter(e=>e.alive&&e.kind==='cleric'&&e.smiteCd<=0).length; }
+function smiteAt(en){ // smart cast: exactly one ready cleric (nearest) fires
+  let best=null,bd=1e9; for(const e of allies){ if(!e.alive||e.kind!=='cleric'||e.smiteCd>0)continue; const d=(e.px-en.px)**2+(e.pz-en.pz)**2; if(d<bd){bd=d;best=e;} }
+  if(!best)return false; best.smiteCd=4; en.hp-=45; en.hitT=0.3; smiteFx(en); return true; }
+function healFx(t){ const r=new THREE.Mesh(new THREE.RingGeometry(0.4,1.1,16),new THREE.MeshBasicMaterial({color:0x8ef0a0,transparent:true,side:THREE.DoubleSide}));
+  r.rotation.x=-Math.PI/2; scene.add(r); let a=0;(function an(){a+=0.06; r.position.set(t.px,topY(t.px,t.pz)+0.4+a*4.5,t.pz); r.material.opacity=Math.max(0,0.9-a); if(a<0.9)requestAnimationFrame(an); else scene.remove(r);})(); }
+function smiteFx(en){ const r=new THREE.Mesh(new THREE.RingGeometry(0.5,1.4,20),new THREE.MeshBasicMaterial({color:0xfff2c0,transparent:true,side:THREE.DoubleSide}));
+  r.rotation.x=-Math.PI/2; r.position.set(en.px,topY(en.px,en.pz)+0.5,en.pz); scene.add(r); let a=0;(function an(){a+=0.07;r.scale.setScalar(1+a*8);r.material.opacity=Math.max(0,0.95-a*1.2);if(a<0.9)requestAnimationFrame(an);else scene.remove(r);})(); }
 function focusFire(en){ const list=[...selected].filter(e=>e.alive); (list.length?list:allies).forEach(e=>{ if(e.alive){ e.forcedTarget=en; e.target=en; e.order=null; e.following=false; } });
   rallyMarker.material.color.setHex(0xff6a5a); rallyMarker.position.set(en.px,topY(en.px,en.pz)+0.3,en.pz); rallyMarker.visible=true; clearTimeout(rallyMarker.__to); rallyMarker.__to=setTimeout(()=>rallyMarker.visible=false,900); }
 function castBolt(gx,gz){ if(!hero||hero.spellCd>0)return false; hero.spellCd=6; spellArmed=false;
@@ -417,7 +426,8 @@ function updateOrderMarkers(){
   while(orderMarkers.length<clusters.length){ const m=new THREE.Mesh(new THREE.RingGeometry(2.3,2.9,24),new THREE.MeshBasicMaterial({color:0x9fe0ff,transparent:true,opacity:0.55,side:THREE.DoubleSide})); m.rotation.x=-Math.PI/2; scene.add(m); orderMarkers.push(m); }
   orderMarkers.forEach((m,i)=>{ if(i<clusters.length){ m.visible=true; m.position.set(clusters[i].x,topY(clusters[i].x,clusters[i].z)+0.2,clusters[i].z); } else m.visible=false; }); }
 function updateSpellUI(){ if(boltEl){ boltEl.style.opacity=hero.spellCd>0?0.4:1; boltEl.style.outline=spellArmed?'3px solid #fff':'none'; }
-  if(autoEl){ autoEl.style.background=autoBolt?'#4a8fd0':'#2b3a58cc'; } }
+  if(autoEl){ autoEl.style.background=autoBolt?'#4a8fd0':'#2b3a58cc'; }
+  if(smiteEl){ const n=readyClerics(); smiteEl.textContent=n?'SMITE '+n:'SMITE'; smiteEl.style.opacity=n?1:0.4; smiteEl.style.outline=smiteArmed?'3px solid #fff':'none'; } }
 function drawLasso(){ if(!lctx)return; lctx.clearRect(0,0,lcv.width,lcv.height); const p=cmd.pts; if(p.length<2)return;
   lctx.beginPath(); lctx.moveTo(p[0][0],p[0][1]); for(let i=1;i<p.length;i++)lctx.lineTo(p[i][0],p[i][1]);
   lctx.strokeStyle='rgba(127,240,255,0.95)'; lctx.lineWidth=3; lctx.stroke();
@@ -476,6 +486,13 @@ function updateGame(dt){
       if(e.target){ const t=e.target, d=Math.hypot(t.px-e.px,t.pz-e.pz);
              if(d>e.range){ e.state='move'; moveTo(e,t.px,t.pz,dt); } else { e.state='attack'; faceTo(e,t.px-e.px,t.pz-e.pz); attack(e,t); } }
       else { e.state='move'; moveTo(e,-2,0,dt); } }
+    // caster pass: auto-Heal with de-dup — no two clerics heal the same target, no overkill
+    { const claims=new Set();
+      for(const e of allies){ if(!e.alive||e.kind!=='cleric')continue; e.smiteCd-=dt; e.healCd-=dt;
+        if(e.healCd>0)continue; let best=null,bestDef=1;
+        for(const t of [hero,...allies]){ if(!t.alive||!t.max||claims.has(t))continue; if(t.hp/t.max>=0.9)continue;
+          if(Math.hypot(t.px-e.px,t.pz-e.pz)>18)continue; const def=t.max-t.hp; if(def>bestDef){bestDef=def;best=t;} }
+        if(best){ best.hp=Math.min(best.max,best.hp+24); claims.add(best); e.healCd=2.8; healFx(best); } } }
     separate(); loco(dt);
     const reap=l=>{ for(const e of l){ if(e.alive&&e.hp<=0){ e.alive=false; scene.remove(e.g); scene.remove(e.bar); if(e.ring){scene.remove(e.ring); selected.delete(e);} if(e.team==='enemy')killed++; } } return l.filter(e=>e.alive); };
     allies=reap(allies); enemies=reap(enemies);
@@ -507,9 +524,11 @@ function setupHUD(){
   abilEl=document.createElement('div'); abilEl.textContent='STOMP'; abilEl.style.cssText='position:fixed;right:26px;bottom:26px;width:88px;height:88px;border-radius:50%;background:#c25a34;color:#fff;font:800 15px system-ui;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 0 #7d3417;user-select:none;z-index:6'; document.body.appendChild(abilEl);
   abilEl.addEventListener('pointerdown',ev=>{ev.stopPropagation(); warstomp();});
   boltEl=document.createElement('div'); boltEl.textContent='BOLT'; boltEl.style.cssText='position:fixed;right:128px;bottom:34px;width:70px;height:70px;border-radius:50%;background:#3b6cc4;color:#fff;font:800 13px system-ui;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 0 #24467e;user-select:none;z-index:6';
-  boltEl.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); if(hero.spellCd<=0) spellArmed=!spellArmed; updateSpellUI(); }); document.body.appendChild(boltEl);
+  boltEl.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); if(hero.spellCd<=0){ spellArmed=!spellArmed; smiteArmed=false; } updateSpellUI(); }); document.body.appendChild(boltEl);
   autoEl=document.createElement('div'); autoEl.textContent='AUTO'; autoEl.style.cssText='position:fixed;right:132px;bottom:110px;padding:5px 9px;border-radius:8px;background:#2b3a58cc;color:#dbe7ff;font:700 11px system-ui;user-select:none;z-index:6';
   autoEl.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); autoBolt=!autoBolt; updateSpellUI(); }); document.body.appendChild(autoEl);
+  smiteEl=document.createElement('div'); smiteEl.textContent='SMITE'; smiteEl.style.cssText='position:fixed;right:206px;bottom:34px;width:70px;height:70px;border-radius:50%;background:#6a8f4a;color:#fff;font:800 12px system-ui;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 0 #45602f;user-select:none;z-index:6';
+  smiteEl.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); if(readyClerics()>0){ smiteArmed=!smiteArmed; spellArmed=false; } updateSpellUI(); }); document.body.appendChild(smiteEl);
   resultEl=document.createElement('div'); resultEl.style.cssText='position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:#0008;color:#fff;font:600 18px system-ui;gap:12px;z-index:9';
   resultEl.innerHTML='<h1 style="font-size:48px;margin:0"></h1><div>tap to play again</div>'; resultEl.addEventListener('pointerdown',()=>location.reload()); document.body.appendChild(resultEl);
   const gold=document.getElementById('gold'); if(gold){ gold.style.right='auto'; gold.style.left='18px'; }
@@ -540,7 +559,8 @@ function onUp(e){
     if(cmd.moved){ lassoSelect(cmd.pts); }                                       // drag = lasso select
     else { const nd=new THREE.Vector2((e.clientX/innerWidth)*2-1,-(e.clientY/innerHeight)*2+1); raycaster.setFromCamera(nd,cam); const hit=new THREE.Vector3();
       if(raycaster.ray.intersectPlane(groundPlane,hit)&&onIsland(hit.x,hit.z)){                    // tap = smart command
-        if(spellArmed){ castBolt(hit.x,hit.z); }                                                   // armed spell → cast here
+        if(spellArmed){ castBolt(hit.x,hit.z); }                                                   // armed hero spell → cast here
+        else if(smiteArmed){ const en=nearestEnemyTo(hit.x,hit.z,6); if(en){ smiteAt(en); if(!readyClerics())smiteArmed=false; } }  // smart-cast: one cleric per tap
         else { const en=nearestEnemyTo(hit.x,hit.z,5);
           if(en){ focusFire(en); }                                                                 // tapped an enemy → focus fire
           else { rallyMarker.material.color.setHex(0x9fe0ff);                                       // tapped ground → attack-move
