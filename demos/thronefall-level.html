@@ -226,6 +226,7 @@ function dirtPad(x,z,r){
   m.position.set(x,topY(x,z)+0.05,z); m.receiveShadow=true; return m;
 }
 function makeHouse(){
+  const b=bldClone('house',9); if(b) return b;   // Bitgem elf house
   const g=new THREE.Group();
   const w=6.5,d=5,wall=4;
   g.add(box(w,wall,d,C.cream)).children[g.children.length-1].position.y=wall/2;
@@ -234,7 +235,21 @@ function makeHouse(){
   g.traverse(o=>{if(o.isMesh)o.castShadow=o.receiveShadow=true;});
   return outlined(g);
 }
+// ---------- Bitgem elf buildings (palette atlas, night-elf tree architecture) ----------
+const BLD={};
+function loadBuildings(){ return new Promise(res=>{ new THREE.TextureLoader().load('/assets/models/elf_building_tex.png', tex=>{
+  tex.flipY=true; tex.magFilter=THREE.NearestFilter; tex.minFilter=THREE.NearestFilter; tex.generateMipmaps=false; if('colorSpace'in tex)tex.colorSpace=THREE.SRGBColorSpace;
+  const fx=new THREE.FBXLoader(), files={keep:'elf_throne_Lv3',house:'elf_house_Lv2',tower:'elf_tower_Lv2',mill:'elf_woodcutter_Lv2'};
+  const ks=Object.keys(files); let n=0; const done=()=>{ if(++n>=ks.length)res(); };
+  ks.forEach(k=>fx.load('/assets/buildings/'+files[k]+'.fbx', o=>{
+    o.traverse(nd=>{ if(nd.isMesh){ nd.material=new THREE.MeshBasicMaterial({map:tex,side:THREE.DoubleSide}); nd.castShadow=true; nd.frustumCulled=false; } });
+    const bb=new THREE.Box3().setFromObject(o); const sz=bb.getSize(new THREE.Vector3());
+    o.position.x-=(bb.min.x+sz.x/2); o.position.z-=(bb.min.z+sz.z/2); o.position.y-=bb.min.y;   // centre X/Z, base to y=0
+    const w=new THREE.Group(); w.add(o); BLD[k]={scene:w,h:Math.max(0.001,sz.y)}; done(); }, undefined, ()=>done()));
+  }, undefined, ()=>res()); }); }
+function bldClone(k,H){ const e=BLD[k]; if(!e)return null; const g=e.scene.clone(true); g.scale.setScalar(H/e.h); return g; }
 function makeKeep(){
+  const b=bldClone('keep',14); if(b) return b;   // Bitgem elf throne — the heart of the settlement
   const g=new THREE.Group();
   const base=box(13,7,13,C.stone); base.position.y=3.5; g.add(base);
   // crenellations around base top
@@ -253,6 +268,7 @@ function makeKeep(){
   return outlined(g);
 }
 function makeWatchtower(){
+  const b=bldClone('tower',15); if(b) return b;   // Bitgem elf tower
   const g=new THREE.Group();
   for(const [sx,sz] of [[1,1],[1,-1],[-1,1],[-1,-1]]){
     const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.4,9,5),lam(C.woodDark));
@@ -266,6 +282,7 @@ function makeWatchtower(){
   return outlined(g);
 }
 function makeWindmill(){
+  const b=bldClone('mill',12); if(b) return b;   // Bitgem elf woodcutter
   const g=new THREE.Group();
   const tower=new THREE.Mesh(new THREE.CylinderGeometry(2.4,3.2,8,8),lam(C.cream)); tower.position.y=4; g.add(tower);
   const cap=new THREE.Mesh(new THREE.ConeGeometry(2.8,2.4,8),lam(C.roof,true)); cap.position.y=9; g.add(cap);
@@ -340,7 +357,7 @@ function build(){
   scene.add(dirtPad(2,10,6)); place(makeWatchtower(),2,10,0);
   scene.add(dirtPad(-4,-34,7)); place(makeWindmill(),-4,-34,0.5);
   place(makeWall(9),24,-4,0.5);
-  scene.add(dirtPad(22,4,7)); place(makeKeep(),22,4,-0.4).scale.setScalar(0.55); // small gate tower
+  scene.add(dirtPad(22,4,7)); place(makeWatchtower(),22,4,-0.4); // gate tower
   // forward outpost on the far lobe (gives the far end a destination to roam to)
   scene.add(dirtPad(270,-10,9)); place(makeWatchtower(),270,-10,0);
   scene.add(dirtPad(250,20,6)); place(makeHouse(),250,20,rr(0,6.28));
@@ -781,7 +798,7 @@ async function boot(){
   if('outputColorSpace' in rnd3d) rnd3d.outputColorSpace=THREE.SRGBColorSpace;
   document.body.appendChild(rnd3d.domElement);
   cam=new THREE.PerspectiveCamera(30,innerWidth/innerHeight,1,600);
-  await loadNature(); build(); initPost(); await loadRig(); spawnGame(); setupHUD(); followCam();
+  await Promise.all([loadNature(), loadBuildings()]); build(); initPost(); await loadRig(); spawnGame(); setupHUD(); followCam();
   addEventListener('resize',()=>{
     rnd3d.setSize(innerWidth,innerHeight); cam.aspect=innerWidth/innerHeight; cam.updateProjectionMatrix();
     rt.setSize(innerWidth*pr(),innerHeight*pr()); postMat.uniforms.uRes.value.set(innerWidth,innerHeight);
