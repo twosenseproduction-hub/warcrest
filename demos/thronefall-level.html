@@ -14,7 +14,7 @@
 </style>
 </head>
 <body>
-<div id="tip">Tap a glowing <b>plot</b> to build — <b>Houses</b> for gold, <b>Barracks</b> for troops, <b>Towers</b> for defense. Hold the line against the orc warband!</div>
+<div id="tip">Build your base — <b>Houses</b> for gold, <b>Barracks</b> for troops, <b>Towers</b> for defense — then march on the <b>orc stronghold</b> and destroy its throne before they take yours!</div>
 <div id="gold"><span class="c"></span><span id="goldn">140</span></div>
 <script src="/vendor/three.min.js"></script>
 <script src="/vendor/GLTFLoader.js"></script>
@@ -26,9 +26,9 @@
 <script>
 // ---------- palette (sampled to match Thronefall reference) ----------
 const C = {
-  grass:      0xeaf0f4, grass2: 0x94a19a, grass3: 0xf3f7fa,   // snow, bare frozen ground, bright drift
-  snowLo:     0xcdd9e4,                                        // shaded/low snow (bluish)
-  beach:      0xd3dee2,                                        // icy shoreline shelf
+  grass:      0xdae3ea, grass2: 0x93a09a, grass3: 0xe8eef3,   // snow (dimmed), bare frozen ground, soft drift
+  snowLo:     0xc5d3df, snowTan: 0xcdc7b7,                     // pale-blue shaded snow / faint frozen-tan patch
+  beach:      0xcdd8de,                                        // icy shoreline shelf
   path:       0xd7e0e6,                                        // packed-snow road
   cliffLit:   0xe6edf1, cliffShade: 0x24506a, cliffMid: 0x74828b,   // snow lip / cold deep water / grey rock
   water:      0x2f93d6, shallow: 0x66c0ee,                     // sea / shoreline shallows
@@ -124,7 +124,8 @@ function buildTerrain(){
       if(pathDist(mx,mz)<6.5) hex=C.path;                                  // packed-snow road
       else if(landField(mx,mz)<0.13) hex=C.beach;                          // icy shoreline shelf
       else if(avgY<-6) hex=C.snowLo;                                       // low, shaded snow near the water
-      else { const n=fbm(mx*0.045,mz*0.045); hex = n>0.72?C.grass3 : n<0.24?C.grass2 : C.grass; }   // snow, bright drifts, bare frozen ground
+      else { const n=fbm(mx*0.045,mz*0.045), n2=fbm(mx*0.09+11,mz*0.09+4); // layered patchwork so the floor isn't a flat white sheet
+        hex = n>0.70?C.grass3 : n<0.28?C.grass2 : n2>0.66?C.snowLo : n2<0.34?C.snowTan : C.grass; }
     } else { // coastal cliff: snow lip → grey rock → cold deep water, by depth
       const avgY=(va[1]+vb[1]+vc[1])/3;
       const dep=Math.min(1,Math.max(0,(edgeTopY-avgY)/(edgeTopY-bottomY)));
@@ -309,6 +310,53 @@ function baseTick(dt){ gold+=incomeRate*dt;
   if(coreB&&coreB.bar){ const f=Math.max(0,coreB.hp/coreB.max); coreB.bar.__fl.scale.x=f; coreB.bar.__fl.position.x=-(1-f)*coreB.bar.__w/2;
     coreB.bar.position.set(coreB.x,topY(coreB.x,coreB.z)+CORE_H[coreB.level-1]+2,coreB.z); coreB.bar.quaternion.copy(cam.quaternion); }
   if(goldNumEl) goldNumEl.textContent=Math.floor(gold); }
+
+// ================= ENEMY AI: a mirror economy that builds its orc base and attacks =================
+// The orc stronghold runs the same Thronefall loop as the player, driven by a simple planner:
+// earns gold → fills its plots with orc buildings → trains a horde → upgrades. Its core + buildings
+// are attackable (pushed into eStructs / targeted via foes()), so razing the throne wins the game.
+let eGold=130, eIncome=1, ePlots=[], enemyCore=null, eStructs=[], aiCd=3;
+const BLD_HP=[220,340,480];   // per-level HP of an enemy plot building
+function updateStructBar(s,topH){ if(!s.bar)return; const f=Math.max(0,s.hp/s.max); s.bar.__fl.scale.x=f; s.bar.__fl.position.x=-(1-f)*s.bar.__w/2;
+  s.bar.visible=true; s.bar.position.set(s.x,topY(s.x,s.z)+topH+2,s.z); s.bar.quaternion.copy(cam.quaternion); }
+function placeEnemyCore(x,z){ scene.add(dirtPad(x,z,10));
+  enemyCore={x,z,px:x,pz:z,alive:true,level:1,hp:CORE_HP[0],max:CORE_HP[0],big:8,hitT:0,g:null,bar:makeBar(0xff6b5a),kind:'core'};
+  const g=bldClone('orc_throne1',CORE_H[0])||makeKeep(); g.position.set(x,topY(x,z),z); g.rotation.y=2.4; scene.add(g); enemyCore.g=g;
+  eStructs.push(enemyCore); }
+function makeEnemyPlot(x,z){ scene.add(dirtPad(x,z,5.5));
+  const p={x,z,cat:null,level:0,g:null,cd:0,spawnCd:3,mine:[],struct:null}; ePlots.push(p); return p; }
+function eRecomputeIncome(){ eIncome=1; for(const p of ePlots) if(p.cat==='economy') eIncome+=CAT.economy.income[p.level-1]; }
+function eBuildOnPlot(p){ const c=CAT[p.cat]; if(p.g)scene.remove(p.g); if(p.struct){p.struct.alive=false; scene.remove(p.struct.bar);}
+  const g=bldClone('orc_'+c.model+p.level, c.H[p.level-1]); if(g){ g.position.set(p.x,topY(p.x,p.z),p.z); g.rotation.y=rr(0,6.28); scene.add(g); p.g=g; }
+  const hp=BLD_HP[p.level-1]; p.struct={x:p.x,z:p.z,px:p.x,pz:p.z,alive:true,hp,max:hp,big:3.5,hitT:0,g,bar:makeBar(0xff6b5a),kind:'bld',plot:p}; eStructs.push(p.struct);
+  if(p.cat==='defense'){ p.dmg=c.dmg[p.level-1]; p.range=c.range[p.level-1]; p.rof=c.rof[p.level-1]; }
+  if(p.cat==='army'){ p.every=c.every[p.level-1]; p.cap=c.cap[p.level-1]; }
+  eRecomputeIncome(); }
+function eUpgradeCore(){ if(enemyCore.level>=3)return; enemyCore.level++;
+  const add=CORE_HP[enemyCore.level-1]-enemyCore.max; enemyCore.max=CORE_HP[enemyCore.level-1]; enemyCore.hp+=add;
+  scene.remove(enemyCore.g); const g=bldClone('orc_throne'+enemyCore.level,CORE_H[enemyCore.level-1])||makeKeep(); g.position.set(enemyCore.x,topY(enemyCore.x,enemyCore.z),enemyCore.z); g.rotation.y=2.4; scene.add(g); enemyCore.g=g; }
+function eTowerTick(p,dt){ p.cd-=dt; if(p.cd>0)return; let best=null,bd=p.range*p.range;
+  for(const t of [hero,...allies]){ if(!t||!t.alive)continue; const dd=(t.px-p.x)**2+(t.pz-p.z)**2; if(dd<bd){bd=dd;best=t;} }
+  if(best){ shootFx(p.x,p.z,best.px,best.pz,'arrow'); best.hp-=p.dmg; best.hitT=0.15; p.cd=p.rof; } }
+function eBarracksTick(p,dt){ p.mine=p.mine.filter(u=>u.alive); if(p.mine.length>=p.cap)return; p.spawnCd-=dt; if(p.spawnCd>0)return; p.spawnCd=p.every;
+  const kind=['orcgrunt','orcarcher','orcwarrior'][p.mine.length % (p.level>=2?3:2)]; let e;
+  if(kind==='orcarcher'){ e=mkFighter(C.enemyRed,1.0,'enemy',{hp:46,dmg:7,range:9,atkEvery:1.5,spd:12}); riggize(e,'orcarcher'); e.kind='archer'; e.ranged=true; }
+  else if(kind==='orcwarrior'){ e=mkFighter(C.enemyRed,1.1,'enemy',{hp:95,dmg:12,range:3.6,atkEvery:1.1,spd:11}); riggize(e,'orcwarrior'); e.kind='warrior'; e.rad=1.8; }
+  else { e=mkFighter(C.enemyRed,1.05,'enemy',{hp:64,dmg:9,range:3.4,atkEvery:1.0,spd:12}); riggize(e,'orcgrunt'); e.kind='grunt'; }
+  setP(e,p.x+rr(-3,3),p.z+rr(3,5)); enemies.push(e); p.mine.push(e); }
+function enemyAI(dt){ aiCd-=dt; if(aiCd>0)return; aiCd=4;
+  const empty=ePlots.find(p=>!p.cat);
+  const nEco=ePlots.filter(p=>p.cat==='economy').length, nArmy=ePlots.filter(p=>p.cat==='army').length, nDef=ePlots.filter(p=>p.cat==='defense').length;
+  if(empty){ let cat; if(nArmy<1)cat='army'; else if(nEco<1)cat='economy'; else if(nArmy<2)cat='army'; else if(nDef<1)cat='defense'; else if(nEco<2)cat='economy'; else cat=['army','defense','economy'][Math.floor(rnd()*3)];
+    const cost=CAT[cat].cost[0]; if(eGold>=cost){ eGold-=cost; empty.cat=cat; empty.level=1; eBuildOnPlot(empty); return; } return; }
+  if(rnd()<0.4 && enemyCore.level<3){ const cost=CORE_UP[enemyCore.level]; if(eGold>=cost){ eGold-=cost; eUpgradeCore(); return; } }
+  const upg=ePlots.filter(p=>p.cat&&p.level<3); if(upg.length){ const p=upg[Math.floor(rnd()*upg.length)], cost=CAT[p.cat].cost[p.level]; if(eGold>=cost){ eGold-=cost; p.level++; eBuildOnPlot(p); } } }
+function eBaseTick(dt){ if(!enemyCore)return; eGold+=eIncome*dt;
+  for(const p of ePlots){ if(p.cat==='defense') eTowerTick(p,dt); else if(p.cat==='army') eBarracksTick(p,dt); }
+  enemyAI(dt);
+  updateStructBar(enemyCore, CORE_H[enemyCore.level-1]);
+  for(const s of eStructs){ if(s.kind==='bld'&&s.alive) updateStructBar(s,4); } }
+function foes(){ const a=[]; for(const e of enemies) if(e.alive)a.push(e); for(const s of eStructs) if(s.alive)a.push(s); return a; }
 // build-menu DOM (panel built in setupHUD; these open/populate it)
 function mkBtn(label,fn,ok){ const b=document.createElement('div'); b.textContent=label;
   b.style.cssText='padding:10px 12px;border-radius:10px;font:700 13px system-ui;text-align:center;user-select:none;box-shadow:0 3px 0 #16233d;'+(ok?'background:#2f6d4f;color:#eafff2':'background:#3a3f4a;color:#8b93a0');
@@ -435,13 +483,10 @@ function build(){
   const KX=105,KZ=108;
   placeCore(KX,KZ);
   const RING=30; for(let i=0;i<6;i++){ const a=i/6*Math.PI*2+0.4, x=KX+Math.cos(a)*RING, z=KZ+Math.sin(a)*RING; if(onIsland(x,z)) makePlot(x,z); }
-  // ENEMY stronghold (top-right island) — orc buildings; the warband musters here
+  // ENEMY stronghold (top-right island) — AI core ringed by plots the orc AI fills itself
   enemyBase={x:-105,z:-108};
-  scene.add(dirtPad(enemyBase.x,enemyBase.z,10));
-  { const g=bldClone('orc_throne3',15)||makeKeep(); g.position.set(enemyBase.x,topY(enemyBase.x,enemyBase.z),enemyBase.z); g.rotation.y=2.4; scene.add(g); }
-  // orc outbuildings ringing the stronghold (barracks / tower / huts)
-  for(const [ox,oz,key,h] of [[-131,-84,'orc_barrack2',9],[-82,-131,'orc_tower2',11],[-134,-122,'orc_house2',7],[-90,-88,'orc_house3',8]]){
-    scene.add(dirtPad(ox,oz,6)); const g=bldClone(key,h); if(g){ g.position.set(ox,topY(ox,oz),oz); g.rotation.y=rr(0,6.28); scene.add(g); } }
+  placeEnemyCore(enemyBase.x,enemyBase.z);
+  for(let i=0;i<6;i++){ const a=i/6*Math.PI*2+0.9, x=enemyBase.x+Math.cos(a)*RING, z=enemyBase.z+Math.sin(a)*RING; if(onIsland(x,z)) makeEnemyPlot(x,z); }
 
   // rocks scattered across the land
   for(let i=0;i<50;i++){ const x=rr(-WORLD,WORLD), z=rr(-WORLD,WORLD);
@@ -454,7 +499,7 @@ function build(){
 // Pilot the hero (joystick / WASD); the squad auto-follows & auto-fights;
 // tap the ground to rally them; STOMP button = warstomp. Survive the wave.
 let hero=null, allies=[], enemies=[];
-let rallyPoint=null, rallyMarker=null, gameOver=0, spawnLeft=24, spawnTimer=1.5, killed=0;   // orc warband size
+let rallyPoint=null, rallyMarker=null, gameOver=0, spawnLeft=0, spawnTimer=1.5, killed=0;   // warband now produced by the enemy AI, not a fixed pool
 let heroFwd={x:0,z:1};
 // loose-leash follow: units idle in your vicinity, only surge to re-form once
 // you've walked past FOLLOW_OUT, and settle again within FOLLOW_IN of their slot.
@@ -729,8 +774,9 @@ function updateGame(dt){
       if(ml>0.01){ mvx/=ml;mvz/=ml; camAim.x+=mvx*PAN_SPD*dt; camAim.z+=mvz*PAN_SPD*dt;
         const rr0=Math.hypot(camAim.x-120,camAim.z); if(rr0>320){ camAim.x=120+(camAim.x-120)*320/rr0; camAim.z*=320/rr0; } } }
     hero.cd-=dt; hero.aCd-=dt; hero.spellCd-=dt;
+    const FO=foes();   // enemy units + attackable enemy structures (core/buildings) — the player's valid targets
     if(autoBolt && hero.spellCd<=0 && enemies.length){ const {t}=nearest(hero.px,hero.pz,enemies); if(t) castBolt(t.px,t.pz); }
-    { const {t,d}=nearest(hero.px,hero.pz,enemies); if(t&&d<=hero.range+1){ if(hero.rigged&&hero.cd<=0) hero.__atkT=0.55; attack(hero,t); } }
+    { const {t,d}=nearest(hero.px,hero.pz,FO); if(t&&d<=hero.range+(t.big||0)+1){ if(hero.rigged&&hero.cd<=0) hero.__atkT=0.55; attack(hero,t); } }
     if(hero.rigged){ hero.mixer.update(dt); hero.__atkT=Math.max(0,(hero.__atkT||0)-dt);
       setAnim(hero, hero.__atkT>0?'attack':((ml>0.01&&camLocked)?'run':'idle')); }
     const hl=Math.hypot(heroFwd.x,heroFwd.z)||1, ffx=heroFwd.x/hl, ffz=heroFwd.z/hl, rgx=ffz, rgz=-ffx;
@@ -741,19 +787,19 @@ function updateGame(dt){
       if(e.forcedTarget){ e.target=e.forcedTarget; }                                     // manual focus-fire overrides leash & orders
       else {
         if(e.target && !e.order && heroDist>BREAK) e.target=null;                        // drop a fight only if unordered & hero left
-        if(!e.target){ const {t}=nearest(e.px,e.pz,enemies);
+        if(!e.target){ const {t}=nearest(e.px,e.pz,FO);
           if(t){ if(e.order){ if(Math.hypot(t.px-e.px,t.pz-e.pz)<12) e.target=t; }       // ordered: attack-move — engage foes en route
                  else if(Math.hypot(t.px-hero.px,t.pz-hero.pz)<ENGAGE) e.target=t; } } } // following: engage foes near the hero
       if(e.target){ const t=e.target, d=Math.hypot(t.px-e.px,t.pz-e.pz);                 // committed: fight until it dies
-             if(d>e.range){ e.state='move'; moveTo(e,t.px,t.pz,dt); } else { e.state='attack'; faceTo(e,t.px-e.px,t.pz-e.pz);
+             if(d>e.range+(t.big||0)){ e.state='move'; moveTo(e,t.px,t.pz,dt); } else { e.state='attack'; faceTo(e,t.px-e.px,t.pz-e.pz);
                if(e.cd<=0 && e.kind!=='warrior') shootFx(e.px,e.pz,t.px,t.pz, e.kind==='cleric'?'magic':'arrow'); attack(e,t); } }
       else if(e.order){ // hold the commanded position
              if(Math.hypot(e.order.x-e.px,e.order.z-e.pz)>1.4){ e.state='move'; moveTo(e,e.order.x,e.order.z,dt); } else e.state='idle'; }
       else { // loose leash: idle in the hero's vicinity, only re-form once he's walked past FOLLOW_OUT
              const col=((e.idx%4)-1.5)*2.8, back=4.5+Math.floor(e.idx/4)*3.0, tx=hero.px-ffx*back+rgx*col, tz=hero.pz-ffz*back+rgz*col;
              if(!e.following && heroDist>FOLLOW_OUT) e.following=true;
-             if(e.following){ e.state='move'; moveTo(e,tx,tz,dt); faceTo(e,ffx,ffz); if(Math.hypot(tx-e.px,tz-e.pz)<FOLLOW_IN) e.following=false; }
-             else { e.state='idle'; faceTo(e,ffx,ffz); } }
+             if(e.following){ e.state='move'; moveTo(e,tx,tz,dt); if(Math.hypot(tx-e.px,tz-e.pz)<FOLLOW_IN) e.following=false; }   // face travel dir (moveTo), not the hero's
+             else { e.state='idle'; if(Math.hypot(hero.px-e.px,hero.pz-e.pz)>3) faceTo(e,hero.px-e.px,hero.pz-e.pz); } }   // idle guards glance toward the hero, not all locked parallel
       if(e.rigged){ e.mixer.update(dt); setAnim(e, e.state==='attack'?'attack':(e.state==='move'?'run':'idle')); } }
     for(const e of enemies){ if(!e.alive)continue; e.cd-=dt;
       if(e.target && !e.target.alive) e.target=null;
@@ -770,12 +816,15 @@ function updateGame(dt){
         for(const t of [hero,...allies]){ if(!t.alive||!t.max||claims.has(t))continue; if(t.hp/t.max>=0.9)continue;
           if(Math.hypot(t.px-e.px,t.pz-e.pz)>18)continue; const def=t.max-t.hp; if(def>bestDef){bestDef=def;best=t;} }
         if(best){ best.hp=Math.min(best.max,best.hp+24); claims.add(best); e.healCd=2.8; healFx(best); } } }
-    separate(); loco(dt); baseTick(dt);
+    separate(); loco(dt); baseTick(dt); eBaseTick(dt);
     const reap=l=>{ for(const e of l){ if(e.alive&&e.hp<=0){ e.alive=false; scene.remove(e.g); scene.remove(e.bar); if(e.ring){scene.remove(e.ring); selected.delete(e);} if(e.team==='enemy')killed++; } } return l.filter(e=>e.alive); };
     allies=reap(allies); enemies=reap(enemies);
-    if(hero.hp<=0||(coreB&&coreB.hp<=0)) endGame(false); else if(spawnLeft===0&&enemies.length===0) endGame(true);
+    for(const s of eStructs){ if(s.alive&&s.hp<=0){ s.alive=false; scene.remove(s.g); scene.remove(s.bar);
+        if(s.kind==='bld'&&s.plot){ const p=s.plot; p.cat=null; p.level=0; p.g=null; p.struct=null; eRecomputeIncome(); } } }
+    eStructs=eStructs.filter(s=>s.alive);
+    if(hero.hp<=0||(coreB&&coreB.hp<=0)) endGame(false); else if(enemyCore&&enemyCore.hp<=0) endGame(true);
     if(heroHpEl) heroHpEl.style.width=(Math.max(0,hero.hp)/hero.max*100)+'%';
-    if(waveEl) waveEl.textContent = (enemies.length+spawnLeft>0)? 'Orc warband: '+(enemies.length+spawnLeft)+' left' : 'The horde is broken!';
+    if(waveEl&&enemyCore) waveEl.textContent = enemyCore.hp>0 ? ('⚔ Orc throne  '+Math.ceil(Math.max(0,enemyCore.hp))+'/'+enemyCore.max) : 'The orc throne has fallen!';
     if(abilEl) abilEl.style.opacity = hero.aCd>0? 0.45 : 1;
     updateOrderMarkers(); updateSpellUI();
   }
