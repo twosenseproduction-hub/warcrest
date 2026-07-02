@@ -508,17 +508,34 @@ function smiteFx(en){ const r=new THREE.Mesh(new THREE.RingGeometry(0.5,1.4,20),
   r.rotation.x=-Math.PI/2; r.position.set(en.px,topY(en.px,en.pz)+0.5,en.pz); scene.add(r); let a=0;(function an(){a+=0.07;r.scale.setScalar(1+a*8);r.material.opacity=Math.max(0,0.95-a*1.2);if(a<0.9)requestAnimationFrame(an);else scene.remove(r);})(); }
 function focusFire(en){ const list=[...selected].filter(e=>e.alive); (list.length?list:allies).forEach(e=>{ if(e.alive){ e.forcedTarget=en; e.target=en; e.order=null; e.following=false; } });
   rallyMarker.material.color.setHex(0xff6a5a); rallyMarker.position.set(en.px,topY(en.px,en.pz)+0.3,en.pz); rallyMarker.visible=true; clearTimeout(rallyMarker.__to); rallyMarker.__to=setTimeout(()=>rallyMarker.visible=false,900); }
-// flying shot: arrow (thin bolt, oriented along travel) or magic (glowing orb), light arc, self-removing
+// ---- refined projectiles ----
+// stylised arrow, built once & cloned: wood shaft + steel head + cream fletching + glowing tip. Long axis = +Y.
+let ARROW_PROTO=null;
+function arrowProto(){ if(ARROW_PROTO)return ARROW_PROTO; const g=new THREE.Group();
+  g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,2.8,7), new THREE.MeshBasicMaterial({color:0x6b4a2a})));
+  const head=new THREE.Mesh(new THREE.ConeGeometry(0.2,0.7,7), new THREE.MeshBasicMaterial({color:0xe4ebf2})); head.position.y=1.72; g.add(head);
+  for(const s of [0,1,2]){ const fl=new THREE.Mesh(new THREE.PlaneGeometry(0.5,0.5), new THREE.MeshBasicMaterial({color:0xfff2c8,side:THREE.DoubleSide,transparent:true,opacity:0.95})); fl.position.y=-1.2; fl.rotation.y=s*Math.PI/3; g.add(fl); }
+  const tip=new THREE.Mesh(new THREE.SphereGeometry(0.3,10,8), new THREE.MeshBasicMaterial({color:0xfff6d0,transparent:true,opacity:0.55,blending:THREE.AdditiveBlending,depthWrite:false})); tip.position.y=1.9; g.add(tip);
+  ARROW_PROTO=g; return g; }
+// short-lived additive puff for motion trails / impact sparks
+function puff(x,y,z,col,r,op){ const m=new THREE.Mesh(new THREE.SphereGeometry(r,8,6), new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:op,blending:THREE.AdditiveBlending,depthWrite:false}));
+  m.position.set(x,y,z); scene.add(m); let a=0;(function an(){ a+=0.09; m.scale.setScalar(Math.max(0.01,1-a*0.7)); m.material.opacity=Math.max(0,op-a*op*1.3); if(a<1)requestAnimationFrame(an); else scene.remove(m); })(); }
 function shootFx(sx,sz,tx,tz,kind){
-  const arrow=kind==='arrow';
-  const m = arrow ? new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.16,3.2,6), new THREE.MeshBasicMaterial({color:0xfff1c2}))
-                  : new THREE.Mesh(new THREE.SphereGeometry(0.75,12,10), new THREE.MeshBasicMaterial({color:kind==='heal'?0x8ef0a0:0x8fd0ff,transparent:true,opacity:0.95}));
-  if(!arrow){ const halo=new THREE.Mesh(new THREE.SphereGeometry(1.15,12,10), new THREE.MeshBasicMaterial({color:kind==='heal'?0x8ef0a0:0x8fd0ff,transparent:true,opacity:0.3})); m.add(halo); }
+  const arrow=kind==='arrow'; const col = kind==='heal'?0x9dffb0 : arrow?0xfff2c8 : 0x86ccff;
+  let m,core,glow;
+  if(arrow){ m=arrowProto().clone(true); }
+  else { m=new THREE.Group();
+    core=new THREE.Mesh(new THREE.SphereGeometry(0.6,16,12), new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.95,blending:THREE.AdditiveBlending,depthWrite:false}));
+    glow=new THREE.Mesh(new THREE.SphereGeometry(1.25,16,12), new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.35,blending:THREE.AdditiveBlending,depthWrite:false}));
+    m.add(core,glow); }
   scene.add(m);
-  const y0=topY(sx,sz)+2.4, y1=topY(tx,tz)+2.0, dist=Math.hypot(tx-sx,tz-sz), dur=Math.max(0.14,Math.min(0.5,dist/38)); let t=0;   // a bit slower so the shot reads
-  (function an(){ t+=0.033; const k=Math.min(1,t/dur); const x=sx+(tx-sx)*k, z=sz+(tz-sz)*k, y=y0+(y1-y0)*k+Math.sin(k*Math.PI)*(arrow?2.2:1.2);
-    m.position.set(x,y,z); if(arrow){ m.lookAt(tx,y1,tz); m.rotateX(Math.PI/2); }
-    if(k<1)requestAnimationFrame(an); else scene.remove(m); })();
+  const y0=topY(sx,sz)+2.6, y1=topY(tx,tz)+2.0, dist=Math.hypot(tx-sx,tz-sz), dur=Math.max(0.16,Math.min(0.55,dist/40)); let t=0,tick=0;
+  (function an(){ t+=0.033; tick++; const k=Math.min(1,t/dur); const x=sx+(tx-sx)*k, z=sz+(tz-sz)*k, y=y0+(y1-y0)*k+Math.sin(k*Math.PI)*(arrow?2.4:1.4);
+    m.position.set(x,y,z);
+    if(arrow){ m.lookAt(tx,y1,tz); m.rotateX(Math.PI/2); }              // proto long axis is +Y
+    else { const p=1+Math.sin(t*32)*0.14; core.scale.setScalar(p); glow.scale.setScalar(p); }
+    if(tick%2===0) puff(x,y,z,col, arrow?0.2:0.55, arrow?0.4:0.5);      // motion streak
+    if(k<1)requestAnimationFrame(an); else { scene.remove(m); if(!arrow) for(let i=0;i<5;i++) puff(tx+rr(-1,1),y1+rr(-1,1),tz+rr(-1,1),col,0.6,0.6); } })();
 }
 function castBolt(gx,gz){ if(!hero||hero.spellCd>0)return false; hero.spellCd=6; spellArmed=false;
   for(const e of enemies){ if(!e.alive)continue; if(Math.hypot(e.px-gx,e.pz-gz)<7){ e.hp-=60; e.hitT=0.3; } }
