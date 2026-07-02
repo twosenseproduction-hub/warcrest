@@ -18,6 +18,10 @@
 <div id="gold"><span class="c"></span>26</div>
 <script src="/vendor/three.min.js"></script>
 <script src="/vendor/GLTFLoader.js"></script>
+<script src="/vendor/fflate.min.js"></script>
+<script src="/vendor/NURBSCurve.js"></script>
+<script src="/vendor/NURBSUtils.js"></script>
+<script src="/vendor/FBXLoader.js"></script>
 <script>
 // ---------- palette (sampled to match Thronefall reference) ----------
 const C = {
@@ -359,17 +363,17 @@ function faceTo(e,dx,dz){ if(dx||dz) e.face=Math.atan2(dx,dz); }
 // ---------- rigged unit: Bitgem elf mesh + Quaternius UAL (CC0) clips ----------
 let RIG=null; const ELF_YAW=Math.PI, ELF_H=3.2;
 function fixClip(c){ if(!c)return null; return new THREE.AnimationClip(c.name,c.duration, c.tracks.filter(t=>!(t.name.endsWith('.position')&&(t.name.startsWith('root')||t.name.startsWith('pelvis'))))); }
-function loadRig(){ return new Promise(res=>{ const gl=new THREE.GLTFLoader(); let elf=null,lib=null,n=0;
-  const done=()=>{ if(++n<2)return; if(elf&&lib){ const by=x=>lib.animations.find(a=>a.name===x);
-      RIG={ scene:elf.scene, box:new THREE.Box3().setFromObject(elf.scene),
-        clips:{ idle:fixClip(by('Idle_Loop')), walk:fixClip(by('Walk_Loop')), attack:fixClip(by('Sword_Attack')), death:fixClip(by('Death01')) } }; } res(); };
-  gl.load('/assets/models/elf_archer_bitgem.glb', g=>{elf=g;done();}, undefined, ()=>done());
-  gl.load('/assets/models/ual_lib.glb', g=>{lib=g;done();}, undefined, ()=>done()); }); }
+function loadRig(){ return new Promise(res=>{
+  const fx=new THREE.FBXLoader(), gl=new THREE.GLTFLoader(), tl=new THREE.TextureLoader();
+  let elf=null,lib=null,tex=null,n=0;
+  const done=()=>{ if(++n<3)return; if(elf&&lib){ const by=x=>lib.animations.find(a=>a.name===x);
+      RIG={ scene:elf, tex:tex, clips:{ idle:fixClip(by('Idle_Loop')), walk:fixClip(by('Walk_Loop')), attack:fixClip(by('Sword_Attack')), death:fixClip(by('Death01')) } }; } res(); };
+  tl.load('/assets/models/elf_archer_tex.png', t=>{ if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; t.flipY=false; tex=t; done(); }, undefined, ()=>done());
+  fx.load('/assets/models/elf_archer.fbx', o=>{ elf=o; done(); }, undefined, ()=>done());
+  gl.load('/assets/models/ual_lib.glb', g=>{ lib=g; done(); }, undefined, ()=>done()); }); }
 function makeElf(){ const outer=new THREE.Group(), inner=RIG.scene;
-  inner.rotation.y=ELF_YAW; inner.position.set(0,0,0); inner.scale.set(1,1,1);
-  inner.traverse(nd=>{ if(nd.isMesh){ const map=nd.material&&nd.material.map;
-    if(map&&'colorSpace'in map){ map.colorSpace=THREE.SRGBColorSpace; map.needsUpdate=true; }
-    nd.material=new THREE.MeshBasicMaterial({map:map,side:THREE.DoubleSide}); nd.castShadow=true; nd.frustumCulled=false; } });
+  inner.rotation.y=ELF_YAW; inner.position.set(0,0,0);
+  inner.traverse(nd=>{ if(nd.isMesh){ nd.material=new THREE.MeshBasicMaterial({map:RIG.tex,side:THREE.DoubleSide}); nd.castShadow=true; nd.frustumCulled=false; } });
   outer.add(inner); outer.updateMatrixWorld(true);
   // measure the rig at native scale, then scale the OUTER wrapper (reliable for skinned meshes)
   const bb=new THREE.Box3().setFromObject(inner); const hh=Math.max(0.001,bb.getSize(new THREE.Vector3()).y);
