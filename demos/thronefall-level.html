@@ -14,7 +14,7 @@
 </style>
 </head>
 <body>
-<div id="tip">The <b>final wave</b> of enemies is approaching. Prepare your defenses!</div>
+<div id="tip">An <b>orc warband</b> is mustering to the east — lead your army out and crush them!</div>
 <div id="gold"><span class="c"></span>26</div>
 <script src="/vendor/three.min.js"></script>
 <script src="/vendor/GLTFLoader.js"></script>
@@ -335,7 +335,7 @@ function build(){
 // Pilot the hero (joystick / WASD); the squad auto-follows & auto-fights;
 // tap the ground to rally them; STOMP button = warstomp. Survive the wave.
 let hero=null, allies=[], enemies=[];
-let rallyPoint=null, rallyMarker=null, gameOver=0, spawnLeft=16, spawnTimer=1.2, killed=0;
+let rallyPoint=null, rallyMarker=null, gameOver=0, spawnLeft=24, spawnTimer=1.5, killed=0;   // orc warband size
 let heroFwd={x:0,z:1};
 // loose-leash follow: units idle in your vicinity, only surge to re-form once
 // you've walked past FOLLOW_OUT, and settle again within FOLLOW_IN of their slot.
@@ -448,12 +448,12 @@ function spawnGame(){
     setP(e,2+((i%4)-1.5)*3.2, 42+Math.floor(i/4)*3.6); allies.push(e); }
   // Orc Chieftain — boss enemy marching on the keep from the south edge
   const boss=mkFighter(C.enemyRed,1.6,'enemy',{hp:640,dmg:34,range:4.6,atkEvery:1.3,spd:11});
-  boss.rad=2.8; boss.max=640; riggize(boss,'chief'); setP(boss,-6,-125); enemies.push(boss);
+  boss.rad=2.8; boss.max=640; riggize(boss,'chief'); setP(boss,120,-8); enemies.push(boss);   // Chieftain leads the warband from the east
   rallyMarker=new THREE.Mesh(new THREE.RingGeometry(1.6,2.3,22),new THREE.MeshBasicMaterial({color:0xffe089,transparent:true,opacity:0.9,side:THREE.DoubleSide}));
   rallyMarker.rotation.x=-Math.PI/2; rallyMarker.visible=false; scene.add(rallyMarker);
 }
 let spawnN=0;
-function spawnEnemy(){ const a=0.25+rr(-0.6,0.6), er=edgeR(a)-10, x=Math.cos(a)*er, z=Math.sin(a)*er;
+function spawnEnemy(){ const a=rr(-0.5,0.5), er=edgeR(a)-12, x=Math.cos(a)*er, z=Math.sin(a)*er;   // muster from the eastern tree line
   if(!onIsland(x,z))return;
   const kind=['orcarcher','orcgrunt','orcwarrior','orcshaman'][spawnN++ %4];   // rotate the horde: archer, grunt, warrior, shaman
   let e;
@@ -583,7 +583,8 @@ function updBars(){ const all=[hero,...allies,...enemies];
 function updateGame(dt){
   if(!hero) return;
   if(!gameOver){
-    if(spawnLeft>0){ spawnTimer-=dt; if(spawnTimer<=0){ spawnEnemy(); spawnLeft--; spawnTimer=rr(0.6,1.5);} }
+    // warband advances in bands of 3 — a mass, not a trickle; cap concurrent so it stays performant
+    if(spawnLeft>0 && enemies.length<15){ spawnTimer-=dt; if(spawnTimer<=0){ for(let k=0;k<3&&spawnLeft>0;k++){ spawnEnemy(); spawnLeft--; } spawnTimer=2.4; } }
     // hero movement
     let ix=0,iy=0;
     if(joy.active){ ix=joy.nx; iy=joy.ny; }
@@ -642,7 +643,7 @@ function updateGame(dt){
     allies=reap(allies); enemies=reap(enemies);
     if(hero.hp<=0) endGame(false); else if(spawnLeft===0&&enemies.length===0) endGame(true);
     if(heroHpEl) heroHpEl.style.width=(Math.max(0,hero.hp)/hero.max*100)+'%';
-    if(waveEl) waveEl.textContent = spawnLeft>0? 'Enemies remaining: '+(enemies.length+spawnLeft) : (enemies.length? 'Clear them out! '+enemies.length+' left':'');
+    if(waveEl) waveEl.textContent = (enemies.length+spawnLeft>0)? 'Orc warband: '+(enemies.length+spawnLeft)+' left' : 'The horde is broken!';
     if(abilEl) abilEl.style.opacity = hero.aCd>0? 0.45 : 1;
     updateOrderMarkers(); updateSpellUI();
   }
