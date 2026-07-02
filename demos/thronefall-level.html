@@ -223,22 +223,33 @@ function makeHouse(){
 }
 // ---------- Bitgem elf buildings (palette atlas, night-elf tree architecture) ----------
 const BLD={};
-function loadBuildings(){ return new Promise(res=>{ new THREE.TextureLoader().load('/assets/models/elf_building_tex.png', tex=>{
-  tex.flipY=true; tex.magFilter=THREE.NearestFilter; tex.minFilter=THREE.NearestFilter; tex.generateMipmaps=false; if('colorSpace'in tex)tex.colorSpace=THREE.SRGBColorSpace;
-  const fx=new THREE.FBXLoader(), files={
-    keep:'elf_throne_Lv3', house:'elf_house_Lv2', tower:'elf_tower_Lv2', mill:'elf_woodcutter_Lv2',   // legacy aliases (far-lobe scenery)
-    throne1:'elf_throne_Lv1', throne2:'elf_throne_Lv2', throne3:'elf_throne_Lv3',
-    house1:'elf_house_Lv1',   house2:'elf_house_Lv2',   house3:'elf_house_Lv3',
-    tower1:'elf_tower_Lv1',   tower2:'elf_tower_Lv2',   tower3:'elf_tower_Lv3',
-    barrack1:'elf_barrack_Lv1', barrack2:'elf_barrack_Lv2', barrack3:'elf_barrack_Lv3' };
-  const ks=Object.keys(files); let n=0; const done=()=>{ if(++n>=ks.length)res(); };
-  ks.forEach(k=>fx.load('/assets/buildings/'+files[k]+'.fbx', o=>{
-    o=bakeStatic(o);   // buildings export as SkinnedMesh; bake to static so bldClone's plain clone doesn't render them at the map origin
-    o.traverse(nd=>{ if(nd.isMesh){ nd.material=new THREE.MeshBasicMaterial({map:tex,side:THREE.DoubleSide}); nd.castShadow=true; nd.frustumCulled=false; } });
-    const bb=new THREE.Box3().setFromObject(o); const sz=bb.getSize(new THREE.Vector3());
-    o.position.x-=(bb.min.x+sz.x/2); o.position.z-=(bb.min.z+sz.z/2); o.position.y-=bb.min.y;   // centre X/Z, base to y=0
-    const w=new THREE.Group(); w.add(o); BLD[k]={scene:w,h:Math.max(0.001,sz.y)}; done(); }, undefined, ()=>done()));
-  }, undefined, ()=>res()); }); }
+// two Bitgem palette-atlas building sets sharing one pipeline: elf (player) + orc (enemy)
+const BLD_GROUPS=[
+  { tex:'/assets/models/elf_building_tex.png', files:{
+      keep:'elf_throne_Lv3', house:'elf_house_Lv2', tower:'elf_tower_Lv2', mill:'elf_woodcutter_Lv2',   // legacy aliases (far-lobe scenery)
+      throne1:'elf_throne_Lv1', throne2:'elf_throne_Lv2', throne3:'elf_throne_Lv3',
+      house1:'elf_house_Lv1',   house2:'elf_house_Lv2',   house3:'elf_house_Lv3',
+      tower1:'elf_tower_Lv1',   tower2:'elf_tower_Lv2',   tower3:'elf_tower_Lv3',
+      barrack1:'elf_barrack_Lv1', barrack2:'elf_barrack_Lv2', barrack3:'elf_barrack_Lv3' } },
+  { tex:'/assets/models/orc_building_tex.png', files:{
+      orc_throne1:'orc_throne_Lv1', orc_throne2:'orc_throne_Lv2', orc_throne3:'orc_throne_Lv3',
+      orc_house1:'orc_house_Lv1',   orc_house2:'orc_house_Lv2',   orc_house3:'orc_house_Lv3',
+      orc_tower1:'orc_tower_Lv1',   orc_tower2:'orc_tower_Lv2',   orc_tower3:'orc_tower_Lv3',
+      orc_barrack1:'orc_barrack_Lv1', orc_barrack2:'orc_barrack_Lv2', orc_barrack3:'orc_barrack_Lv3' } },
+];
+function loadBuildings(){ return new Promise(res=>{
+  const fx=new THREE.FBXLoader(), tl=new THREE.TextureLoader();
+  const total=BLD_GROUPS.reduce((a,g)=>a+Object.keys(g.files).length,0); let n=0; const done=()=>{ if(++n>=total)res(); };
+  for(const grp of BLD_GROUPS){ tl.load(grp.tex, tex=>{
+    tex.flipY=true; tex.magFilter=THREE.NearestFilter; tex.minFilter=THREE.NearestFilter; tex.generateMipmaps=false; if('colorSpace'in tex)tex.colorSpace=THREE.SRGBColorSpace;
+    Object.keys(grp.files).forEach(k=>fx.load('/assets/buildings/'+grp.files[k]+'.fbx', o=>{
+      o=bakeStatic(o);   // buildings export as SkinnedMesh; bake to static so bldClone's plain clone doesn't render them at the map origin
+      o.traverse(nd=>{ if(nd.isMesh){ nd.material=new THREE.MeshBasicMaterial({map:tex,side:THREE.DoubleSide}); nd.castShadow=true; nd.frustumCulled=false; } });
+      const bb=new THREE.Box3().setFromObject(o); const sz=bb.getSize(new THREE.Vector3());
+      o.position.x-=(bb.min.x+sz.x/2); o.position.z-=(bb.min.z+sz.z/2); o.position.y-=bb.min.y;   // centre X/Z, base to y=0
+      const w=new THREE.Group(); w.add(o); BLD[k]={scene:w,h:Math.max(0.001,sz.y)}; done(); }, undefined, ()=>done()));
+  }, undefined, ()=>{ for(let i=0;i<Object.keys(grp.files).length;i++)done(); }); }
+}); }
 function bldClone(k,H){ const e=BLD[k]; if(!e)return null; const g=e.scene.clone(true); g.scale.setScalar(H/e.h); return g; }
 
 // ================= BASE: Thronefall-style fixed build plots + passive economy =================
@@ -407,11 +418,13 @@ function build(){
   const KX=105,KZ=108;
   placeCore(KX,KZ);
   const RING=30; for(let i=0;i<6;i++){ const a=i/6*Math.PI*2+0.4, x=KX+Math.cos(a)*RING, z=KZ+Math.sin(a)*RING; if(onIsland(x,z)) makePlot(x,z); }
-  // ENEMY stronghold (top-right island) — the warband musters here (decorative for now)
+  // ENEMY stronghold (top-right island) — orc buildings; the warband musters here
   enemyBase={x:-105,z:-108};
   scene.add(dirtPad(enemyBase.x,enemyBase.z,10));
-  { const g=bldClone('throne3',16)||makeKeep(); g.position.set(enemyBase.x,topY(enemyBase.x,enemyBase.z),enemyBase.z); scene.add(g); }
-  for(const [ox,oz] of [[-128,-86],[-84,-128],[-132,-120]]){ scene.add(dirtPad(ox,oz,6)); place(makeHouse(),ox,oz,rr(0,6.28)); }
+  { const g=bldClone('orc_throne3',15)||makeKeep(); g.position.set(enemyBase.x,topY(enemyBase.x,enemyBase.z),enemyBase.z); g.rotation.y=2.4; scene.add(g); }
+  // orc outbuildings ringing the stronghold (barracks / tower / huts)
+  for(const [ox,oz,key,h] of [[-131,-84,'orc_barrack2',9],[-82,-131,'orc_tower2',11],[-134,-122,'orc_house2',7],[-90,-88,'orc_house3',8]]){
+    scene.add(dirtPad(ox,oz,6)); const g=bldClone(key,h); if(g){ g.position.set(ox,topY(ox,oz),oz); g.rotation.y=rr(0,6.28); scene.add(g); } }
 
   // rocks scattered across the land
   for(let i=0;i<50;i++){ const x=rr(-WORLD,WORLD), z=rr(-WORLD,WORLD);
