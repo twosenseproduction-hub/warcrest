@@ -376,7 +376,7 @@ function faceTo(e,dx,dz){ if(dx||dz) e.face=Math.atan2(dx,dz); }
 // Each GLB packs the mesh once + all its clips; the clips are authored on the Bitgem
 // skeleton so they play with no retarget. Textures are embedded (palette atlas, UVs
 // pre-flipped) — we just force NearestFilter so swatches sample solid, not the black gaps.
-const RIGS={}, PROPS={}, TEXS={}; const CHAR_H={queen:4.4, archer:3.6, priestess:3.8, warrior:3.9, chief:4.9};   // world heights (chief = boss, imposing)
+const RIGS={}, PROPS={}, TEXS={}; const CHAR_H={queen:4.4, archer:3.6, priestess:3.8, warrior:3.9, chief:4.9, orcarcher:3.7, orcgrunt:3.7};   // world heights (chief = boss, imposing)
 // hand weapons: each char has a list of props → { prop FBX, hand bone, local transform }
 const WEAPONS={
   queen:    [{file:'glaive_elf_queen', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
@@ -385,8 +385,10 @@ const WEAPONS={
   warrior:  [{file:'sword_elf_warrior', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1},
              {file:'shield_elf_warrior',bone:'hand_l', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
   chief:    [{file:'axe_orc_chieftain', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
+  orcarcher:[{file:'bow_orc_archer',    bone:'hand_l', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
+  orcgrunt: [{file:'axe_orc_grunt',     bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
 };
-const RIG_SPECS=[['queen','elf_queen'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior'],['chief','orc_chieftain']];
+const RIG_SPECS=[['queen','elf_queen'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior'],['chief','orc_chieftain'],['orcarcher','orc_archer'],['orcgrunt','orc_grunt']];
 function loadRig(){ return new Promise(res=>{
   const gl=new THREE.GLTFLoader(), fx=new THREE.FBXLoader(), tl=new THREE.TextureLoader();
   const propFiles=[...new Set(Object.values(WEAPONS).flat().map(w=>w.file))];
@@ -448,8 +450,15 @@ function spawnGame(){
   rallyMarker=new THREE.Mesh(new THREE.RingGeometry(1.6,2.3,22),new THREE.MeshBasicMaterial({color:0xffe089,transparent:true,opacity:0.9,side:THREE.DoubleSide}));
   rallyMarker.rotation.x=-Math.PI/2; rallyMarker.visible=false; scene.add(rallyMarker);
 }
+let spawnN=0;
 function spawnEnemy(){ const a=0.25+rr(-0.6,0.6), er=edgeR(a)-10, x=Math.cos(a)*er, z=Math.sin(a)*er;
-  if(!onIsland(x,z))return; const e=mkFighter(C.enemyRed,1.05,'enemy',{hp:36,dmg:6,range:3.0,atkEvery:1.0,spd:9}); setP(e,x,z); enemies.push(e); }
+  if(!onIsland(x,z))return;
+  const archer=(spawnN++ %2)===0;   // alternate: rigged orc archers (ranged) + rigged orc grunts (melee)
+  const e = archer ? mkFighter(C.enemyRed,1.0,'enemy',{hp:46,dmg:7,range:9,atkEvery:1.5,spd:12})
+                   : mkFighter(C.enemyRed,1.05,'enemy',{hp:64,dmg:9,range:3.4,atkEvery:1.0,spd:12});
+  if(archer){ riggize(e,'orcarcher'); e.kind='archer'; e.ranged=true; }
+  else { riggize(e,'orcgrunt'); e.kind='grunt'; }
+  setP(e,x,z); enemies.push(e); }
 function nearest(x,z,list){ let b=null,bd=1e9; for(const t of list){ if(!t.alive)continue; const d=(t.px-x)**2+(t.pz-z)**2; if(d<bd){bd=d;b=t;} } return {t:b,d:Math.sqrt(bd)}; }
 function moveTo(e,tx,tz,dt){ let dx=tx-e.px,dz=tz-e.pz; const d=Math.hypot(dx,dz)||1; dx/=d;dz/=d;
   const nx=e.px+dx*e.spd*dt, nz=e.pz+dz*e.spd*dt; if(onIsland(nx,nz)){setP(e,nx,nz);faceTo(e,dx,dz);e.movedThis=true;} return d; }
@@ -614,7 +623,8 @@ function updateGame(dt){
       if(e.target && !e.target.alive) e.target=null;
       if(!e.target){ const {t}=nearest(e.px,e.pz,[hero,...allies]); e.target=t; }   // commit to a foe until it dies
       if(e.target){ const t=e.target, d=Math.hypot(t.px-e.px,t.pz-e.pz);
-             if(d>e.range){ e.state='move'; moveTo(e,t.px,t.pz,dt); } else { e.state='attack'; faceTo(e,t.px-e.px,t.pz-e.pz); attack(e,t); } }
+             if(d>e.range){ e.state='move'; moveTo(e,t.px,t.pz,dt); } else { e.state='attack'; faceTo(e,t.px-e.px,t.pz-e.pz);
+               if(e.ranged && e.cd<=0) shootFx(e.px,e.pz,t.px,t.pz,'arrow'); attack(e,t); } }
       else { e.state='move'; moveTo(e,-2,0,dt); }
       if(e.rigged){ e.mixer.update(dt); setAnim(e, e.state==='attack'?'attack':(e.state==='move'?'run':'idle')); } }
     // caster pass: auto-Heal with de-dup — no two clerics heal the same target, no overkill
