@@ -323,6 +323,7 @@ let FOLLOW_OUT=13, FOLLOW_IN=3.5, ENGAGE=16, BREAK=24;
 window.__follow=(o,i,e,b)=>{ if(o)FOLLOW_OUT=o; if(i)FOLLOW_IN=i; if(e)ENGAGE=e; if(b)BREAK=b; return {FOLLOW_OUT,FOLLOW_IN,ENGAGE,BREAK}; };
 // command layer: lasso-select a sub-group, draw/tap to send them (attack-move)
 let selected=new Set(), lcv, lctx, cmd={active:false,id:null,pts:[],moved:false};
+let spellArmed=false, autoBolt=false, orderMarkers=[], boltEl, autoEl;
 let keys={}, joy={active:false,nx:0,ny:0,id:null,sx:0,sy:0};
 let heroHpEl, waveEl, resultEl, abilEl, joyBase, joyKnob;
 const raycaster=new THREE.Raycaster(), groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
@@ -336,7 +337,7 @@ function makeBar(fillHex){
 }
 function mkFighter(hex,scale,team,st){
   const g=makeUnit(hex,scale); scene.add(g);
-  const e=Object.assign({g,team,alive:true,cd:0,px:0,pz:0,hitT:0,face:0,phase:Math.random()*6.28,movedThis:false,following:false,target:null,order:null,
+  const e=Object.assign({g,team,alive:true,cd:0,px:0,pz:0,hitT:0,face:0,phase:Math.random()*6.28,movedThis:false,following:false,target:null,forcedTarget:null,order:null,
     rad:team==='hero'?2.0:1.3, bar:makeBar(team==='enemy'?0xd23b3b:0x4ad0e0)},st);
   if(team==='ally'){ e.ring=new THREE.Mesh(new THREE.RingGeometry(1.7,2.15,20),new THREE.MeshBasicMaterial({color:0x7ff0ff,transparent:true,opacity:0.95,side:THREE.DoubleSide})); e.ring.rotation.x=-Math.PI/2; e.ring.visible=false; scene.add(e.ring); }
   e.max=st.hp; return e;
@@ -344,7 +345,7 @@ function mkFighter(hex,scale,team,st){
 function setP(e,x,z){ e.px=x; e.pz=z; e.g.position.set(x,topY(x,z),z); }
 function faceTo(e,dx,dz){ if(dx||dz) e.face=Math.atan2(dx,dz); }
 function spawnGame(){
-  hero=mkFighter(C.hero,1.9,'hero',{hp:260,dmg:20,range:3.6,atkEvery:0.5,spd:32,aCd:0}); setP(hero,-2,8);
+  hero=mkFighter(C.hero,1.9,'hero',{hp:260,dmg:20,range:3.6,atkEvery:0.5,spd:32,aCd:0,spellCd:0}); setP(hero,-2,8);
   for(let i=0;i<8;i++){ const e=mkFighter(i%2?C.teamBlue:C.teamBlueD,1.0,'ally',{hp:60,dmg:10,range:3.0,atkEvery:0.8,spd:24});
     e.idx=i; setP(e,-2+((i%4)-1.5)*3.2, 13+Math.floor(i/4)*3.6); allies.push(e); }
   rallyMarker=new THREE.Mesh(new THREE.RingGeometry(1.6,2.3,22),new THREE.MeshBasicMaterial({color:0xffe089,transparent:true,opacity:0.9,side:THREE.DoubleSide}));
@@ -400,7 +401,22 @@ function selectGroup(which){ selected.clear();
 function commandTo(gx,gz){ const list=[...selected].filter(e=>e.alive); if(!list.length) return false;
   list.forEach((e,k)=>{ const col=((k%4)-1.5)*2.8, row=Math.floor(k/4)*2.8; e.order={x:gx+col,z:gz+row}; e.target=null; e.following=false; });
   rallyMarker.position.set(gx,topY(gx,gz)+0.3,gz); rallyMarker.visible=true; clearTimeout(rallyMarker.__to); rallyMarker.__to=setTimeout(()=>rallyMarker.visible=false,2500); return true; }
-function recall(){ const list=[...selected].filter(e=>e.alive); (list.length?list:allies).forEach(e=>e.order=null); }
+function recall(){ const list=[...selected].filter(e=>e.alive); (list.length?list:allies).forEach(e=>{e.order=null; e.forcedTarget=null;}); }
+function nearestEnemyTo(x,z,maxd){ let b=null,bd=maxd*maxd; for(const e of enemies){ if(!e.alive)continue; const dd=(e.px-x)**2+(e.pz-z)**2; if(dd<bd){bd=dd;b=e;} } return b; }
+function focusFire(en){ const list=[...selected].filter(e=>e.alive); (list.length?list:allies).forEach(e=>{ if(e.alive){ e.forcedTarget=en; e.target=en; e.order=null; e.following=false; } });
+  rallyMarker.material.color.setHex(0xff6a5a); rallyMarker.position.set(en.px,topY(en.px,en.pz)+0.3,en.pz); rallyMarker.visible=true; clearTimeout(rallyMarker.__to); rallyMarker.__to=setTimeout(()=>rallyMarker.visible=false,900); }
+function castBolt(gx,gz){ if(!hero||hero.spellCd>0)return false; hero.spellCd=6; spellArmed=false;
+  for(const e of enemies){ if(!e.alive)continue; if(Math.hypot(e.px-gx,e.pz-gz)<7){ e.hp-=60; e.hitT=0.3; } }
+  const r=new THREE.Mesh(new THREE.RingGeometry(0.6,1.6,26),new THREE.MeshBasicMaterial({color:0x74c0ff,transparent:true,side:THREE.DoubleSide}));
+  r.rotation.x=-Math.PI/2; r.position.set(gx,topY(gx,gz)+0.5,gz); scene.add(r);
+  let t=0;(function an(){t+=0.05;r.scale.setScalar(1+t*14);r.material.opacity=Math.max(0,0.95-t*1.1);if(t<0.9)requestAnimationFrame(an);else scene.remove(r);})(); return true; }
+function updateOrderMarkers(){
+  const ord=allies.filter(a=>a.alive&&a.order&&!a.forcedTarget), clusters=[];
+  for(const a of ord){ let c=clusters.find(c=>Math.hypot(c.x-a.order.x,c.z-a.order.z)<8); if(!c){c={x:a.order.x,z:a.order.z};clusters.push(c);} }
+  while(orderMarkers.length<clusters.length){ const m=new THREE.Mesh(new THREE.RingGeometry(2.3,2.9,24),new THREE.MeshBasicMaterial({color:0x9fe0ff,transparent:true,opacity:0.55,side:THREE.DoubleSide})); m.rotation.x=-Math.PI/2; scene.add(m); orderMarkers.push(m); }
+  orderMarkers.forEach((m,i)=>{ if(i<clusters.length){ m.visible=true; m.position.set(clusters[i].x,topY(clusters[i].x,clusters[i].z)+0.2,clusters[i].z); } else m.visible=false; }); }
+function updateSpellUI(){ if(boltEl){ boltEl.style.opacity=hero.spellCd>0?0.4:1; boltEl.style.outline=spellArmed?'3px solid #fff':'none'; }
+  if(autoEl){ autoEl.style.background=autoBolt?'#4a8fd0':'#2b3a58cc'; } }
 function drawLasso(){ if(!lctx)return; lctx.clearRect(0,0,lcv.width,lcv.height); const p=cmd.pts; if(p.length<2)return;
   lctx.beginPath(); lctx.moveTo(p[0][0],p[0][1]); for(let i=1;i<p.length;i++)lctx.lineTo(p[i][0],p[i][1]);
   lctx.strokeStyle='rgba(127,240,255,0.95)'; lctx.lineWidth=3; lctx.stroke();
@@ -426,17 +442,20 @@ function updateGame(dt){
     const B=groundBasis(); let mvx=B.f.x*(-iy)+B.r.x*ix, mvz=B.f.z*(-iy)+B.r.z*ix; const ml=Math.hypot(mvx,mvz);
     if(ml>0.01){ mvx/=ml;mvz/=ml; const nx=hero.px+mvx*hero.spd*dt, nz=hero.pz+mvz*hero.spd*dt; if(onIsland(nx,nz))setP(hero,nx,nz);
       faceTo(hero,mvx,mvz); hero.movedThis=true; heroFwd.x+=(mvx-heroFwd.x)*Math.min(1,dt*6); heroFwd.z+=(mvz-heroFwd.z)*Math.min(1,dt*6); }
-    hero.cd-=dt; hero.aCd-=dt;
+    hero.cd-=dt; hero.aCd-=dt; hero.spellCd-=dt;
+    if(autoBolt && hero.spellCd<=0 && enemies.length){ const {t}=nearest(hero.px,hero.pz,enemies); if(t) castBolt(t.px,t.pz); }
     { const {t,d}=nearest(hero.px,hero.pz,enemies); if(t&&d<=hero.range+1) attack(hero,t); }
     const hl=Math.hypot(heroFwd.x,heroFwd.z)||1, ffx=heroFwd.x/hl, ffz=heroFwd.z/hl, rgx=ffz, rgz=-ffx;
     for(const e of allies){ if(!e.alive)continue; e.cd-=dt;
       const heroDist=Math.hypot(hero.px-e.px,hero.pz-e.pz);
+      if(e.forcedTarget && !e.forcedTarget.alive) e.forcedTarget=null;
       if(e.target && !e.target.alive) e.target=null;
-      // drop a fight only if unordered AND the hero has walked off
-      if(e.target && !e.order && heroDist>BREAK) e.target=null;
-      if(!e.target){ const {t}=nearest(e.px,e.pz,enemies);
-        if(t){ if(e.order){ if(Math.hypot(t.px-e.px,t.pz-e.pz)<12) e.target=t; }        // ordered: attack-move — engage foes en route
-               else if(Math.hypot(t.px-hero.px,t.pz-hero.pz)<ENGAGE) e.target=t; } }     // following: engage foes near the hero
+      if(e.forcedTarget){ e.target=e.forcedTarget; }                                     // manual focus-fire overrides leash & orders
+      else {
+        if(e.target && !e.order && heroDist>BREAK) e.target=null;                        // drop a fight only if unordered & hero left
+        if(!e.target){ const {t}=nearest(e.px,e.pz,enemies);
+          if(t){ if(e.order){ if(Math.hypot(t.px-e.px,t.pz-e.pz)<12) e.target=t; }       // ordered: attack-move — engage foes en route
+                 else if(Math.hypot(t.px-hero.px,t.pz-hero.pz)<ENGAGE) e.target=t; } } } // following: engage foes near the hero
       if(e.target){ const t=e.target, d=Math.hypot(t.px-e.px,t.pz-e.pz);                 // committed: fight until it dies
              if(d>e.range){ e.state='move'; moveTo(e,t.px,t.pz,dt); } else { e.state='attack'; faceTo(e,t.px-e.px,t.pz-e.pz); attack(e,t); } }
       else if(e.order){ // hold the commanded position
@@ -459,6 +478,7 @@ function updateGame(dt){
     if(heroHpEl) heroHpEl.style.width=(Math.max(0,hero.hp)/hero.max*100)+'%';
     if(waveEl) waveEl.textContent = spawnLeft>0? 'Enemies remaining: '+(enemies.length+spawnLeft) : (enemies.length? 'Clear them out! '+enemies.length+' left':'');
     if(abilEl) abilEl.style.opacity = hero.aCd>0? 0.45 : 1;
+    updateOrderMarkers(); updateSpellUI();
   }
   updBars();
 }
@@ -476,6 +496,10 @@ function setupHUD(){
   joyKnob=document.createElement('div'); joyKnob.style.cssText='position:absolute;left:50%;top:50%;width:54px;height:54px;border-radius:50%;background:#fff9;transform:translate(-50%,-50%)'; joyBase.appendChild(joyKnob); document.body.appendChild(joyBase);
   abilEl=document.createElement('div'); abilEl.textContent='STOMP'; abilEl.style.cssText='position:fixed;right:26px;bottom:26px;width:88px;height:88px;border-radius:50%;background:#c25a34;color:#fff;font:800 15px system-ui;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 0 #7d3417;user-select:none;z-index:6'; document.body.appendChild(abilEl);
   abilEl.addEventListener('pointerdown',ev=>{ev.stopPropagation(); warstomp();});
+  boltEl=document.createElement('div'); boltEl.textContent='BOLT'; boltEl.style.cssText='position:fixed;right:128px;bottom:34px;width:70px;height:70px;border-radius:50%;background:#3b6cc4;color:#fff;font:800 13px system-ui;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 0 #24467e;user-select:none;z-index:6';
+  boltEl.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); if(hero.spellCd<=0) spellArmed=!spellArmed; updateSpellUI(); }); document.body.appendChild(boltEl);
+  autoEl=document.createElement('div'); autoEl.textContent='AUTO'; autoEl.style.cssText='position:fixed;right:132px;bottom:110px;padding:5px 9px;border-radius:8px;background:#2b3a58cc;color:#dbe7ff;font:700 11px system-ui;user-select:none;z-index:6';
+  autoEl.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); autoBolt=!autoBolt; updateSpellUI(); }); document.body.appendChild(autoEl);
   resultEl=document.createElement('div'); resultEl.style.cssText='position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:#0008;color:#fff;font:600 18px system-ui;gap:12px;z-index:9';
   resultEl.innerHTML='<h1 style="font-size:48px;margin:0"></h1><div>tap to play again</div>'; resultEl.addEventListener('pointerdown',()=>location.reload()); document.body.appendChild(resultEl);
   const gold=document.getElementById('gold'); if(gold){ gold.style.right='auto'; gold.style.left='18px'; }
@@ -505,10 +529,13 @@ function onUp(e){
   if(cmd.active&&e.pointerId===cmd.id){ cmd.active=false;
     if(cmd.moved){ lassoSelect(cmd.pts); }                                       // drag = lasso select
     else { const nd=new THREE.Vector2((e.clientX/innerWidth)*2-1,-(e.clientY/innerHeight)*2+1); raycaster.setFromCamera(nd,cam); const hit=new THREE.Vector3();
-      if(raycaster.ray.intersectPlane(groundPlane,hit)&&onIsland(hit.x,hit.z)){                    // tap = command
-        if(selected.size){ commandTo(hit.x,hit.z); }
-        else { allies.forEach((a,k)=>{ if(!a.alive)return; const col=((k%4)-1.5)*2.8,row=Math.floor(k/4)*2.8; a.order={x:hit.x+col,z:hit.z+row}; a.target=null; a.following=false; });
-               rallyMarker.position.set(hit.x,topY(hit.x,hit.z)+0.3,hit.z); rallyMarker.visible=true; clearTimeout(rallyMarker.__to); rallyMarker.__to=setTimeout(()=>rallyMarker.visible=false,2500); } } }
+      if(raycaster.ray.intersectPlane(groundPlane,hit)&&onIsland(hit.x,hit.z)){                    // tap = smart command
+        if(spellArmed){ castBolt(hit.x,hit.z); }                                                   // armed spell → cast here
+        else { const en=nearestEnemyTo(hit.x,hit.z,5);
+          if(en){ focusFire(en); }                                                                 // tapped an enemy → focus fire
+          else { rallyMarker.material.color.setHex(0x9fe0ff);                                       // tapped ground → attack-move
+            const list=selected.size? [...selected].filter(a=>a.alive) : allies.filter(a=>a.alive);
+            list.forEach((a,k)=>{ const col=((k%4)-1.5)*2.8,row=Math.floor(k/4)*2.8; a.order={x:hit.x+col,z:hit.z+row}; a.forcedTarget=null; a.target=null; a.following=false; }); } } } }
     cmd.pts=[]; if(lctx)lctx.clearRect(0,0,lcv.width,lcv.height); } }
 
 // ---------- camera / render ----------
