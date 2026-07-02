@@ -1023,14 +1023,14 @@
       // concept, Mixamo-rigged (idle/run/overhead-chop), vertex-colour reskin (green
       // skin + brown armor). Front = +Z (Mixamo) so yaw = 0. Spiked orc felling-axe
       // in the right hand, blade up. Replaces the earlier cinder_warrior orc.
-      registerUnitModel('horde:warrior', { url: 'assets/models/grunt_mx.glb?v=20260701a', height: 58, yaw: 0,
+      registerUnitModel('horde:warrior', { url: 'assets/models/grunt_mx.glb?v=20260701a', height: 60, yaw: 0,
         anims: { idle: 'idle', walk: 'walk', attack: 'attack' }, stripRootMotion: true, attackRate: 1.0,
         weapon: { url: 'assets/models/w_orc_axe.glb?v=20260701a', bone: 'mixamorigRightHand', pos: [0.03, 0.16, 0], rot: [0, 1.5708, 3.14159], scale: 0.55 } });
       // Footman (crown/Human warrior): Tripo grey-plate knight from the user's own
       // concept, Mixamo-rigged (idle/run/slash), vertex-colour reskin. Front = +Z
       // (Mixamo) so yaw = 0. Steel sword in the right hand, blue cross kite-shield
       // on the left arm — both Tripo-generated from the user's weapon concepts.
-      registerUnitModel('crown:warrior', { url: 'assets/models/footman_mx.glb?v=20260701a', height: 56, yaw: 0,
+      registerUnitModel('crown:warrior', { url: 'assets/models/footman_mx.glb?v=20260701a', height: 60, yaw: 0,
         anims: { idle: 'idle', walk: 'walk', attack: 'attack' }, stripRootMotion: true, attackRate: 1.0,
         weapon: { url: 'assets/models/w_footman_sword.glb?v=20260701a', bone: 'mixamorigRightHand', pos: [0, 0.06, 0], rot: [0, 0, 1.5708], scale: 0.85 },
         attachments: [{ url: 'assets/models/w_footman_shield.glb?v=20260701a', bone: 'mixamorigLeftHand', pos: [0, 0, 0], rot: [0, 1.5708, 0], scale: 0.6 }] });
@@ -1040,31 +1040,31 @@
       // bow-draw mocap; the Tripo texture atlas can't survive re-rigging so the
       // skin is baked as vertex colours. Front = +Z (Mixamo), so yaw = 0. Elven
       // longbow in the left hand; the draw clip drives attack, projectile fires.
-      registerUnitModel('elf:archer', { url: 'assets/models/rim_archer_mx.glb?v=20260701a', height: 74, yaw: 0,
+      registerUnitModel('elf:archer', { url: 'assets/models/rim_archer_mx.glb?v=20260701a', height: 60, yaw: 0,
         anims: { idle: 'idle', walk: 'walk', attack: 'attack' }, stripRootMotion: true, attackRate: 1.1,
         weapon: { url: 'assets/models/w_longbow.glb?v=20260701a', bone: 'mixamorigLeftHand', pos: [0.05, 0, 0.05], rot: [0, 0, 0], scale: 1.0 } });
       // Huntress: panther rider, biped-rigged — her arms animate while the leg
       // bones are frozen (stripBones) so the panther body stays intact. Moon
       // glaive in the right hand.
-      registerUnitModel('elf:lancer', { url: 'assets/models/rim_huntress.glb?v=20260630k', height: 66, yaw: -Math.PI / 2,
+      registerUnitModel('elf:lancer', { url: 'assets/models/rim_huntress.glb?v=20260630k', height: 72, yaw: -Math.PI / 2,
         anims: { idle: 'NlaTrack', walk: 'NlaTrack.001' }, stripRootMotion: true,
         stripBones: 'Thigh|Calf|Foot|Toe|Pelvis|Hip|Waist|Spine',
         weapon: { url: 'assets/models/w_moonglaive.glb?v=20260630k', bone: 'R_Hand', pos: [0.03, 0.02, -0.02], rot: [1.396, 0, 0.175], scale: 0.45 } });
       // Dryad: centaur, biped-rigged with frozen leg bones (stripBones) so the
       // deer body stays intact while her arms animate. Leaf spear in the right hand.
-      registerUnitModel('elf:caster', { url: 'assets/models/rim_dryad.glb?v=20260630l', height: 64, yaw: -Math.PI / 2,
+      registerUnitModel('elf:caster', { url: 'assets/models/rim_dryad.glb?v=20260630l', height: 66, yaw: -Math.PI / 2,
         anims: { idle: 'NlaTrack', walk: 'NlaTrack.001' }, stripRootMotion: true,
         stripBones: 'Thigh|Calf|Foot|Toe|Pelvis|Hip|Waist|Spine',
         weapon: { url: 'assets/models/w_leafspear.glb?v=20260630i', bone: 'R_Hand', pos: [0.03, 0.02, -0.02], rot: [1.396, 0, 0.175], scale: 0.93 } });
       // Druid (of the Claw): rigged idle/walk + bear-claw gauntlet on the right
       // hand. Fills the melee/warrior slot, replacing the procedural Thornguard.
-      registerUnitModel('elf:warrior', { url: 'assets/models/rim_druid.glb?v=20260630i', height: 76, yaw: -Math.PI / 2,
+      registerUnitModel('elf:warrior', { url: 'assets/models/rim_druid.glb?v=20260630i', height: 62, yaw: -Math.PI / 2,
         anims: { idle: 'NlaTrack', walk: 'NlaTrack.001' }, stripRootMotion: true,
         weapon: { url: 'assets/models/w_bearclaw.glb?v=20260630k', bone: 'R_Hand', pos: [0.005, 0.085, 0.01], rot: [2.007, 0, 0], scale: 0.38 } });
-      registerUnitModel('elf:siege', { url: 'assets/models/rim_glaive_thrower.glb?v=20260630b', height: 54, yaw: -Math.PI / 2, noBob: true });
-      registerUnitModel('elf:worker', { url: 'assets/models/rim_wisp.glb?v=20260630b', height: 30, yaw: -Math.PI / 2, glow: 0x9fe6ff, glowI: 0.45, glowSize: 1.1, hover: 16 });
+      registerUnitModel('elf:siege', { url: 'assets/models/rim_glaive_thrower.glb?v=20260630b', height: 58, yaw: -Math.PI / 2, noBob: true });
+      registerUnitModel('elf:worker', { url: 'assets/models/rim_wisp.glb?v=20260630b', height: 40, yaw: -Math.PI / 2, glow: 0x9fe6ff, glowI: 0.45, glowSize: 1.1, hover: 16 });
       // Thoryn the Bladedrifter — bespoke Demon Hunter model (front = +X).
-      registerUnitModel('hero:thoryn', { url: 'assets/models/demon_hunter.glb?v=20260630e', height: 78, yaw: -Math.PI / 2 });
+      registerUnitModel('hero:thoryn', { url: 'assets/models/demon_hunter.glb?v=20260630e', height: 74, yaw: -Math.PI / 2 });
       loadUnitModels().then(function (ok) { if (ok && R.enabled) rebuildUnitMeshes(); });
       return;
     }
