@@ -31,13 +31,20 @@
   <label>Model</label>
   <select id="model"></select>
   <label>…or upload a .glb</label>
-  <input type="file" id="file" accept=".glb,.gltf" style="font-size:12px">
+  <input type="file" id="file" accept=".glb,.gltf,.fbx" style="font-size:12px">
 
   <div class="mode">
     <button id="mPlace" class="on" onclick="setMode('place')">➕ Place joints</button>
     <button id="mPose" onclick="setMode('pose')">↻ Test pose</button>
   </div>
   <p class="hint" id="modehint">Place mode: tap the model to drop a joint. Each new joint parents to the selected one.</p>
+
+  <div id="autorig" style="border:1px solid var(--line);border-radius:8px;padding:8px;margin:8px 0">
+    <label style="margin-top:0">🎯 Auto-rig from markers (Mixamo-style)</label>
+    <p class="hint" id="mkhint">Tap “Place markers”, then tap the model at each point it asks for.</p>
+    <div class="btns"><button class="hot" onclick="startMarkers()">Place markers</button><button onclick="buildFromMarkers()">🦴 Build skeleton</button></div>
+    <div id="mklist" style="font-size:12px;line-height:1.7"></div>
+  </div>
 
   <label>Joints</label>
   <div id="jlist"></div>
@@ -65,6 +72,14 @@
   <label style="display:flex;align-items:center;gap:7px;text-transform:none;margin-top:6px"><input type="checkbox" id="ghost" onchange="setGhost()"> Ghost the original as a mold (see where a pose clips through the body)</label>
   <div class="btns"><button class="hot" onclick="doSkin()">🦴 Auto-skin</button></div>
   <p class="hint" id="skinstatus">Not skinned yet. Place your joints, then Auto-skin to bind the mesh. Turn on "Rigid" for a clean cut-out look (best for low-poly).</p>
+  <label>Preview animation</label>
+  <div class="mode" id="animbtns">
+    <button onclick="setAnim('idle')">Idle</button>
+    <button onclick="setAnim('walk')">Walk</button>
+    <button onclick="setAnim('attack')">Attack</button>
+    <button onclick="setAnim(null)">■ Stop</button>
+  </div>
+  <p class="hint">Procedural preview on the standard bones (Hips/Spine/…/L_Knee) — works regardless of the model's rest pose.</p>
   <div class="btns"><button class="hot" onclick="doExport()">⬇ Export rigged .glb</button></div>
   <p class="hint">After export, send me the .glb — I'll drop it into the game with your bone names ready to pose/animate.</p>
 </div>
@@ -72,8 +87,13 @@
 <script src="/vendor/three.min.js"></script>
 <script src="/vendor/GLTFLoader.js"></script>
 <script src="/vendor/GLTFExporter.js"></script>
+<script src="/vendor/fflate.min.js"></script>
+<script src="/vendor/NURBSCurve.js"></script>
+<script src="/vendor/NURBSUtils.js"></script>
+<script src="/vendor/FBXLoader.js"></script>
 <script>
 const ASSETS = {
+  'Bitgem Elf Archer (FBX)':'assets/models/elf_archer.fbx',
   'Dryad body (unrigged)':'assets/models/rim_dryad.glb',
   'Huntress body':'assets/models/rim_huntress.glb',
   'Archer body':'assets/models/rim_archer_rigged.glb',
@@ -81,6 +101,7 @@ const ASSETS = {
   'Wisp':'assets/models/rim_wisp.glb',
   'Glaive Thrower':'assets/models/rim_glaive_thrower.glb',
 };
+const fbxLoader=new THREE.FBXLoader();
 const cv=document.getElementById('view');
 const renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true}); if(THREE.sRGBEncoding)renderer.outputEncoding=THREE.sRGBEncoding;
 const scene=new THREE.Scene(); scene.background=new THREE.Color(0x222c38);
@@ -96,13 +117,22 @@ const loader=new THREE.GLTFLoader();
 function clearModel(){ if(modelRoot){scene.remove(modelRoot);} modelRoot=null;mesh=null;skinned=null;
   joints=[]; jointVis.forEach(v=>scene.remove(v)); jointVis=[]; sel=-1; renderJList(); document.getElementById('skinstatus').textContent='Not skinned yet.'; }
 
-function loadModel(url, isBlob){
+function loadModel(url, isBlob, fbx){
   clearModel();
-  loader.load(url, g=>{ onModel(g); if(isBlob) URL.revokeObjectURL(url); }, undefined, e=>alert('load failed '+e));
+  const fin=root=>{ onModel(root); if(isBlob) URL.revokeObjectURL(url); };
+  if(fbx) fbxLoader.load(url, o=>fin(o), undefined, e=>alert('load failed '+e));
+  else loader.load(url, g=>fin(g.scene), undefined, e=>alert('load failed '+e));
 }
-function onModel(g){
-  modelRoot=g.scene; scene.add(modelRoot);
-  modelRoot.traverse(o=>{ if(o.isMesh && !mesh){ mesh=o; } if(o.isMesh){ (Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{if(!m)return;if('metalness'in m)m.metalness=0;if('roughness'in m)m.roughness=1;}); } });
+function onModel(root){
+  modelRoot=root; scene.add(modelRoot);
+  modelRoot.traverse(o=>{ if(o.isMesh){ if(!mesh)mesh=o;
+    const mats=Array.isArray(o.material)?o.material:[o.material];
+    if(!mats.some(m=>m&&m.map)) o.material=new THREE.MeshLambertMaterial({color:0xb9c4cf});   // untextured (FBX) → light grey so joints are easy to see
+    else mats.forEach(m=>{if(m){if('metalness'in m)m.metalness=0;if('roughness'in m)m.roughness=1;}});
+  } });
+  // normalize huge (FBX cm-scale) or tiny models to ~2 units tall so the tool's camera frames them
+  { const b0=new THREE.Box3().setFromObject(modelRoot); const h0=b0.getSize(new THREE.Vector3()).y||1;
+    if(h0>8||h0<0.25){ modelRoot.scale.setScalar(2/h0); modelRoot.updateMatrixWorld(true); } }
   const box=new THREE.Box3().setFromObject(modelRoot); const c=box.getCenter(new THREE.Vector3()); const s=box.getSize(new THREE.Vector3());
   target.copy(c); camR=Math.max(s.x,s.y,s.z)*2.0;
   const R=Math.max(s.x,s.y,s.z);
@@ -259,31 +289,83 @@ function doExport(){
   }, err=>alert('export error '+err), {binary:true});
 }
 
+// ---- Mixamo-style guided auto-rig ----
+const MARKERS=['chin','wrist_L','wrist_R','elbow_L','elbow_R','groin','knee_L','knee_R'];
+let mk={}, mkIdx=-1, mkVis=[];
+function startMarkers(){ mk={}; mkIdx=0; mode='markers'; mkVis.forEach(v=>scene.remove(v)); mkVis=[]; renderMk(); }
+function renderMk(){ const el=document.getElementById('mklist');
+  el.innerHTML=MARKERS.map((m,i)=>'<div style="color:'+(mk[m]?'#6fe3cf':(i===mkIdx?'#fff':'#7d8ea0'))+'">'+(mk[m]?'✓':(i===mkIdx?'▶':'○'))+' '+m.replace('_',' ')+'</div>').join('');
+  document.getElementById('mkhint').textContent = (mkIdx>=0&&mkIdx<MARKERS.length)?('Tap the model at:  '+MARKERS[mkIdx].replace('_',' ').toUpperCase()) : (Object.keys(mk).length>=MARKERS.length?'All placed — hit “Build skeleton”.':'Tap “Place markers” to begin.'); }
+function placeMarker(p){ if(mkIdx<0||mkIdx>=MARKERS.length)return; mk[MARKERS[mkIdx]]=p.clone();
+  const s=new THREE.Mesh(new THREE.SphereGeometry(0.035,10,8),new THREE.MeshBasicMaterial({color:0xff5aa0,depthTest:false})); s.renderOrder=1000; s.position.copy(p); scene.add(s); mkVis.push(s);
+  mkIdx++; renderMk(); }
+function buildFromMarkers(){
+  if(!mesh){alert('Load a model first');return;}
+  for(const m of MARKERS) if(!mk[m]){ alert('Place all markers first — missing: '+m.replace('_',' ')); return; }
+  const box=new THREE.Box3().setFromObject(modelRoot); const minY=box.min.y;
+  const V=(a,b,t)=>a.clone().lerp(b,t);
+  const chin=mk.chin, gr=mk.groin, wL=mk.wrist_L, wR=mk.wrist_R, eL=mk.elbow_L, eR=mk.elbow_R, kL=mk.knee_L, kR=mk.knee_R;
+  const center=new THREE.Vector3((gr.x+chin.x)/2,0,(gr.z+chin.z)/2);
+  const shY=(eL.y+eR.y)/2 + (chin.y-(eL.y+eR.y)/2)*0.35;
+  const neck=new THREE.Vector3(center.x,shY,center.z);
+  const hips=gr.clone(); hips.y+=(chin.y-gr.y)*0.04;
+  const head=new THREE.Vector3(chin.x,chin.y+(chin.y-shY)*0.35,chin.z);
+  const shL=new THREE.Vector3(center.x+(eL.x-center.x)*0.5,shY,center.z+(eL.z-center.z)*0.5);
+  const shR=new THREE.Vector3(center.x+(eR.x-center.x)*0.5,shY,center.z+(eR.z-center.z)*0.5);
+  const hipL=new THREE.Vector3(hips.x+(kL.x-hips.x)*0.35,hips.y,hips.z+(kL.z-hips.z)*0.35);
+  const hipR=new THREE.Vector3(hips.x+(kR.x-hips.x)*0.35,hips.y,hips.z+(kR.z-hips.z)*0.35);
+  const footL=new THREE.Vector3(kL.x,minY,kL.z), footR=new THREE.Vector3(kR.x,minY,kR.z);
+  joints=[]; sel=-1;
+  const J=(n,p,par)=>{ joints.push({name:n,pos:p.clone(),parent:par}); return joints.length-1; };
+  const hi=J('Hips',hips,-1); const sp=J('Spine',V(hips,neck,0.4),hi); const ch=J('Chest',V(hips,neck,0.75),sp);
+  const nk=J('Neck',neck,ch); J('Head',head,nk);
+  const lS=J('L_Shoulder',shL,ch), lE=J('L_Elbow',eL,lS); J('L_Hand',wL,lE);
+  const rS=J('R_Shoulder',shR,ch), rE=J('R_Elbow',eR,rS); J('R_Hand',wR,rE);
+  const lHp=J('L_Hip',hipL,hi), lK=J('L_Knee',kL,lHp); J('L_Foot',footL,lK);
+  const rHp=J('R_Hip',hipR,hi), rK=J('R_Knee',kR,rHp); J('R_Foot',footR,rK);
+  rebuildVis(); renderJList(); select(0);
+  mkVis.forEach(v=>scene.remove(v)); mkVis=[]; mode='place';
+  document.getElementById('skinstatus').textContent='Skeleton built from markers ('+joints.length+' joints) — hit 🦴 Auto-skin.';
+}
+// ---- procedural animation preview ----
+let animMode=null, animT=0;
+function setAnim(m){ if(m&&!skinned){alert('Auto-skin first');return;} animMode=m; animT=0;
+  if(!m&&skinned) skinned.skeleton.bones.forEach(b=>b.rotation.set(0,0,0)); }
+function boneByName(n){ const i=joints.findIndex(j=>j.name===n); return (i>=0&&skinned)?skinned.skeleton.bones[i]:null; }
+function animTick(dt){ if(!animMode||!skinned)return; animT+=dt;
+  skinned.skeleton.bones.forEach(b=>b.rotation.set(0,0,0));
+  const t=animT, S=Math.sin, set=(n,x,y,z)=>{const b=boneByName(n); if(b)b.rotation.set(x||0,y||0,z||0);};
+  if(animMode==='idle'){ const b=S(t*2)*0.05; set('Spine',b*0.3); set('Chest',b*0.2); set('L_Shoulder',0,0,-0.08-b); set('R_Shoulder',0,0,0.08+b); set('Head',S(t*1.3)*0.04); }
+  if(animMode==='walk'){ const w=S(t*6); set('L_Hip',0,0,w*0.6); set('R_Hip',0,0,-w*0.6);
+    set('L_Knee',0,0,Math.max(0,w)*0.7); set('R_Knee',0,0,Math.max(0,-w)*0.7);
+    set('L_Shoulder',0,0,-0.1-w*0.5); set('R_Shoulder',0,0,0.1-w*0.5); set('Spine',0,w*0.1); }
+  if(animMode==='attack'){ const a=S(t*7); set('R_Shoulder',0,0,1.0+a*0.8); set('R_Elbow',0,0,0.6); set('Spine',0,-0.2+a*0.2); }
+}
+
 // raycast tap-to-place
 const ray=new THREE.Raycaster(); const ndc=new THREE.Vector2();
 let down=null,moved=false;
 cv.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};moved=false;cv.setPointerCapture(e.pointerId);});
 cv.addEventListener('pointermove',e=>{ if(!down)return; const dx=e.clientX-down.x,dy=e.clientY-down.y; if(Math.abs(dx)+Math.abs(dy)>6)moved=true;
   camTheta-=dx*0.01; camPhi=Math.max(0.15,Math.min(3.0,camPhi-dy*0.01)); down={x:e.clientX,y:e.clientY}; });
-cv.addEventListener('pointerup',e=>{ if(down&&!moved&&mode==='place'&&mesh){ ndc.x=(e.clientX/innerWidth)*2-1; ndc.y=-(e.clientY/innerHeight)*2+1; ray.setFromCamera(ndc,cam);
+cv.addEventListener('pointerup',e=>{ if(down&&!moved&&(mode==='place'||mode==='markers')&&mesh){ ndc.x=(e.clientX/innerWidth)*2-1; ndc.y=-(e.clientY/innerHeight)*2+1; ray.setFromCamera(ndc,cam);
     const hits=ray.intersectObject(mesh,true);
     if(hits.length){
       let p=hits[0].point.clone();
-      // "Bones go near the center of the mesh volume" (every rigging tutorial): instead of
-      // the surface hit, sink the joint to the midpoint of where the pick ray enters and
-      // exits the mesh — the center of the limb at that spot. Even influence, cleaner bends.
+      // "Bones go near the center of the mesh volume": sink the joint to the midpoint of
+      // where the pick ray enters and exits the mesh — the center of the limb at that spot.
       if(document.getElementById('centervol').checked && hits.length>=2){
         p = hits[0].point.clone().add(hits[hits.length-1].point).multiplyScalar(0.5);
       }
-      addJoint(p);
+      if(mode==='markers') placeMarker(p); else addJoint(p);
     } }
   down=null; });
 cv.addEventListener('wheel',e=>{camR=Math.max(0.3,Math.min(14,camR+e.deltaY*0.002));e.preventDefault();},{passive:false});
 
 // dropdowns + file
 const msel=document.getElementById('model'); Object.keys(ASSETS).forEach(k=>{const o=document.createElement('option');o.value=ASSETS[k];o.textContent=k;msel.appendChild(o);});
-msel.onchange=()=>loadModel(msel.value,false);
-document.getElementById('file').onchange=e=>{ const f=e.target.files[0]; if(f) loadModel(URL.createObjectURL(f),true); };
+msel.onchange=()=>loadModel(msel.value,false,/\.fbx$/i.test(msel.value));
+document.getElementById('file').onchange=e=>{ const f=e.target.files[0]; if(f) loadModel(URL.createObjectURL(f),true,/\.fbx$/i.test(f.name)); };
 
 // debug/validation hooks (harmless)
 window.__rig={ count:()=>joints.length, skinned:()=>!!skinned, bones:()=>skinned?skinned.skeleton.bones.length:0,
@@ -296,7 +378,8 @@ window.__rig={ count:()=>joints.length, skinned:()=>!!skinned, bones:()=>skinned
     new THREE.GLTFLoader().parse(res,'',g=>{ let sk=0,bn=0; g.scene.traverse(o=>{if(o.isSkinnedMesh){sk++;bn=o.skeleton.bones.length;}}); r({bytes:res.byteLength,skinnedMeshes:sk,bones:bn}); }, e=>r({parseErr:String(e)})); },e=>r({err:String(e)}),{binary:true}); }) };
 function resize(){renderer.setSize(innerWidth,innerHeight);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();}
 addEventListener('resize',resize); resize();
-function tick(){requestAnimationFrame(tick);applyCam();renderer.render(scene,cam);} tick();
-loadModel(msel.value,false);
+let _last=performance.now();
+function tick(){requestAnimationFrame(tick); const now=performance.now(); const dt=Math.min(0.05,(now-_last)/1000); _last=now; animTick(dt); applyCam(); renderer.render(scene,cam);} tick();
+loadModel(msel.value,false,/\.fbx$/i.test(msel.value));
 </script>
 </body></html>
