@@ -503,7 +503,7 @@ let rallyPoint=null, rallyMarker=null, gameOver=0, spawnLeft=0, spawnTimer=1.5, 
 let heroFwd={x:0,z:1};
 // loose-leash follow: units idle in your vicinity, only surge to re-form once
 // you've walked past FOLLOW_OUT, and settle again within FOLLOW_IN of their slot.
-let FOLLOW_OUT=13, FOLLOW_IN=3.5, ENGAGE=16, BREAK=24;
+let FOLLOW_OUT=24, FOLLOW_IN=6, ENGAGE=18, BREAK=36;   // looser leash: roam further before the squad re-forms, and give more slack before they drop a fight
 window.__follow=(o,i,e,b)=>{ if(o)FOLLOW_OUT=o; if(i)FOLLOW_IN=i; if(e)ENGAGE=e; if(b)BREAK=b; return {FOLLOW_OUT,FOLLOW_IN,ENGAGE,BREAK}; };
 // command layer: lasso-select a sub-group, draw/tap to send them (attack-move)
 let selected=new Set(), lcv, lctx, cmd={active:false,id:null,pts:[],moved:false};
