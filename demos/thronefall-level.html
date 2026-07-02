@@ -181,7 +181,7 @@ const NAT={tree:[], rock:[], bush:[]};
 // under lights). Re-wrap as flat MeshLambert(diffuse) so they shade cleanly in our scene.
 function natLambert(o){ o.traverse(n=>{ if(n.isMesh){ const ms=Array.isArray(n.material)?n.material:[n.material];
   const conv=m=>new THREE.MeshLambertMaterial({color:(m&&m.color)?m.color.getHex():0x88aa66});
-  n.material=Array.isArray(n.material)?ms.map(conv):conv(ms[0]); n.castShadow=true; n.receiveShadow=false; } }); }
+  n.material=Array.isArray(n.material)?ms.map(conv):conv(ms[0]); n.castShadow=false; n.receiveShadow=false; } }); }   // scenery skips the shadow pass (perf) — ~1000 fewer casters
 // centre on X/Z, drop base to y=0, record native height → clone + scale to a target height later
 function natEntry(o){ natLambert(o); const bb=new THREE.Box3().setFromObject(o); const sz=bb.getSize(new THREE.Vector3());
   o.position.x-=(bb.min.x+sz.x/2); o.position.z-=(bb.min.z+sz.z/2); o.position.y-=bb.min.y; o.frustumCulled=false;
@@ -405,7 +405,7 @@ function build(){
   scene.add(new THREE.HemisphereLight(0xdff0ff,0x3f6a44,0.55));
   const dir=new THREE.DirectionalLight(0xfff3d8,1.05);
   dir.position.copy(sun.clone().multiplyScalar(120)); dir.castShadow=true;
-  dir.shadow.mapSize.set(2048,2048);
+  dir.shadow.mapSize.set(1024,1024);   // trees/rocks no longer cast, so a smaller map still looks crisp on the buildings/units
   const sc=dir.shadow.camera; sc.left=-105;sc.right=105;sc.top=105;sc.bottom=-105;sc.near=20;sc.far=360;
   dir.shadow.bias=-0.0004; dir.shadow.normalBias=1.4; dir.shadow.radius=3;
   scene.add(dir); scene.add(dir.target); sunLight=dir;   // shadow frustum tracks the camera focus (keeps shadows sharp on a big map)
@@ -422,10 +422,10 @@ function build(){
   // the two bases reads open and fightable.
   for(let x=-WORLD;x<=WORLD;x+=8) for(let z=-WORLD;z<=WORLD;z+=8){
     const jx=x+rr(-3,3), jz=z+rr(-3,3); const f=landField(jx,jz);
-    if(f>0.13 && f<0.30 && pathDist(jx,jz)>14 && rnd()<0.6) scene.add(forestClump(jx,jz,2,7)); }  // coastal tree line
+    if(f>0.13 && f<0.30 && pathDist(jx,jz)>14 && rnd()<0.42) scene.add(forestClump(jx,jz,2,7)); }  // coastal tree line
   for(const [hx,hz] of [[-60,12],[60,-12],[22,62],[-22,-62],[78,-38],[-78,38],[128,64],[-128,-64]]){
     if(!onIsland(hx,hz)) continue;
-    for(let k=0;k<26;k++){ const a=rnd()*6.28,d=rr(0,22); const x=hx+Math.cos(a)*d,z=hz+Math.sin(a)*d;
+    for(let k=0;k<16;k++){ const a=rnd()*6.28,d=rr(0,22); const x=hx+Math.cos(a)*d,z=hz+Math.sin(a)*d;
       if(onIsland(x,z)&&pathDist(x,z)>12) scene.add(forestClump(x,z,3,12)); } }   // flank forested hill
   // neutral midpoint — a ring of standing snow-stones framing the contested centre; the lane stays open
   for(let i=0;i<7;i++){ const a=i/7*6.28, x=Math.cos(a)*20, z=Math.sin(a)*20;
@@ -869,7 +869,7 @@ window.__cam=setCam;
 let rt,postScene,postCam,postMat;
 function pr(){return Math.min(devicePixelRatio,2);}
 function initPost(){
-  rt=new THREE.WebGLRenderTarget(innerWidth*pr(),innerHeight*pr(),{samples:4});
+  rt=new THREE.WebGLRenderTarget(innerWidth*pr(),innerHeight*pr(),{samples:2});
   postCam=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
   postScene=new THREE.Scene();
   postMat=new THREE.ShaderMaterial({
