@@ -369,7 +369,9 @@ function loadRig(){ return new Promise(res=>{
   let elf=null,lib=null,tex=null,n=0;
   const done=()=>{ if(++n<3)return; if(elf&&lib){ const by=x=>lib.animations.find(a=>a.name===x);
       RIG={ scene:elf, tex:tex, clips:{ idle:fixClip(by('Idle_Loop')), walk:fixClip(by('Walk_Loop')), attack:fixClip(by('Sword_Attack')), death:fixClip(by('Death01')) } }; } res(); };
-  tl.load('/assets/models/elf_archer_tex.png', t=>{ if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; t.flipY=false; tex=t; done(); }, undefined, ()=>done());
+  // Bitgem palette atlas: FBX UVs need flipY=true, and NearestFilter (no mipmaps) so each vertex
+  // samples a solid swatch instead of bleeding into the black gaps between swatches (which read as pitch black).
+  tl.load('/assets/models/elf_archer_tex.png', t=>{ if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; else if(THREE.sRGBEncoding)t.encoding=THREE.sRGBEncoding; t.flipY=true; t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter; t.generateMipmaps=false; tex=t; done(); }, undefined, ()=>done());
   fx.load('/assets/models/elf_archer.fbx', o=>{ elf=o; done(); }, undefined, ()=>done());
   gl.load('/assets/models/ual_lib.glb', g=>{ lib=g; done(); }, undefined, ()=>done()); }); }
 function makeElf(){ const outer=new THREE.Group(), inner=RIG.scene;
