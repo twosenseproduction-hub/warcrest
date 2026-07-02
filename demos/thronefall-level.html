@@ -343,7 +343,14 @@ let spellArmed=false, autoBolt=false, orderMarkers=[], boltEl, autoEl, smiteArme
 let keys={}, joy={active:false,nx:0,ny:0,id:null,sx:0,sy:0};
 let heroHpEl, waveEl, resultEl, abilEl, joyBase, joyKnob;
 const raycaster=new THREE.Raycaster(), groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
-const camF={pitch:52,az:34,dist:94,lookY:4,pos:new THREE.Vector3(),init:false};
+const camF={pitch:52,az:34,dist:66,lookY:4,pos:new THREE.Vector3(),init:false};   // closer default view
+// zoom — wheel + two-finger pinch, clamped
+const ZMIN=34, ZMAX=104;
+addEventListener('wheel', e=>{ camF.dist=Math.max(ZMIN,Math.min(ZMAX, camF.dist + e.deltaY*0.05)); }, {passive:true});
+let _pinch=0;
+addEventListener('touchmove', e=>{ if(e.touches.length===2){ const dx=e.touches[0].clientX-e.touches[1].clientX, dy=e.touches[0].clientY-e.touches[1].clientY, d=Math.hypot(dx,dy);
+  if(_pinch) camF.dist=Math.max(ZMIN,Math.min(ZMAX, camF.dist+(_pinch-d)*0.12)); _pinch=d; } }, {passive:true});
+addEventListener('touchend', ()=>{ _pinch=0; });
 let camLocked=true, camEl, PAN_SPD=70; const camAim={x:0,z:0,init:false};
 
 function makeBar(fillHex){
@@ -355,7 +362,7 @@ function makeBar(fillHex){
 function mkFighter(hex,scale,team,st){
   const g=makeUnit(hex,scale); scene.add(g);
   const e=Object.assign({g,team,alive:true,cd:0,px:0,pz:0,hitT:0,face:0,phase:Math.random()*6.28,movedThis:false,following:false,target:null,forcedTarget:null,order:null,
-    rad:team==='hero'?2.0:1.3, bar:makeBar(team==='enemy'?0xd23b3b:0x4ad0e0)},st);
+    rad:team==='hero'?2.3:1.5, bar:makeBar(team==='enemy'?0xd23b3b:0x4ad0e0)},st);
   if(team==='ally'){ e.ring=new THREE.Mesh(new THREE.RingGeometry(1.7,2.15,20),new THREE.MeshBasicMaterial({color:0x7ff0ff,transparent:true,opacity:0.95,side:THREE.DoubleSide})); e.ring.rotation.x=-Math.PI/2; e.ring.visible=false; scene.add(e.ring); }
   e.max=st.hp; return e;
 }
@@ -365,7 +372,7 @@ function faceTo(e,dx,dz){ if(dx||dz) e.face=Math.atan2(dx,dz); }
 // Each GLB packs the mesh once + all its clips; the clips are authored on the Bitgem
 // skeleton so they play with no retarget. Textures are embedded (palette atlas, UVs
 // pre-flipped) — we just force NearestFilter so swatches sample solid, not the black gaps.
-const RIGS={}, PROPS={}, TEXS={}; const CHAR_H={queen:3.7, archer:3.05, priestess:3.2};   // world heights (queen tallest & regal)
+const RIGS={}, PROPS={}, TEXS={}; const CHAR_H={queen:4.4, archer:3.6, priestess:3.8};   // world heights (queen tallest & regal), scaled up a touch
 // hand weapons: prop FBX + hand bone + local transform (tuned in preview) + which atlas to paint it with
 const WEAPONS={
   queen:    {file:'glaive_elf_queen', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1,   tex:'queen'},
@@ -415,7 +422,7 @@ function spawnGame(){
   riggize(hero,'queen');                       // the Elf Queen — sword + spell hero
   setP(hero,2,34);
   for(let i=0;i<8;i++){ const caster=i>=6;      // idx 6,7 = priestess casters; the rest = archers
-    const e=mkFighter(caster?C.cleric:(i%2?C.teamBlue:C.teamBlueD),1.0,'ally',{hp:caster?52:60,dmg:caster?6:10,range:3.0,atkEvery:0.8,spd:24});
+    const e=mkFighter(caster?C.cleric:(i%2?C.teamBlue:C.teamBlueD),1.0,'ally',{hp:caster?52:60,dmg:caster?6:10,range:caster?4.5:6.5,atkEvery:0.8,spd:24});
     e.idx=i; e.kind=caster?'cleric':'warrior'; e.healCd=0; e.smiteCd=0;
     riggize(e, caster?'priestess':'archer');    // tier-1 archers + priestess casters
     setP(e,2+((i%4)-1.5)*3.2, 42+Math.floor(i/4)*3.6); allies.push(e); }
