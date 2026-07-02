@@ -125,11 +125,8 @@ function loadModel(url, isBlob, fbx){
 }
 function onModel(root){
   modelRoot=root; scene.add(modelRoot);
-  modelRoot.traverse(o=>{ if(o.isMesh){ if(!mesh)mesh=o;
-    const mats=Array.isArray(o.material)?o.material:[o.material];
-    if(!mats.some(m=>m&&m.map)) o.material=new THREE.MeshLambertMaterial({color:0xb9c4cf});   // untextured (FBX) → light grey so joints are easy to see
-    else mats.forEach(m=>{if(m){if('metalness'in m)m.metalness=0;if('roughness'in m)m.roughness=1;}});
-  } });
+  // clay look (like Mixamo) — a clean light material makes joints easy to see and place
+  modelRoot.traverse(o=>{ if(o.isMesh){ if(!mesh)mesh=o; o.material=new THREE.MeshLambertMaterial({color:0xc2ccd6}); } });
   // normalize huge (FBX cm-scale) or tiny models to ~2 units tall so the tool's camera frames them
   { const b0=new THREE.Box3().setFromObject(modelRoot); const h0=b0.getSize(new THREE.Vector3()).y||1;
     if(h0>8||h0<0.25){ modelRoot.scale.setScalar(2/h0); modelRoot.updateMatrixWorld(true); } }
@@ -317,12 +314,14 @@ function buildFromMarkers(){
   const footL=new THREE.Vector3(kL.x,minY,kL.z), footR=new THREE.Vector3(kR.x,minY,kR.z);
   joints=[]; sel=-1;
   const J=(n,p,par)=>{ joints.push({name:n,pos:p.clone(),parent:par}); return joints.length-1; };
-  const hi=J('Hips',hips,-1); const sp=J('Spine',V(hips,neck,0.4),hi); const ch=J('Chest',V(hips,neck,0.75),sp);
-  const nk=J('Neck',neck,ch); J('Head',head,nk);
-  const lS=J('L_Shoulder',shL,ch), lE=J('L_Elbow',eL,lS); J('L_Hand',wL,lE);
-  const rS=J('R_Shoulder',shR,ch), rE=J('R_Elbow',eR,rS); J('R_Hand',wR,rE);
-  const lHp=J('L_Hip',hipL,hi), lK=J('L_Knee',kL,lHp); J('L_Foot',footL,lK);
-  const rHp=J('R_Hip',hipR,hi), rK=J('R_Knee',kR,rHp); J('R_Foot',footR,rK);
+  // names match the Quaternius / Unreal "Standard" skeleton the animation pack uses
+  const hi=J('pelvis',hips,-1);
+  const s1=J('spine_01',V(hips,neck,0.33),hi), s2=J('spine_02',V(hips,neck,0.62),s1), s3=J('spine_03',V(hips,neck,0.85),s2);
+  const nk=J('neck_01',neck,s3); J('head',head,nk);
+  const clL=J('clavicle_l',V(neck,shL,0.4),s3), uL=J('upperarm_l',shL,clL), loL=J('lowerarm_l',eL,uL); J('hand_l',wL,loL);
+  const clR=J('clavicle_r',V(neck,shR,0.4),s3), uR=J('upperarm_r',shR,clR), loR=J('lowerarm_r',eR,uR); J('hand_r',wR,loR);
+  const tL=J('thigh_l',hipL,hi), cL=J('calf_l',kL,tL); J('foot_l',footL,cL);
+  const tR=J('thigh_r',hipR,hi), cR=J('calf_r',kR,tR); J('foot_r',footR,cR);
   rebuildVis(); renderJList(); select(0);
   mkVis.forEach(v=>scene.remove(v)); mkVis=[]; mode='place';
   document.getElementById('skinstatus').textContent='Skeleton built from markers ('+joints.length+' joints) — hit 🦴 Auto-skin.';
@@ -335,11 +334,11 @@ function boneByName(n){ const i=joints.findIndex(j=>j.name===n); return (i>=0&&s
 function animTick(dt){ if(!animMode||!skinned)return; animT+=dt;
   skinned.skeleton.bones.forEach(b=>b.rotation.set(0,0,0));
   const t=animT, S=Math.sin, set=(n,x,y,z)=>{const b=boneByName(n); if(b)b.rotation.set(x||0,y||0,z||0);};
-  if(animMode==='idle'){ const b=S(t*2)*0.05; set('Spine',b*0.3); set('Chest',b*0.2); set('L_Shoulder',0,0,-0.08-b); set('R_Shoulder',0,0,0.08+b); set('Head',S(t*1.3)*0.04); }
-  if(animMode==='walk'){ const w=S(t*6); set('L_Hip',0,0,w*0.6); set('R_Hip',0,0,-w*0.6);
-    set('L_Knee',0,0,Math.max(0,w)*0.7); set('R_Knee',0,0,Math.max(0,-w)*0.7);
-    set('L_Shoulder',0,0,-0.1-w*0.5); set('R_Shoulder',0,0,0.1-w*0.5); set('Spine',0,w*0.1); }
-  if(animMode==='attack'){ const a=S(t*7); set('R_Shoulder',0,0,1.0+a*0.8); set('R_Elbow',0,0,0.6); set('Spine',0,-0.2+a*0.2); }
+  if(animMode==='idle'){ const b=S(t*2)*0.05; set('spine_01',b*0.3); set('spine_02',b*0.2); set('upperarm_l',0,0,-0.08-b); set('upperarm_r',0,0,0.08+b); set('head',S(t*1.3)*0.04); }
+  if(animMode==='walk'){ const w=S(t*6); set('thigh_l',0,0,w*0.6); set('thigh_r',0,0,-w*0.6);
+    set('calf_l',0,0,Math.max(0,w)*0.7); set('calf_r',0,0,Math.max(0,-w)*0.7);
+    set('upperarm_l',0,0,-0.1-w*0.5); set('upperarm_r',0,0,0.1-w*0.5); set('spine_01',0,w*0.1); }
+  if(animMode==='attack'){ const a=S(t*7); set('upperarm_r',0,0,1.0+a*0.8); set('lowerarm_r',0,0,0.6); set('spine_01',0,-0.2+a*0.2); }
 }
 
 // raycast tap-to-place
