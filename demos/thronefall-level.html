@@ -399,8 +399,12 @@ function makeChar(key){ const src=RIGS[key]; if(!src)return null;
   const bb=new THREE.Box3().setFromObject(inner); const hh=Math.max(0.001,bb.getSize(new THREE.Vector3()).y);
   inner.position.y=-bb.min.y; outer.scale.setScalar(CHAR_H[key]/hh);
   const mixer=new THREE.AnimationMixer(inner); const act={};
-  src.anims.forEach(a=>{ act[a.name]=mixer.clipAction(a); });
+  // strip .position tracks → play in place. The clips carry huge baked root motion
+  // (run ≈ 250u forward), which otherwise slides the body ahead of its game position,
+  // arcs it wide on turns, and snaps it back each loop. The game drives translation.
+  src.anims.forEach(a=>{ const clip=new THREE.AnimationClip(a.name,a.duration, a.tracks.filter(t=>!t.name.endsWith('.position'))); act[a.name]=mixer.clipAction(clip); });
   if(act.run) act.run.setEffectiveTimeScale(0.8);   // legs cycle a touch slower to match the calmer move speed
+  if(act.attack) act.attack.setEffectiveTimeScale(1.4);   // snappier draw-and-release so it reads as a shot
   if(act.idle) act.idle.play();
   mixer.update(0.3); outer.updateMatrixWorld(true);          // settle idle, then plant feet + centre exactly
   const b2=new THREE.Box3().setFromObject(inner); const c2=b2.getCenter(new THREE.Vector3());
@@ -423,7 +427,7 @@ function spawnGame(){
   riggize(hero,'queen');                       // the Elf Queen — sword + spell hero
   setP(hero,2,34);
   for(let i=0;i<8;i++){ const caster=i>=6;      // idx 6,7 = priestess casters; the rest = archers
-    const e=mkFighter(caster?C.cleric:(i%2?C.teamBlue:C.teamBlueD),1.0,'ally',{hp:caster?52:60,dmg:caster?6:10,range:caster?4.5:6.5,atkEvery:0.8,spd:15});
+    const e=mkFighter(caster?C.cleric:(i%2?C.teamBlue:C.teamBlueD),1.0,'ally',{hp:caster?52:60,dmg:caster?6:10,range:caster?7:9,atkEvery:1.1,spd:15});
     e.idx=i; e.kind=caster?'cleric':'warrior'; e.healCd=0; e.smiteCd=0;
     riggize(e, caster?'priestess':'archer');    // tier-1 archers + priestess casters
     setP(e,2+((i%4)-1.5)*3.2, 42+Math.floor(i/4)*3.6); allies.push(e); }
@@ -497,11 +501,12 @@ function focusFire(en){ const list=[...selected].filter(e=>e.alive); (list.lengt
 // flying shot: arrow (thin bolt, oriented along travel) or magic (glowing orb), light arc, self-removing
 function shootFx(sx,sz,tx,tz,kind){
   const arrow=kind==='arrow';
-  const m = arrow ? new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,2.4,6), new THREE.MeshBasicMaterial({color:0xf2e6c0}))
-                  : new THREE.Mesh(new THREE.SphereGeometry(0.5,10,8), new THREE.MeshBasicMaterial({color:kind==='heal'?0x8ef0a0:0x9fd8ff,transparent:true,opacity:0.95}));
+  const m = arrow ? new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.16,3.2,6), new THREE.MeshBasicMaterial({color:0xfff1c2}))
+                  : new THREE.Mesh(new THREE.SphereGeometry(0.75,12,10), new THREE.MeshBasicMaterial({color:kind==='heal'?0x8ef0a0:0x8fd0ff,transparent:true,opacity:0.95}));
+  if(!arrow){ const halo=new THREE.Mesh(new THREE.SphereGeometry(1.15,12,10), new THREE.MeshBasicMaterial({color:kind==='heal'?0x8ef0a0:0x8fd0ff,transparent:true,opacity:0.3})); m.add(halo); }
   scene.add(m);
-  const y0=topY(sx,sz)+3.0, y1=topY(tx,tz)+2.0, dist=Math.hypot(tx-sx,tz-sz), dur=Math.max(0.1,Math.min(0.4,dist/55)); let t=0;
-  (function an(){ t+=0.033; const k=Math.min(1,t/dur); const x=sx+(tx-sx)*k, z=sz+(tz-sz)*k, y=y0+(y1-y0)*k+Math.sin(k*Math.PI)*(arrow?1.8:1.0);
+  const y0=topY(sx,sz)+2.4, y1=topY(tx,tz)+2.0, dist=Math.hypot(tx-sx,tz-sz), dur=Math.max(0.14,Math.min(0.5,dist/38)); let t=0;   // a bit slower so the shot reads
+  (function an(){ t+=0.033; const k=Math.min(1,t/dur); const x=sx+(tx-sx)*k, z=sz+(tz-sz)*k, y=y0+(y1-y0)*k+Math.sin(k*Math.PI)*(arrow?2.2:1.2);
     m.position.set(x,y,z); if(arrow){ m.lookAt(tx,y1,tz); m.rotateX(Math.PI/2); }
     if(k<1)requestAnimationFrame(an); else scene.remove(m); })();
 }
