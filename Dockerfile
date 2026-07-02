@@ -11,5 +11,6 @@ COPY src/ /usr/share/nginx/html/src/
 COPY assets/ /usr/share/nginx/html/assets/
 COPY vendor/ /usr/share/nginx/html/vendor/
 COPY poc/ /usr/share/nginx/html/poc/
+COPY demos/ /usr/share/nginx/html/demos/
 
 EXPOSE 8080
