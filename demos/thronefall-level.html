@@ -362,7 +362,8 @@ function setP(e,x,z){ e.px=x; e.pz=z; e.g.position.set(x,topY(x,z),z); }
 function faceTo(e,dx,dz){ if(dx||dz) e.face=Math.atan2(dx,dz); }
 // ---------- rigged unit: Bitgem elf mesh + Quaternius UAL (CC0) clips ----------
 let RIG=null; const ELF_YAW=Math.PI, ELF_H=3.2;
-function fixClip(c){ if(!c)return null; return new THREE.AnimationClip(c.name,c.duration, c.tracks.filter(t=>!(t.name.endsWith('.position')&&(t.name.startsWith('root')||t.name.startsWith('pelvis'))))); }
+// rotations only — bone positions stay at the FBX bind (keeps bone lengths; avoids the "collapsed ball")
+function fixClip(c){ if(!c)return null; return new THREE.AnimationClip(c.name,c.duration, c.tracks.filter(t=>t.name.endsWith('.quaternion'))); }
 function loadRig(){ return new Promise(res=>{
   const fx=new THREE.FBXLoader(), gl=new THREE.GLTFLoader(), tl=new THREE.TextureLoader();
   let elf=null,lib=null,tex=null,n=0;
@@ -377,11 +378,16 @@ function makeElf(){ const outer=new THREE.Group(), inner=RIG.scene;
   outer.add(inner); outer.updateMatrixWorld(true);
   // measure the rig at native scale, then scale the OUTER wrapper (reliable for skinned meshes)
   const bb=new THREE.Box3().setFromObject(inner); const hh=Math.max(0.001,bb.getSize(new THREE.Vector3()).y);
-  inner.position.y = -bb.min.y;              // feet to origin (native units)
-  outer.scale.setScalar(ELF_H/hh);           // whole rig scaled to ELF_H tall, feet on ground
+  inner.position.y = -bb.min.y;              // rough feet-to-origin (native units)
+  outer.scale.setScalar(ELF_H/hh);           // whole rig scaled to ELF_H tall
   const mixer=new THREE.AnimationMixer(inner); const act={};
   for(const k in RIG.clips){ if(RIG.clips[k]) act[k]=mixer.clipAction(RIG.clips[k]); }
-  if(act.idle) act.idle.play(); return {g:outer,mixer,act}; }
+  if(act.idle) act.idle.play();
+  mixer.update(0.3); outer.updateMatrixWorld(true);          // settle the idle pose, then plant feet exactly
+  const b2=new THREE.Box3().setFromObject(inner); const c2=b2.getCenter(new THREE.Vector3());
+  inner.position.y -= b2.min.y/outer.scale.x;                // feet on ground
+  inner.position.x -= c2.x/outer.scale.x; inner.position.z -= c2.z/outer.scale.x;   // centre over the unit
+  return {g:outer,mixer,act}; }
 function setHeroAnim(want){ if(!hero.act||hero.animState===want)return; const a=hero.act[want]; if(!a)return;
   const cur=hero.act[hero.animState]; if(cur)cur.fadeOut(0.15); a.reset().fadeIn(0.15).play(); hero.animState=want; }
 
