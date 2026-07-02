@@ -61,6 +61,13 @@ canvas{display:block}
 .rBtn .ri{font-size:25px;line-height:1}
 .rBtn .rc{font:800 10px system-ui;color:var(--gold);margin-top:2px}
 .rLb{position:absolute;transform:translate(-50%,0);font:800 10px system-ui;color:#fff;text-shadow:0 1px 3px #000;white-space:nowrap;pointer-events:none}
+/* fixed movement joystick, bottom-left */
+#joy{position:fixed;left:calc(30px + var(--sl));bottom:calc(104px + var(--sb));width:132px;height:132px;border-radius:50%;z-index:6;
+  background:radial-gradient(circle at 50% 50%,rgba(30,42,60,0.30),rgba(20,27,38,0.42));border:2px solid rgba(150,190,225,0.45);
+  box-shadow:0 3px 14px rgba(0,0,0,0.35),inset 0 0 22px rgba(120,170,220,0.15);touch-action:none}
+#joyK{position:absolute;left:50%;top:50%;width:62px;height:62px;border-radius:50%;transform:translate(-50%,-50%);
+  background:radial-gradient(circle at 40% 34%,#eaf3fb,#aec6dd 70%);border:1px solid rgba(255,255,255,0.5);box-shadow:0 2px 8px rgba(0,0,0,0.4)}
+#joy .ring{position:absolute;inset:14px;border-radius:50%;border:1px dashed rgba(180,210,235,0.35)}
 </style>
 </head>
 <body>
@@ -936,8 +943,9 @@ function setupHUD(){
   heroHpEl=document.createElement('div'); heroHpEl.style.cssText='height:100%;width:100%;background:linear-gradient(#a6ec5e,#5cb43a)'; hp.appendChild(heroHpEl); document.body.appendChild(hp);
   waveEl=document.createElement('div'); waveEl.className='hud';
   waveEl.style.cssText+=';left:50%;top:calc(34px + var(--st));transform:translateX(-50%);font:800 12px system-ui;color:#ffd9d2;text-shadow:0 1px 3px #000;white-space:nowrap'; document.body.appendChild(waveEl);
-  joyBase=document.createElement('div'); joyBase.style.cssText='position:fixed;width:120px;height:120px;border-radius:50%;background:#fff2;border:2px solid #fff6;display:none;pointer-events:none;z-index:5';
-  joyKnob=document.createElement('div'); joyKnob.style.cssText='position:absolute;left:50%;top:50%;width:54px;height:54px;border-radius:50%;background:#fff9;transform:translate(-50%,-50%)'; joyBase.appendChild(joyKnob); document.body.appendChild(joyBase);
+  joyBase=document.createElement('div'); joyBase.id='joy';
+  const jring=document.createElement('div'); jring.className='ring'; joyBase.appendChild(jring);
+  joyKnob=document.createElement('div'); joyKnob.id='joyK'; joyBase.appendChild(joyKnob); document.body.appendChild(joyBase);
   // ability cluster (bottom-right), consistent round buttons, safe-area aware
   abilEl=document.createElement('div'); abilEl.className='hud hbtn-round'; abilEl.textContent='STOMP';
   abilEl.style.cssText+=';right:calc(22px + var(--sr));bottom:calc(22px + var(--sb));width:84px;height:84px;background:radial-gradient(circle at 38% 32%,#e07a4e,#c25a34)'; document.body.appendChild(abilEl);
@@ -971,16 +979,19 @@ function setupHUD(){
   document.body.appendChild(bar2);
   addEventListener('pointerdown',onDown); addEventListener('pointermove',onMove); addEventListener('pointerup',onUp); addEventListener('pointercancel',onUp);
 }
-function onDown(e){ if(gameOver)return; const left=e.clientX<innerWidth*0.5;
-  if(left){ joy.active=true; joy.id=e.pointerId; joy.sx=e.clientX; joy.sy=e.clientY; joy.nx=0;joy.ny=0;
-    joyBase.style.display='block'; joyBase.style.left=(e.clientX-60)+'px'; joyBase.style.top=(e.clientY-60)+'px'; joyKnob.style.left='50%';joyKnob.style.top='50%'; }
-  else { cmd.active=true; cmd.id=e.pointerId; cmd.pts=[[e.clientX,e.clientY]]; cmd.moved=false; cmd.sx=e.clientX; cmd.sy=e.clientY; } }
+function onDown(e){ if(gameOver)return;
+  const r=joyBase.getBoundingClientRect(), jcx=r.left+r.width/2, jcy=r.top+r.height/2;
+  if(Math.hypot(e.clientX-jcx,e.clientY-jcy) <= r.width/2+34){   // grabbed the fixed BL stick
+    joy.active=true; joy.id=e.pointerId; joy.cx=jcx; joy.cy=jcy; joy.R=r.width/2-14; joy.nx=0;joy.ny=0;
+    joyKnob.style.left='50%'; joyKnob.style.top='50%'; }
+  else { cmd.active=true; cmd.id=e.pointerId; cmd.pts=[[e.clientX,e.clientY]]; cmd.moved=false; cmd.sx=e.clientX; cmd.sy=e.clientY; }   // anywhere else → command
+}
 function onMove(e){
-  if(joy.active&&e.pointerId===joy.id){ const dx=e.clientX-joy.sx,dy=e.clientY-joy.sy, d=Math.hypot(dx,dy),R=54, cl=Math.min(d,R),ang=Math.atan2(dy,dx),kx=Math.cos(ang)*cl,ky=Math.sin(ang)*cl;
-    joy.nx=kx/R; joy.ny=ky/R; joyKnob.style.left=(50+kx*0.8)+'%'; joyKnob.style.top=(50+ky*0.8)+'%'; }
+  if(joy.active&&e.pointerId===joy.id){ const dx=e.clientX-joy.cx,dy=e.clientY-joy.cy, d=Math.hypot(dx,dy),R=joy.R, cl=Math.min(d,R),ang=Math.atan2(dy,dx),kx=Math.cos(ang)*cl,ky=Math.sin(ang)*cl;
+    joy.nx=kx/R; joy.ny=ky/R; joyKnob.style.left=(50+(kx/R)*38)+'%'; joyKnob.style.top=(50+(ky/R)*38)+'%'; }
   else if(cmd.active&&e.pointerId===cmd.id){ /* right zone is command-only now; no lasso */ } }
 function onUp(e){
-  if(joy.active&&e.pointerId===joy.id){ joy.active=false; joy.nx=0;joy.ny=0; joyBase.style.display='none'; return; }
+  if(joy.active&&e.pointerId===joy.id){ joy.active=false; joy.nx=0;joy.ny=0; joyKnob.style.left='50%'; joyKnob.style.top='50%'; return; }
   if(cmd.active&&e.pointerId===cmd.id){ cmd.active=false;
     const nd=new THREE.Vector2((e.clientX/innerWidth)*2-1,-(e.clientY/innerHeight)*2+1); raycaster.setFromCamera(nd,cam); const hit=new THREE.Vector3();  // tap/drag-release → command at that point
     if(raycaster.ray.intersectPlane(groundPlane,hit)&&onIsland(hit.x,hit.z)){
