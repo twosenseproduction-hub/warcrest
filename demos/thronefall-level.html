@@ -273,6 +273,7 @@ function loadBuildings(){ return new Promise(res=>{ new THREE.TextureLoader().lo
     barrack1:'elf_barrack_Lv1', barrack2:'elf_barrack_Lv2', barrack3:'elf_barrack_Lv3' };
   const ks=Object.keys(files); let n=0; const done=()=>{ if(++n>=ks.length)res(); };
   ks.forEach(k=>fx.load('/assets/buildings/'+files[k]+'.fbx', o=>{
+    o=bakeStatic(o);   // buildings export as SkinnedMesh; bake to static so bldClone's plain clone doesn't render them at the map origin
     o.traverse(nd=>{ if(nd.isMesh){ nd.material=new THREE.MeshBasicMaterial({map:tex,side:THREE.DoubleSide}); nd.castShadow=true; nd.frustumCulled=false; } });
     const bb=new THREE.Box3().setFromObject(o); const sz=bb.getSize(new THREE.Vector3());
     o.position.x-=(bb.min.x+sz.x/2); o.position.z-=(bb.min.z+sz.z/2); o.position.y-=bb.min.y;   // centre X/Z, base to y=0
@@ -444,7 +445,7 @@ function build(){
   // PLAYER base (bottom-left island) — Thronefall core ringed by empty build plots
   const KX=105,KZ=108;
   placeCore(KX,KZ);
-  const RING=22; for(let i=0;i<6;i++){ const a=i/6*Math.PI*2+0.4, x=KX+Math.cos(a)*RING, z=KZ+Math.sin(a)*RING; if(onIsland(x,z)) makePlot(x,z); }
+  const RING=30; for(let i=0;i<6;i++){ const a=i/6*Math.PI*2+0.4, x=KX+Math.cos(a)*RING, z=KZ+Math.sin(a)*RING; if(onIsland(x,z)) makePlot(x,z); }
   // ENEMY stronghold (top-right island) — the warband musters here (decorative for now)
   enemyBase={x:-105,z:-108};
   scene.add(dirtPad(enemyBase.x,enemyBase.z,10));
@@ -518,16 +519,19 @@ const WEAPONS={
   orcshaman:[{file:'staff_orc_shaman', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
 };
 const RIG_SPECS=[['queen','elf_queen'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior'],['chief','orc_chieftain'],['orcarcher','orc_archer'],['orcgrunt','orc_grunt'],['orcwarrior','orc_warrior'],['orcshaman','orc_shaman']];
-// Some weapon FBX (the elf/orc bows) export as a SkinnedMesh with their own little armature.
-// Cloned with .clone(true) and parented onto a character's hand bone, that skeleton binding
-// breaks and the renderer skins the bow into a screen-filling giant (while its bind-pose bbox
-// still measures small). The bows are rigid props that never need their own bones, so bake each
-// SkinnedMesh down to a plain bind-pose Mesh and drop the armature entirely.
-function bakeProp(o){ o.updateMatrixWorld(true); const statics=[]; let hadSkin=false;
-  o.traverse(n=>{ if(n.isSkinnedMesh){ hadSkin=true; const m=new THREE.Mesh(n.geometry, n.material); m.applyMatrix4(n.matrixWorld); m.name=n.name; statics.push(m); }
-    else if(n.isMesh && !n.isSkinnedMesh){ /* keep plain meshes as-is via their own chain */ } });
-  if(!hadSkin) return o;
-  const w=new THREE.Group(); statics.forEach(m=>w.add(m)); return w; }
+// Several FBX (the elf/orc bows AND every elf building) export as SkinnedMesh with a rigid little
+// armature. Cloned with a plain .clone(true) — not SkeletonUtils.clone — the skeleton binding
+// breaks: the renderer skins the mesh in the skeleton's own space, so it renders at ~world origin
+// (the map centre) or as a giant, no matter where the parent group is placed. These are all static
+// props/structures that never need their bones, so bake every SkinnedMesh down to a plain bind-pose
+// Mesh at its correct world-relative transform and drop the armature entirely. Non-skinned inputs
+// pass through untouched.
+function bakeStatic(o){ o.updateMatrixWorld(true); const parts=[]; let hadSkin=false;
+  o.traverse(n=>{ if(!n.isMesh)return; if(n.isSkinnedMesh)hadSkin=true;
+    const m=new THREE.Mesh(n.geometry, n.material); m.applyMatrix4(n.matrixWorld); m.name=n.name; m.castShadow=n.castShadow; m.receiveShadow=n.receiveShadow; parts.push(m); });
+  if(!hadSkin) return o;                        // nothing skinned — leave the original hierarchy alone
+  const w=new THREE.Group(); parts.forEach(m=>w.add(m)); return w; }
+const bakeProp=bakeStatic;   // back-compat alias for the weapon-prop loader
 function loadRig(){ return new Promise(res=>{
   const gl=new THREE.GLTFLoader(), fx=new THREE.FBXLoader(), tl=new THREE.TextureLoader();
   const propFiles=[...new Set(Object.values(WEAPONS).flat().map(w=>w.file))];
