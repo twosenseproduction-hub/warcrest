@@ -357,7 +357,7 @@ function mkFighter(hex,scale,team,st){
 function setP(e,x,z){ e.px=x; e.pz=z; e.g.position.set(x,topY(x,z),z); }
 function faceTo(e,dx,dz){ if(dx||dz) e.face=Math.atan2(dx,dz); }
 // ---------- rigged unit: Bitgem elf mesh + Quaternius UAL (CC0) clips ----------
-let RIG=null; const ELF_YAW=Math.PI, ELF_H=5.2;
+let RIG=null; const ELF_YAW=Math.PI, ELF_H=3.2;
 function fixClip(c){ if(!c)return null; return new THREE.AnimationClip(c.name,c.duration, c.tracks.filter(t=>!(t.name.endsWith('.position')&&(t.name.startsWith('root')||t.name.startsWith('pelvis'))))); }
 function loadRig(){ return new Promise(res=>{ const gl=new THREE.GLTFLoader(); let elf=null,lib=null,n=0;
   const done=()=>{ if(++n<2)return; if(elf&&lib){ const by=x=>lib.animations.find(a=>a.name===x);
@@ -473,7 +473,7 @@ function endGame(win){ gameOver=win?1:2; resultEl.style.display='flex';
 function updBars(){ const all=[hero,...allies,...enemies];
   for(const e of all){ if(!e||!e.alive)continue; const f=Math.max(0,e.hp/e.max);
     e.bar.visible=(e.team!=='hero'); e.bar.__fl.scale.x=f; e.bar.__fl.position.x=-(1-f)*e.bar.__w/2;
-    e.bar.position.set(e.px, topY(e.px,e.pz)+(e.team==='hero'?7:4.4), e.pz); e.bar.quaternion.copy(cam.quaternion);
+    e.bar.position.set(e.px, topY(e.px,e.pz)+(e.team==='hero'?4.6:4.4), e.pz); e.bar.quaternion.copy(cam.quaternion);
     if(e.ring){ e.ring.visible=selected.has(e); if(e.ring.visible) e.ring.position.set(e.px, topY(e.px,e.pz)+0.18, e.pz); }
     e.hitT-=0.016; e.g.traverse(o=>{ if(o.isMesh&&o.material&&o.material.emissive) o.material.emissive.setHex(e.hitT>0?0x992a1a:0x000000); });
   } }
