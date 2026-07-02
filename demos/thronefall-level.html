@@ -17,6 +17,7 @@
 <div id="tip">The <b>final wave</b> of enemies is approaching. Prepare your defenses!</div>
 <div id="gold"><span class="c"></span>26</div>
 <script src="/vendor/three.min.js"></script>
+<script src="/vendor/GLTFLoader.js"></script>
 <script>
 // ---------- palette (sampled to match Thronefall reference) ----------
 const C = {
@@ -49,12 +50,13 @@ function rr(a,b){return a+(b-a)*rnd();}
 
 // ---------- scene ----------
 let scene,cam,rnd3d;
-const R=64;                         // island radius
+// two isles joined by a land bridge — open grass meadow
+const LOBES=[ {cx:0,cz:0,R:80,ph:0.7}, {cx:150,cz:-6,R:56,ph:2.3} ];
+const BR={x0:72,x1:104,z:-4,hw:15,bottom:-16};   // land bridge spanning the gap
 const sun=new THREE.Vector3(-0.55,0.75,0.38).normalize();
 
-function edgeR(theta){               // organic island outline
-  return R*(0.86 + 0.09*Math.sin(theta*3+0.7) + 0.05*Math.sin(theta*7+2.1) + 0.03*Math.sin(theta*13));
-}
+function edgeRL(theta,L){ return L.R*(0.86 + 0.09*Math.sin(theta*3+L.ph) + 0.05*Math.sin(theta*7+2.1) + 0.03*Math.sin(theta*13)); }
+function edgeR(theta){ return edgeRL(theta,LOBES[0]); }   // back-compat: main lobe
 function grassY(x,z){ return 2.2*(fbm(x*0.02+5,z*0.02+9)-0.5) + 1.0*(fbm(x*0.06,z*0.06)-0.5); }
 
 // paths (cream) as polylines on the grass — winding, radiating from the keep
@@ -73,7 +75,9 @@ function pathDist(x,z){
   }}
   return best;
 }
-function onIsland(x,z){ const th=Math.atan2(z,x); return Math.hypot(x,z) < edgeR(th)-2; }
+function inLobe(x,z,L){ const th=Math.atan2(z-L.cz,x-L.cx); return Math.hypot(x-L.cx,z-L.cz) < edgeRL(th,L)-2; }
+function onBridge(x,z){ return x>BR.x0 && x<BR.x1 && Math.abs(z-BR.z)<BR.hw-1; }
+function onIsland(x,z){ for(const L of LOBES) if(inLobe(x,z,L)) return true; return onBridge(x,z); }
 function topY(x,z){ return grassY(x,z) - (pathDist(x,z)<7?0.6:0); }
 
 // ---------- terrain builder (non-indexed for crisp facets + per-face colour) ----------
@@ -104,36 +108,44 @@ function buildTerrain(){
     for(const P of [va,vb,vc]){ pos.push(P[0],P[1],P[2]); col.push(tmp.r,tmp.g,tmp.b); }
   }
   const NT=76, GR=11, CR=7, bottomY=-38, edgeTopY=-1.5;
-  // precompute rings of the top surface
-  const gridT=[]; // gridT[i][j] = [x,y,z], i:0..GR (ring), j:0..NT
-  for(let i=0;i<=GR;i++){ const row=[]; const rr0=i/GR;
-    for(let j=0;j<=NT;j++){ const th=j/NT*Math.PI*2; const er=edgeR(th);
-      const rad=rr0*er; const x=rad*Math.cos(th), z=rad*Math.sin(th);
-      let y = topY(x,z); if(i===GR) y=edgeTopY;               // lock the rim
-      row.push([x,y,z]);
-    } gridT.push(row);
-  }
-  for(let i=0;i<GR;i++) for(let j=0;j<NT;j++){
-    const a=gridT[i][j],b=gridT[i][j+1],c=gridT[i+1][j+1],d=gridT[i+1][j];
-    pushTri(a,b,c,'grass'); pushTri(a,c,d,'grass');
-  }
-  // cliff band: from rim ring down & inward to a rounded taper, craggy + faceted
-  const cliffRings=[gridT[GR].slice()];
-  for(let k=1;k<=CR;k++){
-    const t=k/CR; const row=[];
-    for(let j=0;j<=NT;j++){ const th=j/NT*Math.PI*2; const er=edgeR(th);
-      const shrink=Math.pow(Math.cos(t*Math.PI*0.5),0.6);      // wider longer → taller vertical wall
-      const drop  =Math.sin(t*Math.PI*0.5);                    // 0→1 fast at top
-      const crag = (fbm(Math.cos(th)*3+k, Math.sin(th)*3+k)-0.5);
-      const rad = er*shrink + er*0.08*(1-t) + crag*10*(1-t*0.4); // flare out past grass, chunky facets
-      const y = edgeTopY + (bottomY-edgeTopY)*drop + crag*6;
-      row.push([rad*Math.cos(th), y, rad*Math.sin(th)]);
+  for(const L of LOBES){
+    // grass top
+    const gridT=[];
+    for(let i=0;i<=GR;i++){ const row=[]; const rr0=i/GR;
+      for(let j=0;j<=NT;j++){ const th=j/NT*Math.PI*2; const er=edgeRL(th,L);
+        const rad=rr0*er; const x=L.cx+rad*Math.cos(th), z=L.cz+rad*Math.sin(th);
+        let y=topY(x,z); if(i===GR)y=edgeTopY; row.push([x,y,z]);
+      } gridT.push(row);
     }
-    cliffRings.push(row);
+    for(let i=0;i<GR;i++) for(let j=0;j<NT;j++){
+      const a=gridT[i][j],b=gridT[i][j+1],c=gridT[i+1][j+1],d=gridT[i+1][j];
+      pushTri(a,b,c,'grass'); pushTri(a,c,d,'grass'); }
+    // cliff skirt
+    const cliffRings=[gridT[GR].slice()];
+    for(let k=1;k<=CR;k++){ const t=k/CR; const row=[];
+      for(let j=0;j<=NT;j++){ const th=j/NT*Math.PI*2; const er=edgeRL(th,L);
+        const shrink=Math.pow(Math.cos(t*Math.PI*0.5),0.6), drop=Math.sin(t*Math.PI*0.5);
+        const crag=(fbm(Math.cos(th)*3+k+L.cx*0.1, Math.sin(th)*3+k+L.cz*0.1)-0.5);
+        const rad=er*shrink+er*0.08*(1-t)+crag*10*(1-t*0.4);
+        const y=edgeTopY+(bottomY-edgeTopY)*drop+crag*6;
+        row.push([L.cx+rad*Math.cos(th), y, L.cz+rad*Math.sin(th)]);
+      } cliffRings.push(row); }
+    for(let k=0;k<cliffRings.length-1;k++) for(let j=0;j<NT;j++){
+      const a=cliffRings[k][j],b=cliffRings[k][j+1],c=cliffRings[k+1][j+1],d=cliffRings[k+1][j];
+      pushTri(a,b,c,'cliff'); pushTri(a,c,d,'cliff'); }
   }
-  for(let k=0;k<cliffRings.length-1;k++) for(let j=0;j<NT;j++){
-    const a=cliffRings[k][j],b=cliffRings[k][j+1],c=cliffRings[k+1][j+1],d=cliffRings[k+1][j];
-    pushTri(a,b,c,'cliff'); pushTri(a,c,d,'cliff');
+  // land bridge: grass strip + two cliff walls
+  { const NBX=12,NBZ=6, top=[];
+    for(let i=0;i<=NBX;i++){ const row=[], x=BR.x0+(BR.x1-BR.x0)*(i/NBX);
+      for(let j=0;j<=NBZ;j++){ const z=BR.z-BR.hw+2*BR.hw*(j/NBZ);
+        let y=topY(x,z); if(j===0||j===NBZ)y=edgeTopY; row.push([x,y,z]); } top.push(row); }
+    for(let i=0;i<NBX;i++) for(let j=0;j<NBZ;j++){
+      const a=top[i][j],b=top[i][j+1],c=top[i+1][j+1],d=top[i+1][j];
+      pushTri(a,b,c,'grass'); pushTri(a,c,d,'grass'); }
+    for(const side of [0,NBZ]){ const zE=BR.z-BR.hw+2*BR.hw*(side/NBZ);
+      for(let i=0;i<NBX;i++){ const xa=BR.x0+(BR.x1-BR.x0)*(i/NBX), xb=BR.x0+(BR.x1-BR.x0)*((i+1)/NBX);
+        const a=[xa,edgeTopY,zE],b=[xb,edgeTopY,zE],c=[xb,BR.bottom,zE],d=[xa,BR.bottom,zE];
+        pushTri(a,b,c,'cliff'); pushTri(a,c,d,'cliff'); } }
   }
   const g=new THREE.BufferGeometry();
   g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
@@ -277,22 +289,21 @@ function build(){
   dir.shadow.bias=-0.0004; dir.shadow.normalBias=1.4; dir.shadow.radius=3;
   scene.add(dir); scene.add(dir.target);
 
-  // water (big flat plane below rim)
-  const water=new THREE.Mesh(new THREE.CircleGeometry(R*3.2,48),
+  // water (big flat plane below rim, spanning both isles)
+  const water=new THREE.Mesh(new THREE.CircleGeometry(320,56),
     new THREE.MeshLambertMaterial({color:C.water}));
-  water.rotation.x=-Math.PI/2; water.position.y=-18; scene.add(water);
+  water.rotation.x=-Math.PI/2; water.position.set(60,-18,0); scene.add(water);
 
   scene.add(buildTerrain());
 
-  // perimeter forest hedgerows (yellow) — set inward so the cliff rim stays bare
-  for(let a=0;a<Math.PI*2;a+=0.18){
-    const er=edgeR(a)-15; const x=Math.cos(a)*er, z=Math.sin(a)*er;
-    if(onIsland(x,z)) scene.add(forestClump(x,z,3,8));
-  }
-  // interior clumps
-  scene.add(forestClump(-38,26,5,10));
-  scene.add(forestClump(30,-40,5,10));
-  scene.add(forestClump(-10,-48,4,9));
+  // sparse perimeter forest per lobe — keep the interiors open meadow
+  for(const L of LOBES){ for(let a=0;a<Math.PI*2;a+=0.20){
+    const er=edgeRL(a,L)-14; const x=L.cx+Math.cos(a)*er, z=L.cz+Math.sin(a)*er;
+    if(onIsland(x,z)) scene.add(forestClump(x,z,2,7)); } }
+  // a few accent clumps
+  scene.add(forestClump(-46,30,3,8));
+  scene.add(forestClump(150,-38,4,10));
+  scene.add(forestClump(168,18,3,9));
 
   // buildings on cleared pads
   const KX=-12,KZ=-2;
@@ -304,9 +315,9 @@ function build(){
   place(makeWall(9),24,-4,0.5);
   scene.add(dirtPad(22,4,7)); place(makeKeep(),22,4,-0.4).scale.setScalar(0.55); // small gate tower
 
-  // rocks scattered
-  for(let i=0;i<10;i++){ const a=rnd()*6.28,d=rr(10,R*0.7); const x=Math.cos(a)*d,z=Math.sin(a)*d;
-    if(onIsland(x,z)) place(makeRock(),x,z); }
+  // rocks scattered across both isles
+  for(let i=0;i<14;i++){ const L=LOBES[i%2]; const a=rnd()*6.28,d=rr(8,L.R*0.72);
+    const x=L.cx+Math.cos(a)*d, z=L.cz+Math.sin(a)*d; if(onIsland(x,z)) place(makeRock(),x,z); }
 
   // live fighters (hero + squad + enemies) are spawned by the gameplay module
 }
@@ -345,11 +356,33 @@ function mkFighter(hex,scale,team,st){
 }
 function setP(e,x,z){ e.px=x; e.pz=z; e.g.position.set(x,topY(x,z),z); }
 function faceTo(e,dx,dz){ if(dx||dz) e.face=Math.atan2(dx,dz); }
+// ---------- rigged unit: Bitgem elf mesh + Quaternius UAL (CC0) clips ----------
+let RIG=null; const ELF_YAW=Math.PI, ELF_H=5.2;
+function fixClip(c){ if(!c)return null; return new THREE.AnimationClip(c.name,c.duration, c.tracks.filter(t=>!(t.name.endsWith('.position')&&(t.name.startsWith('root')||t.name.startsWith('pelvis'))))); }
+function loadRig(){ return new Promise(res=>{ const gl=new THREE.GLTFLoader(); let elf=null,lib=null,n=0;
+  const done=()=>{ if(++n<2)return; if(elf&&lib){ const by=x=>lib.animations.find(a=>a.name===x);
+      RIG={ scene:elf.scene, box:new THREE.Box3().setFromObject(elf.scene),
+        clips:{ idle:fixClip(by('Idle_Loop')), walk:fixClip(by('Walk_Loop')), attack:fixClip(by('Sword_Attack')), death:fixClip(by('Death01')) } }; } res(); };
+  gl.load('/assets/models/elf_archer_bitgem.glb', g=>{elf=g;done();}, undefined, ()=>done());
+  gl.load('/assets/models/ual_lib.glb', g=>{lib=g;done();}, undefined, ()=>done()); }); }
+function makeElf(){ const outer=new THREE.Group(), inner=RIG.scene;
+  const h=RIG.box.getSize(new THREE.Vector3()).y||180, s=ELF_H/h;
+  inner.scale.setScalar(s); inner.rotation.y=ELF_YAW; inner.position.set(0,0,0);
+  inner.traverse(nd=>{ if(nd.isMesh){ const map=nd.material&&nd.material.map;
+    nd.material=new THREE.MeshStandardMaterial({map:map,emissive:0xffffff,emissiveMap:map,emissiveIntensity:0.8,roughness:1,metalness:0,side:THREE.DoubleSide}); nd.castShadow=true; nd.frustumCulled=false; } });
+  outer.add(inner); const mixer=new THREE.AnimationMixer(inner); const act={};
+  for(const k in RIG.clips){ if(RIG.clips[k]) act[k]=mixer.clipAction(RIG.clips[k]); }
+  if(act.idle) act.idle.play(); return {g:outer,mixer,act}; }
+function setHeroAnim(want){ if(!hero.act||hero.animState===want)return; const a=hero.act[want]; if(!a)return;
+  const cur=hero.act[hero.animState]; if(cur)cur.fadeOut(0.15); a.reset().fadeIn(0.15).play(); hero.animState=want; }
+
 function spawnGame(){
-  hero=mkFighter(C.hero,1.9,'hero',{hp:260,dmg:20,range:3.6,atkEvery:0.5,spd:32,aCd:0,spellCd:0}); setP(hero,-2,8);
+  hero=mkFighter(C.hero,1.9,'hero',{hp:260,dmg:20,range:3.6,atkEvery:0.5,spd:32,aCd:0,spellCd:0});
+  if(RIG){ scene.remove(hero.g); const e=makeElf(); hero.g=e.g; hero.mixer=e.mixer; hero.act=e.act; hero.rigged=true; hero.animState='idle'; scene.add(hero.g); }
+  setP(hero,2,34);
   for(let i=0;i<8;i++){ const cleric=i>=6;
     const e=mkFighter(cleric?C.cleric:(i%2?C.teamBlue:C.teamBlueD),1.0,'ally',{hp:cleric?52:60,dmg:cleric?6:10,range:3.0,atkEvery:0.8,spd:24});
-    e.idx=i; e.kind=cleric?'cleric':'warrior'; e.healCd=0; e.smiteCd=0; setP(e,-2+((i%4)-1.5)*3.2, 13+Math.floor(i/4)*3.6); allies.push(e); }
+    e.idx=i; e.kind=cleric?'cleric':'warrior'; e.healCd=0; e.smiteCd=0; setP(e,2+((i%4)-1.5)*3.2, 42+Math.floor(i/4)*3.6); allies.push(e); }
   rallyMarker=new THREE.Mesh(new THREE.RingGeometry(1.6,2.3,22),new THREE.MeshBasicMaterial({color:0xffe089,transparent:true,opacity:0.9,side:THREE.DoubleSide}));
   rallyMarker.rotation.x=-Math.PI/2; rallyMarker.visible=false; scene.add(rallyMarker);
 }
@@ -362,9 +395,11 @@ function moveTo(e,tx,tz,dt){ let dx=tx-e.px,dz=tz-e.pz; const d=Math.hypot(dx,dz
 function loco(dt){ const all=[hero,...allies,...enemies];
   for(const e of all){ if(!e||!e.alive)continue;
     let d=e.face-e.g.rotation.y; while(d>Math.PI)d-=6.283; while(d<-Math.PI)d+=6.283; e.g.rotation.y+=d*Math.min(1,dt*10);
-    e.phase += (e.movedThis?11:2.5)*dt;
-    const bob = e.movedThis? Math.abs(Math.sin(e.phase))*0.45 : 0.05+Math.sin(e.phase)*0.05;
-    e.g.position.set(e.px, topY(e.px,e.pz)+bob, e.pz); e.movedThis=false;
+    if(e.rigged){ e.g.position.set(e.px, topY(e.px,e.pz), e.pz); }   // mixer drives the body; no capsule bob
+    else { e.phase += (e.movedThis?11:2.5)*dt;
+      const bob = e.movedThis? Math.abs(Math.sin(e.phase))*0.45 : 0.05+Math.sin(e.phase)*0.05;
+      e.g.position.set(e.px, topY(e.px,e.pz)+bob, e.pz); }
+    e.movedThis=false;
   } }
 // anti-stack separation (units spread out instead of piling up)
 function separate(){ const all=[hero,...allies,...enemies].filter(e=>e&&e.alive);
@@ -459,7 +494,9 @@ function updateGame(dt){
         const rr0=Math.hypot(camAim.x,camAim.z); if(rr0>96){ camAim.x*=96/rr0; camAim.z*=96/rr0; } } }
     hero.cd-=dt; hero.aCd-=dt; hero.spellCd-=dt;
     if(autoBolt && hero.spellCd<=0 && enemies.length){ const {t}=nearest(hero.px,hero.pz,enemies); if(t) castBolt(t.px,t.pz); }
-    { const {t,d}=nearest(hero.px,hero.pz,enemies); if(t&&d<=hero.range+1) attack(hero,t); }
+    { const {t,d}=nearest(hero.px,hero.pz,enemies); if(t&&d<=hero.range+1){ if(hero.rigged&&hero.cd<=0) hero.__atkT=0.55; attack(hero,t); } }
+    if(hero.rigged){ hero.mixer.update(dt); hero.__atkT=Math.max(0,(hero.__atkT||0)-dt);
+      setHeroAnim(hero.__atkT>0?'attack':((ml>0.01&&camLocked)?'walk':'idle')); }
     const hl=Math.hypot(heroFwd.x,heroFwd.z)||1, ffx=heroFwd.x/hl, ffz=heroFwd.z/hl, rgx=ffz, rgz=-ffx;
     for(const e of allies){ if(!e.alive)continue; e.cd-=dt;
       const heroDist=Math.hypot(hero.px-e.px,hero.pz-e.pz);
@@ -604,14 +641,14 @@ function initPost(){
   postScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),postMat));
 }
 
-function boot(){
+async function boot(){
   rnd3d=new THREE.WebGLRenderer({antialias:true});
   rnd3d.setSize(innerWidth,innerHeight); rnd3d.setPixelRatio(pr());
   rnd3d.shadowMap.enabled=true; rnd3d.shadowMap.type=THREE.PCFSoftShadowMap;
   if('outputColorSpace' in rnd3d) rnd3d.outputColorSpace=THREE.SRGBColorSpace;
   document.body.appendChild(rnd3d.domElement);
   cam=new THREE.PerspectiveCamera(30,innerWidth/innerHeight,1,600);
-  build(); initPost(); spawnGame(); setupHUD(); followCam();
+  build(); initPost(); await loadRig(); spawnGame(); setupHUD(); followCam();
   addEventListener('resize',()=>{
     rnd3d.setSize(innerWidth,innerHeight); cam.aspect=innerWidth/innerHeight; cam.updateProjectionMatrix();
     rt.setSize(innerWidth*pr(),innerHeight*pr()); postMat.uniforms.uRes.value.set(innerWidth,innerHeight);
