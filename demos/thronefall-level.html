@@ -365,11 +365,22 @@ function faceTo(e,dx,dz){ if(dx||dz) e.face=Math.atan2(dx,dz); }
 // Each GLB packs the mesh once + all its clips; the clips are authored on the Bitgem
 // skeleton so they play with no retarget. Textures are embedded (palette atlas, UVs
 // pre-flipped) — we just force NearestFilter so swatches sample solid, not the black gaps.
-const RIGS={}; const CHAR_H={queen:3.7, archer:3.05, priestess:3.2};   // world heights (queen tallest & regal)
+const RIGS={}, PROPS={}, TEXS={}; const CHAR_H={queen:3.7, archer:3.05, priestess:3.2};   // world heights (queen tallest & regal)
+// hand weapons: prop FBX + hand bone + local transform (tuned in preview) + which atlas to paint it with
+const WEAPONS={
+  queen:    {file:'glaive_elf_queen', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1,   tex:'queen'},
+  archer:   {file:'bow_elf_archer',   bone:'hand_l', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1,   tex:'archer'},
+  priestess:{file:'magic_ball',       bone:'hand_r', pos:[0,4,0], rot:[0,0,0],         scl:0.6, tex:'priestess'},
+};
 function loadRig(){ return new Promise(res=>{
-  const gl=new THREE.GLTFLoader(); const specs=[['queen','elf_queen'],['archer','elf_archer'],['priestess','elf_priestess']];
-  let n=0; const done=()=>{ if(++n>=specs.length) res(); };
-  specs.forEach(([k,f])=>gl.load('/assets/models/'+f+'_anim.glb', g=>{ RIGS[k]={scene:g.scene,anims:g.animations}; done(); }, undefined, ()=>done())); }); }
+  const gl=new THREE.GLTFLoader(), fx=new THREE.FBXLoader(), tl=new THREE.TextureLoader();
+  const specs=[['queen','elf_queen'],['archer','elf_archer'],['priestess','elf_priestess']];
+  let n=0, need=specs.length*3; const done=()=>{ if(++n>=need) res(); };   // per char: body GLB + atlas PNG + weapon FBX
+  specs.forEach(([k,f])=>{
+    gl.load('/assets/models/'+f+'_anim.glb', g=>{ RIGS[k]={scene:g.scene,anims:g.animations}; done(); }, undefined, ()=>done());
+    tl.load('/assets/models/'+f+'_tex.png', t=>{ t.flipY=true; t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter; t.generateMipmaps=false; if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; TEXS[k]=t; done(); }, undefined, ()=>done());
+    gl && fx.load('/assets/models/'+WEAPONS[k].file+'.fbx', o=>{ PROPS[k]=o; done(); }, undefined, ()=>done());
+  }); }); }
 // clone a rig (independent per unit), crisp texture, scale to target height, plant feet, wire clips
 function makeChar(key){ const src=RIGS[key]; if(!src)return null;
   const inner=THREE.SkeletonUtils.clone(src.scene), outer=new THREE.Group();
@@ -386,6 +397,12 @@ function makeChar(key){ const src=RIGS[key]; if(!src)return null;
   mixer.update(0.3); outer.updateMatrixWorld(true);          // settle idle, then plant feet + centre exactly
   const b2=new THREE.Box3().setFromObject(inner); const c2=b2.getCenter(new THREE.Vector3());
   inner.position.y-=b2.min.y/outer.scale.x; inner.position.x-=c2.x/outer.scale.x; inner.position.z-=c2.z/outer.scale.x;
+  // hand weapon — parent the prop to the hand bone (rides the animation), painted with the char atlas
+  const w=WEAPONS[key];
+  if(w && PROPS[key]){ let bone=null; inner.traverse(o=>{ if(o.isBone&&o.name===w.bone)bone=o; });
+    if(bone){ const prop=PROPS[key].clone(true), tx=TEXS[key];
+      prop.traverse(o=>{ if(o.isMesh){ o.material=new THREE.MeshBasicMaterial({map:tx,side:THREE.DoubleSide}); o.frustumCulled=false; } });
+      prop.position.fromArray(w.pos); prop.rotation.set(w.rot[0],w.rot[1],w.rot[2]); prop.scale.setScalar(w.scl); bone.add(prop); } }
   return {g:outer,mixer,act}; }
 // generic crossfade anim setter (hero + rigged allies)
 function setAnim(e,want){ if(!e.act||e.animState===want)return; const a=e.act[want]; if(!a)return;
@@ -469,6 +486,17 @@ function smiteFx(en){ const r=new THREE.Mesh(new THREE.RingGeometry(0.5,1.4,20),
   r.rotation.x=-Math.PI/2; r.position.set(en.px,topY(en.px,en.pz)+0.5,en.pz); scene.add(r); let a=0;(function an(){a+=0.07;r.scale.setScalar(1+a*8);r.material.opacity=Math.max(0,0.95-a*1.2);if(a<0.9)requestAnimationFrame(an);else scene.remove(r);})(); }
 function focusFire(en){ const list=[...selected].filter(e=>e.alive); (list.length?list:allies).forEach(e=>{ if(e.alive){ e.forcedTarget=en; e.target=en; e.order=null; e.following=false; } });
   rallyMarker.material.color.setHex(0xff6a5a); rallyMarker.position.set(en.px,topY(en.px,en.pz)+0.3,en.pz); rallyMarker.visible=true; clearTimeout(rallyMarker.__to); rallyMarker.__to=setTimeout(()=>rallyMarker.visible=false,900); }
+// flying shot: arrow (thin bolt, oriented along travel) or magic (glowing orb), light arc, self-removing
+function shootFx(sx,sz,tx,tz,kind){
+  const arrow=kind==='arrow';
+  const m = arrow ? new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,2.4,6), new THREE.MeshBasicMaterial({color:0xf2e6c0}))
+                  : new THREE.Mesh(new THREE.SphereGeometry(0.5,10,8), new THREE.MeshBasicMaterial({color:kind==='heal'?0x8ef0a0:0x9fd8ff,transparent:true,opacity:0.95}));
+  scene.add(m);
+  const y0=topY(sx,sz)+3.0, y1=topY(tx,tz)+2.0, dist=Math.hypot(tx-sx,tz-sz), dur=Math.max(0.1,Math.min(0.4,dist/55)); let t=0;
+  (function an(){ t+=0.033; const k=Math.min(1,t/dur); const x=sx+(tx-sx)*k, z=sz+(tz-sz)*k, y=y0+(y1-y0)*k+Math.sin(k*Math.PI)*(arrow?1.8:1.0);
+    m.position.set(x,y,z); if(arrow){ m.lookAt(tx,y1,tz); m.rotateX(Math.PI/2); }
+    if(k<1)requestAnimationFrame(an); else scene.remove(m); })();
+}
 function castBolt(gx,gz){ if(!hero||hero.spellCd>0)return false; hero.spellCd=6; spellArmed=false;
   for(const e of enemies){ if(!e.alive)continue; if(Math.hypot(e.px-gx,e.pz-gz)<7){ e.hp-=60; e.hitT=0.3; } }
   const r=new THREE.Mesh(new THREE.RingGeometry(0.6,1.6,26),new THREE.MeshBasicMaterial({color:0x74c0ff,transparent:true,side:THREE.DoubleSide}));
@@ -528,7 +556,8 @@ function updateGame(dt){
           if(t){ if(e.order){ if(Math.hypot(t.px-e.px,t.pz-e.pz)<12) e.target=t; }       // ordered: attack-move — engage foes en route
                  else if(Math.hypot(t.px-hero.px,t.pz-hero.pz)<ENGAGE) e.target=t; } } } // following: engage foes near the hero
       if(e.target){ const t=e.target, d=Math.hypot(t.px-e.px,t.pz-e.pz);                 // committed: fight until it dies
-             if(d>e.range){ e.state='move'; moveTo(e,t.px,t.pz,dt); } else { e.state='attack'; faceTo(e,t.px-e.px,t.pz-e.pz); attack(e,t); } }
+             if(d>e.range){ e.state='move'; moveTo(e,t.px,t.pz,dt); } else { e.state='attack'; faceTo(e,t.px-e.px,t.pz-e.pz);
+               if(e.cd<=0) shootFx(e.px,e.pz,t.px,t.pz, e.kind==='cleric'?'magic':'arrow'); attack(e,t); } }
       else if(e.order){ // hold the commanded position
              if(Math.hypot(e.order.x-e.px,e.order.z-e.pz)>1.4){ e.state='move'; moveTo(e,e.order.x,e.order.z,dt); } else e.state='idle'; }
       else { // loose leash: idle in the hero's vicinity, only re-form once he's walked past FOLLOW_OUT
