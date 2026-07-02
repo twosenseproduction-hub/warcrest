@@ -26,9 +26,9 @@
 <script>
 // ---------- palette (sampled to match Thronefall reference) ----------
 const C = {
-  grass:      0xdae3ea, grass2: 0x93a09a, grass3: 0xe8eef3,   // snow (dimmed), bare frozen ground, soft drift
-  snowLo:     0xc5d3df, snowTan: 0xcdc7b7,                     // pale-blue shaded snow / faint frozen-tan patch
-  beach:      0xcdd8de,                                        // icy shoreline shelf
+  grass:      0xc6d2db, grass2: 0x8b978f, grass3: 0xd6e0e8,   // snow (dimmed more), bare frozen ground, soft drift
+  snowLo:     0xb3c3d1, snowTan: 0xbdb7a7,                     // pale-blue shaded snow / faint frozen-tan patch
+  beach:      0xbac7cf,                                        // icy shoreline shelf
   path:       0xd7e0e6,                                        // packed-snow road
   cliffLit:   0xe6edf1, cliffShade: 0x24506a, cliffMid: 0x74828b,   // snow lip / cold deep water / grey rock
   water:      0x2f93d6, shallow: 0x66c0ee,                     // sea / shoreline shallows
@@ -550,8 +550,8 @@ const WEAPONS={
              {file:'shield_elf_warrior',bone:'hand_l', pos:[0,0,0], rot:[0,Math.PI/2,0], scl:0.8}],
   chief:    [{file:'axe_orc_chieftain', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
   orcarcher:[{file:'bow_orc_archer',    bone:'hand_l', pos:[0,0,0], rot:[0,0,Math.PI/2], scl:1}],
-  orcgrunt: [{file:'axe_orc_grunt',     bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
-  orcwarrior:[{file:'sword_orc_warrior',bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
+  orcgrunt: [{file:'axe_orc_grunt',     bone:'Character1_RightHand', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],   // this rig has no hand_r — the right hand is a Character-Studio bone
+  orcwarrior:[{file:'sword_orc_warrior',bone:'Character1_RightHand', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
   orcshaman:[{file:'staff_orc_shaman', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
 };
 const RIG_SPECS=[['queen','elf_queen'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior'],['chief','orc_chieftain'],['orcarcher','orc_archer'],['orcgrunt','orc_grunt'],['orcwarrior','orc_warrior'],['orcshaman','orc_shaman']];
@@ -599,8 +599,14 @@ function makeChar(key){ const src=RIGS[key]; if(!src)return null;
   mixer.update(0.3); outer.updateMatrixWorld(true);          // settle idle, then plant feet + centre exactly
   const b2=new THREE.Box3().setFromObject(inner); const c2=b2.getCenter(new THREE.Vector3());
   inner.position.y-=b2.min.y/outer.scale.x; inner.position.x-=c2.x/outer.scale.x; inner.position.z-=c2.z/outer.scale.x;
-  // hand weapons — parent each prop to its hand bone (rides the animation), painted with the char atlas
-  (WEAPONS[key]||[]).forEach(w=>{ if(!PROPS[w.file])return; let bone=null; inner.traverse(o=>{ if(o.isBone&&o.name===w.bone)bone=o; });
+  // hand weapons — parent each prop to its hand bone (rides the animation), painted with the char atlas.
+  // Resolve the bone from the SkinnedMesh's actual skeleton (some orc rigs carry stray duplicate
+  // skeletons; a plain name-traverse grabs an unanimated bone and the weapon floats). Exact match
+  // first, then prefix (e.g. 'hand_r' → 'hand_r_2', 'Character1_RightHand' → '..._4').
+  let _skel=null; inner.traverse(n=>{ if(n.isSkinnedMesh&&!_skel)_skel=n.skeleton; });
+  const findBone=name=>{ if(_skel){ let b=_skel.bones.find(bn=>bn.name===name)||_skel.bones.find(bn=>bn.name.indexOf(name)===0); if(b)return b; }
+    let f=null; inner.traverse(o=>{ if(o.isBone&&o.name===name)f=o; }); return f; };
+  (WEAPONS[key]||[]).forEach(w=>{ if(!PROPS[w.file])return; const bone=findBone(w.bone);
     if(bone){ const prop=PROPS[w.file].clone(true), tx=TEXS[key];
       prop.traverse(o=>{ if(o.isMesh){ o.material=new THREE.MeshBasicMaterial({map:tx,side:THREE.DoubleSide}); o.frustumCulled=false; } });
       prop.position.fromArray(w.pos); prop.rotation.set(w.rot[0],w.rot[1],w.rot[2]); prop.scale.setScalar(w.scl); bone.add(prop); } });
