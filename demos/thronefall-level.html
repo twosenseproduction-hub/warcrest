@@ -26,10 +26,10 @@
 <script>
 // ---------- palette (sampled to match Thronefall reference) ----------
 const C = {
-  grass:      0x46b24d, grass2: 0x3fa848, grass3: 0x54bd5a,
-  path:       0xe9dcb4,
-  cliffLit:   0xf0e7cd, cliffShade: 0x265f74, cliffMid: 0x4f96a8,
-  water:      0x25a2e6,
+  grass:      0xeaf0f4, grass2: 0x94a19a, grass3: 0xd6e4ec,   // snow, bare frozen ground, pale drift
+  path:       0xd7e0e6,                                        // packed-snow road
+  cliffLit:   0xe6edf1, cliffShade: 0x24506a, cliffMid: 0x74828b,   // snow lip / cold deep water / grey rock
+  water:      0x2f93d6,
   treeY:      [0xd9d43a, 0xccc636, 0xe2dc4c, 0xc2be34],
   wood:       0xd98a3a, woodDark: 0xb56b28, cream: 0xece0c0, roof: 0xc25a34,
   stone:      0xe7ddc4, stoneShade: 0xcdbf9c,
@@ -55,36 +55,36 @@ function rr(a,b){return a+(b-a)*rnd();}
 
 // ---------- scene ----------
 let scene,cam,rnd3d,sunLight=null;
-// WC3-style archipelago: two base islands on the main diagonal (screen -x is right, -z is up,
-// so world (+,+) reads bottom-left and (-,-) reads top-right), a chain of forest islands through
-// the middle, open water between, all stitched by causeways.
-const LOBES=[
-  {cx:105, cz:105, R:90, ph:0.7},   // 0: PLAYER base island  — bottom-left
-  {cx:-105,cz:-105,R:90, ph:2.3},   // 1: ENEMY base island   — top-right
-  {cx:0,   cz:0,   R:56, ph:1.1},   // 2: central forest island
-  {cx:62,  cz:-46, R:40, ph:3.0},   // 3: forest island (N flank)
-  {cx:-62, cz:46,  R:40, ph:4.4},   // 4: forest island (S flank)
-];
-// causeways (arbitrary-orientation land strips) — the diagonal spine + flank links
-const BRIDGES=[
-  {a:[105,105],  b:[0,0],     hw:15},   // player base → center
-  {a:[0,0],      b:[-105,-105],hw:15},  // center → enemy base
-  {a:[0,0],      b:[62,-46],  hw:12},   // center → N-flank island
-  {a:[0,0],      b:[-62,46],  hw:12},   // center → S-flank island
-  {a:[105,105],  b:[-62,46],  hw:12},   // player base → S-flank
-  {a:[-105,-105],b:[62,-46],  hw:12},   // enemy base → N-flank
+// Terraformed single landmass (snow): one big rounded-square landform with interior seas
+// CARVED out of it. Screen mapping: -x is right, -z is up, so world (+,+) reads bottom-left and
+// (-,-) reads top-right — the two bases sit on the main diagonal, land bridged between them.
+const WORLD=180;                    // half-extent of the square landmass
+const SEA_Y=-16, COAST_Y=-1.0;      // sea level / coastline lip
+// interior seas gouged out of the land — placed off the BL↔TR diagonal so the diagonal stays a
+// continuous land isthmus (units path straight, so the bases must connect over land).
+const SEAS=[
+  {cx:80, cz:-82, r:60},   // large sea in the upper flank
+  {cx:-80,cz:82,  r:60},   // large sea in the lower flank
+  {cx:22, cz:-30, r:24},   // small central inlet biting toward the middle
+  {cx:-22,cz:30,  r:24},
 ];
 const sun=new THREE.Vector3(-0.55,0.75,0.38).normalize();
 
-function edgeRL(theta,L){ return L.R*(0.86 + 0.09*Math.sin(theta*3+L.ph) + 0.05*Math.sin(theta*7+2.1) + 0.03*Math.sin(theta*13)); }
-function edgeR(theta){ return edgeRL(theta,LOBES[0]); }   // back-compat: main lobe
-function grassY(x,z){ return 2.2*(fbm(x*0.02+5,z*0.02+9)-0.5) + 1.0*(fbm(x*0.06,z*0.06)-0.5); }
+// land field: >0 = land (value ~ height above sea), <=0 = water. One big landmass minus the seas.
+function landField(x,z){
+  const sq=Math.max(Math.abs(x),Math.abs(z))/WORLD;                 // 0 centre → 1 at square rim
+  let m=(1-sq) + 0.11*(fbm(x*0.012+3,z*0.012+7)-0.5)*2;             // rounded square, wavy coast
+  for(const s of SEAS){ const d=Math.hypot(x-s.cx,z-s.cz);
+    const er=s.r*(1+0.16*(fbm(x*0.05+s.cx,z*0.05+s.cz)-0.5)*2);     // ragged shoreline on each sea
+    if(d<er) m=Math.min(m, (d/er)-0.9); }                           // inside a sea → drive negative
+  return m;
+}
+function onIsland(x,z){ return landField(x,z)>0.02; }
+function landH(x,z){ return 2.0*(fbm(x*0.02+5,z*0.02+9)-0.5) + 1.0*(fbm(x*0.06,z*0.06)-0.5); }
 
-// paths (cream) as polylines on the grass — winding, radiating from the keep
+// paths (packed snow) as polylines — the diagonal road linking the two bases
 const PATHS=[
-  [[105,105],[52,52],[0,0],[-52,-52],[-105,-105]],   // the diagonal spine, base → center → base
-  [[0,0],[31,-23],[62,-46]],                          // spur to the N-flank island
-  [[0,0],[-31,23],[-62,46]],                          // spur to the S-flank island
+  [[105,108],[60,60],[6,6],[-52,-52],[-105,-108]],   // BL base → across the isthmus → TR base
 ];
 function pathDist(x,z){
   let best=1e9;
@@ -95,88 +95,48 @@ function pathDist(x,z){
   }}
   return best;
 }
-function inLobe(x,z,L){ const th=Math.atan2(z-L.cz,x-L.cx); return Math.hypot(x-L.cx,z-L.cz) < edgeRL(th,L)-2; }
-function segDist(x,z,a,b){ const dx=b[0]-a[0],dz=b[1]-a[1]; const t=Math.max(0,Math.min(1,((x-a[0])*dx+(z-a[1])*dz)/(dx*dx+dz*dz+1e-6))); return Math.hypot(x-(a[0]+dx*t), z-(a[1]+dz*t)); }
-function onBridge(x,z){ for(const b of BRIDGES) if(segDist(x,z,b.a,b.b)<b.hw-1) return true; return false; }
-function onIsland(x,z){ for(const L of LOBES) if(inLobe(x,z,L)) return true; return onBridge(x,z); }
-function topY(x,z){ return grassY(x,z) - (pathDist(x,z)<7?0.6:0); }
+function topY(x,z){ return landH(x,z) - (pathDist(x,z)<7?0.5:0); }
 
-// ---------- terrain builder (non-indexed for crisp facets + per-face colour) ----------
+// ---------- terrain builder: grid over the land field, coastal cliffs where land meets sea ----------
 function buildTerrain(){
   const pos=[],col=[];
   const nrm=new THREE.Vector3(),ab=new THREE.Vector3(),ac=new THREE.Vector3();
   const tmp=new THREE.Color();
+  const bottomY=-40, edgeTopY=COAST_Y;
   function pushTri(va,vb,vc,region){
     ab.set(vb[0]-va[0],vb[1]-va[1],vb[2]-va[2]); ac.set(vc[0]-va[0],vc[1]-va[1],vc[2]-va[2]);
     nrm.crossVectors(ab,ac).normalize();
-    const mx=(va[0]+vb[0]+vc[0])/3, mz=(va[2]+vb[2]+vc[2])/3;
-    // orient consistently: grass up, cliff outward — so the colour test is stable
-    if(region==='grass'){ if(nrm.y<0) nrm.negate(); }
-    else { if(nrm.x*mx+nrm.z*mz<0) nrm.negate(); }
+    if(region==='grass'){ if(nrm.y<0) nrm.negate(); } else { if(nrm.y>0.4){/*keep*/} }
     let hex;
     if(region==='grass'){
-      if(pathDist(mx,mz)<6.5) hex=C.path;
-      else { const n=fbm(mx*0.04,mz*0.04); hex = n>0.74?C.grass3 : n<0.30?C.grass2 : C.grass; }
-    } else { // cliff: stratified cream→teal→deep-blue by depth, nudged by sun
+      const mx=(va[0]+vb[0]+vc[0])/3, mz=(va[2]+vb[2]+vc[2])/3;
+      if(pathDist(mx,mz)<6.5) hex=C.path;                                  // packed-snow road
+      else { const n=fbm(mx*0.045,mz*0.045); hex = n>0.72?C.grass3 : n<0.26?C.grass2 : C.grass; }  // snow, pale drifts, bare frozen ground
+    } else { // coastal cliff: snow lip → grey rock → cold deep water, by depth
       const avgY=(va[1]+vb[1]+vc[1])/3;
       const dep=Math.min(1,Math.max(0,(edgeTopY-avgY)/(edgeTopY-bottomY)));
       const lit=nrm.dot(sun);
-      if(dep<0.30 || nrm.y>0.5) hex=C.cliffLit;
-      else if(dep<0.60) hex = lit>0.0 ? C.cliffLit : C.cliffMid;
+      if(dep<0.22) hex=C.cliffLit;
+      else if(dep<0.55) hex = lit>0.0 ? C.cliffLit : C.cliffMid;
       else hex = lit>0.12 ? C.cliffMid : C.cliffShade;
     }
     tmp.setHex(hex);
     for(const P of [va,vb,vc]){ pos.push(P[0],P[1],P[2]); col.push(tmp.r,tmp.g,tmp.b); }
   }
-  const NT=76, GR=11, CR=7, bottomY=-38, edgeTopY=-1.5;
-  for(const L of LOBES){
-    // grass top
-    const gridT=[];
-    for(let i=0;i<=GR;i++){ const row=[]; const rr0=i/GR;
-      for(let j=0;j<=NT;j++){ const th=j/NT*Math.PI*2; const er=edgeRL(th,L);
-        const rad=rr0*er; const x=L.cx+rad*Math.cos(th), z=L.cz+rad*Math.sin(th);
-        let y=topY(x,z); if(i===GR)y=edgeTopY; row.push([x,y,z]);
-      } gridT.push(row);
-    }
-    for(let i=0;i<GR;i++) for(let j=0;j<NT;j++){
-      const a=gridT[i][j],b=gridT[i][j+1],c=gridT[i+1][j+1],d=gridT[i+1][j];
-      pushTri(a,b,c,'grass'); pushTri(a,c,d,'grass'); }
-    // cliff skirt
-    const cliffRings=[gridT[GR].slice()];
-    for(let k=1;k<=CR;k++){ const t=k/CR; const row=[];
-      for(let j=0;j<=NT;j++){ const th=j/NT*Math.PI*2; const er=edgeRL(th,L);
-        const shrink=Math.pow(Math.cos(t*Math.PI*0.5),0.6), drop=Math.sin(t*Math.PI*0.5);
-        const crag=(fbm(Math.cos(th)*3+k+L.cx*0.1, Math.sin(th)*3+k+L.cz*0.1)-0.5);
-        const rad=er*shrink+er*0.08*(1-t)+crag*10*(1-t*0.4);
-        const y=edgeTopY+(bottomY-edgeTopY)*drop+crag*6;
-        row.push([L.cx+rad*Math.cos(th), y, L.cz+rad*Math.sin(th)]);
-      } cliffRings.push(row); }
-    for(let k=0;k<cliffRings.length-1;k++) for(let j=0;j<NT;j++){
-      const a=cliffRings[k][j],b=cliffRings[k][j+1],c=cliffRings[k+1][j+1],d=cliffRings[k+1][j];
-      pushTri(a,b,c,'cliff'); pushTri(a,c,d,'cliff'); }
-  }
-  // causeways: each an oriented grass strip (following the ground where it crosses land,
-  // a flat span over water) with two cliff walls dropping to the sea
-  const brBottom=-16;
-  for(const B of BRIDGES){
-    const ax=B.a[0],az=B.a[1],bx=B.b[0],bz=B.b[1];
-    const len=Math.hypot(bx-ax,bz-az); const ux=(bx-ax)/len,uz=(bz-az)/len;   // along
-    const px=-uz,pz=ux;                                                        // perpendicular
-    const NL=Math.max(6,Math.round(len/9)), NW=6, hw=B.hw;
-    const top=[];
-    for(let i=0;i<=NL;i++){ const cx=ax+(bx-ax)*(i/NL), cz=az+(bz-az)*(i/NL); const row=[];
-      for(let j=0;j<=NW;j++){ const off=-hw+2*hw*(j/NW); const x=cx+px*off, z=cz+pz*off;
-        // ride the land where there is land; hold rim height over the water gap
-        let y=onIsland(x,z)? topY(x,z) : edgeTopY;
-        if(j===0||j===NW) y=Math.min(y,edgeTopY);
-        row.push([x,y,z]); } top.push(row); }
-    for(let i=0;i<NL;i++) for(let j=0;j<NW;j++){
-      const a=top[i][j],b=top[i][j+1],c=top[i+1][j+1],d=top[i+1][j];
-      pushTri(a,b,c,'grass'); pushTri(a,c,d,'grass'); }
-    for(const side of [0,NW]){ const off=-hw+2*hw*(side/NW);
-      for(let i=0;i<NL;i++){ const c0x=ax+(bx-ax)*(i/NL),c0z=az+(bz-az)*(i/NL),c1x=ax+(bx-ax)*((i+1)/NL),c1z=az+(bz-az)*((i+1)/NL);
-        const a=[c0x+px*off,edgeTopY,c0z+pz*off],b=[c1x+px*off,edgeTopY,c1z+pz*off],c=[c1x+px*off,brBottom,c1z+pz*off],d=[c0x+px*off,brBottom,c0z+pz*off];
-        pushTri(a,b,c,'cliff'); pushTri(a,c,d,'cliff'); } }
+  const STEP=5, M=WORLD+20, N=Math.ceil(2*M/STEP);
+  const cellLand=(i,j)=>onIsland(-M+(i+0.5)*STEP, -M+(j+0.5)*STEP);
+  const H=(x,z)=>Math.max(topY(x,z), edgeTopY+0.3);   // keep the land top above the coastline lip
+  const wall=(ax,az,tyA,bx,bz,tyB)=>{ const a=[ax,tyA,az],b=[bx,tyB,bz],c=[bx,bottomY,bz],d=[ax,bottomY,az];
+    pushTri(a,b,c,'cliff'); pushTri(a,c,d,'cliff'); };
+  for(let i=0;i<N;i++) for(let j=0;j<N;j++){
+    if(!cellLand(i,j)) continue;
+    const x0=-M+i*STEP, z0=-M+j*STEP, x1=x0+STEP, z1=z0+STEP;
+    const a=[x0,H(x0,z0),z0],b=[x1,H(x1,z0),z0],c=[x1,H(x1,z1),z1],d=[x0,H(x0,z1),z1];
+    pushTri(a,b,c,'grass'); pushTri(a,c,d,'grass');
+    if(!cellLand(i-1,j)) wall(x0,z0,H(x0,z0), x0,z1,H(x0,z1));   // west coast
+    if(!cellLand(i+1,j)) wall(x1,z1,H(x1,z1), x1,z0,H(x1,z0));   // east coast
+    if(!cellLand(i,j-1)) wall(x1,z0,H(x1,z0), x0,z0,H(x0,z0));   // north coast
+    if(!cellLand(i,j+1)) wall(x0,z1,H(x0,z1), x1,z1,H(x1,z1));   // south coast
   }
   const g=new THREE.BufferGeometry();
   g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
@@ -215,8 +175,8 @@ function natEntry(o){ natLambert(o); const bb=new THREE.Box3().setFromObject(o);
   const w=new THREE.Group(); w.add(o); return {scene:w, h:Math.max(0.001,sz.y)}; }
 function loadNature(){ return new Promise(res=>{
   const fx=new THREE.FBXLoader();
-  const sets={ tree:['CommonTree_Autumn_1','CommonTree_Autumn_3','CommonTree_Autumn_5','CommonTree_2','CommonTree_4','PineTree_Autumn_2','PineTree_3','BirchTree_2'],
-               rock:['Rock_1','Rock_3','Rock_Moss_2'], bush:['Bush_1','BushBerries_1','Grass_2'] };
+  const sets={ tree:['PineTree_Snow_1','PineTree_Snow_2','PineTree_Snow_3','PineTree_Snow_4','PineTree_Snow_5','CommonTree_Snow_1','CommonTree_Snow_2','CommonTree_Snow_3','BirchTree_Snow_2','BirchTree_Snow_4'],
+               rock:['Rock_Snow_1','Rock_Snow_2','Rock_Snow_3'], bush:['Bush_Snow_2'] };
   const jobs=[]; for(const c in sets) sets[c].forEach(nm=>jobs.push([c,nm]));
   let n=0; const done=()=>{ if(++n>=jobs.length) res(); };
   jobs.forEach(([c,nm])=>fx.load('/assets/nature/'+nm+'.fbx', o=>{ NAT[c].push(natEntry(o)); done(); }, undefined, ()=>done())); }); }
@@ -433,14 +393,15 @@ function build(){
 
   scene.add(buildTerrain());
 
-  // perimeter forest ring framing every island — a wall of trees at each shoreline
-  for(const L of LOBES){ const step=L.R>70?0.14:0.20; for(let a=0;a<Math.PI*2;a+=step){
-    const er=edgeRL(a,L)-14; const x=L.cx+Math.cos(a)*er+rr(-4,4), z=L.cz+Math.sin(a)*er+rr(-4,4);
-    if(onIsland(x,z)) scene.add(forestClump(x,z,3,9)); } }
-  // the middle islands (2,3,4) are heavily wooded — the forested hills of the reference map
-  for(const li of [2,3,4]){ const L=LOBES[li];
-    for(let k=0;k<Math.round(L.R*0.9);k++){ const a=rnd()*6.28,d=rr(0,L.R*0.72);
-      const x=L.cx+Math.cos(a)*d, z=L.cz+Math.sin(a)*d; if(onIsland(x,z)&&pathDist(x,z)>7) scene.add(forestClump(x,z,3,10)); } }
+  // forests: a wall of snow trees lining every coast (the shore of the land AND of each carved sea),
+  // plus a few forested hills inland — the wooded knolls of the reference map
+  for(let x=-WORLD;x<=WORLD;x+=8) for(let z=-WORLD;z<=WORLD;z+=8){
+    const jx=x+rr(-3,3), jz=z+rr(-3,3); const f=landField(jx,jz);
+    if(f>0.02 && f<0.24 && pathDist(jx,jz)>6 && rnd()<0.62) scene.add(forestClump(jx,jz,2,8)); }  // coastal tree line
+  for(const [hx,hz] of [[0,5],[48,48],[-48,-48],[-58,-8],[58,8],[12,58],[-12,-58]]){
+    if(!onIsland(hx,hz)) continue;
+    for(let k=0;k<24;k++){ const a=rnd()*6.28,d=rr(0,20); const x=hx+Math.cos(a)*d,z=hz+Math.sin(a)*d;
+      if(onIsland(x,z)&&pathDist(x,z)>7) scene.add(forestClump(x,z,3,10)); } }   // inland forested hill
 
   // PLAYER base (bottom-left island) — Thronefall core ringed by empty build plots
   const KX=105,KZ=108;
@@ -452,9 +413,9 @@ function build(){
   { const g=bldClone('throne3',16)||makeKeep(); g.position.set(enemyBase.x,topY(enemyBase.x,enemyBase.z),enemyBase.z); scene.add(g); }
   for(const [ox,oz] of [[-128,-86],[-84,-128],[-132,-120]]){ scene.add(dirtPad(ox,oz,6)); place(makeHouse(),ox,oz,rr(0,6.28)); }
 
-  // rocks scattered across every island
-  for(let i=0;i<40;i++){ const L=LOBES[i%LOBES.length]; const a=rnd()*6.28,d=rr(8,L.R*0.8);
-    const x=L.cx+Math.cos(a)*d, z=L.cz+Math.sin(a)*d; if(onIsland(x,z)&&pathDist(x,z)>6) place(makeRock(),x,z); }
+  // rocks scattered across the land
+  for(let i=0;i<50;i++){ const x=rr(-WORLD,WORLD), z=rr(-WORLD,WORLD);
+    if(onIsland(x,z)&&pathDist(x,z)>6&&Math.hypot(x-KX,z-KZ)>16&&Math.hypot(x-enemyBase.x,z-enemyBase.z)>16) place(makeRock(),x,z); }
 
   // live fighters (hero + squad + enemies) are spawned by the gameplay module
 }
