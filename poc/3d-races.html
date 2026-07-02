@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Warcrest — 3-race low-poly lineup</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#0e1118;font-family:"Segoe UI",system-ui,sans-serif;}
+  #c{display:block;width:100%;height:100%;touch-action:none;}
+  .ctl{position:fixed;right:12px;top:12px;display:flex;flex-direction:column;gap:8px;}
+  .btn{background:rgba(22,20,16,.82);color:#fff;border:none;border-radius:13px;width:48px;height:48px;font-size:20px;
+    cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4);backdrop-filter:blur(5px);}
+  .btn:active{transform:scale(.93);}
+  .lbl{position:fixed;transform:translate(-50%,-100%);pointer-events:none;white-space:nowrap;
+    background:rgba(22,20,16,.8);color:#fff;font-weight:800;font-size:13px;padding:5px 12px;border-radius:999px;
+    box-shadow:0 4px 12px rgba(0,0,0,.4);backdrop-filter:blur(4px);display:flex;align-items:center;gap:7px;}
+  .lbl b{width:11px;height:11px;border-radius:50%;}
+  .lbl small{font-weight:700;opacity:.7;font-size:10px;}
+  .title{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);color:#fff;font-size:12px;font-weight:700;
+    background:rgba(22,20,16,.7);padding:6px 14px;border-radius:999px;backdrop-filter:blur(5px);text-align:center;}
+  .hint{position:fixed;left:12px;bottom:46px;color:rgba(255,255,255,.55);font-size:11px;font-weight:700;}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ctl">
+  <button class="btn" id="bNight" title="Day/Night">🌙</button>
+  <button class="btn" id="bSpin" title="Auto-rotate">🔄</button>
+</div>
+<div class="lbl" id="L0"><b style="background:#3f63b8"></b>Iron Crown <small>humans · armor</small></div>
+<div class="lbl" id="L1"><b style="background:#8a9a4a"></b>Raider Horde <small>orcs · regen</small></div>
+<div class="lbl" id="L2"><b style="background:#5a8f5a"></b>Rimwalkers <small>elves · evasion</small></div>
+<div class="hint">drag to orbit · scroll to zoom</div>
+<div class="title">Warcrest — 3-race low-poly lineup · procedural geometry I author (KayKit .glb drops into the same scene)</div>
+
+<script src="./three.min.js"></script>
+<script>
+const C=document.getElementById('c');
+const renderer=new THREE.WebGLRenderer({canvas:C,antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputEncoding=THREE.sRGBEncoding;
+const scene=new THREE.Scene();
+
+const DAY={sky:0xcfe6ef,fog:0xc8dcc6,sun:0xfff0d0,sunI:1.5,amb:0xa8c0cf,ambI:0.7};
+const NIGHT={sky:0x1d2740,fog:0x222c44,sun:0x9fb0e0,sunI:0.55,amb:0x2a3658,ambI:0.7};
+let mood=DAY, spin=true;
+
+const camera=new THREE.PerspectiveCamera(40,innerWidth/innerHeight,0.5,200);
+let camDist=36,camYaw=Math.PI*0.5,camPitch=0.62;
+function placeCam(){camera.position.set(camDist*Math.cos(camYaw)*Math.cos(camPitch),camDist*Math.sin(camPitch),2+camDist*Math.sin(camYaw)*Math.cos(camPitch));camera.lookAt(0,1.6,2);}
+
+const amb=new THREE.AmbientLight(0xffffff,0.7); scene.add(amb);
+const sun=new THREE.DirectionalLight(0xffffff,1.5); sun.position.set(12,22,10); sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048); const sc=sun.shadow.camera; sc.left=-34;sc.right=34;sc.top=34;sc.bottom=-34;sc.near=1;sc.far=80; sun.shadow.bias=-0.0004;
+scene.add(sun);
+
+const M=(h,opts={})=>new THREE.MeshStandardMaterial(Object.assign({color:h,flatShading:true,roughness:1,metalness:0},opts));
+// shared palette
+const P={
+  stone:M(0x9aa6b2),stoneD:M(0x6f7d8c),crownRoof:M(0x2f4f9e),crownTrim:M(0xdfe6f2),blue:M(0x3f63b8),
+  wood:M(0x6b4a2a),woodD:M(0x4e351d),bone:M(0xd8cfa8),thatch:M(0x7a6a36),ember:M(0xc45a2a),orcSkin:M(0x6f9a3e),orcArmor:M(0x8a7a4a),
+  bark:M(0x735036),leaf:M(0x3f7a3e),leaf2:M(0x4f8a4a),gold:M(0xd9b94a),elfTunic:M(0x5a8f5a),
+  skin:M(0xe8b07a),steel:M(0xb9c2cc),dark:M(0x2a241a),white:M(0xeee7cf),
+};
+function box(w,h,d,mat,x=0,y=0,z=0){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;return m;}
+function cone(r,h,seg,mat){const m=new THREE.Mesh(new THREE.ConeGeometry(r,h,seg),mat);m.castShadow=true;return m;}
+function cyl(r1,r2,h,seg,mat){const m=new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,h,seg),mat);m.castShadow=true;return m;}
+function sphere(r,mat){const m=new THREE.Mesh(new THREE.IcosahedronGeometry(r,0),mat);m.castShadow=true;return m;}
+
+// ground
+const ground=new THREE.Mesh(new THREE.BoxGeometry(70,1,40),M(0x88ad57)); ground.position.y=-0.5; ground.receiveShadow=true; scene.add(ground);
+
+// faction pad
+function pad(x,tint){const g=cyl(6,6,0.5,9,M(tint)); g.position.set(x,0.05,2); g.receiveShadow=true; scene.add(g); return g;}
+
+/* ---------- IRON CROWN: stone keep + knights ---------- */
+function crownKeep(){const g=new THREE.Group();
+  g.add(box(5,4,5,P.stone,0,2,0)); g.add(box(6,0.9,6,P.stoneD,0,4.2,0));
+  [[-2.3,-2.3],[2.3,-2.3],[-2.3,2.3],[2.3,2.3]].forEach(p=>{const t=cyl(0.8,0.9,5.6,7,P.stone);t.position.set(p[0],2.8,p[1]);g.add(t);const r=cone(1.1,1.5,7,P.crownRoof);r.position.set(p[0],5.9,p[1]);g.add(r);});
+  g.add(box(1.4,2,0.3,P.woodD,0,1,2.55)); g.add(box(0.2,2.4,0.2,P.steel,0,5.5,0)); const fl=box(1.1,0.7,0.05,P.blue,0.65,5.9,0);g.add(fl);
+  return g;}
+function knight(){const g=new THREE.Group();
+  const lL=box(0.32,1,0.32,P.steel,-0.22,0.5,0),lR=box(0.32,1,0.32,P.steel,0.22,0.5,0);g.add(lL,lR);
+  g.add(box(0.95,1.1,0.6,P.blue,0,1.55,0)); g.add(box(1.05,0.28,0.7,P.crownTrim,0,2.05,0));
+  g.add(box(0.6,0.6,0.58,P.skin,0,2.42,0)); g.add(box(0.66,0.34,0.64,P.steel,0,2.66,0));
+  const sw=box(0.12,1.7,0.12,P.steel,0.62,1.9,0.2);sw.rotation.z=0.28;g.add(sw);
+  const sh=box(0.1,0.9,0.7,P.blue,-0.6,1.6,0.1);g.add(sh);
+  g.userData={lL,lR}; g.traverse(o=>o.castShadow=true); g.scale.setScalar(0.62); return g;}
+
+/* ---------- RAIDER HORDE: bone-spiked war hut + orc brutes ---------- */
+function hordeHut(){const g=new THREE.Group();
+  g.add(box(7,2.4,5.4,P.wood,0,1.2,0)); g.add(box(7.2,0.5,5.6,P.woodD,0,2.5,0));
+  const roof=cone(5.2,2.6,4,P.thatch); roof.rotation.y=Math.PI/4; roof.position.y=3.8; roof.scale.set(1,1,0.78); g.add(roof);
+  [[-3,-2.2],[3,-2.2],[-3,2.2],[3,2.2]].forEach(p=>{const s=cone(0.45,1.8,6,P.bone);s.position.set(p[0],2.6,p[1]);g.add(s);});
+  // skull totem over the door
+  const sk=sphere(0.7,P.bone); sk.position.set(0,3.0,2.7); g.add(sk);
+  g.add(box(0.18,0.22,0.2,P.dark,-0.22,3.05,3.2)); g.add(box(0.18,0.22,0.2,P.dark,0.22,3.05,3.2));
+  g.add(box(1.6,2,0.3,P.dark,0,1,2.75));
+  const pole=box(0.18,3,0.18,P.woodD,3.4,1.5,2.6);g.add(pole); const flag=box(1.2,0.8,0.06,P.ember,2.8,2.7,2.6);g.add(flag);
+  return g;}
+function orcBrute(){const g=new THREE.Group();
+  const lL=box(0.42,0.8,0.42,P.orcArmor,-0.28,0.4,0),lR=box(0.42,0.8,0.42,P.orcArmor,0.28,0.4,0);g.add(lL,lR);
+  const torso=box(1.4,1.1,0.85,P.orcSkin,0,1.35,0); torso.rotation.x=0.18; g.add(torso);
+  g.add(box(1.7,0.4,1.0,P.bone,0,1.85,0.06));                 // bone shoulders
+  const head=box(0.7,0.62,0.66,P.orcSkin,0,2.2,0.16);g.add(head);
+  g.add(box(0.12,0.18,0.12,P.white,-0.16,2.05,0.5)); g.add(box(0.12,0.18,0.12,P.white,0.16,2.05,0.5)); // tusks
+  // big axe
+  const ax=new THREE.Group(); ax.add(cyl(0.1,0.1,2.0,6,P.wood)); const blade=box(0.18,0.7,0.9,P.steel,0,0.8,0.3);ax.add(blade);
+  ax.position.set(0.75,1.4,0.1); ax.rotation.z=0.5; g.add(ax);
+  g.userData={lL,lR}; g.traverse(o=>o.castShadow=true); g.scale.setScalar(0.66); return g;}
+
+/* ---------- RIMWALKERS: grove hall (tree-grown) + elf archers ---------- */
+function elfHall(){const g=new THREE.Group();
+  g.add(cyl(1.2,1.6,5,7,P.bark).translateY(2.5));            // trunk
+  // roots
+  [[1.4,0.3],[-1.4,0.4],[0.4,1.5],[-0.6,-1.4]].forEach(p=>{const r=box(0.5,0.4,1.1,P.bark,p[0],0.2,p[1]);r.rotation.y=Math.random();g.add(r);});
+  g.add(box(3.4,1.8,3.4,P.wood,0,4.3,0));                    // platform house
+  g.add(box(3.7,0.3,3.7,P.gold,0,5.3,0));                    // gold rim
+  g.add(box(0.9,1.2,0.2,P.gold,0,4.0,1.75));                 // glowing door
+  // canopy
+  const c1=cone(3.4,3.2,7,P.leaf);c1.position.y=7.2;g.add(c1);
+  const c2=cone(2.6,2.6,7,P.leaf2);c2.position.set(1.6,6.4,0.6);g.add(c2);
+  const c3=cone(2.4,2.4,7,P.leaf2);c3.position.set(-1.5,6.2,-0.8);g.add(c3);
+  return g;}
+function elfArcher(){const g=new THREE.Group();
+  const lL=box(0.26,1.0,0.26,P.elfTunic,-0.18,0.5,0),lR=box(0.26,1.0,0.26,P.elfTunic,0.18,0.5,0);g.add(lL,lR);
+  g.add(box(0.72,1.15,0.45,P.elfTunic,0,1.55,0)); g.add(box(0.8,0.22,0.5,P.gold,0,1.95,0));
+  g.add(box(0.54,0.58,0.52,P.skin,0,2.32,0)); const hood=cone(0.5,0.7,6,P.leaf);hood.position.y=2.75;g.add(hood);
+  // bow (half-torus) in front
+  const bow=new THREE.Mesh(new THREE.TorusGeometry(0.7,0.06,5,10,Math.PI),P.gold);bow.castShadow=true;bow.position.set(-0.5,1.6,0.2);bow.rotation.z=Math.PI/2;g.add(bow);
+  g.userData={lL,lR}; g.traverse(o=>o.castShadow=true); g.scale.setScalar(0.6); return g;}
+
+/* ---------- assemble the 3 pads ---------- */
+const FX=-18, MX=0, RX=18;
+pad(FX,0x9bbf6a); pad(MX,0x9bbf6a); pad(RX,0x9bbf6a);
+const crown=crownKeep(); crown.position.set(FX,0.3,0); scene.add(crown);
+const horde=hordeHut(); horde.position.set(MX,0.3,0); scene.add(horde);
+const rim=elfHall(); rim.position.set(RX,0.3,0); scene.add(rim);
+
+const movers=[]; // idle/patrol units
+function addUnit(maker,x,z,patrolR){const u=maker();u.position.set(x,0.3,z);scene.add(u);movers.push({u,x,z,a:Math.random()*6,r:patrolR||0});}
+addUnit(knight,FX-1.6,4.2,0); addUnit(knight,FX+1.6,4.4,0.9);
+addUnit(orcBrute,MX-1.7,4.2,0); addUnit(orcBrute,MX+1.7,4.4,1.0);
+addUnit(elfArcher,RX-1.6,4.2,0); addUnit(elfArcher,RX+1.6,4.4,0.9);
+
+function applyMood(){scene.background=new THREE.Color(mood.sky);scene.fog=new THREE.Fog(mood.fog,46,110);sun.color.setHex(mood.sun);sun.intensity=mood.sunI;amb.color.setHex(mood.amb);amb.intensity=mood.ambI;}
+applyMood(); placeCam();
+renderer.setSize(innerWidth,innerHeight);
+
+/* labels follow the buildings in screen space */
+const labels=[{el:document.getElementById('L0'),o:crown,h:7},{el:document.getElementById('L1'),o:horde,h:5.5},{el:document.getElementById('L2'),o:rim,h:9}];
+function updateLabels(){const v=new THREE.Vector3();labels.forEach(L=>{v.set(L.o.position.x,L.h,L.o.position.z).project(camera);const x=(v.x*0.5+0.5)*innerWidth,y=(-v.y*0.5+0.5)*innerHeight;L.el.style.left=x+'px';L.el.style.top=y+'px';L.el.style.display=(v.z<1)?'flex':'none';});}
+
+let drag=false,px=0,py=0;
+C.addEventListener('pointerdown',e=>{drag=true;px=e.clientX;py=e.clientY;spin=false;});
+addEventListener('pointermove',e=>{if(!drag)return;camYaw-=(e.clientX-px)*0.008;camPitch=Math.max(0.32,Math.min(1.25,camPitch+(e.clientY-py)*0.006));px=e.clientX;py=e.clientY;placeCam();});
+addEventListener('pointerup',()=>drag=false);
+addEventListener('wheel',e=>{camDist=Math.max(18,Math.min(60,camDist+e.deltaY*0.03));placeCam();},{passive:true});
+document.getElementById('bNight').onclick=function(){mood=(mood===DAY)?NIGHT:DAY;this.textContent=mood===DAY?'🌙':'☀️';applyMood();};
+document.getElementById('bSpin').onclick=function(){spin=!spin;};
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+
+let lastT=performance.now();
+function frame(now){const dt=Math.min(0.05,(now-lastT)/1000);lastT=now;
+  movers.forEach(m=>{m.a+=dt;
+    if(m.r>0){m.u.position.x=m.x+Math.cos(m.a*0.6)*m.r;m.u.position.z=m.z+Math.sin(m.a*0.6)*m.r;m.u.rotation.y=-m.a*0.6+Math.PI/2;
+      const sw=Math.sin(now*0.012)*0.5;m.u.userData.lL.rotation.x=sw;m.u.userData.lR.rotation.x=-sw;}
+    else{m.u.rotation.y=Math.sin(m.a*0.5)*0.25;m.u.position.y=0.3+Math.abs(Math.sin(now*0.004))*0.05;}
+  });
+  if(spin&&!drag){camYaw+=dt*0.1;placeCam();}
+  updateLabels(); renderer.render(scene,camera); requestAnimationFrame(frame);}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

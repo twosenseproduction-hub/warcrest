@@ -61,6 +61,7 @@
         toast: null,
         buildingMenuHover: null,
         buildPanelOpen: false,
+        buildPlot: null,             // Thronefall preview: the build plot a structure is being raised on
         buildQueue: [],              // global FIFO of building ids waiting for a free pawn
         macroGroups: null,         // { role: [unitId, …] } while macro bar is active
         macroRole: null,           // active subgroup role, or null = full mixed pool
@@ -116,6 +117,7 @@
 
   RTS.buildingIsAttackable = function (b) {
     if (!b || b.dead || b.hp <= 0) return false;
+    if (b.team === RTS.TEAM.NEUTRAL) return false;   // neutral shops are invulnerable
     /* Real structure only — not a fresh scaffold waiting for a builder. */
     return b.built || b.progress > 0;
   };
@@ -135,15 +137,17 @@
   };
 
   RTS.recalcSupply = function (s, team) {
+    if (!s.res || !s.res[team]) return;   // neutral creeps have no resource pool
     var used = 0;
     s.entities.units.forEach(function (u) {
       if (u.team !== team || u.dead) return;
+      if (u.isSummon) return;                 // timed summons (spirit warriors) are free
       if (u.heroId && RTS.getHero) {
         var hero = RTS.getHero(u.heroId);
         used += hero && hero.supply != null ? hero.supply : 0;
         return;
       }
-      var spec = RTS.Units[u.role];
+      var spec = (RTS.resolveUnitSpec && RTS.resolveUnitSpec(u.role, u.faction)) || RTS.Units[u.role];
       used += spec && spec.supply != null ? spec.supply : 1;
     });
     var cap = RTS.Config.startSupplyCap;

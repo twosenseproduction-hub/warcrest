@@ -13,8 +13,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="styles/main.css?v=20260623b" />
+<link rel="stylesheet" href="styles/main.css?v=20260628i" />
 <link rel="stylesheet" href="styles/wc-hud.css?v=20260623g" />
+<link rel="stylesheet" href="styles/thronefall.css?v=20260627c" />
+<link rel="stylesheet" href="styles/thronefall-hud.css?v=20260630e" />
 <style>
   /* ── Main menu WC3 enhancements ── */
   .menu-btn-row {
@@ -86,6 +88,10 @@
 
   <!-- ===================== HUD — mobile MOBA pattern: minimal chrome + context deck ===================== -->
   <div id="hud" class="hidden">
+    <!-- Thronefall look: warm day color-grade + focus vignette over the field
+         (under the HUD chrome; only visible when body.tf-look is set). -->
+    <div id="tf-grade" aria-hidden="true"></div>
+    <div id="tf-vignette" aria-hidden="true"></div>
     <header id="topbar">
       <!-- resources (left) -->
       <div class="hub-stats-row">
@@ -108,11 +114,12 @@
       </div>
       <!-- center crest -->
       <div class="tb-crest" aria-hidden="true">
-        <img class="tb-crest-img" src="assets/ui/wc/crest.svg?v=20260623" alt="" />
+        <img class="tb-crest-img" id="tb-crest" src="assets/ui/wc/crest.svg?v=20260623" alt="" />
       </div>
       <!-- menu buttons (right) -->
       <div class="tb-right">
         <button class="tb-icon ts-round-btn" id="btn-rail-base" aria-label="Home"><img src="assets/tiny-swords/Buildings/Blue%20Buildings/Castle.png" alt="" class="ic-building" /></button>
+        <button class="tb-icon ts-round-btn" id="btn-zoom" aria-label="Toggle zoom">🔍</button>
         <button class="tb-icon ts-round-btn" id="btn-pause" aria-label="Pause"><img src="assets/tiny-swords/UI%20Elements/UI%20Elements/Icons/Icon_10.png" alt="" /></button>
       </div>
     </header>
@@ -133,6 +140,10 @@
       <div class="build-panel-head">Raise structure</div>
       <div id="build-panel-grid" class="build-panel-grid"></div>
     </div>
+    <div id="shop-panel" class="build-panel hidden" aria-hidden="true">
+      <div class="build-panel-head" id="shop-head">Merchant — buy hero gear</div>
+      <div id="shop-grid" class="build-panel-grid"></div>
+    </div>
 
 
     <div id="event-log"></div>
@@ -141,10 +152,19 @@
     <div id="radial-menu" class="hidden"><div class="radial-hub"></div></div>
     <div id="toast"></div>
 
+    <!-- Hero jump — always-visible button that selects the hero and pans to it -->
+    <button id="btn-hero-select" class="hero-jump hidden" aria-label="Select hero"></button>
+
+    <!-- Hero banner — floating identity + ability bar shown when one hero is selected -->
+    <div id="hero-banner" class="hero-banner hidden" aria-hidden="true"></div>
+    <!-- Hero ability tooltip — revealed by long-pressing a banner ability/passive -->
+    <div id="hero-tip" class="hero-tip hidden" aria-hidden="true"></div>
+
     <footer id="command-deck">
       <div id="bottom-hub" class="bottom-hub">
         <!-- LEFT: type-select bar (red) + command card (blue) -->
         <div class="deck-left wc-frame">
+          <button type="button" id="tf-sel-toggle" class="tf-sel-toggle" aria-label="Select units by type">👥</button>
           <div id="type-select" class="type-select" role="group" aria-label="Select units by type">
             <button class="ts-chip" data-cat="worker" data-role="pawn" aria-label="Select all workers"><span class="ts-ico unit-portrait-fill"></span><span class="ts-tag">WRK</span><span class="ts-count"></span></button>
             <button class="ts-chip" data-cat="melee" data-role="lancer" aria-label="Select all melee"><span class="ts-ico unit-portrait-fill"></span><span class="ts-tag">MEL</span><span class="ts-count"></span></button>
@@ -230,6 +250,20 @@
           <p>An open fairy-forest clearing bathed in soft light. Fight for the gold nodes across a flat, unobstructed field.</p>
           <div class="fc-go">Deploy here &rarr;</div>
         </button>
+        <button class="map-card sapphire" data-map="tideland_crossing">
+          <div class="mc-emblem" aria-hidden="true"></div>
+          <h3>Tideland Crossing</h3>
+          <div class="mc-tag">1v1 &middot; Island Holds</div>
+          <p>Symmetric two-player isles joined by land bridges over shallow seas. Your main is safe &mdash; every expansion mine is guarded by a creep camp.</p>
+          <div class="fc-go">Deploy here &rarr;</div>
+        </button>
+        <button class="map-card sapphire" data-map="sundered_isles">
+          <div class="mc-emblem" aria-hidden="true"></div>
+          <h3>Sundered Isles</h3>
+          <div class="mc-tag">1v1 &middot; Island Archipelago</div>
+          <p>A Warcraft 3-style archipelago: eight grass-and-forest isles adrift on open sea, stitched by narrow land bridges. Corner mains, edge gold, a contested creep spine through the centre.</p>
+          <div class="fc-go">Deploy here &rarr;</div>
+        </button>
       </div>
       <button id="btn-map-back" class="text-btn">&larr; Back</button>
     </div>
@@ -312,6 +346,12 @@
           <input type="range" id="set-volume" min="0" max="1" step="0.05" value="0.5" /></label>
         <label class="set-row"><span>Always show health bars</span>
           <input type="checkbox" id="set-health" /></label>
+        <label class="set-row"><span>Thronefall look <small style="opacity:.6">(beta)</small></span>
+          <input type="checkbox" id="set-tflook" /></label>
+        <label class="set-row"><span>3D engine <small style="opacity:.6">(beta)</small></span>
+          <input type="checkbox" id="set-render3d" /></label>
+        <label class="set-row"><span>Creator mode <small style="opacity:.6">(instant build · unlimited resources)</small></span>
+          <input type="checkbox" id="set-creator" /></label>
       </div>
       <button id="btn-settings-back" class="big-btn">Back</button>
     </div>
@@ -364,38 +404,58 @@
 <!-- ===================== SCRIPTS ===================== -->
 <!-- Phaser first so window.Phaser is available -->
 <script src="./phaser.js"></script>
+<!-- Three.js (vendored r149) for the 3D engine renderer -->
+<script src="./vendor/three.min.js"></script>
+<script src="./vendor/GLTFLoader.js"></script>
+<script src="./vendor/SkeletonUtils.js"></script>
+<!-- postprocessing: bloom glow pass for the 3D renderer -->
+<script src="./vendor/pp/CopyShader.js"></script>
+<script src="./vendor/pp/LuminosityHighPassShader.js"></script>
+<script src="./vendor/pp/EffectComposer.js"></script>
+<script src="./vendor/pp/RenderPass.js"></script>
+<script src="./vendor/pp/ShaderPass.js"></script>
+<script src="./vendor/pp/MaskPass.js"></script>
+<script src="./vendor/pp/UnrealBloomPass.js"></script>
 
 <!-- RTS game logic — same load order as original (game.js last) -->
-<script src="src/config.js?v=20260623p"></script>
-<script src="src/heroes.js"></script>
-<script src="src/size-ref.js?v=20260622b"></script>
-<script src="src/state.js"></script>
-<script src="src/entities.js?v=20260623f"></script>
-<script src="src/sapphire-mapgen.js"></script>
+<script src="src/config.js?v=20260701p"></script>
+<script src="src/heroes.js?v=20260627a"></script>
+<script src="src/size-ref.js?v=20260701p"></script>
+<script src="src/state.js?v=20260628o"></script>
+<script src="src/entities.js?v=20260628a"></script>
+<script src="src/abilities.js?v=20260628p"></script>
+<script src="src/skill-vfx.js?v=20260626a"></script>
+<script src="src/hero-abilities.js?v=20260629a"></script>
+<script src="src/items.js?v=20260626b"></script>
+<script src="src/sapphire-mapgen.js?v=20260628c"></script>
 <script src="src/terraform-zones.js"></script>
-<script src="src/map.js?v=20260622a"></script>
-<script src="src/commands.js?v=20260623e"></script>
-<script src="src/audio.js"></script>
-<script src="src/art.js?v=20260622c"></script>
-<script src="src/terrain.js"></script>
+<script src="src/map.js?v=20260628c"></script>
+<script src="src/commands.js?v=20260629b"></script>
+<script src="src/audio.js?v=20260628g"></script>
+<script src="src/art.js?v=20260627h"></script>
+<script src="src/puny-art.js?v=20260625a"></script>
+<script src="src/puny-units.js?v=20260626f"></script>
+<script src="src/hero-sprites.js?v=20260625a"></script>
+<script src="src/terrain.js?v=20260628c"></script>
 <script src="src/fairy-forest.js"></script>
-<script src="src/assets.js?v=20260623a"></script>
+<script src="src/assets.js?v=20260627b"></script>
 <script src="src/components/GoldMound.js"></script>
 <script src="src/particles.js?v=20260620o"></script>
 <script src="src/sprites.js?v=20260623b"></script>
-<script src="src/pathfind.js"></script>
-<script src="src/unit-ai.js?v=20260620"></script>
-<script src="src/systems.js?v=20260623e"></script>
-<script src="src/ai.js"></script>
-<script src="src/radial-menu.js"></script>
-<script src="src/building-menu.js"></script>
-<script src="src/input.js?v=20260623q"></script>
-<script src="src/render.js?v=20260623r"></script>
-<script src="src/ui.js?v=20260623j"></script>
-<script src="src/hud.js?v=20260623i"></script>
-<script src="src/game.js?v=20260622a"></script>
+<script src="src/pathfind.js?v=20260630e"></script>
+<script src="src/unit-ai.js?v=20260630e"></script>
+<script src="src/systems.js?v=20260630f"></script>
+<script src="src/ai.js?v=20260629b"></script>
+<script src="src/radial-menu.js?v=20260628o"></script>
+<script src="src/building-menu.js?v=20260627a"></script>
+<script src="src/input.js?v=20260701g"></script>
+<script src="src/render.js?v=20260629a"></script>
+<script src="src/render3d.js?v=20260701q"></script>
+<script src="src/ui.js?v=20260627a"></script>
+<script src="src/hud.js?v=20260630e"></script>
+<script src="src/game.js?v=20260630f"></script>
 
 <!-- Phaser bootstrap — after window.RTS is populated -->
-<script type="module" src="./src/main.js?v=20260622b"></script>
+<script type="module" src="./src/main.js?v=20260628b"></script>
 </body>
 </html>

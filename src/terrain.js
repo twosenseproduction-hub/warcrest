@@ -58,6 +58,26 @@
     return grid.heights[idx(grid.cols, cx, cy)];
   }
 
+  // A ramp tile is the passable break in a cliff wall — it bridges FLAT and
+  // HIGH. grid.ramp is an optional Uint8 grid attached by the map builder.
+  function isRamp(grid, cx, cy) {
+    if (!grid.ramp || !inBounds(grid.cols, grid.rows, cx, cy)) return false;
+    return grid.ramp[idx(grid.cols, cx, cy)] === 1;
+  }
+
+  // A shallow tile is a wadeable ford: walkable FLAT ground rendered as shallow
+  // water. grid.shallow is an optional Uint8 grid attached by the map builder.
+  function isShallow(grid, cx, cy) {
+    if (!grid.shallow || !inBounds(grid.cols, grid.rows, cx, cy)) return false;
+    return grid.shallow[idx(grid.cols, cx, cy)] === 1;
+  }
+
+  // World-point elevation query (WATER / FLAT / HIGH). Used by cliff collision.
+  function levelAt(grid, wx, wy) {
+    if (!grid) return WATER;
+    return heightAt(grid, Math.floor(wx / TILE), Math.floor(wy / TILE));
+  }
+
   function sameLevel(grid, cx, cy, level) {
     return heightAt(grid, cx, cy) === level;
   }
@@ -72,12 +92,18 @@
   }
 
   /* Flat ground: fringe only toward water/void — plateaus count as connected land. */
+  // Solid (drawable-grass) ground: FLAT/HIGH but NOT a shallow ford. Fords
+  // render as water, so neighbouring grass should fringe toward them like coast.
+  function isSolidGround(grid, cx, cy) {
+    return isLand(heightAt(grid, cx, cy)) && !isShallow(grid, cx, cy);
+  }
+
   function flatGroundBitmask(grid, cx, cy) {
     var b = 0;
-    if (isLand(heightAt(grid, cx, cy - 1))) b |= 1;
-    if (isLand(heightAt(grid, cx + 1, cy))) b |= 2;
-    if (isLand(heightAt(grid, cx, cy + 1))) b |= 4;
-    if (isLand(heightAt(grid, cx - 1, cy))) b |= 8;
+    if (isSolidGround(grid, cx, cy - 1)) b |= 1;
+    if (isSolidGround(grid, cx + 1, cy)) b |= 2;
+    if (isSolidGround(grid, cx, cy + 1)) b |= 4;
+    if (isSolidGround(grid, cx - 1, cy)) b |= 8;
     return b;
   }
 
@@ -245,12 +271,51 @@
     var t = s.timers.gameTime;
     var cx, cy, h, dx, dy, bit, src, n, e, ss, se, sw, w, ne, nw;
 
-    /* Layer 1 — water background */
+    /* Layer 1 — water background (deep water tiles AND shallow-water fords) */
     for (cy = ty0; cy < ty1; cy++) {
       for (cx = tx0; cx < tx1; cx++) {
-        if (grid.heights[idx(cols, cx, cy)] !== WATER) continue;
+        var h1 = grid.heights[idx(cols, cx, cy)];
+        if (h1 !== WATER && !isShallow(grid, cx, cy)) continue;
         dx = cx * TILE; dy = cy * TILE;
         ctx.drawImage(water, 0, 0, TILE, TILE, dx, dy, TILE, TILE);
+      }
+    }
+
+    /* Layer 1b — shallow water. A graded multi-ring band fades the coast from a
+     * bright wadeable shallows into deep water; ford tiles (walkable FLAT
+     * rendered as water) and the ring touching land are brightest. The result
+     * reads like WC3 shore shallows + sandbar fords joining the isles. */
+    var SHALLOW = '96,196,205';        // bright turquoise shallows
+    var SHALLOW_DEEP = '58,150,178';   // bluer outer shallows
+    // distance (in tiles) from each visible water tile to the nearest land,
+    // capped at 3 — drives the gradient. Ford tiles count as distance 0.
+    for (cy = ty0; cy < ty1; cy++) {
+      for (cx = tx0; cx < tx1; cx++) {
+        var ford = isShallow(grid, cx, cy);
+        var isWaterTile = grid.heights[idx(cols, cx, cy)] === WATER;
+        if (!ford && !isWaterTile) continue;
+        var dist = ford ? 0 : 99, ddx, ddy;
+        if (!ford) {
+          for (ddy = -3; ddy <= 3; ddy++) {
+            for (ddx = -3; ddx <= 3; ddx++) {
+              if (isLand(heightAt(grid, cx + ddx, cy + ddy)) ||
+                  isShallow(grid, cx + ddx, cy + ddy)) {
+                var d = Math.max(Math.abs(ddx), Math.abs(ddy));
+                if (d < dist) dist = d;
+              }
+            }
+          }
+        }
+        if (dist > 3) continue;
+        dx = cx * TILE; dy = cy * TILE;
+        // alpha + colour by distance: shore (0) brightest turquoise, fading out
+        var col, a;
+        if (dist <= 0) { col = SHALLOW; a = 0.74; }
+        else if (dist === 1) { col = SHALLOW; a = 0.5; }
+        else if (dist === 2) { col = SHALLOW_DEEP; a = 0.32; }
+        else { col = SHALLOW_DEEP; a = 0.16; }
+        ctx.fillStyle = 'rgba(' + col + ',' + a + ')';
+        ctx.fillRect(dx, dy, TILE, TILE);
       }
     }
 
@@ -259,10 +324,12 @@
       for (cy = ty0; cy < ty1; cy++) {
         for (cx = tx0; cx < tx1; cx++) {
           if (grid.heights[idx(cols, cx, cy)] !== FLAT) continue;
-          n = heightAt(grid, cx, cy - 1) === WATER;
-          e = heightAt(grid, cx + 1, cy) === WATER;
-          ss = heightAt(grid, cx, cy + 1) === WATER;
-          w = heightAt(grid, cx - 1, cy) === WATER;
+          if (isShallow(grid, cx, cy)) continue;   // ford renders as water, not coast
+          // coast foam fires toward deep water AND toward shallow fords
+          n = heightAt(grid, cx, cy - 1) === WATER || isShallow(grid, cx, cy - 1);
+          e = heightAt(grid, cx + 1, cy) === WATER || isShallow(grid, cx + 1, cy);
+          ss = heightAt(grid, cx, cy + 1) === WATER || isShallow(grid, cx, cy + 1);
+          w = heightAt(grid, cx - 1, cy) === WATER || isShallow(grid, cx - 1, cy);
           if (!n && !e && !ss && !w) continue;
           dx = cx * TILE - TILE;
           dy = cy * TILE - TILE;
@@ -272,10 +339,11 @@
       }
     }
 
-    /* Layer 3 — flat ground */
+    /* Layer 3 — flat ground (shallow fords skipped: they render as water) */
     for (cy = ty0; cy < ty1; cy++) {
       for (cx = tx0; cx < tx1; cx++) {
         if (grid.heights[idx(cols, cx, cy)] !== FLAT) continue;
+        if (isShallow(grid, cx, cy)) continue;
         bit = flatGroundBitmask(grid, cx, cy);
         src = autotileSrc(bit, 0, 0);
         dx = cx * TILE; dy = cy * TILE;
@@ -310,19 +378,21 @@
         se = heightAt(grid, cx + 1, cy + 1);
         sw = heightAt(grid, cx - 1, cy + 1);
 
-        if (ss < HIGH) {
+        // Open the cliff wall over a ramp: skip the face toward a ramp tile so
+        // the descent reads as a passage rather than a sheer wall.
+        if (ss < HIGH && !isRamp(grid, cx, cy + 1)) {
           var c = (ss === WATER) ? CLIFF.SW : CLIFF.S;
           drawAtlasTile(ctx, atlas, c.col, c.row, dx, dy);
         }
-        if (n < HIGH) {
+        if (n < HIGH && !isRamp(grid, cx, cy - 1)) {
           c = (n === WATER) ? CLIFF.N : CLIFF.N;
           drawAtlasTile(ctx, atlas, c.col, c.row, dx, dy);
         }
-        if (e < HIGH && ne < HIGH && se < HIGH) {
+        if (e < HIGH && ne < HIGH && se < HIGH && !isRamp(grid, cx + 1, cy)) {
           c = (e === WATER) ? CLIFF.SE : CLIFF.E;
           drawAtlasTile(ctx, atlas, c.col, c.row, dx, dy);
         }
-        if (w < HIGH && nw < HIGH && sw < HIGH) {
+        if (w < HIGH && nw < HIGH && sw < HIGH && !isRamp(grid, cx - 1, cy)) {
           c = (w === WATER) ? CLIFF.SW : CLIFF.W;
           drawAtlasTile(ctx, atlas, c.col, c.row, dx, dy);
         }
@@ -361,6 +431,7 @@
     render: render,
     groundY: groundY,
     isWater: isWater,
+    levelAt: levelAt,
     themeTileset: function (theme) { return THEME_TILESET[theme] || 'color1'; },
     tilesetPath: function (key) { return TILESETS[key]; },
   };

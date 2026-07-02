@@ -429,6 +429,7 @@
    * ========================================================================*/
   function drawBuilding(ctx, b, f, s) {
     if (b.dead) return;
+    if (RTS.PunyArt && RTS.PunyArt.enabled && RTS.PunyArt.draw(ctx, b, s)) return;
     if (RTS.Assets && RTS.Assets.ready && RTS.Assets.drawBuilding(ctx, b, f, s)) return;
     var x = b.x, y = b.y;
     var built = b.built;
@@ -1135,7 +1136,8 @@
       var mx = u.x + Math.cos(u.facing) * (r + 8);
       var my = (vb ? vb.bodyCy : u.y) + Math.sin(u.facing) * (r + 8);
       var ma = u.muzzleFlash / RTS.Config.muzzleFlash;
-      ctx.fillStyle = hexA(pal.glow, ma * 0.9);
+      var glowCol = (pal && pal.glow) || (f && f.accent) || '#ffe08a';
+      ctx.fillStyle = hexA(glowCol, ma * 0.9);
       pCircle(ctx, mx, my, 7 + ma * 4);
       ctx.fill();
       ctx.fillStyle = hexA('#ffffff', ma);
@@ -1143,13 +1145,17 @@
       ctx.fill();
     }
     if (u.hp < u.maxHp || s.settings.showHealthAlways) {
-      var barW = vb ? Math.max(34, vb.drawW * 0.85) : Math.max(34, r * 2.8);
-      drawHealthBar(ctx, u.x, topY, barW, u.hp / u.maxHp, pal.trim, false, false);
+      var barW = vb ? Math.max(46, vb.drawW * 0.95) : Math.max(46, r * 3.8);
+      // pal is absent when called from the Puny/hero sprite renderers — fall back to faction colour.
+      var barCol = (pal && pal.trim) || (f && f.primary) || '#cfd8dc';
+      drawHealthBar(ctx, u.x, topY, barW, u.hp / u.maxHp, barCol, false, false);
     }
   }
   RTS.Art.drawUnitOverlays = drawUnitOverlays;
 
   function drawUnit(ctx, u, f, s) {
+    if (RTS.HeroSprites && RTS.HeroSprites.enabled && RTS.HeroSprites.draw(ctx, u, f, s)) return;
+    if (RTS.PunyUnits && RTS.PunyUnits.enabled && RTS.PunyUnits.draw(ctx, u, f, s)) return;
     if (RTS.Sprites && RTS.Sprites.ready) {
       RTS.Sprites.drawUnit(ctx, u, f, s);
       return;
@@ -1461,7 +1467,25 @@
    * Shadow — soft radial blob (Wild Rift–style ground contact).
    * ========================================================================*/
   function drawShadow(ctx, x, y, r, alpha) {
-    /* shadows disabled */
+    /* Off by default; the Thronefall look turns on soft, long ground shadows
+     * offset toward one key light (down-right), flattened to the ground — the
+     * core of the flat-shaded illusion. Drawn under units, buildings, trees and
+     * resources via this one call site. */
+    if (!(RTS.Config && RTS.Config.tfLook) || !r) return;
+    alpha = (alpha != null ? alpha : 0.3);
+    var ox = r * 0.34, oy = r * 0.12;
+    ctx.save();
+    ctx.translate(x + ox, y + oy);
+    ctx.scale(1, 0.5);
+    var g = ctx.createRadialGradient(0, 0, r * 0.1, 0, 0, r);
+    g.addColorStop(0, 'rgba(22,18,12,' + alpha + ')');
+    g.addColorStop(0.55, 'rgba(22,18,12,' + (alpha * 0.8) + ')');
+    g.addColorStop(1, 'rgba(22,18,12,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
   }
 
   function drawAnimal(ctx, a, s) {

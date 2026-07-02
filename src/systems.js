@@ -189,8 +189,20 @@
     for (i = 0; i < s.entities.buildings.length; i++) updateBuilding(s, s.entities.buildings[i], dt);
     updateProjectiles(s, dt);
     updateEffects(s, dt);
+    if (RTS.tickThornwalls) RTS.tickThornwalls(s, dt);
+    if (RTS.tickTimedBlasts) RTS.tickTimedBlasts(s, dt);   // Skrix scatter charges
+    if (RTS.tickDots) RTS.tickDots(s, dt);                 // bleeds (Thorn Cut)
+    if (RTS.tickCharms) RTS.tickCharms(s, dt);             // Unravel allegiance revert
     tickAutoMine(s, dt);
     if (!(s.map && s.map.sandbox)) RTS.AI.update(s, dt);
+
+    // expire timed summons (e.g. Grollusk's spirit warriors) — poof, not a death.
+    for (i = 0; i < s.entities.units.length; i++) {
+      var su = s.entities.units[i];
+      if (su.dead || !su._expireAt || s.timers.gameTime < su._expireAt) continue;
+      su.dead = true; su.hp = 0; su.corpse = 0.4;
+      RTS.addEffect(s, { kind: 'nova', x: su.x, y: su.y, r: 6, maxR: 46, life: 0.5, max: 0.5, color: '#6cff8a' });
+    }
 
     // cull dead units after corpse fade
     s.entities.units = s.entities.units.filter(function (u) {
@@ -203,6 +215,12 @@
 
     RTS.recalcSupply(s, TEAM.PLAYER);
     RTS.recalcSupply(s, TEAM.ENEMY);
+    // Creator mode (sandbox): keep the player's coffers full and lift the supply
+    // cap so nothing gates building. Done AFTER recalcSupply so it isn't undone.
+    if (RTS.Config.creatorMode && s.res && s.res.player) {
+      s.res.player.halcite = Math.max(s.res.player.halcite, 100000);
+      s.res.player.supplyCap = Math.max(s.res.player.supplyCap, s.res.player.supplyUsed + 40);
+    }
     checkEndGame(s);
   };
 
@@ -215,6 +233,16 @@
   function updateUnit(s, u, dt) {
     if (u.dead) return;
     u.cooldown = Math.max(0, u.cooldown - dt);
+    // Blood Vigor (Raider Horde) — regenerate HP once out of combat for a beat.
+    if (u.regen > 0 && u.hp < u.maxHp &&
+        (s.timers.gameTime - (u._lastCombatAt != null ? u._lastCombatAt : -999)) > RTS.Config.regenDelay) {
+      u.hp = Math.min(u.maxHp, u.hp + u.regen * dt);
+    }
+    // Caster mana regen, buff expiry, heal-over-time, and autocast abilities.
+    if (u.manaRegen > 0 && u.mana < u.maxMana) u.mana = Math.min(u.maxMana, u.mana + u.manaRegen * dt);
+    if (RTS.tickBuffs) RTS.tickBuffs(s, u);
+    if (u.buffHealPerSec > 0 && u.hp < u.maxHp) u.hp = Math.min(u.maxHp, u.hp + u.buffHealPerSec * dt);
+    if (RTS.tickAutocast && u.abilities && u.abilities.length) RTS.tickAutocast(s, u);
     u.muzzleFlash = Math.max(0, u.muzzleFlash - dt);
     u.spawnFlash = Math.max(0, u.spawnFlash - dt);
     u._idlePhase = (u._idlePhase || 0) + dt;
@@ -224,6 +252,9 @@
     }
 
     if (RTS.UnitAI) RTS.UnitAI.initUnitAIState(u);
+
+    // Hero channelled cast (e.g. The Ashfall) preempts normal AI while active.
+    if (u._channel && RTS.tickHeroChannel && RTS.tickHeroChannel(s, u, dt)) return;
 
     // Pawn retaliation (brief self-defense, then resume work)
     if (RTS.UnitAI && RTS.UnitAI.pawnRetaliateActive(u)) {
@@ -239,7 +270,7 @@
             u.vx = 0; u.vy = 0;
             u.facing = Math.atan2(ratk.aimY - u.y, ratk.aimX - u.x);
             if (u.cooldown <= 0 && u.dmg > 0) {
-              u.cooldown = u.rof;
+              u.cooldown = RTS.effectiveRof ? RTS.effectiveRof(u) : u.rof;
               fire(s, u, rt);
             }
           } else {
@@ -272,14 +303,18 @@
         u.inAttackRange = true;
         u.vx = 0; u.vy = 0;
         u.facing = Math.atan2(atk.aimY - u.y, atk.aimX - u.x);
-        if (u.cooldown <= 0 && u.dmg > 0) {
-          u.cooldown = u.rof;
+        if (u.cooldown <= 0 && u.dmg > 0 && !u.buffDisabled) {   // Hex disables attacks
+          u.cooldown = RTS.effectiveRof ? RTS.effectiveRof(u) : u.rof;
           fire(s, u, target);
         }
+      } else if (u.buffRooted) {                                  // Ensnare: cannot close distance
+        u.vx = 0; u.vy = 0;
       } else {
+        u.facing = Math.atan2(target.y - u.y, target.x - u.x);    // face the foe we chase
         navMove(s, u, atk.tx, atk.ty, dt, atk.stop, { chasing: true });
       }
-    } else if (u.moveTo) {
+    } else if (u.moveTo && !u.buffRooted) {
+      u.facing = Math.atan2(u.moveTo.y - u.y, u.moveTo.x - u.x);   // face where we walk
       navMove(s, u, u.moveTo.x, u.moveTo.y, dt, 6);
       if (dist(u.x, u.y, u.moveTo.x, u.moveTo.y) < 10) {
         u.moveTo = null;
@@ -297,6 +332,7 @@
         } else if (u.commandMode === 'move') {
           u.commandMode = 'idle';
           u.attackMove = false;
+          u._grpSpeed = 0;            // formation march over — drop the group pace cap
         }
         if (RTS.Pathfind) RTS.Pathfind.clearNav(u);
       }
@@ -310,7 +346,7 @@
   function resolveLegacyTarget(s, u) {
     var target = u.target ? RTS.getById(s, u.target) : null;
     if (target && !RTS.canBeAttacked(target)) { u.target = null; target = null; }
-    if (!target && u.role !== 'pawn' && u.heal === 0) {
+    if (!target && u.role !== 'pawn' && (u.heal === 0 || u.dmg > 0)) {
       if (u.attackMove || u.team === TEAM.ENEMY || !u.moveTo) {
         var combat = RTS.Config.combat || {};
         var attentionMul = u.attackMove
@@ -332,26 +368,39 @@
   }
 
   function fire(s, u, target) {
+    u._lastCombatAt = s.timers.gameTime || 0;   // attacking pauses Blood Vigor regen
+    var dmg = RTS.outgoingDamage ? RTS.outgoingDamage(u, u.dmg) : u.dmg;   // folds in Inner Fire etc.
+    if (RTS.traitOutgoingMul) dmg *= RTS.traitOutgoingMul(s, u, target);   // sniper focus / formation / building-bane
+    if (u.heroId === 'aelindra' && target) {   // Wind Rider — long-range arrows hit harder
+      var ah = RTS.getHero && RTS.getHero('aelindra'), ap = ah && ah.passive;
+      if (ap && ap.longshotPx && Math.hypot((target.x || 0) - u.x, (target.y || 0) - u.y) > ap.longshotPx) dmg *= 1 + (ap.longshotBonus || 0);
+    }
+    // Vanishing Step — Thoryn's empowered strike consumes on the next hit.
+    if (u._empowerUntil && (s.timers.gameTime || 0) <= u._empowerUntil) {
+      dmg *= 1 + (u._empowerMul || 0); u._empowerUntil = 0;
+    }
+    // attacker-side hero passives (Thoryn spine tempo, Seraphine resonance slow)
+    if (RTS.heroOnHit && target) RTS.heroOnHit(s, u, target);
     if (RTS.Sprites && RTS.Sprites.ready) {
       RTS.Sprites.startAttack(u, target);
       if (u.ranged) {
         u._pendingShot = {
           targetId: target.id,
-          dmg: u.dmg,
+          dmg: dmg,
           splash: u.splash,
           faction: u.faction,
           role: u.role,
           released: false,
         };
       } else {
-        u._pendingMelee = { targetId: target.id, dmg: u.dmg, released: false };
+        u._pendingMelee = { targetId: target.id, dmg: dmg, released: false };
       }
       RTS.Audio.play(u.ranged ? 'shot' : 'melee');
       return;
     }
     u.muzzleFlash = RTS.Config.muzzleFlash;
     if (u.ranged) {
-      RTS.makeProjectile(s, u, target, u.dmg, {
+      RTS.makeProjectile(s, u, target, dmg, {
         splash: u.splash,
         color: u.heroId === 'grollusk' ? '#4cff6b' : RTS.Factions[u.faction].accent,
         faction: u.faction,
@@ -360,7 +409,7 @@
       });
       RTS.Audio.play(u.ranged ? 'shot' : 'melee');
     } else {
-      applyDamage(s, target, u.dmg, u);
+      applyDamage(s, target, dmg, u);
       RTS.Audio.play('melee');
     }
   }
@@ -378,6 +427,7 @@
           heroId: u.heroId || null,
         });
       }
+      u.muzzleFlash = RTS.Config.muzzleFlash;   // signal the 3D renderer to flash + lunge
       u._pendingShot.released = true;
       if (u._pendingShot.released) u._pendingShot = null;
     }
@@ -397,6 +447,7 @@
           );
         }
       }
+      u.muzzleFlash = RTS.Config.muzzleFlash;   // melee impact: lunge + 3D slash spark
       u._pendingMelee.released = true;
       if (u._pendingMelee.released) u._pendingMelee = null;
     }
@@ -426,7 +477,7 @@
       u.inAttackRange = true;
       u.facing = Math.atan2(best.y - u.y, best.x - u.x);
       if (u.cooldown <= 0) {
-        u.cooldown = u.rof;
+        u.cooldown = RTS.effectiveRof ? RTS.effectiveRof(u) : u.rof;
         if (RTS.Sprites && RTS.Sprites.ready) {
           RTS.Sprites.startAttack(u, best);
           u._pendingHeal = { targetId: best.id, amount: u.heal, released: false };
@@ -624,6 +675,7 @@
         u.harvest.cycleT = 0;
         u.facing = Math.atan2(node.y - u.y, node.x - u.x);
       } else {
+        u.facing = Math.atan2(target.y - u.y, target.x - u.x);   // face the node we walk toward
         navMove(s, u, target.x, target.y, dt, H.slotReach, { skipResourceId: node.id });
       }
       finishUnitMove(s, u, dt, false);
@@ -674,6 +726,7 @@
       }
 
       var approach = depositApproachPoint(u, dep, s);
+      u.facing = Math.atan2(dep.y - u.y, dep.x - u.x);   // face the deposit building on the way back
       navMove(s, u, approach.x, approach.y, dt, depositApproachStop(), { skipBuildingId: dep.id });
       finishUnitMove(s, u, dt, false);
       tryFinishDeposit(s, u, node);
@@ -748,6 +801,7 @@
     if (!builderOnSite(u, b)) {
       u._builderOnSite = false;
       u._workPhase = 0;
+      u.facing = Math.atan2(b.y - u.y, b.x - u.x);   // face the build site we walk toward
       navMove(s, u, b.x, b.y, dt, reach - 6, { skipBuildingId: b.id });
       finishUnitMove(s, u, dt, false);
     } else {
@@ -774,6 +828,8 @@
     }
 
     if (!b.built) {
+      // Creator mode: player structures raise instantly, no worker trek needed.
+      if (RTS.Config.creatorMode && b.team === TEAM.PLAYER) b.progress = 1;
       syncBuilderLink(s, b);
       if (!b.builderId && RTS.assignBuilder) RTS.assignBuilder(s, b);
       b.hp = Math.max(b.hp, b.maxHp * (0.08 + 0.92 * b.progress));
@@ -808,16 +864,31 @@
       return;
     }
 
-    // Defensive structures fire
+    // Tier / tower research — ticks while active and blocks the building's work.
+    if (b.upgrading) {
+      b.upgrading.remaining -= dt;
+      if (b.upgrading.remaining <= 0) {
+        if (b.upgrading.toTower && RTS.applyTowerUpgrade) RTS.applyTowerUpgrade(s, b);
+        else if (RTS.applyBuildingUpgrade) RTS.applyBuildingUpgrade(s, b);
+      }
+      b.train = null;
+      return;
+    }
+
+    // Defensive structures fire (Arrow Tower / Bombard use their upgraded stats).
     var spec = RTS.Buildings[b.type];
     if (spec.defense) {
-      var foe = nearestEnemy(s, b.x, b.y, b.team, spec.range);
+      var fRange = b.range || spec.range, fRof = b.rof || spec.rof, fDmg = b.dmg || spec.dmg;
+      var foe = nearestEnemy(s, b.x, b.y, b.team, fRange);
       if (foe && b.cooldown <= 0) {
-        b.cooldown = spec.rof;
-        RTS.makeProjectile(s, b, foe, spec.dmg, {
+        b.cooldown = fRof;
+        var dmg = fDmg;
+        if (b.buildingDmgBonus && foe.kind === 'building') dmg = Math.round(dmg * (1 + b.buildingDmgBonus));
+        RTS.makeProjectile(s, b, foe, dmg, {
           color: RTS.Factions[b.faction].accent,
           faction: b.faction,
           fromTurret: true,
+          splash: b.splash || 0,
         });
         RTS.Audio.play('shot');
       }
@@ -827,7 +898,8 @@
     if (b.queue.length) {
       var job = b.queue[0];
       b.train = job;
-      job.remaining -= dt;
+      // Creator mode: player units pop out the instant they're queued.
+      job.remaining -= (RTS.Config.creatorMode && b.team === TEAM.PLAYER) ? job.remaining : dt;
       if (job.remaining <= 0) {
         b.queue.shift();
         if (job.role === '_livestock') {
@@ -1047,6 +1119,26 @@
   }
 
   function applyDamage(s, target, amount, attacker, impact) {
+    // The Last Wall — Valdris is untouchable while the wall stands.
+    if (target._invuln) {
+      if (RTS.spawnFloat) RTS.spawnFloat(s, target.x, target.y - (target.radius || 12), 'block', '#cfe0ff');
+      return;
+    }
+    // Wild Grace (Rimwalker) — a dodged hit deals nothing; mark it for feedback.
+    if (target.kind === 'unit' && target.evade > 0 && !target.dead && Math.random() < target.evade) {
+      target._lastCombatAt = s.timers.gameTime || 0;
+      if (RTS.spawnFloat) RTS.spawnFloat(s, target.x, target.y - (target.radius || 12), 'dodge', '#9be8ff');
+      return;
+    }
+    // Iron Discipline (armor) + Inner Fire (buff armor) — soak a flat share.
+    if (target.kind === 'unit') {
+      var arm = RTS.effectiveArmor ? RTS.effectiveArmor(target) : (target.armor || 0);
+      if (arm > 0) amount *= (1 - arm);
+      if (RTS.incomingMul) amount *= RTS.incomingMul(target);   // Berserk etc. vulnerability
+      if (RTS.traitIncomingMul) amount *= RTS.traitIncomingMul(s, target);   // Monk damage-reduction aura
+    }
+    // Blood Vigor (Raider Horde) — taking damage pauses out-of-combat regen.
+    if (target.kind === 'unit') target._lastCombatAt = s.timers.gameTime || 0;
     if (target.kind === 'unit' && target.heroId === 'valdris' && RTS.getHero) {
       var heroDef = RTS.getHero('valdris');
       if (heroDef && heroDef.passive) {
@@ -1077,6 +1169,17 @@
       s.ui.baseAlarm = 1.2;
     }
 
+    // Iron Edict — Valdris's banner lets an ally survive one lethal hit at 1hp.
+    if (target.hp <= 0 && !target.dead && target.buffs && target.buffs.length) {
+      var ward = target.buffs.find(function (b) { return b.wardLethal; });
+      if (ward) {
+        target.hp = 1;
+        target.buffs = target.buffs.filter(function (b) { return b !== ward; });
+        if (RTS.recomputeBuffs) RTS.recomputeBuffs(target);
+        if (RTS.spawnFloat) RTS.spawnFloat(s, target.x, target.y - (target.radius || 12), 'edict', '#ffd98a');
+        if (RTS.addEffect) RTS.addEffect(s, { kind: 'nova', x: target.x, y: target.y, r: 6, maxR: 40, life: 0.5, max: 0.5, color: '#ffd98a' });
+      }
+    }
     if (target.hp <= 0 && !target.dead) {
       killEntity(s, target, attacker);
     }
@@ -1086,6 +1189,7 @@
   function killEntity(s, e, attacker) {
     e.dead = true; e.hp = 0;
     if (e.kind === 'unit') {
+      if (RTS.onUnitDeathTraits) RTS.onUnitDeathTraits(s, e);   // Blood Frenzy: enrage nearby kin
       e.corpse = RTS.Config.corpseFade;
       if (RTS.Particles && RTS.Particles.ready) {
         RTS.Particles.spawnUnitDeath(s, e.x, e.y, e.faction);
@@ -1094,6 +1198,7 @@
       }
       if (attacker && attacker.team === TEAM.PLAYER) s.stats.kills++;
       if (e.team === TEAM.PLAYER) s.stats.unitsLost++;
+      if (RTS.awardHeroXp) RTS.awardHeroXp(s, attacker, e);   // nearby heroes gain XP
       s.selectedIds = s.selectedIds.filter(function (id) { return id !== e.id; });
     } else {
       if (e.livestock) {
@@ -1167,6 +1272,11 @@
     s.entities.effects = s.entities.effects.filter(function (fx) {
       fx.life -= dt;
       if (fx.kind === 'ring' || fx.kind === 'boom') fx.r += 60 * dt;
+      if (fx.kind === 'nova') {
+        // grow from current r to maxR over the effect's lifetime
+        var prog = 1 - Math.max(0, fx.life / fx.max);
+        fx.r = 8 + (fx.maxR - 8) * prog;
+      }
       if (fx.kind === 'float') fx.y -= 22 * dt;
       return fx.life > 0;
     });
@@ -1176,7 +1286,9 @@
   function moveToward(s, u, tx, ty, dt, stop) {
     var dx = tx - u.x, dy = ty - u.y, d = Math.sqrt(dx * dx + dy * dy) || 1;
     if (d <= stop) { u.vx = 0; u.vy = 0; return; }
-    var vx = dx / d * u.speed, vy = dy / d * u.speed;
+    var base = RTS.effectiveSpeed ? RTS.effectiveSpeed(u) : u.speed;
+    var spd = (u._grpSpeed && !u.target) ? Math.min(u._grpSpeed, base) : base;
+    var vx = dx / d * spd, vy = dy / d * spd;
     var grid = s && s.map && s.map.terrainGrid;
     if (grid && RTS.Terrain) {
       var nx = u.x + vx * dt, ny = u.y + vy * dt;
@@ -1246,6 +1358,11 @@
     return u.radius + o.radius + RTS.Config.unitCollisionGap;
   }
 
+  // A unit is "mobile" while it has somewhere to be; otherwise it's settled and
+  // acts as a stable anchor that movers flow around (instead of all parties
+  // splitting penetration 50/50 and shuffling in place forever).
+  function unitMobile(u) { return !!(u.moveTo || u.target); }
+
   function separateUnitPair(u, o) {
     var dx = u.x - o.x, dy = u.y - o.y;
     var d = Math.sqrt(dx * dx + dy * dy);
@@ -1262,10 +1379,11 @@
       ny = dy / d;
     }
     var pen = minD - d;
-    u.x += nx * pen * 0.5;
-    u.y += ny * pen * 0.5;
-    o.x -= nx * pen * 0.5;
-    o.y -= ny * pen * 0.5;
+    // Mobility-weighted split: the mover gives way, the settled one holds.
+    var um = unitMobile(u), om = unitMobile(o), wu = 0.5;
+    if (um && !om) wu = 0.82; else if (!um && om) wu = 0.18;
+    u.x += nx * pen * wu;       u.y += ny * pen * wu;
+    o.x -= nx * pen * (1 - wu); o.y -= ny * pen * (1 - wu);
   }
 
   function resolveAllUnitOverlaps(s) {
@@ -1285,6 +1403,10 @@
   }
 
   function softSeparation(s, u, dt) {
+    // Settled units don't actively shove their neighbours — the hard overlap
+    // pass still keeps them from interpenetrating, but they stop churning the
+    // crowd. Only units that are actually going somewhere push to clear a lane.
+    if (!unitMobile(u)) return;
     var push = RTS.Config.separation;
     if (u.role === 'pawn') push *= RTS.Config.pawnSeparationMul || 0.28;
     var units = s.entities.units;
@@ -1304,6 +1426,19 @@
   function finishUnitMove(s, u, dt, withSeparation) {
     var grid = s.map && s.map.terrainGrid;
     var wasWater = grid && RTS.Terrain ? RTS.Terrain.isWater(grid, u.x, u.y) : false;
+
+    // Movement feel: ease the ACTUAL velocity toward the desired velocity the AI
+    // set this frame, so units accelerate from rest and coast to a stop instead
+    // of snapping between full speed and zero. The ramp rate scales with the
+    // unit's own speed so light and heavy units accelerate over a similar time.
+    var dvx = u.vx || 0, dvy = u.vy || 0;
+    if (u._evx === undefined) { u._evx = dvx; u._evy = dvy; }
+    var step = (RTS.Config.moveAccelRate || 9) * (u.speed || 60) * dt;
+    var ex = dvx - u._evx, ey = dvy - u._evy;
+    var el = Math.sqrt(ex * ex + ey * ey);
+    if (el > step && el > 0.0001) { var k = step / el; ex *= k; ey *= k; }
+    u._evx += ex; u._evy += ey;
+    u.vx = u._evx; u.vy = u._evy;
 
     u.x += u.vx * dt;
     u.y += u.vy * dt;
@@ -1426,8 +1561,70 @@
     u.y = Math.max(u.radius, Math.min(RTS.Config.world.h - u.radius, u.y));
   }
 
+  // Trees are solid: if a unit ends a step inside a tree-blocked cell, snap it
+  // back to its last tree-free position (same approach as water). Commanded
+  // units already A*-route around trees via the path grid; this catches direct
+  // moves, shoves and idle drift so trees can't be walked over.
+  function resolveTreeCollision(s, u) {
+    if (!RTS.isTreeBlocked || !s.map || !s.map.treeBlocked) return;
+    if (!RTS.isTreeBlocked(s, u.x, u.y)) {
+      u._lastFreeX = u.x;
+      u._lastFreeY = u.y;
+      return;
+    }
+    if (u._lastFreeX != null && !RTS.isTreeBlocked(s, u._lastFreeX, u._lastFreeY)) {
+      u.x = u._lastFreeX;
+      u.y = u._lastFreeY;
+    } else {
+      // No known free spot yet — nudge toward the nearest open cell.
+      var samples = 16, ring, i, ang, step, nx, ny;
+      for (ring = 1; ring <= 5; ring++) {
+        step = (u.radius || 10) + ring * 12;
+        for (i = 0; i < samples; i++) {
+          ang = (i / samples) * Math.PI * 2;
+          nx = u.x + Math.cos(ang) * step;
+          ny = u.y + Math.sin(ang) * step;
+          if (!RTS.isTreeBlocked(s, nx, ny)) { u.x = nx; u.y = ny; ring = 99; break; }
+        }
+      }
+    }
+    u.vx = 0;
+    u.vy = 0;
+  }
+
+  // Cliffs are solid: a unit that ends a step inside a cliff-wall cell is snapped
+  // back to its last cliff-free position (same approach as water/trees). Units
+  // route over plateaus only via ramps, which aren't cliff-walled.
+  function resolveCliffCollision(s, u) {
+    if (!RTS.isCliffBlocked || !s.map || !s.map.cliffBlocked) return;
+    if (!RTS.isCliffBlocked(s, u.x, u.y)) {
+      u._lastCliffFreeX = u.x;
+      u._lastCliffFreeY = u.y;
+      return;
+    }
+    if (u._lastCliffFreeX != null && !RTS.isCliffBlocked(s, u._lastCliffFreeX, u._lastCliffFreeY)) {
+      u.x = u._lastCliffFreeX;
+      u.y = u._lastCliffFreeY;
+    } else {
+      var samples = 16, ring, i, ang, step, nx, ny;
+      for (ring = 1; ring <= 5; ring++) {
+        step = (u.radius || 10) + ring * 12;
+        for (i = 0; i < samples; i++) {
+          ang = (i / samples) * Math.PI * 2;
+          nx = u.x + Math.cos(ang) * step;
+          ny = u.y + Math.sin(ang) * step;
+          if (!RTS.isCliffBlocked(s, nx, ny)) { u.x = nx; u.y = ny; ring = 99; break; }
+        }
+      }
+    }
+    u.vx = 0;
+    u.vy = 0;
+  }
+
   function clampUnitTerrain(s, u) {
     resolveWaterCollision(s, u);
+    resolveTreeCollision(s, u);
+    resolveCliffCollision(s, u);
     clampToWorld(u);
   }
 

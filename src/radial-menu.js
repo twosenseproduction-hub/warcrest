@@ -79,8 +79,11 @@
       });
     }
 
-    if (spec.trains && spec.trains.length && building.built) {
-      spec.trains.forEach(function (role) {
+    var trainList = RTS.Config.getTrainableUnits
+      ? RTS.Config.getTrainableUnits(fid, building.type)
+      : (spec.trains || []);
+    if (trainList.length && building.built) {
+      trainList.forEach(function (role) {
         if (role === '_livestock') {
           var lc = RTS.Config.livestock;
           var canQ = RTS.canQueueLivestock ? RTS.canQueueLivestock(s, building) : true;
@@ -98,7 +101,7 @@
           });
           return;
         }
-        var us = RTS.trainSpec ? RTS.trainSpec(role) : RTS.Units[role];
+        var us = RTS.trainSpec ? RTS.trainSpec(role, fid) : RTS.Units[role];
         if (!us) return;
         var cost = us.trainCost != null ? us.trainCost : us.cost;
         var afford = s.res.player.halcite >= cost;
@@ -106,6 +109,8 @@
           RTS.hasLivingHero && RTS.hasLivingHero(s, RTS.TEAM.PLAYER, role);
         var supplyOk = RTS.isHeroRole && RTS.isHeroRole(role) ? true :
           s.res.player.supplyUsed + (us.supply || 0) <= s.res.player.supplyCap;
+        var playerTier = RTS.Config.teamTier ? RTS.Config.teamTier(s, RTS.TEAM.PLAYER) : 1;
+        var tierLocked = (us.tier || 1) > playerTier;
         var portrait = (RTS.isHeroRole && RTS.isHeroRole(role))
           ? (UI().roleTrayIcon ? UI().roleTrayIcon(fid, 'monk', 34) : unitAvatarSrc(fid, 'monk'))
           : (UI().roleTrayIcon ? UI().roleTrayIcon(fid, role, 34) : unitAvatarSrc(fid, role));
@@ -114,10 +119,38 @@
           kind: 'train',
           bid: building.id,
           role: role,
-          label: RTS.nameFor(fid, role).toUpperCase(),
+          label: RTS.nameFor(fid, role).toUpperCase() + (tierLocked ? ' 🔒' : ''),
           avatar: portrait,
           cost: cost,
-          disabled: !afford || !supplyOk || heroBlocked,
+          disabled: !afford || !supplyOk || heroBlocked || tierLocked || !!building.upgrading,
+        });
+      });
+    }
+
+    // Tier / core upgrade (e.g. Keep → Citadel) as a radial option.
+    if (RTS.Config.canUpgrade && RTS.Config.canUpgrade(building)) {
+      var upCost = RTS.Config.upgradeCost ? RTS.Config.upgradeCost(building) : 0;
+      var upLabel = 'UPGRADE';
+      if (building.type === 'core') {
+        var cspec = RTS.Buildings.core;
+        upLabel = 'BUILD ' + ((cspec && cspec.tierName && cspec.tierName[(building.level || 1)]) || 'KEEP').toUpperCase();
+      }
+      out.push({
+        id: 'upgrade-' + building.id, kind: 'upgrade', bid: building.id,
+        label: upLabel, avatar: (UI().iconUrl && UI().iconUrl('upgrade')) || HAMMER_ICON,
+        cost: upCost, disabled: s.res.player.halcite < upCost || !!building.upgrading,
+      });
+    }
+
+    // Guard-tower specialisation — a base turret can research into its faction's lines.
+    if (building.type === 'turret' && !building.towerType && !building.upgrading && RTS.towerUpgradesFor) {
+      var tups = RTS.towerUpgradesFor(building.faction);
+      Object.keys(tups).forEach(function (key) {
+        var def = tups[key];
+        out.push({
+          id: 'tower-' + key + '-' + building.id, kind: 'upgrade-tower', bid: building.id, variant: key,
+          label: def.label.toUpperCase(), avatar: (UI().iconUrl && UI().iconUrl('upgrade')) || HAMMER_ICON,
+          cost: def.cost, disabled: s.res.player.halcite < def.cost,
         });
       });
     }
@@ -332,6 +365,12 @@
       case 'automine':
         data = { act: 'toggle-automine', bid: item.bid };
         break;
+      case 'upgrade':
+        data = { act: 'upgrade', bid: item.bid };
+        break;
+      case 'upgrade-tower':
+        data = { act: 'upgrade-tower', bid: item.bid, variant: item.variant };
+        break;
       default:
         return;
     }
@@ -476,6 +515,7 @@
       layoutItems(s);
       root.classList.remove('hidden');
       open = true;
+      if (document.body) document.body.classList.add('radial-open');   // retire the hub
       bindEscape();
       if (navigator.vibrate) navigator.vibrate(14);
       return true;
@@ -485,6 +525,7 @@
       if (!root) return;
       root.classList.add('hidden');
       root.classList.remove('arc-flip');
+      if (document.body) document.body.classList.remove('radial-open');
       open = false;
       ctx = null;
       items = [];

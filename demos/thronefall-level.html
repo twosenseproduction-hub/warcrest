@@ -1,0 +1,918 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Warcrest — Thronefall-style level</title>
+<style>html,body{margin:0;height:100%;overflow:hidden;background:#8fc9e8}canvas{display:block}
+#tip{position:fixed;left:18px;top:16px;max-width:230px;background:#2b2620dd;color:#efe7d6;
+  font:15px/1.35 Georgia,serif;padding:11px 14px;border-radius:9px}
+#tip b{color:#fff}
+#gold{position:fixed;right:18px;bottom:16px;color:#fff;font:bold 18px system-ui;
+  text-shadow:0 1px 2px #0007;display:flex;align-items:center;gap:6px}
+#gold .c{width:15px;height:15px;border-radius:50%;background:#f4c53b;box-shadow:inset 0 0 0 2px #b98a1e}
+</style>
+</head>
+<body>
+<div id="tip">Tap a glowing <b>plot</b> to build — <b>Houses</b> for gold, <b>Barracks</b> for troops, <b>Towers</b> for defense. Hold the line against the orc warband!</div>
+<div id="gold"><span class="c"></span><span id="goldn">140</span></div>
+<script src="/vendor/three.min.js"></script>
+<script src="/vendor/GLTFLoader.js"></script>
+<script src="/vendor/fflate.min.js"></script>
+<script src="/vendor/NURBSCurve.js"></script>
+<script src="/vendor/NURBSUtils.js"></script>
+<script src="/vendor/FBXLoader.js"></script>
+<script src="/vendor/SkeletonUtils.js"></script>
+<script>
+// ---------- palette (sampled to match Thronefall reference) ----------
+const C = {
+  grass:      0xeaf0f4, grass2: 0x94a19a, grass3: 0xf3f7fa,   // snow, bare frozen ground, bright drift
+  snowLo:     0xcdd9e4,                                        // shaded/low snow (bluish)
+  beach:      0xd3dee2,                                        // icy shoreline shelf
+  path:       0xd7e0e6,                                        // packed-snow road
+  cliffLit:   0xe6edf1, cliffShade: 0x24506a, cliffMid: 0x74828b,   // snow lip / cold deep water / grey rock
+  water:      0x2f93d6, shallow: 0x66c0ee,                     // sea / shoreline shallows
+  treeY:      [0xd9d43a, 0xccc636, 0xe2dc4c, 0xc2be34],
+  wood:       0xd98a3a, woodDark: 0xb56b28, cream: 0xece0c0, roof: 0xc25a34,
+  stone:      0xe7ddc4, stoneShade: 0xcdbf9c,
+  rock:       0x8f9aa0,
+  teamBlue:   0x3f74c4, teamBlueD: 0x2b57a0, hero: 0x9a5bd6, skin: 0xe0b088, cleric: 0xe9e2c2,
+  enemyRed:   0xc23b3b,
+  outline:    0x2a2018,
+};
+
+// ---------- value noise (deterministic) ----------
+function frac(v){return v-Math.floor(v);}
+function hash2(x,y){return frac(Math.sin(x*127.1+y*311.7)*43758.5453);}
+function vnoise(x,y){
+  const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+  const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+  const a=hash2(xi,yi),b=hash2(xi+1,yi),c=hash2(xi,yi+1),d=hash2(xi+1,yi+1);
+  return a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v;
+}
+function fbm(x,y){return 0.6*vnoise(x,y)+0.3*vnoise(x*2.1,y*2.1)+0.1*vnoise(x*4.3,y*4.3);}
+// seeded rng for scatter
+let _s=12345; function rnd(){_s=(_s*1664525+1013904223)&0x7fffffff;return _s/0x7fffffff;}
+function rr(a,b){return a+(b-a)*rnd();}
+
+// ---------- scene ----------
+let scene,cam,rnd3d,sunLight=null;
+// Terraformed single landmass (snow): one big rounded-square landform with interior seas
+// CARVED out of it. Screen mapping: -x is right, -z is up, so world (+,+) reads bottom-left and
+// (-,-) reads top-right — the two bases sit on the main diagonal, land bridged between them.
+const WORLD=180;                    // half-extent of the square landmass
+const SEA_Y=-16, COAST_Y=-1.0;      // sea level / coastline lip
+// interior seas gouged out of the land — placed off the BL↔TR diagonal so the diagonal stays a
+// continuous land isthmus (units path straight, so the bases must connect over land).
+const SEAS=[
+  {cx:80, cz:-82, r:60},   // large sea in the upper flank
+  {cx:-80,cz:82,  r:60},   // large sea in the lower flank
+  {cx:22, cz:-30, r:24},   // small central inlet biting toward the middle
+  {cx:-22,cz:30,  r:24},
+];
+const sun=new THREE.Vector3(-0.55,0.75,0.38).normalize();
+
+// land field: >0 = land (value ~ height above sea), <=0 = water. One big landmass minus the seas.
+function landField(x,z){
+  const sq=Math.max(Math.abs(x),Math.abs(z))/WORLD;                 // 0 centre → 1 at square rim
+  let m=(1-sq) + 0.11*(fbm(x*0.012+3,z*0.012+7)-0.5)*2;             // rounded square, wavy coast
+  for(const s of SEAS){ const d=Math.hypot(x-s.cx,z-s.cz);
+    const er=s.r*(1+0.16*(fbm(x*0.05+s.cx,z*0.05+s.cz)-0.5)*2);     // ragged shoreline on each sea
+    if(d<er) m=Math.min(m, (d/er)-0.9); }                           // inside a sea → drive negative
+  return m;
+}
+function onIsland(x,z){ return landField(x,z)>0.02; }
+const smooth=t=>{ t=Math.max(0,Math.min(1,t)); return t*t*(3-2*t); };
+// level building plateaus under each base so structures + plots sit flat (playable footing)
+const FLATS=[{x:105,z:108,r:34,y:0.4},{x:-105,z:-108,r:34,y:0.4}];
+function landH(x,z){
+  let h=2.0*(fbm(x*0.02+5,z*0.02+9)-0.5) + 1.0*(fbm(x*0.06,z*0.06)-0.5);   // rolling snow
+  for(const f of FLATS){ const t=smooth(Math.hypot(x-f.x,z-f.z)/f.r); h=f.y*(1-t)+h*t; }   // flatten base plateaus
+  const lf=landField(x,z);                                                 // ease the coast down into an icy beach shelf
+  if(lf<0.16){ const t=smooth(lf/0.16); h=(SEA_Y+2.2)*(1-t)+h*t; }
+  return h;
+}
+
+// paths (packed snow) as polylines — the diagonal road linking the two bases
+const PATHS=[
+  [[105,108],[60,60],[6,6],[-52,-52],[-105,-108]],   // BL base → across the isthmus → TR base
+];
+function pathDist(x,z){
+  let best=1e9;
+  for(const p of PATHS){ for(let i=0;i<p.length-1;i++){
+    const [ax,az]=p[i],[bx,bz]=p[i+1]; const dx=bx-ax,dz=bz-az;
+    const t=Math.max(0,Math.min(1,((x-ax)*dx+(z-az)*dz)/(dx*dx+dz*dz+1e-6)));
+    const px=ax+dx*t,pz=az+dz*t; const d=Math.hypot(x-px,z-pz); if(d<best)best=d;
+  }}
+  return best;
+}
+function topY(x,z){ return landH(x,z) - (pathDist(x,z)<7?0.5:0); }
+
+// ---------- terrain builder: grid over the land field, coastal cliffs where land meets sea ----------
+function buildTerrain(){
+  const pos=[],col=[];
+  const nrm=new THREE.Vector3(),ab=new THREE.Vector3(),ac=new THREE.Vector3();
+  const tmp=new THREE.Color();
+  const bottomY=-40, edgeTopY=COAST_Y;
+  function pushTri(va,vb,vc,region){
+    ab.set(vb[0]-va[0],vb[1]-va[1],vb[2]-va[2]); ac.set(vc[0]-va[0],vc[1]-va[1],vc[2]-va[2]);
+    nrm.crossVectors(ab,ac).normalize();
+    if(region==='grass'){ if(nrm.y<0) nrm.negate(); } else { if(nrm.y>0.4){/*keep*/} }
+    let hex;
+    if(region==='grass'){
+      const mx=(va[0]+vb[0]+vc[0])/3, mz=(va[2]+vb[2]+vc[2])/3, avgY=(va[1]+vb[1]+vc[1])/3;
+      if(pathDist(mx,mz)<6.5) hex=C.path;                                  // packed-snow road
+      else if(landField(mx,mz)<0.13) hex=C.beach;                          // icy shoreline shelf
+      else if(avgY<-6) hex=C.snowLo;                                       // low, shaded snow near the water
+      else { const n=fbm(mx*0.045,mz*0.045); hex = n>0.72?C.grass3 : n<0.24?C.grass2 : C.grass; }   // snow, bright drifts, bare frozen ground
+    } else { // coastal cliff: snow lip → grey rock → cold deep water, by depth
+      const avgY=(va[1]+vb[1]+vc[1])/3;
+      const dep=Math.min(1,Math.max(0,(edgeTopY-avgY)/(edgeTopY-bottomY)));
+      const lit=nrm.dot(sun);
+      if(dep<0.22) hex=C.cliffLit;
+      else if(dep<0.55) hex = lit>0.0 ? C.cliffLit : C.cliffMid;
+      else hex = lit>0.12 ? C.cliffMid : C.cliffShade;
+    }
+    tmp.setHex(hex);
+    for(const P of [va,vb,vc]){ pos.push(P[0],P[1],P[2]); col.push(tmp.r,tmp.g,tmp.b); }
+  }
+  const STEP=5, M=WORLD+20, N=Math.ceil(2*M/STEP);
+  const cellLand=(i,j)=>onIsland(-M+(i+0.5)*STEP, -M+(j+0.5)*STEP);
+  const H=(x,z)=>Math.max(topY(x,z), SEA_Y+0.5);   // let the coast dip to the beach shelf, but never below sea
+  const wall=(ax,az,tyA,bx,bz,tyB)=>{ const a=[ax,tyA,az],b=[bx,tyB,bz],c=[bx,bottomY,bz],d=[ax,bottomY,az];
+    pushTri(a,b,c,'cliff'); pushTri(a,c,d,'cliff'); };
+  for(let i=0;i<N;i++) for(let j=0;j<N;j++){
+    if(!cellLand(i,j)) continue;
+    const x0=-M+i*STEP, z0=-M+j*STEP, x1=x0+STEP, z1=z0+STEP;
+    const a=[x0,H(x0,z0),z0],b=[x1,H(x1,z0),z0],c=[x1,H(x1,z1),z1],d=[x0,H(x0,z1),z1];
+    pushTri(a,b,c,'grass'); pushTri(a,c,d,'grass');
+    if(!cellLand(i-1,j)) wall(x0,z0,H(x0,z0), x0,z1,H(x0,z1));   // west coast
+    if(!cellLand(i+1,j)) wall(x1,z1,H(x1,z1), x1,z0,H(x1,z0));   // east coast
+    if(!cellLand(i,j-1)) wall(x1,z0,H(x1,z0), x0,z0,H(x0,z0));   // north coast
+    if(!cellLand(i,j+1)) wall(x0,z1,H(x0,z1), x1,z1,H(x1,z1));   // south coast
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  g.setAttribute('color',new THREE.Float32BufferAttribute(col,3));
+  g.computeVertexNormals();
+  const m=new THREE.MeshLambertMaterial({vertexColors:true,flatShading:true,side:THREE.DoubleSide});
+  const mesh=new THREE.Mesh(g,m); mesh.receiveShadow=true; mesh.castShadow=false;
+  return mesh;
+}
+
+// ---------- helpers ----------
+function lam(hex,flat){return new THREE.MeshLambertMaterial({color:hex,flatShading:!!flat});}
+function outlineOf(mesh,scale){
+  const o=new THREE.Mesh(mesh.geometry,new THREE.MeshBasicMaterial({color:C.outline,side:THREE.BackSide}));
+  o.scale.multiplyScalar(scale||1.06); return o;
+}
+function box(w,h,d,hex,flat){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),lam(hex,flat));m.castShadow=true;m.receiveShadow=true;return m;}
+function outlined(group){ // wrap: add black inverted hull for each child mesh
+  const adds=[];
+  group.traverse(o=>{ if(o.isMesh){ const h=new THREE.Mesh(o.geometry,new THREE.MeshBasicMaterial({color:C.outline,side:THREE.BackSide}));
+    h.position.copy(o.position); h.rotation.copy(o.rotation); h.scale.copy(o.scale).multiplyScalar(1.05); adds.push([o.parent||group,h]); } });
+  for(const [p,h] of adds) p.add(h);
+  return group;
+}
+
+// ---------- nature pack (Quaternius CC0): real low-poly trees / rocks / bushes ----------
+const NAT={tree:[], rock:[], bush:[]};
+// Quaternius meshes are flat per-material colours on MeshPhong (with emissive → blows white
+// under lights). Re-wrap as flat MeshLambert(diffuse) so they shade cleanly in our scene.
+function natLambert(o){ o.traverse(n=>{ if(n.isMesh){ const ms=Array.isArray(n.material)?n.material:[n.material];
+  const conv=m=>new THREE.MeshLambertMaterial({color:(m&&m.color)?m.color.getHex():0x88aa66});
+  n.material=Array.isArray(n.material)?ms.map(conv):conv(ms[0]); n.castShadow=true; n.receiveShadow=false; } }); }
+// centre on X/Z, drop base to y=0, record native height → clone + scale to a target height later
+function natEntry(o){ natLambert(o); const bb=new THREE.Box3().setFromObject(o); const sz=bb.getSize(new THREE.Vector3());
+  o.position.x-=(bb.min.x+sz.x/2); o.position.z-=(bb.min.z+sz.z/2); o.position.y-=bb.min.y; o.frustumCulled=false;
+  const w=new THREE.Group(); w.add(o); return {scene:w, h:Math.max(0.001,sz.y)}; }
+function loadNature(){ return new Promise(res=>{
+  const fx=new THREE.FBXLoader();
+  const sets={ tree:['PineTree_Snow_1','PineTree_Snow_2','PineTree_Snow_3','PineTree_Snow_4','PineTree_Snow_5','CommonTree_Snow_1','CommonTree_Snow_2','CommonTree_Snow_3','BirchTree_Snow_2','BirchTree_Snow_4'],
+               rock:['Rock_Snow_1','Rock_Snow_2','Rock_Snow_3'], bush:['Bush_Snow_2'] };
+  const jobs=[]; for(const c in sets) sets[c].forEach(nm=>jobs.push([c,nm]));
+  let n=0; const done=()=>{ if(++n>=jobs.length) res(); };
+  jobs.forEach(([c,nm])=>fx.load('/assets/nature/'+nm+'.fbx', o=>{ NAT[c].push(natEntry(o)); done(); }, undefined, ()=>done())); }); }
+function natClone(cat, minH, maxH){ const list=NAT[cat]; if(!list.length) return null;
+  const e=list[Math.floor(rnd()*list.length)]; const g=e.scene.clone(true); g.scale.setScalar((minH+rnd()*(maxH-minH))/e.h); g.rotation.y=rnd()*6.28; return g; }
+// real low-poly tree (Quaternius), falling back to the procedural blob if the pack didn't load
+function makeTree(){
+  const t=natClone('tree',8,12); if(t) return t;
+  const g=new THREE.Group();
+  const blobs=4+Math.floor(rnd()*4);
+  const base=2.2+rnd()*1.4;
+  for(let i=0;i<blobs;i++){
+    const r=base*(0.6+rnd()*0.6);
+    const s=new THREE.Mesh(new THREE.IcosahedronGeometry(r,0), lam(C.treeY[Math.floor(rnd()*C.treeY.length)],true));
+    s.position.set(rr(-base,base), 3.2+rr(-0.6,1.6)+i*0.3, rr(-base,base));
+    s.castShadow=true; g.add(s);
+  }
+  const trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.7,3,6),lam(C.woodDark));
+  trunk.position.y=1.5; trunk.castShadow=true; g.add(trunk);
+  return g;
+}
+function forestClump(cx,cz,n,spread){
+  const grp=new THREE.Group();
+  for(let i=0;i<n;i++){ const t=makeTree(); const a=rnd()*6.28, d=rnd()*spread;
+    const x=cx+Math.cos(a)*d, z=cz+Math.sin(a)*d; if(!onIsland(x,z))continue;
+    t.position.set(x, topY(x,z), z); grp.add(t);
+  } return grp;
+}
+
+// ---------- buildings ----------
+function dirtPad(x,z,r){
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,0.4,14),lam(C.path));
+  m.position.set(x,topY(x,z)+0.05,z); m.receiveShadow=true; return m;
+}
+function makeHouse(){
+  const b=bldClone('house',9); if(b) return b;   // Bitgem elf house
+  const g=new THREE.Group();
+  const w=6.5,d=5,wall=4;
+  g.add(box(w,wall,d,C.cream)).children[g.children.length-1].position.y=wall/2;
+  const roof=new THREE.Mesh(new THREE.ConeGeometry(w*0.78,3.4,4),lam(C.roof,true));
+  roof.rotation.y=Math.PI/4; roof.position.y=wall+1.5; roof.castShadow=true; g.add(roof);
+  g.traverse(o=>{if(o.isMesh)o.castShadow=o.receiveShadow=true;});
+  return outlined(g);
+}
+// ---------- Bitgem elf buildings (palette atlas, night-elf tree architecture) ----------
+const BLD={};
+// two Bitgem palette-atlas building sets sharing one pipeline: elf (player) + orc (enemy)
+const BLD_GROUPS=[
+  { tex:'/assets/models/elf_building_tex.png', files:{
+      keep:'elf_throne_Lv3', house:'elf_house_Lv2', tower:'elf_tower_Lv2', mill:'elf_woodcutter_Lv2',   // legacy aliases (far-lobe scenery)
+      throne1:'elf_throne_Lv1', throne2:'elf_throne_Lv2', throne3:'elf_throne_Lv3',
+      house1:'elf_house_Lv1',   house2:'elf_house_Lv2',   house3:'elf_house_Lv3',
+      tower1:'elf_tower_Lv1',   tower2:'elf_tower_Lv2',   tower3:'elf_tower_Lv3',
+      barrack1:'elf_barrack_Lv1', barrack2:'elf_barrack_Lv2', barrack3:'elf_barrack_Lv3' } },
+  { tex:'/assets/models/orc_building_tex.png', files:{
+      orc_throne1:'orc_throne_Lv1', orc_throne2:'orc_throne_Lv2', orc_throne3:'orc_throne_Lv3',
+      orc_house1:'orc_house_Lv1',   orc_house2:'orc_house_Lv2',   orc_house3:'orc_house_Lv3',
+      orc_tower1:'orc_tower_Lv1',   orc_tower2:'orc_tower_Lv2',   orc_tower3:'orc_tower_Lv3',
+      orc_barrack1:'orc_barrack_Lv1', orc_barrack2:'orc_barrack_Lv2', orc_barrack3:'orc_barrack_Lv3' } },
+];
+function loadBuildings(){ return new Promise(res=>{
+  const fx=new THREE.FBXLoader(), tl=new THREE.TextureLoader();
+  const total=BLD_GROUPS.reduce((a,g)=>a+Object.keys(g.files).length,0); let n=0; const done=()=>{ if(++n>=total)res(); };
+  for(const grp of BLD_GROUPS){ tl.load(grp.tex, tex=>{
+    tex.flipY=true; tex.magFilter=THREE.NearestFilter; tex.minFilter=THREE.NearestFilter; tex.generateMipmaps=false; if('colorSpace'in tex)tex.colorSpace=THREE.SRGBColorSpace;
+    Object.keys(grp.files).forEach(k=>fx.load('/assets/buildings/'+grp.files[k]+'.fbx', o=>{
+      o=bakeStatic(o);   // buildings export as SkinnedMesh; bake to static so bldClone's plain clone doesn't render them at the map origin
+      o.traverse(nd=>{ if(nd.isMesh){ nd.material=new THREE.MeshBasicMaterial({map:tex,side:THREE.DoubleSide}); nd.castShadow=true; nd.frustumCulled=false; } });
+      const bb=new THREE.Box3().setFromObject(o); const sz=bb.getSize(new THREE.Vector3());
+      o.position.x-=(bb.min.x+sz.x/2); o.position.z-=(bb.min.z+sz.z/2); o.position.y-=bb.min.y;   // centre X/Z, base to y=0
+      const w=new THREE.Group(); w.add(o); BLD[k]={scene:w,h:Math.max(0.001,sz.y)}; done(); }, undefined, ()=>done()));
+  }, undefined, ()=>{ for(let i=0;i<Object.keys(grp.files).length;i++)done(); }); }
+}); }
+function bldClone(k,H){ const e=BLD[k]; if(!e)return null; const g=e.scene.clone(true); g.scale.setScalar(H/e.h); return g; }
+
+// ================= BASE: Thronefall-style fixed build plots + passive economy =================
+let gold=140, incomeRate=1, plots=[], coreB=null, buildMenuEl=null, goldNumEl=null, menuPlot=null, enemyBase={x:-105,z:-108};
+// category → model prefix + per-level stats (index 0 = Lv1). cost[0]=build, cost[1]=→Lv2, cost[2]=→Lv3.
+const CAT={
+  economy:{ label:'🏠 House',    model:'house',   H:[5.5,6.5,7.5], cost:[40,70,120],  income:[3,6,10] },
+  army:   { label:'🗡 Barracks', model:'barrack', H:[6.5,7.5,8.5], cost:[80,130,200], every:[7,5.5,4], cap:[2,3,4] },
+  defense:{ label:'🏹 Tower',    model:'tower',   H:[8,9.5,11],    cost:[55,90,150],  dmg:[16,28,44], range:[30,34,38], rof:[1.1,0.9,0.75] },
+};
+const CORE_H=[9,10.5,12], CORE_HP=[1600,2400,3400], CORE_UP=[0,300,480];
+function recomputeIncome(){ incomeRate=1; for(const p of plots) if(p.cat==='economy') incomeRate+=CAT.economy.income[p.level-1]; }
+function placeCore(x,z){ scene.add(dirtPad(x,z,10));
+  coreB={x,z,px:x,pz:z,alive:true,level:1,hp:CORE_HP[0],max:CORE_HP[0],big:8,hitT:0,g:null,bar:makeBar(0x6fd0ff)};
+  const g=bldClone('throne1',CORE_H[0])||makeKeep(); g.position.set(x,topY(x,z),z); scene.add(g); coreB.g=g; }
+function makePlot(x,z){ scene.add(dirtPad(x,z,5.5));
+  const ring=new THREE.Mesh(new THREE.RingGeometry(2.4,3.1,26),new THREE.MeshBasicMaterial({color:0x8fe6ff,transparent:true,opacity:0.55,side:THREE.DoubleSide,depthWrite:false}));
+  ring.rotation.x=-Math.PI/2; ring.position.set(x,topY(x,z)+0.25,z); scene.add(ring);
+  const plus=new THREE.Group(), pm=new THREE.MeshBasicMaterial({color:0xe6f8ff});
+  plus.add(new THREE.Mesh(new THREE.BoxGeometry(2.0,0.35,0.55),pm), new THREE.Mesh(new THREE.BoxGeometry(0.55,0.35,2.0),pm));
+  plus.position.set(x,topY(x,z)+0.9,z); scene.add(plus);
+  const p={x,z,ring,plus,cat:null,level:0,g:null,cd:0,spawnCd:3,mine:[]}; plots.push(p); return p; }
+function buildOnPlot(p){ const c=CAT[p.cat]; if(p.g) scene.remove(p.g);
+  const g=bldClone(c.model+p.level, c.H[p.level-1]); if(g){ g.position.set(p.x,topY(p.x,p.z),p.z); g.rotation.y=rr(0,6.28); scene.add(g); p.g=g; }
+  p.ring.visible=false; p.plus.visible=false;
+  if(p.cat==='defense'){ p.dmg=c.dmg[p.level-1]; p.range=c.range[p.level-1]; p.rof=c.rof[p.level-1]; }
+  if(p.cat==='army'){ p.every=c.every[p.level-1]; p.cap=c.cap[p.level-1]; }
+  recomputeIncome(); }
+function startBuild(p,cat){ if(p.cat)return; const c=CAT[cat]; if(gold<c.cost[0])return; gold-=c.cost[0]; p.cat=cat; p.level=1; buildOnPlot(p); closeBuildMenu(); }
+function upgradePlot(p){ if(!p.cat||p.level>=3)return; const cost=CAT[p.cat].cost[p.level]; if(gold<cost)return; gold-=cost; p.level++; buildOnPlot(p); closeBuildMenu(); }
+function upgradeCore(){ if(!coreB||coreB.level>=3)return; const cost=CORE_UP[coreB.level]; if(gold<cost)return; gold-=cost; coreB.level++;
+  const add=CORE_HP[coreB.level-1]-coreB.max; coreB.max=CORE_HP[coreB.level-1]; coreB.hp+=add;
+  scene.remove(coreB.g); const g=bldClone('throne'+coreB.level,CORE_H[coreB.level-1])||makeKeep(); g.position.set(coreB.x,topY(coreB.x,coreB.z),coreB.z); scene.add(g); coreB.g=g; closeBuildMenu(); }
+function towerTick(p,dt){ p.cd-=dt; if(p.cd>0)return; let best=null,bd=p.range*p.range;
+  for(const en of enemies){ if(!en.alive)continue; const dd=(en.px-p.x)**2+(en.pz-p.z)**2; if(dd<bd){bd=dd;best=en;} }
+  if(best){ shootFx(p.x,p.z,best.px,best.pz,'arrow'); best.hp-=p.dmg; best.hitT=0.15; p.cd=p.rof; } }
+function barracksTick(p,dt){ p.mine=p.mine.filter(u=>u.alive); if(p.mine.length>=p.cap)return; p.spawnCd-=dt; if(p.spawnCd>0)return; p.spawnCd=p.every;
+  const kind=(p.level>=2 && p.mine.length%2===1)?'warrior':'archer';
+  const st=kind==='warrior'?{hp:110,dmg:16,range:3.6,col:C.teamBlueD}:{hp:60,dmg:10,range:9,col:C.teamBlue};
+  const e=mkFighter(st.col,1.0,'ally',{hp:st.hp,dmg:st.dmg,range:st.range,atkEvery:kind==='warrior'?0.9:1.1,spd:15});
+  e.idx=allies.length; e.kind=kind; e.healCd=0; e.smiteCd=0; riggize(e,kind); setP(e,p.x+rr(-2,2),p.z+rr(3,5)); allies.push(e); p.mine.push(e); }
+function baseTick(dt){ gold+=incomeRate*dt;
+  for(const p of plots){ if(p.cat==='defense') towerTick(p,dt); else if(p.cat==='army') barracksTick(p,dt); }
+  if(coreB&&coreB.bar){ const f=Math.max(0,coreB.hp/coreB.max); coreB.bar.__fl.scale.x=f; coreB.bar.__fl.position.x=-(1-f)*coreB.bar.__w/2;
+    coreB.bar.position.set(coreB.x,topY(coreB.x,coreB.z)+CORE_H[coreB.level-1]+2,coreB.z); coreB.bar.quaternion.copy(cam.quaternion); }
+  if(goldNumEl) goldNumEl.textContent=Math.floor(gold); }
+// build-menu DOM (panel built in setupHUD; these open/populate it)
+function mkBtn(label,fn,ok){ const b=document.createElement('div'); b.textContent=label;
+  b.style.cssText='padding:10px 12px;border-radius:10px;font:700 13px system-ui;text-align:center;user-select:none;box-shadow:0 3px 0 #16233d;'+(ok?'background:#2f6d4f;color:#eafff2':'background:#3a3f4a;color:#8b93a0');
+  b.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); if(ok)fn(); }); return b; }
+function menuTitle(t){ const d=document.createElement('div'); d.textContent=t; d.style.cssText='color:#cfe;font:700 12px system-ui;text-align:center;margin-bottom:2px'; return d; }
+function openPlotMenu(p){ if(!buildMenuEl)return; menuPlot=p; buildMenuEl.innerHTML=''; const g=Math.floor(gold);
+  if(!p.cat){ buildMenuEl.appendChild(menuTitle('Build on plot'));
+    for(const k of ['economy','army','defense']){ const c=CAT[k]; buildMenuEl.appendChild(mkBtn(c.label+'  '+c.cost[0]+'g',()=>startBuild(p,k),g>=c.cost[0])); } }
+  else { const c=CAT[p.cat]; buildMenuEl.appendChild(menuTitle(c.label+' Lv'+p.level));
+    if(p.level<3){ const cost=c.cost[p.level]; buildMenuEl.appendChild(mkBtn('⬆ Upgrade Lv'+(p.level+1)+'  '+cost+'g',()=>upgradePlot(p),g>=cost)); } else buildMenuEl.appendChild(mkBtn('★ Max level',null,false)); }
+  buildMenuEl.appendChild(mkBtn('✕ Close',()=>closeBuildMenu(),true)); buildMenuEl.style.display='flex'; }
+function openCoreMenu(){ if(!buildMenuEl||!coreB)return; menuPlot=null; buildMenuEl.innerHTML=''; const g=Math.floor(gold);
+  buildMenuEl.appendChild(menuTitle('Throne Lv'+coreB.level+' · '+Math.ceil(coreB.hp)+'/'+coreB.max+' HP'));
+  if(coreB.level<3){ const cost=CORE_UP[coreB.level]; buildMenuEl.appendChild(mkBtn('⬆ Reinforce Lv'+(coreB.level+1)+'  '+cost+'g',()=>upgradeCore(),g>=cost)); } else buildMenuEl.appendChild(mkBtn('★ Max level',null,false));
+  buildMenuEl.appendChild(mkBtn('✕ Close',()=>closeBuildMenu(),true)); buildMenuEl.style.display='flex'; }
+function closeBuildMenu(){ if(buildMenuEl) buildMenuEl.style.display='none'; menuPlot=null; }
+function makeKeep(){
+  const b=bldClone('keep',14); if(b) return b;   // Bitgem elf throne — the heart of the settlement
+  const g=new THREE.Group();
+  const base=box(13,7,13,C.stone); base.position.y=3.5; g.add(base);
+  // crenellations around base top
+  const s=6.5, y=7.4;
+  for(let i=-2;i<=2;i++){ for(const [px,pz] of [[i*2.8,s],[i*2.8,-s],[s,i*2.8],[-s,i*2.8]]){
+    const c=box(1.6,1.8,1.6,C.stoneShade); c.position.set(px,y,pz); g.add(c);
+  }}
+  const tower=box(6,10,6,C.stone); tower.position.y=11; g.add(tower);
+  for(let i=-1;i<=1;i++){ for(const [px,pz] of [[i*2.2,3],[i*2.2,-3],[3,i*2.2],[-3,i*2.2]]){
+    const c=box(1.3,1.6,1.3,C.stoneShade); c.position.set(px,16.3,pz); g.add(c);
+  }}
+  // banner
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.2,6,5),lam(C.woodDark)); pole.position.set(0,19,0); g.add(pole);
+  const flag=box(3,1.8,0.2,C.teamBlue); flag.position.set(1.6,20.5,0); g.add(flag);
+  g.traverse(o=>{if(o.isMesh)o.castShadow=o.receiveShadow=true;});
+  return outlined(g);
+}
+function makeWatchtower(){
+  const b=bldClone('tower',15); if(b) return b;   // Bitgem elf tower
+  const g=new THREE.Group();
+  for(const [sx,sz] of [[1,1],[1,-1],[-1,1],[-1,-1]]){
+    const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.4,9,5),lam(C.woodDark));
+    leg.position.set(sx*2,4.5,sz*2); leg.rotation.set(sz*0.08,0,-sx*0.08); g.add(leg);
+  }
+  const plat=box(6,1,6,C.wood); plat.position.y=9.2; g.add(plat);
+  const rail=box(6.2,1.6,6.2,C.woodDark); rail.position.y=10.3; g.add(rail);
+  const inner=box(4.6,1.7,4.6,C.wood); inner.position.y=10.35; g.add(inner);
+  const roof=new THREE.Mesh(new THREE.ConeGeometry(4.6,3,4),lam(C.roof,true)); roof.rotation.y=Math.PI/4; roof.position.y=12.6; g.add(roof);
+  g.traverse(o=>{if(o.isMesh)o.castShadow=o.receiveShadow=true;});
+  return outlined(g);
+}
+function makeWindmill(){
+  const b=bldClone('mill',12); if(b) return b;   // Bitgem elf woodcutter
+  const g=new THREE.Group();
+  const tower=new THREE.Mesh(new THREE.CylinderGeometry(2.4,3.2,8,8),lam(C.cream)); tower.position.y=4; g.add(tower);
+  const cap=new THREE.Mesh(new THREE.ConeGeometry(2.8,2.4,8),lam(C.roof,true)); cap.position.y=9; g.add(cap);
+  const hub=new THREE.Group(); hub.position.set(0,7.5,2.6);
+  for(let i=0;i<4;i++){ const sail=box(1.4,7,0.3,C.wood); sail.position.y=0; sail.rotation.z=i*Math.PI/2;
+    const holder=new THREE.Group(); holder.rotation.z=i*Math.PI/2; const s=box(1.3,6.5,0.25,C.cream); s.position.y=3.5; holder.add(s); hub.add(holder);
+  }
+  g.add(hub);
+  g.traverse(o=>{if(o.isMesh)o.castShadow=o.receiveShadow=true;});
+  return outlined(g);
+}
+function makeWall(len){
+  const g=new THREE.Group();
+  for(let i=0;i<len;i++){ const p=box(1.5,3.2,1.8,i%2?C.woodDark:C.wood); p.position.set(i*1.6-len*0.8,1.6,0); g.add(p);}
+  g.traverse(o=>{if(o.isMesh)o.castShadow=o.receiveShadow=true;});
+  return outlined(g);
+}
+function makeRock(){
+  const r=natClone('rock',2,4.5); if(r) return r;
+  const m=new THREE.Mesh(new THREE.IcosahedronGeometry(1.6+rnd()*1.4,0),lam(C.rock,true)); m.castShadow=true; m.receiveShadow=true;
+  m.rotation.set(rnd(),rnd(),rnd()); return outlined(new THREE.Group().add(m));
+}
+
+// ---------- units ----------
+function makeUnit(bodyHex,scale){
+  const g=new THREE.Group(); scale=scale||1;
+  const body=new THREE.Mesh(new THREE.CapsuleGeometry(0.5,1.0,3,6),lam(bodyHex)); body.position.y=1.0; g.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(0.42,8,8),lam(C.skin)); head.position.y=2.0; g.add(head);
+  const spear=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,3,5),lam(C.woodDark)); spear.position.set(0.5,1.4,0); spear.rotation.z=0.15; g.add(spear);
+  g.traverse(o=>{if(o.isMesh)o.castShadow=true;});
+  g.scale.setScalar(scale);
+  return outlined(g);
+}
+function place(obj,x,z,ry){ obj.position.set(x,topY(x,z),z); if(ry!=null)obj.rotation.y=ry; scene.add(obj); return obj; }
+
+// ---------- assemble ----------
+function build(){
+  scene=new THREE.Scene();
+  scene.background=new THREE.Color(0x3f9fd6);
+  scene.fog=new THREE.Fog(0x3f9fd6, 520, 1050);   // pushed out for the bigger map
+
+  // lights
+  scene.add(new THREE.HemisphereLight(0xdff0ff,0x3f6a44,0.55));
+  const dir=new THREE.DirectionalLight(0xfff3d8,1.05);
+  dir.position.copy(sun.clone().multiplyScalar(120)); dir.castShadow=true;
+  dir.shadow.mapSize.set(2048,2048);
+  const sc=dir.shadow.camera; sc.left=-105;sc.right=105;sc.top=105;sc.bottom=-105;sc.near=20;sc.far=360;
+  dir.shadow.bias=-0.0004; dir.shadow.normalBias=1.4; dir.shadow.radius=3;
+  scene.add(dir); scene.add(dir.target); sunLight=dir;   // shadow frustum tracks the camera focus (keeps shadows sharp on a big map)
+
+  // water (big flat plane below rim, the sea the archipelago sits in)
+  const water=new THREE.Mesh(new THREE.CircleGeometry(620,64),
+    new THREE.MeshLambertMaterial({color:C.water}));
+  water.rotation.x=-Math.PI/2; water.position.set(0,-18,0); scene.add(water);
+
+  scene.add(buildTerrain());
+
+  // forests: snow trees lining the coast just inland of the beach shelf, plus forested hills on the
+  // flanks. Everything stays clear of the central battle lane (pathDist>14) so the corridor between
+  // the two bases reads open and fightable.
+  for(let x=-WORLD;x<=WORLD;x+=8) for(let z=-WORLD;z<=WORLD;z+=8){
+    const jx=x+rr(-3,3), jz=z+rr(-3,3); const f=landField(jx,jz);
+    if(f>0.13 && f<0.30 && pathDist(jx,jz)>14 && rnd()<0.6) scene.add(forestClump(jx,jz,2,7)); }  // coastal tree line
+  for(const [hx,hz] of [[-60,12],[60,-12],[22,62],[-22,-62],[78,-38],[-78,38],[128,64],[-128,-64]]){
+    if(!onIsland(hx,hz)) continue;
+    for(let k=0;k<26;k++){ const a=rnd()*6.28,d=rr(0,22); const x=hx+Math.cos(a)*d,z=hz+Math.sin(a)*d;
+      if(onIsland(x,z)&&pathDist(x,z)>12) scene.add(forestClump(x,z,3,12)); } }   // flank forested hill
+  // neutral midpoint — a ring of standing snow-stones framing the contested centre; the lane stays open
+  for(let i=0;i<7;i++){ const a=i/7*6.28, x=Math.cos(a)*20, z=Math.sin(a)*20;
+    if(onIsland(x,z)&&pathDist(x,z)>7) place(makeRock(),x,z); }
+
+  // PLAYER base (bottom-left island) — Thronefall core ringed by empty build plots
+  const KX=105,KZ=108;
+  placeCore(KX,KZ);
+  const RING=30; for(let i=0;i<6;i++){ const a=i/6*Math.PI*2+0.4, x=KX+Math.cos(a)*RING, z=KZ+Math.sin(a)*RING; if(onIsland(x,z)) makePlot(x,z); }
+  // ENEMY stronghold (top-right island) — orc buildings; the warband musters here
+  enemyBase={x:-105,z:-108};
+  scene.add(dirtPad(enemyBase.x,enemyBase.z,10));
+  { const g=bldClone('orc_throne3',15)||makeKeep(); g.position.set(enemyBase.x,topY(enemyBase.x,enemyBase.z),enemyBase.z); g.rotation.y=2.4; scene.add(g); }
+  // orc outbuildings ringing the stronghold (barracks / tower / huts)
+  for(const [ox,oz,key,h] of [[-131,-84,'orc_barrack2',9],[-82,-131,'orc_tower2',11],[-134,-122,'orc_house2',7],[-90,-88,'orc_house3',8]]){
+    scene.add(dirtPad(ox,oz,6)); const g=bldClone(key,h); if(g){ g.position.set(ox,topY(ox,oz),oz); g.rotation.y=rr(0,6.28); scene.add(g); } }
+
+  // rocks scattered across the land
+  for(let i=0;i<50;i++){ const x=rr(-WORLD,WORLD), z=rr(-WORLD,WORLD);
+    if(onIsland(x,z)&&pathDist(x,z)>6&&Math.hypot(x-KX,z-KZ)>16&&Math.hypot(x-enemyBase.x,z-enemyBase.z)>16) place(makeRock(),x,z); }
+
+  // live fighters (hero + squad + enemies) are spawned by the gameplay module
+}
+
+// ================= GAMEPLAY: control-direction test =================
+// Pilot the hero (joystick / WASD); the squad auto-follows & auto-fights;
+// tap the ground to rally them; STOMP button = warstomp. Survive the wave.
+let hero=null, allies=[], enemies=[];
+let rallyPoint=null, rallyMarker=null, gameOver=0, spawnLeft=24, spawnTimer=1.5, killed=0;   // orc warband size
+let heroFwd={x:0,z:1};
+// loose-leash follow: units idle in your vicinity, only surge to re-form once
+// you've walked past FOLLOW_OUT, and settle again within FOLLOW_IN of their slot.
+let FOLLOW_OUT=13, FOLLOW_IN=3.5, ENGAGE=16, BREAK=24;
+window.__follow=(o,i,e,b)=>{ if(o)FOLLOW_OUT=o; if(i)FOLLOW_IN=i; if(e)ENGAGE=e; if(b)BREAK=b; return {FOLLOW_OUT,FOLLOW_IN,ENGAGE,BREAK}; };
+// command layer: lasso-select a sub-group, draw/tap to send them (attack-move)
+let selected=new Set(), lcv, lctx, cmd={active:false,id:null,pts:[],moved:false};
+let spellArmed=false, autoBolt=false, orderMarkers=[], boltEl, autoEl, smiteArmed=false, smiteEl;
+let keys={}, joy={active:false,nx:0,ny:0,id:null,sx:0,sy:0};
+let heroHpEl, waveEl, resultEl, abilEl, joyBase, joyKnob;
+const raycaster=new THREE.Raycaster(), groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
+const camF={pitch:52,az:34,dist:66,lookY:4,pos:new THREE.Vector3(),init:false};   // closer default view
+// zoom — wheel + two-finger pinch, clamped
+const ZMIN=34, ZMAX=170;   // allow pulling back to survey the larger map
+addEventListener('wheel', e=>{ camF.dist=Math.max(ZMIN,Math.min(ZMAX, camF.dist + e.deltaY*0.05)); }, {passive:true});
+let _pinch=0;
+addEventListener('touchmove', e=>{ if(e.touches.length===2){ const dx=e.touches[0].clientX-e.touches[1].clientX, dy=e.touches[0].clientY-e.touches[1].clientY, d=Math.hypot(dx,dy);
+  if(_pinch) camF.dist=Math.max(ZMIN,Math.min(ZMAX, camF.dist+(_pinch-d)*0.12)); _pinch=d; } }, {passive:true});
+addEventListener('touchend', ()=>{ _pinch=0; });
+let camLocked=true, camEl, PAN_SPD=70; const camAim={x:0,z:0,init:false};
+
+function makeBar(fillHex){
+  const g=new THREE.Group(), w=3.4,h=0.5;
+  g.add(new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({color:0x14110c})));
+  const fl=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({color:fillHex}));
+  fl.position.z=0.02; g.add(fl); g.__fl=fl; g.__w=w; g.visible=false; scene.add(g); return g;
+}
+function mkFighter(hex,scale,team,st){
+  const g=makeUnit(hex,scale); scene.add(g);
+  const e=Object.assign({g,team,alive:true,cd:0,px:0,pz:0,hitT:0,face:0,phase:Math.random()*6.28,movedThis:false,following:false,target:null,forcedTarget:null,order:null,
+    rad:team==='hero'?2.3:1.5, bar:makeBar(team==='enemy'?0xd23b3b:0x4ad0e0)},st);
+  if(team==='ally'){ e.ring=new THREE.Mesh(new THREE.RingGeometry(1.7,2.15,20),new THREE.MeshBasicMaterial({color:0x7ff0ff,transparent:true,opacity:0.95,side:THREE.DoubleSide})); e.ring.rotation.x=-Math.PI/2; e.ring.visible=false; scene.add(e.ring); }
+  e.max=st.hp; return e;
+}
+function setP(e,x,z){ e.px=x; e.pz=z; e.g.position.set(x,topY(x,z),z); }
+function faceTo(e,dx,dz){ if(dx||dz) e.face=Math.atan2(dx,dz); }
+// ---------- rigged units: Bitgem elf GLBs with native-skeleton (Mixamo-authored) clips ----------
+// Each GLB packs the mesh once + all its clips; the clips are authored on the Bitgem
+// skeleton so they play with no retarget. Textures are embedded (palette atlas, UVs
+// pre-flipped) — we just force NearestFilter so swatches sample solid, not the black gaps.
+const RIGS={}, PROPS={}, TEXS={}; const CHAR_H={queen:4.4, archer:3.6, priestess:3.8, warrior:3.9, chief:4.9, orcarcher:3.7, orcgrunt:3.7, orcwarrior:4.1, orcshaman:3.7};   // world heights (chief = boss, imposing)
+// hand weapons: each char has a list of props → { prop FBX, hand bone, local transform }
+const WEAPONS={
+  queen:    [{file:'glaive_elf_queen', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
+  archer:   [{file:'bow_elf_archer',   bone:'hand_l', pos:[0,0,0], rot:[0,0,Math.PI/2], scl:1}],
+  priestess:[{file:'magic_ball',       bone:'hand_r', pos:[0,4,0], rot:[0,0,0],         scl:0.6}],
+  warrior:  [{file:'sword_elf_warrior', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1},
+             {file:'shield_elf_warrior',bone:'hand_l', pos:[0,0,0], rot:[0,Math.PI/2,0], scl:0.8}],
+  chief:    [{file:'axe_orc_chieftain', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
+  orcarcher:[{file:'bow_orc_archer',    bone:'hand_l', pos:[0,0,0], rot:[0,0,Math.PI/2], scl:1}],
+  orcgrunt: [{file:'axe_orc_grunt',     bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
+  orcwarrior:[{file:'sword_orc_warrior',bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
+  orcshaman:[{file:'staff_orc_shaman', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
+};
+const RIG_SPECS=[['queen','elf_queen'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior'],['chief','orc_chieftain'],['orcarcher','orc_archer'],['orcgrunt','orc_grunt'],['orcwarrior','orc_warrior'],['orcshaman','orc_shaman']];
+// Several FBX (the elf/orc bows AND every elf building) export as SkinnedMesh with a rigid little
+// armature. Cloned with a plain .clone(true) — not SkeletonUtils.clone — the skeleton binding
+// breaks: the renderer skins the mesh in the skeleton's own space, so it renders at ~world origin
+// (the map centre) or as a giant, no matter where the parent group is placed. These are all static
+// props/structures that never need their bones, so bake every SkinnedMesh down to a plain bind-pose
+// Mesh at its correct world-relative transform and drop the armature entirely. Non-skinned inputs
+// pass through untouched.
+function bakeStatic(o){ o.updateMatrixWorld(true); const parts=[]; let hadSkin=false;
+  o.traverse(n=>{ if(!n.isMesh)return; if(n.isSkinnedMesh)hadSkin=true;
+    const m=new THREE.Mesh(n.geometry, n.material); m.applyMatrix4(n.matrixWorld); m.name=n.name; m.castShadow=n.castShadow; m.receiveShadow=n.receiveShadow; parts.push(m); });
+  if(!hadSkin) return o;                        // nothing skinned — leave the original hierarchy alone
+  const w=new THREE.Group(); parts.forEach(m=>w.add(m)); return w; }
+const bakeProp=bakeStatic;   // back-compat alias for the weapon-prop loader
+function loadRig(){ return new Promise(res=>{
+  const gl=new THREE.GLTFLoader(), fx=new THREE.FBXLoader(), tl=new THREE.TextureLoader();
+  const propFiles=[...new Set(Object.values(WEAPONS).flat().map(w=>w.file))];
+  let n=0, need=RIG_SPECS.length*2 + propFiles.length; const done=()=>{ if(++n>=need) res(); };   // body GLB + atlas per char, + each prop once
+  RIG_SPECS.forEach(([k,f])=>{
+    gl.load('/assets/models/'+f+'_anim.glb', g=>{ RIGS[k]={scene:g.scene,anims:g.animations}; done(); }, undefined, ()=>done());
+    tl.load('/assets/models/'+f+'_tex.png', t=>{ t.flipY=true; t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter; t.generateMipmaps=false; if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; TEXS[k]=t; done(); }, undefined, ()=>done());
+  });
+  propFiles.forEach(f=>fx.load('/assets/models/'+f+'.fbx', o=>{ PROPS[f]=bakeProp(o); done(); }, undefined, ()=>done()));
+}); }
+// clone a rig (independent per unit), crisp texture, scale to target height, plant feet, wire clips
+function makeChar(key){ const src=RIGS[key]; if(!src)return null;
+  const inner=THREE.SkeletonUtils.clone(src.scene), outer=new THREE.Group();
+  // models natively face +Z; face() sets outer.rotation.y=atan2(dx,dz) so +Z aligns with travel — no extra spin (was Math.PI → moonwalk)
+  inner.rotation.y=0;
+  inner.traverse(nd=>{ if(nd.isMesh){ nd.frustumCulled=false; nd.castShadow=true; const mm=nd.material;
+    if(mm&&mm.map){ mm.map.magFilter=THREE.NearestFilter; mm.map.minFilter=THREE.NearestFilter; mm.map.generateMipmaps=false; mm.map.needsUpdate=true; } } });
+  outer.add(inner); outer.updateMatrixWorld(true);
+  const bb=new THREE.Box3().setFromObject(inner); const hh=Math.max(0.001,bb.getSize(new THREE.Vector3()).y);
+  inner.position.y=-bb.min.y; outer.scale.setScalar(CHAR_H[key]/hh);
+  const mixer=new THREE.AnimationMixer(inner); const act={};
+  // strip .position tracks → play in place. The clips carry huge baked root motion
+  // (run ≈ 250u forward), which otherwise slides the body ahead of its game position,
+  // arcs it wide on turns, and snaps it back each loop. The game drives translation.
+  src.anims.forEach(a=>{ const clip=new THREE.AnimationClip(a.name,a.duration, a.tracks.filter(t=>!t.name.endsWith('.position'))); act[a.name]=mixer.clipAction(clip); });
+  if(act.run) act.run.setEffectiveTimeScale(0.8);   // legs cycle a touch slower to match the calmer move speed
+  if(act.attack) act.attack.setEffectiveTimeScale(1.4);   // snappier draw-and-release so it reads as a shot
+  if(act.idle) act.idle.play();
+  mixer.update(0.3); outer.updateMatrixWorld(true);          // settle idle, then plant feet + centre exactly
+  const b2=new THREE.Box3().setFromObject(inner); const c2=b2.getCenter(new THREE.Vector3());
+  inner.position.y-=b2.min.y/outer.scale.x; inner.position.x-=c2.x/outer.scale.x; inner.position.z-=c2.z/outer.scale.x;
+  // hand weapons — parent each prop to its hand bone (rides the animation), painted with the char atlas
+  (WEAPONS[key]||[]).forEach(w=>{ if(!PROPS[w.file])return; let bone=null; inner.traverse(o=>{ if(o.isBone&&o.name===w.bone)bone=o; });
+    if(bone){ const prop=PROPS[w.file].clone(true), tx=TEXS[key];
+      prop.traverse(o=>{ if(o.isMesh){ o.material=new THREE.MeshBasicMaterial({map:tx,side:THREE.DoubleSide}); o.frustumCulled=false; } });
+      prop.position.fromArray(w.pos); prop.rotation.set(w.rot[0],w.rot[1],w.rot[2]); prop.scale.setScalar(w.scl); bone.add(prop); } });
+  return {g:outer,mixer,act}; }
+// generic crossfade anim setter (hero + rigged allies)
+function setAnim(e,want){ if(!e.act||e.animState===want)return; const a=e.act[want]; if(!a)return;
+  const cur=e.act[e.animState]; if(cur)cur.fadeOut(0.16); a.reset().fadeIn(0.16).play(); e.animState=want; }
+// swap an entity's placeholder body for a rigged character
+function riggize(e,key){ const c=makeChar(key); if(!c)return; scene.remove(e.g); e.g=c.g; e.mixer=c.mixer; e.act=c.act; e.rigged=true; e.rigKey=key; e.animState='idle'; scene.add(e.g); }
+
+function spawnGame(){
+  hero=mkFighter(C.hero,1.9,'hero',{hp:260,dmg:20,range:3.6,atkEvery:0.5,spd:19,aCd:0,spellCd:0});
+  riggize(hero,'queen');                       // the Elf Queen — sword + spell hero
+  setP(hero,105,80);                            // muster at the player base (bottom-left island)
+  // roster: 2 sword-and-shield warriors (melee front-line), 4 archers, 2 priestess casters
+  const ROSTER=['warrior','warrior','archer','archer','archer','archer','priestess','priestess'];
+  const STATS={ warrior:{hp:110,dmg:16,range:3.6,col:C.teamBlueD}, archer:{hp:60,dmg:10,range:9,col:C.teamBlue}, priestess:{hp:52,dmg:6,range:7,col:C.cleric} };
+  for(let i=0;i<8;i++){ const u=ROSTER[i], s=STATS[u];
+    const e=mkFighter(s.col,1.0,'ally',{hp:s.hp,dmg:s.dmg,range:s.range,atkEvery:u==='warrior'?0.9:1.1,spd:15});
+    e.idx=i; e.kind=(u==='priestess')?'cleric':u; e.healCd=0; e.smiteCd=0;   // 'cleric' drives the heal pass
+    riggize(e, u);
+    setP(e,105+((i%4)-1.5)*3.2, 92+Math.floor(i/4)*3.6); allies.push(e); }
+  // Orc Chieftain — leads the warband from the enemy stronghold (top-right island)
+  const boss=mkFighter(C.enemyRed,1.6,'enemy',{hp:640,dmg:34,range:4.6,atkEvery:1.3,spd:11});
+  boss.rad=2.8; boss.max=640; riggize(boss,'chief'); setP(boss,enemyBase.x+8,enemyBase.z+8); enemies.push(boss);
+  rallyMarker=new THREE.Mesh(new THREE.RingGeometry(1.6,2.3,22),new THREE.MeshBasicMaterial({color:0xffe089,transparent:true,opacity:0.9,side:THREE.DoubleSide}));
+  rallyMarker.rotation.x=-Math.PI/2; rallyMarker.visible=false; scene.add(rallyMarker);
+}
+let spawnN=0;
+function spawnEnemy(){ const x=enemyBase.x+rr(-14,14), z=enemyBase.z+rr(-14,14);   // muster from the enemy stronghold (top-right)
+  if(!onIsland(x,z))return;
+  const kind=['orcarcher','orcgrunt','orcwarrior','orcshaman'][spawnN++ %4];   // rotate the horde: archer, grunt, warrior, shaman
+  let e;
+  if(kind==='orcarcher'){ e=mkFighter(C.enemyRed,1.0,'enemy',{hp:46,dmg:7,range:9,atkEvery:1.5,spd:12}); riggize(e,'orcarcher'); e.kind='archer'; e.ranged=true; }
+  else if(kind==='orcwarrior'){ e=mkFighter(C.enemyRed,1.1,'enemy',{hp:95,dmg:12,range:3.6,atkEvery:1.1,spd:11}); riggize(e,'orcwarrior'); e.kind='warrior'; e.rad=1.8; }
+  else if(kind==='orcshaman'){ e=mkFighter(C.enemyRed,1.0,'enemy',{hp:50,dmg:10,range:10,atkEvery:1.8,spd:11}); riggize(e,'orcshaman'); e.kind='shaman'; e.ranged=true; e.magic=true; }
+  else { e=mkFighter(C.enemyRed,1.05,'enemy',{hp:64,dmg:9,range:3.4,atkEvery:1.0,spd:12}); riggize(e,'orcgrunt'); e.kind='grunt'; }
+  setP(e,x,z); enemies.push(e); }
+function nearest(x,z,list){ let b=null,bd=1e9; for(const t of list){ if(!t.alive)continue; const d=(t.px-x)**2+(t.pz-z)**2; if(d<bd){bd=d;b=t;} } return {t:b,d:Math.sqrt(bd)}; }
+function moveTo(e,tx,tz,dt){ let dx=tx-e.px,dz=tz-e.pz; const d=Math.hypot(dx,dz)||1; dx/=d;dz/=d;
+  const nx=e.px+dx*e.spd*dt, nz=e.pz+dz*e.spd*dt; if(onIsland(nx,nz)){setP(e,nx,nz);faceTo(e,dx,dz);e.movedThis=true;} return d; }
+// walk bob + smooth turn (units feel alive, not sliding statues)
+function loco(dt){ const all=[hero,...allies,...enemies];
+  for(const e of all){ if(!e||!e.alive)continue;
+    let d=e.face-e.g.rotation.y; while(d>Math.PI)d-=6.283; while(d<-Math.PI)d+=6.283; e.g.rotation.y+=d*Math.min(1,dt*10);
+    if(e.rigged){ e.g.position.set(e.px, topY(e.px,e.pz), e.pz); }   // mixer drives the body; no capsule bob
+    else { e.phase += (e.movedThis?11:2.5)*dt;
+      const bob = e.movedThis? Math.abs(Math.sin(e.phase))*0.45 : 0.05+Math.sin(e.phase)*0.05;
+      e.g.position.set(e.px, topY(e.px,e.pz)+bob, e.pz); }
+    e.movedThis=false;
+  } }
+// anti-stack separation (units spread out instead of piling up)
+function separate(){ const all=[hero,...allies,...enemies].filter(e=>e&&e.alive);
+  for(let i=0;i<all.length;i++)for(let j=i+1;j<all.length;j++){ const a=all[i],b=all[j];
+    let dx=b.px-a.px,dz=b.pz-a.pz; const d=Math.hypot(dx,dz), min=a.rad+b.rad;
+    if(d>=min||d<0.0001)continue;
+    if(a.target===b||b.target===a)continue;   // never shove a fighter and its own target apart
+    // anchored (attacking) units and the hero hold ground; only movers get nudged apart
+    const wa=(a.team==='hero'||a.state==='attack')?0:1, wb=(b.team==='hero'||b.state==='attack')?0:1;
+    if(!wa&&!wb)continue; const ov=(min-d)*0.5; dx/=d;dz/=d; const tot=wa+wb;   // ease apart (half the overlap/frame) so packed units glide, not pop back
+    if(wa){ const ax=a.px-dx*ov*(wa/tot), az=a.pz-dz*ov*(wa/tot); if(onIsland(ax,az)){a.px=ax;a.pz=az;} }
+    if(wb){ const bx=b.px+dx*ov*(wb/tot), bz=b.pz+dz*ov*(wb/tot); if(onIsland(bx,bz)){b.px=bx;b.pz=bz;} }
+  } }
+function attack(a,d){ if(a.cd>0)return; d.hp-=a.dmg; d.hitT=0.12; a.cd=a.atkEvery; faceTo(a,d.px-a.px,d.pz-a.pz); }
+function groundBasis(){ const f=new THREE.Vector3(); cam.getWorldDirection(f); f.y=0; f.normalize();
+  const r=new THREE.Vector3().crossVectors(f,new THREE.Vector3(0,1,0)).normalize(); return {f,r}; }
+function warstomp(){ if(!hero||hero.aCd>0||gameOver)return; hero.aCd=5;
+  for(const e of enemies){ if(!e.alive)continue; const d=Math.hypot(e.px-hero.px,e.pz-hero.pz);
+    if(d<11){ e.hp-=50; e.hitT=0.25; const nx=e.px+(e.px-hero.px)/(d||1)*5, nz=e.pz+(e.pz-hero.pz)/(d||1)*5; if(onIsland(nx,nz))setP(e,nx,nz);} }
+  const r=new THREE.Mesh(new THREE.RingGeometry(1,2,26),new THREE.MeshBasicMaterial({color:0xffd060,transparent:true,side:THREE.DoubleSide}));
+  r.rotation.x=-Math.PI/2; r.position.set(hero.px,topY(hero.px,hero.pz)+0.5,hero.pz); scene.add(r);
+  let t=0;(function an(){t+=0.05;r.scale.setScalar(1+t*11);r.material.opacity=Math.max(0,0.9-t);if(t<0.9)requestAnimationFrame(an);else scene.remove(r);})();
+}
+// ----- command helpers -----
+function screenOf(px,pz){ const v=new THREE.Vector3(px,topY(px,pz)+2,pz).project(cam);
+  return [(v.x*0.5+0.5)*innerWidth, (-v.y*0.5+0.5)*innerHeight]; }
+function pointInPoly(x,y,pts){ let inside=false;
+  for(let i=0,j=pts.length-1;i<pts.length;j=i++){ const xi=pts[i][0],yi=pts[i][1],xj=pts[j][0],yj=pts[j][1];
+    if(((yi>y)!==(yj>y)) && (x<(xj-xi)*(y-yi)/(yj-yi)+xi)) inside=!inside; } return inside; }
+function lassoSelect(pts){ selected.clear();
+  if(pts.length<3){ return; }
+  for(const e of allies){ if(!e.alive)continue; const [sx,sy]=screenOf(e.px,e.pz); if(pointInPoly(sx,sy,pts)) selected.add(e); } }
+function selectGroup(which){ selected.clear();
+  const set = which==='L'?allies.filter(e=>e.idx<4) : which==='R'?allies.filter(e=>e.idx>=4) : allies.slice();
+  set.forEach(e=>{ if(e.alive) selected.add(e); }); }
+function commandTo(gx,gz){ const list=[...selected].filter(e=>e.alive); if(!list.length) return false;
+  list.forEach((e,k)=>{ const col=((k%4)-1.5)*2.8, row=Math.floor(k/4)*2.8; e.order={x:gx+col,z:gz+row}; e.target=null; e.following=false; });
+  rallyMarker.position.set(gx,topY(gx,gz)+0.3,gz); rallyMarker.visible=true; clearTimeout(rallyMarker.__to); rallyMarker.__to=setTimeout(()=>rallyMarker.visible=false,2500); return true; }
+function recall(){ const list=[...selected].filter(e=>e.alive); (list.length?list:allies).forEach(e=>{e.order=null; e.forcedTarget=null;}); }
+function nearestEnemyTo(x,z,maxd){ let b=null,bd=maxd*maxd; for(const e of enemies){ if(!e.alive)continue; const dd=(e.px-x)**2+(e.pz-z)**2; if(dd<bd){bd=dd;b=e;} } return b; }
+function readyClerics(){ return allies.filter(e=>e.alive&&e.kind==='cleric'&&e.smiteCd<=0).length; }
+function smiteAt(en){ // smart cast: exactly one ready cleric (nearest) fires
+  let best=null,bd=1e9; for(const e of allies){ if(!e.alive||e.kind!=='cleric'||e.smiteCd>0)continue; const d=(e.px-en.px)**2+(e.pz-en.pz)**2; if(d<bd){bd=d;best=e;} }
+  if(!best)return false; best.smiteCd=4; en.hp-=45; en.hitT=0.3; smiteFx(en); return true; }
+function healFx(t){ const r=new THREE.Mesh(new THREE.RingGeometry(0.4,1.1,16),new THREE.MeshBasicMaterial({color:0x8ef0a0,transparent:true,side:THREE.DoubleSide}));
+  r.rotation.x=-Math.PI/2; scene.add(r); let a=0;(function an(){a+=0.06; r.position.set(t.px,topY(t.px,t.pz)+0.4+a*4.5,t.pz); r.material.opacity=Math.max(0,0.9-a); if(a<0.9)requestAnimationFrame(an); else scene.remove(r);})(); }
+function smiteFx(en){ const r=new THREE.Mesh(new THREE.RingGeometry(0.5,1.4,20),new THREE.MeshBasicMaterial({color:0xfff2c0,transparent:true,side:THREE.DoubleSide}));
+  r.rotation.x=-Math.PI/2; r.position.set(en.px,topY(en.px,en.pz)+0.5,en.pz); scene.add(r); let a=0;(function an(){a+=0.07;r.scale.setScalar(1+a*8);r.material.opacity=Math.max(0,0.95-a*1.2);if(a<0.9)requestAnimationFrame(an);else scene.remove(r);})(); }
+function focusFire(en){ const list=[...selected].filter(e=>e.alive); (list.length?list:allies).forEach(e=>{ if(e.alive){ e.forcedTarget=en; e.target=en; e.order=null; e.following=false; } });
+  rallyMarker.material.color.setHex(0xff6a5a); rallyMarker.position.set(en.px,topY(en.px,en.pz)+0.3,en.pz); rallyMarker.visible=true; clearTimeout(rallyMarker.__to); rallyMarker.__to=setTimeout(()=>rallyMarker.visible=false,900); }
+// ---- refined projectiles ----
+// stylised arrow, built once & cloned: wood shaft + steel head + cream fletching + glowing tip. Long axis = +Y.
+let ARROW_PROTO=null;
+function arrowProto(){ if(ARROW_PROTO)return ARROW_PROTO; const g=new THREE.Group();
+  g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,2.8,7), new THREE.MeshBasicMaterial({color:0x6b4a2a})));
+  const head=new THREE.Mesh(new THREE.ConeGeometry(0.2,0.7,7), new THREE.MeshBasicMaterial({color:0xe4ebf2})); head.position.y=1.72; g.add(head);
+  for(const s of [0,1,2]){ const fl=new THREE.Mesh(new THREE.PlaneGeometry(0.5,0.5), new THREE.MeshBasicMaterial({color:0xfff2c8,side:THREE.DoubleSide,transparent:true,opacity:0.95})); fl.position.y=-1.2; fl.rotation.y=s*Math.PI/3; g.add(fl); }
+  const tip=new THREE.Mesh(new THREE.SphereGeometry(0.3,10,8), new THREE.MeshBasicMaterial({color:0xfff6d0,transparent:true,opacity:0.55,blending:THREE.AdditiveBlending,depthWrite:false})); tip.position.y=1.9; g.add(tip);
+  ARROW_PROTO=g; return g; }
+// short-lived additive puff for motion trails / impact sparks
+function puff(x,y,z,col,r,op){ const m=new THREE.Mesh(new THREE.SphereGeometry(r,8,6), new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:op,blending:THREE.AdditiveBlending,depthWrite:false}));
+  m.position.set(x,y,z); scene.add(m); let a=0;(function an(){ a+=0.09; m.scale.setScalar(Math.max(0.01,1-a*0.7)); m.material.opacity=Math.max(0,op-a*op*1.3); if(a<1)requestAnimationFrame(an); else scene.remove(m); })(); }
+function shootFx(sx,sz,tx,tz,kind){
+  const arrow=kind==='arrow'; const col = kind==='heal'?0x9dffb0 : arrow?0xfff2c8 : 0x86ccff;
+  let m,core,glow;
+  if(arrow){ m=arrowProto().clone(true); }
+  else { m=new THREE.Group();
+    core=new THREE.Mesh(new THREE.SphereGeometry(0.6,16,12), new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.95,blending:THREE.AdditiveBlending,depthWrite:false}));
+    glow=new THREE.Mesh(new THREE.SphereGeometry(1.25,16,12), new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.35,blending:THREE.AdditiveBlending,depthWrite:false}));
+    m.add(core,glow); }
+  scene.add(m);
+  const y0=topY(sx,sz)+2.6, y1=topY(tx,tz)+2.0, dist=Math.hypot(tx-sx,tz-sz), dur=Math.max(0.16,Math.min(0.55,dist/40)); let t=0,tick=0;
+  (function an(){ t+=0.033; tick++; const k=Math.min(1,t/dur); const x=sx+(tx-sx)*k, z=sz+(tz-sz)*k, y=y0+(y1-y0)*k+Math.sin(k*Math.PI)*(arrow?2.4:1.4);
+    m.position.set(x,y,z);
+    if(arrow){ m.lookAt(tx,y1,tz); m.rotateX(Math.PI/2); }              // proto long axis is +Y
+    else { const p=1+Math.sin(t*32)*0.14; core.scale.setScalar(p); glow.scale.setScalar(p); }
+    if(tick%2===0) puff(x,y,z,col, arrow?0.2:0.55, arrow?0.4:0.5);      // motion streak
+    if(k<1)requestAnimationFrame(an); else { scene.remove(m); if(!arrow) for(let i=0;i<5;i++) puff(tx+rr(-1,1),y1+rr(-1,1),tz+rr(-1,1),col,0.6,0.6); } })();
+}
+function castBolt(gx,gz){ if(!hero||hero.spellCd>0)return false; hero.spellCd=6; spellArmed=false;
+  for(const e of enemies){ if(!e.alive)continue; if(Math.hypot(e.px-gx,e.pz-gz)<7){ e.hp-=60; e.hitT=0.3; } }
+  const r=new THREE.Mesh(new THREE.RingGeometry(0.6,1.6,26),new THREE.MeshBasicMaterial({color:0x74c0ff,transparent:true,side:THREE.DoubleSide}));
+  r.rotation.x=-Math.PI/2; r.position.set(gx,topY(gx,gz)+0.5,gz); scene.add(r);
+  let t=0;(function an(){t+=0.05;r.scale.setScalar(1+t*14);r.material.opacity=Math.max(0,0.95-t*1.1);if(t<0.9)requestAnimationFrame(an);else scene.remove(r);})(); return true; }
+function updateOrderMarkers(){
+  const ord=allies.filter(a=>a.alive&&a.order&&!a.forcedTarget), clusters=[];
+  for(const a of ord){ let c=clusters.find(c=>Math.hypot(c.x-a.order.x,c.z-a.order.z)<8); if(!c){c={x:a.order.x,z:a.order.z};clusters.push(c);} }
+  while(orderMarkers.length<clusters.length){ const m=new THREE.Mesh(new THREE.RingGeometry(2.3,2.9,24),new THREE.MeshBasicMaterial({color:0x9fe0ff,transparent:true,opacity:0.55,side:THREE.DoubleSide})); m.rotation.x=-Math.PI/2; scene.add(m); orderMarkers.push(m); }
+  orderMarkers.forEach((m,i)=>{ if(i<clusters.length){ m.visible=true; m.position.set(clusters[i].x,topY(clusters[i].x,clusters[i].z)+0.2,clusters[i].z); } else m.visible=false; }); }
+function updateSpellUI(){ if(boltEl){ boltEl.style.opacity=hero.spellCd>0?0.4:1; boltEl.style.outline=spellArmed?'3px solid #fff':'none'; }
+  if(autoEl){ autoEl.style.background=autoBolt?'#4a8fd0':'#2b3a58cc'; }
+  if(smiteEl){ const n=readyClerics(); smiteEl.textContent=n?'SMITE '+n:'SMITE'; smiteEl.style.opacity=n?1:0.4; smiteEl.style.outline=smiteArmed?'3px solid #fff':'none'; } }
+function drawLasso(){ if(!lctx)return; lctx.clearRect(0,0,lcv.width,lcv.height); const p=cmd.pts; if(p.length<2)return;
+  lctx.beginPath(); lctx.moveTo(p[0][0],p[0][1]); for(let i=1;i<p.length;i++)lctx.lineTo(p[i][0],p[i][1]);
+  lctx.strokeStyle='rgba(127,240,255,0.95)'; lctx.lineWidth=3; lctx.stroke();
+  lctx.fillStyle='rgba(127,240,255,0.12)'; lctx.fill(); }
+
+function endGame(win){ gameOver=win?1:2; resultEl.style.display='flex';
+  const h=resultEl.querySelector('h1'); h.textContent=win?'Victory!':'Defeated'; h.style.color=win?'#8be04a':'#e05a5a'; }
+function updBars(){ const all=[hero,...allies,...enemies];
+  for(const e of all){ if(!e||!e.alive)continue; const f=Math.max(0,e.hp/e.max);
+    e.bar.visible=(e.team!=='hero'); e.bar.__fl.scale.x=f; e.bar.__fl.position.x=-(1-f)*e.bar.__w/2;
+    e.bar.position.set(e.px, topY(e.px,e.pz)+(e.team==='hero'?4.6:4.4), e.pz); e.bar.quaternion.copy(cam.quaternion);
+    if(e.ring){ e.ring.visible=selected.has(e); if(e.ring.visible) e.ring.position.set(e.px, topY(e.px,e.pz)+0.18, e.pz); }
+    e.hitT-=0.016; e.g.traverse(o=>{ if(o.isMesh&&o.material&&o.material.emissive) o.material.emissive.setHex(e.hitT>0?0x992a1a:0x000000); });
+  } }
+function updateGame(dt){
+  if(!hero) return;
+  if(!gameOver){
+    // warband advances in bands of 3 — a mass, not a trickle; cap concurrent so it stays performant
+    if(spawnLeft>0 && enemies.length<15){ spawnTimer-=dt; if(spawnTimer<=0){ for(let k=0;k<3&&spawnLeft>0;k++){ spawnEnemy(); spawnLeft--; } spawnTimer=2.4; } }
+    // hero movement
+    let ix=0,iy=0;
+    if(joy.active){ ix=joy.nx; iy=joy.ny; }
+    else { if(keys['w']||keys['arrowup'])iy-=1; if(keys['s']||keys['arrowdown'])iy+=1; if(keys['a']||keys['arrowleft'])ix-=1; if(keys['d']||keys['arrowright'])ix+=1; }
+    const B=groundBasis(); let mvx=B.f.x*(-iy)+B.r.x*ix, mvz=B.f.z*(-iy)+B.r.z*ix; const ml=Math.hypot(mvx,mvz);
+    if(camLocked){ // left stick drives the hero
+      if(ml>0.01){ mvx/=ml;mvz/=ml; const nx=hero.px+mvx*hero.spd*dt, nz=hero.pz+mvz*hero.spd*dt; if(onIsland(nx,nz))setP(hero,nx,nz);
+        faceTo(hero,mvx,mvz); hero.movedThis=true; heroFwd.x+=(mvx-heroFwd.x)*Math.min(1,dt*6); heroFwd.z+=(mvz-heroFwd.z)*Math.min(1,dt*6); } }
+    else { // free camera: left stick pans, hero holds its ground (still fights)
+      if(ml>0.01){ mvx/=ml;mvz/=ml; camAim.x+=mvx*PAN_SPD*dt; camAim.z+=mvz*PAN_SPD*dt;
+        const rr0=Math.hypot(camAim.x-120,camAim.z); if(rr0>320){ camAim.x=120+(camAim.x-120)*320/rr0; camAim.z*=320/rr0; } } }
+    hero.cd-=dt; hero.aCd-=dt; hero.spellCd-=dt;
+    if(autoBolt && hero.spellCd<=0 && enemies.length){ const {t}=nearest(hero.px,hero.pz,enemies); if(t) castBolt(t.px,t.pz); }
+    { const {t,d}=nearest(hero.px,hero.pz,enemies); if(t&&d<=hero.range+1){ if(hero.rigged&&hero.cd<=0) hero.__atkT=0.55; attack(hero,t); } }
+    if(hero.rigged){ hero.mixer.update(dt); hero.__atkT=Math.max(0,(hero.__atkT||0)-dt);
+      setAnim(hero, hero.__atkT>0?'attack':((ml>0.01&&camLocked)?'run':'idle')); }
+    const hl=Math.hypot(heroFwd.x,heroFwd.z)||1, ffx=heroFwd.x/hl, ffz=heroFwd.z/hl, rgx=ffz, rgz=-ffx;
+    for(const e of allies){ if(!e.alive)continue; e.cd-=dt;
+      const heroDist=Math.hypot(hero.px-e.px,hero.pz-e.pz);
+      if(e.forcedTarget && !e.forcedTarget.alive) e.forcedTarget=null;
+      if(e.target && !e.target.alive) e.target=null;
+      if(e.forcedTarget){ e.target=e.forcedTarget; }                                     // manual focus-fire overrides leash & orders
+      else {
+        if(e.target && !e.order && heroDist>BREAK) e.target=null;                        // drop a fight only if unordered & hero left
+        if(!e.target){ const {t}=nearest(e.px,e.pz,enemies);
+          if(t){ if(e.order){ if(Math.hypot(t.px-e.px,t.pz-e.pz)<12) e.target=t; }       // ordered: attack-move — engage foes en route
+                 else if(Math.hypot(t.px-hero.px,t.pz-hero.pz)<ENGAGE) e.target=t; } } } // following: engage foes near the hero
+      if(e.target){ const t=e.target, d=Math.hypot(t.px-e.px,t.pz-e.pz);                 // committed: fight until it dies
+             if(d>e.range){ e.state='move'; moveTo(e,t.px,t.pz,dt); } else { e.state='attack'; faceTo(e,t.px-e.px,t.pz-e.pz);
+               if(e.cd<=0 && e.kind!=='warrior') shootFx(e.px,e.pz,t.px,t.pz, e.kind==='cleric'?'magic':'arrow'); attack(e,t); } }
+      else if(e.order){ // hold the commanded position
+             if(Math.hypot(e.order.x-e.px,e.order.z-e.pz)>1.4){ e.state='move'; moveTo(e,e.order.x,e.order.z,dt); } else e.state='idle'; }
+      else { // loose leash: idle in the hero's vicinity, only re-form once he's walked past FOLLOW_OUT
+             const col=((e.idx%4)-1.5)*2.8, back=4.5+Math.floor(e.idx/4)*3.0, tx=hero.px-ffx*back+rgx*col, tz=hero.pz-ffz*back+rgz*col;
+             if(!e.following && heroDist>FOLLOW_OUT) e.following=true;
+             if(e.following){ e.state='move'; moveTo(e,tx,tz,dt); faceTo(e,ffx,ffz); if(Math.hypot(tx-e.px,tz-e.pz)<FOLLOW_IN) e.following=false; }
+             else { e.state='idle'; faceTo(e,ffx,ffz); } }
+      if(e.rigged){ e.mixer.update(dt); setAnim(e, e.state==='attack'?'attack':(e.state==='move'?'run':'idle')); } }
+    for(const e of enemies){ if(!e.alive)continue; e.cd-=dt;
+      if(e.target && !e.target.alive) e.target=null;
+      if(!e.target){ const {t}=nearest(e.px,e.pz,[hero,...allies,coreB].filter(Boolean)); e.target=t; }   // fight units, or march on the throne
+      if(e.target){ const t=e.target, reach=e.range+(t.big||0), d=Math.hypot(t.px-e.px,t.pz-e.pz);
+             if(d>reach){ e.state='move'; moveTo(e,t.px,t.pz,dt); } else { e.state='attack'; faceTo(e,t.px-e.px,t.pz-e.pz);
+               if(e.ranged && e.cd<=0) shootFx(e.px,e.pz,t.px,t.pz, e.magic?'magic':'arrow'); attack(e,t); } }
+      else { e.state='move'; moveTo(e,-2,0,dt); }
+      if(e.rigged){ e.mixer.update(dt); setAnim(e, e.state==='attack'?'attack':(e.state==='move'?'run':'idle')); } }
+    // caster pass: auto-Heal with de-dup — no two clerics heal the same target, no overkill
+    { const claims=new Set();
+      for(const e of allies){ if(!e.alive||e.kind!=='cleric')continue; e.smiteCd-=dt; e.healCd-=dt;
+        if(e.healCd>0)continue; let best=null,bestDef=1;
+        for(const t of [hero,...allies]){ if(!t.alive||!t.max||claims.has(t))continue; if(t.hp/t.max>=0.9)continue;
+          if(Math.hypot(t.px-e.px,t.pz-e.pz)>18)continue; const def=t.max-t.hp; if(def>bestDef){bestDef=def;best=t;} }
+        if(best){ best.hp=Math.min(best.max,best.hp+24); claims.add(best); e.healCd=2.8; healFx(best); } } }
+    separate(); loco(dt); baseTick(dt);
+    const reap=l=>{ for(const e of l){ if(e.alive&&e.hp<=0){ e.alive=false; scene.remove(e.g); scene.remove(e.bar); if(e.ring){scene.remove(e.ring); selected.delete(e);} if(e.team==='enemy')killed++; } } return l.filter(e=>e.alive); };
+    allies=reap(allies); enemies=reap(enemies);
+    if(hero.hp<=0||(coreB&&coreB.hp<=0)) endGame(false); else if(spawnLeft===0&&enemies.length===0) endGame(true);
+    if(heroHpEl) heroHpEl.style.width=(Math.max(0,hero.hp)/hero.max*100)+'%';
+    if(waveEl) waveEl.textContent = (enemies.length+spawnLeft>0)? 'Orc warband: '+(enemies.length+spawnLeft)+' left' : 'The horde is broken!';
+    if(abilEl) abilEl.style.opacity = hero.aCd>0? 0.45 : 1;
+    updateOrderMarkers(); updateSpellUI();
+  }
+  updBars();
+}
+function followCam(dt){
+  if(camLocked && hero){ if(!camAim.init){camAim.x=hero.px;camAim.z=hero.pz;camAim.init=true;} else { const k=Math.min(1,(dt||0.016)*4); camAim.x+=(hero.px-camAim.x)*k; camAim.z+=(hero.pz-camAim.z)*k; } }
+  const p=camF.pitch*Math.PI/180,a=camF.az*Math.PI/180, hy=camF.dist*Math.sin(p),hz=camF.dist*Math.cos(p);
+  const want=new THREE.Vector3(camAim.x+Math.sin(a)*hz,hy,camAim.z+Math.cos(a)*hz);
+  if(!camF.init){ camF.pos.copy(want); camF.init=true; } else camF.pos.lerp(want, camLocked?0.12:0.2);
+  cam.position.copy(camF.pos); cam.lookAt(camAim.x,camF.lookY,camAim.z);
+  // keep the shadow frustum centred on what the camera is looking at, so shadows stay sharp across the big map
+  if(sunLight){ sunLight.target.position.set(camAim.x,0,camAim.z); sunLight.target.updateMatrixWorld();
+    sunLight.position.set(camAim.x+sun.x*130, sun.y*130, camAim.z+sun.z*130); } }
+function toggleCam(){ camLocked=!camLocked; if(camEl){ camEl.textContent=camLocked?'🔒 Cam':'🔓 Free'; camEl.style.background=camLocked?'#2b3a58cc':'#b5702a'; } }
+function setupHUD(){
+  addEventListener('keydown',e=>{ keys[e.key.toLowerCase()]=true; if(e.key.toLowerCase()==='c') toggleCam(); });
+  addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+  camEl=document.createElement('div'); camEl.textContent='🔒 Cam'; camEl.style.cssText='position:fixed;right:16px;top:14px;padding:9px 12px;border-radius:10px;background:#2b3a58cc;color:#fff;font:700 13px system-ui;user-select:none;z-index:6';
+  camEl.addEventListener('pointerdown',ev=>{ev.stopPropagation(); toggleCam();}); document.body.appendChild(camEl);
+  const hp=document.createElement('div'); hp.style.cssText='position:fixed;left:50%;top:14px;transform:translateX(-50%);width:240px;height:16px;background:#0006;border:2px solid #0008;border-radius:8px;overflow:hidden;z-index:5';
+  heroHpEl=document.createElement('div'); heroHpEl.style.cssText='height:100%;width:100%;background:linear-gradient(#a6ec5e,#6fbf34)'; hp.appendChild(heroHpEl); document.body.appendChild(hp);
+  waveEl=document.createElement('div'); waveEl.style.cssText='position:fixed;left:50%;top:36px;transform:translateX(-50%);color:#fff;font:600 13px system-ui;text-shadow:0 1px 2px #000;z-index:5'; document.body.appendChild(waveEl);
+  joyBase=document.createElement('div'); joyBase.style.cssText='position:fixed;width:120px;height:120px;border-radius:50%;background:#fff2;border:2px solid #fff6;display:none;pointer-events:none;z-index:5';
+  joyKnob=document.createElement('div'); joyKnob.style.cssText='position:absolute;left:50%;top:50%;width:54px;height:54px;border-radius:50%;background:#fff9;transform:translate(-50%,-50%)'; joyBase.appendChild(joyKnob); document.body.appendChild(joyBase);
+  abilEl=document.createElement('div'); abilEl.textContent='STOMP'; abilEl.style.cssText='position:fixed;right:26px;bottom:26px;width:88px;height:88px;border-radius:50%;background:#c25a34;color:#fff;font:800 15px system-ui;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 0 #7d3417;user-select:none;z-index:6'; document.body.appendChild(abilEl);
+  abilEl.addEventListener('pointerdown',ev=>{ev.stopPropagation(); warstomp();});
+  boltEl=document.createElement('div'); boltEl.textContent='BOLT'; boltEl.style.cssText='position:fixed;right:128px;bottom:34px;width:70px;height:70px;border-radius:50%;background:#3b6cc4;color:#fff;font:800 13px system-ui;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 0 #24467e;user-select:none;z-index:6';
+  boltEl.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); if(hero.spellCd<=0){ spellArmed=!spellArmed; smiteArmed=false; } updateSpellUI(); }); document.body.appendChild(boltEl);
+  autoEl=document.createElement('div'); autoEl.textContent='AUTO'; autoEl.style.cssText='position:fixed;right:132px;bottom:110px;padding:5px 9px;border-radius:8px;background:#2b3a58cc;color:#dbe7ff;font:700 11px system-ui;user-select:none;z-index:6';
+  autoEl.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); autoBolt=!autoBolt; updateSpellUI(); }); document.body.appendChild(autoEl);
+  smiteEl=document.createElement('div'); smiteEl.textContent='SMITE'; smiteEl.style.cssText='position:fixed;right:206px;bottom:34px;width:70px;height:70px;border-radius:50%;background:#6a8f4a;color:#fff;font:800 12px system-ui;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 0 #45602f;user-select:none;z-index:6';
+  smiteEl.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); if(readyClerics()>0){ smiteArmed=!smiteArmed; spellArmed=false; } updateSpellUI(); }); document.body.appendChild(smiteEl);
+  resultEl=document.createElement('div'); resultEl.style.cssText='position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:#0008;color:#fff;font:600 18px system-ui;gap:12px;z-index:9';
+  resultEl.innerHTML='<h1 style="font-size:48px;margin:0"></h1><div>tap to play again</div>'; resultEl.addEventListener('pointerdown',()=>location.reload()); document.body.appendChild(resultEl);
+  const gold=document.getElementById('gold'); if(gold){ gold.style.right='auto'; gold.style.left='18px'; }
+  goldNumEl=document.getElementById('goldn');
+  buildMenuEl=document.createElement('div'); buildMenuEl.style.cssText='position:fixed;left:50%;bottom:120px;transform:translateX(-50%);display:none;flex-direction:column;gap:8px;min-width:190px;background:#141a22e6;padding:12px;border-radius:14px;box-shadow:0 6px 22px #000a;z-index:8';
+  buildMenuEl.addEventListener('pointerdown',ev=>ev.stopPropagation()); document.body.appendChild(buildMenuEl);
+  // lasso overlay
+  lcv=document.createElement('canvas'); lcv.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:4'; lcv.width=innerWidth; lcv.height=innerHeight; document.body.appendChild(lcv); lctx=lcv.getContext('2d');
+  addEventListener('resize',()=>{ lcv.width=innerWidth; lcv.height=innerHeight; });
+  // squad cards (control groups) + recall
+  const bar2=document.createElement('div'); bar2.style.cssText='position:fixed;left:50%;bottom:20px;transform:translateX(-50%);display:flex;gap:8px;z-index:6';
+  const mkCard=(label,fn)=>{ const c=document.createElement('div'); c.textContent=label; c.style.cssText='min-width:50px;padding:9px 12px;border-radius:10px;background:#2b3a58cc;color:#dbe7ff;font:700 13px system-ui;text-align:center;user-select:none;box-shadow:0 3px 0 #16233d'; c.addEventListener('pointerdown',ev=>{ev.stopPropagation(); fn();}); return c; };
+  bar2.appendChild(mkCard('◤ Left',()=>selectGroup('L')));
+  bar2.appendChild(mkCard('All',()=>selectGroup('A')));
+  bar2.appendChild(mkCard('Right ◢',()=>selectGroup('R')));
+  bar2.appendChild(mkCard('↩ Recall',()=>recall()));
+  document.body.appendChild(bar2);
+  addEventListener('pointerdown',onDown); addEventListener('pointermove',onMove); addEventListener('pointerup',onUp); addEventListener('pointercancel',onUp);
+}
+function onDown(e){ if(gameOver)return; const left=e.clientX<innerWidth*0.5;
+  if(left){ joy.active=true; joy.id=e.pointerId; joy.sx=e.clientX; joy.sy=e.clientY; joy.nx=0;joy.ny=0;
+    joyBase.style.display='block'; joyBase.style.left=(e.clientX-60)+'px'; joyBase.style.top=(e.clientY-60)+'px'; joyKnob.style.left='50%';joyKnob.style.top='50%'; }
+  else { cmd.active=true; cmd.id=e.pointerId; cmd.pts=[[e.clientX,e.clientY]]; cmd.moved=false; cmd.sx=e.clientX; cmd.sy=e.clientY; } }
+function onMove(e){
+  if(joy.active&&e.pointerId===joy.id){ const dx=e.clientX-joy.sx,dy=e.clientY-joy.sy, d=Math.hypot(dx,dy),R=54, cl=Math.min(d,R),ang=Math.atan2(dy,dx),kx=Math.cos(ang)*cl,ky=Math.sin(ang)*cl;
+    joy.nx=kx/R; joy.ny=ky/R; joyKnob.style.left=(50+kx*0.8)+'%'; joyKnob.style.top=(50+ky*0.8)+'%'; }
+  else if(cmd.active&&e.pointerId===cmd.id){ cmd.pts.push([e.clientX,e.clientY]); if(Math.hypot(e.clientX-cmd.sx,e.clientY-cmd.sy)>12)cmd.moved=true; if(cmd.moved)drawLasso(); } }
+function onUp(e){
+  if(joy.active&&e.pointerId===joy.id){ joy.active=false; joy.nx=0;joy.ny=0; joyBase.style.display='none'; return; }
+  if(cmd.active&&e.pointerId===cmd.id){ cmd.active=false;
+    if(cmd.moved){ lassoSelect(cmd.pts); }                                       // drag = lasso select
+    else { const nd=new THREE.Vector2((e.clientX/innerWidth)*2-1,-(e.clientY/innerHeight)*2+1); raycaster.setFromCamera(nd,cam); const hit=new THREE.Vector3();
+      if(raycaster.ray.intersectPlane(groundPlane,hit)&&onIsland(hit.x,hit.z)){                    // tap
+        const pp=plots.find(p=>Math.hypot(hit.x-p.x,hit.z-p.z)<4.2);
+        if(pp){ openPlotMenu(pp); }                                                                 // tapped a build plot → build / upgrade
+        else if(coreB&&Math.hypot(hit.x-coreB.x,hit.z-coreB.z)<7){ openCoreMenu(); }                // tapped the throne → reinforce
+        else { closeBuildMenu();                                                                    // empty ground → smart command
+          if(spellArmed){ castBolt(hit.x,hit.z); }                                                  // armed hero spell → cast here
+          else if(smiteArmed){ const en=nearestEnemyTo(hit.x,hit.z,6); if(en){ smiteAt(en); if(!readyClerics())smiteArmed=false; } }  // smart-cast: one cleric per tap
+          else { const en=nearestEnemyTo(hit.x,hit.z,5);
+            if(en){ focusFire(en); }                                                                // tapped an enemy → focus fire
+            else { rallyMarker.material.color.setHex(0x9fe0ff);                                      // tapped ground → attack-move
+              const list=selected.size? [...selected].filter(a=>a.alive) : allies.filter(a=>a.alive);
+              list.forEach((a,k)=>{ const col=((k%4)-1.5)*2.8,row=Math.floor(k/4)*2.8; a.order={x:hit.x+col,z:hit.z+row}; a.forcedTarget=null; a.target=null; a.following=false; }); } } } } }
+    cmd.pts=[]; if(lctx)lctx.clearRect(0,0,lcv.width,lcv.height); } }
+
+// ---------- camera / render ----------
+function setCam(pitchDeg,dist,fov,az,lookY){
+  const p=pitchDeg*Math.PI/180, a=(az||34)*Math.PI/180;
+  const hy=dist*Math.sin(p), hz=dist*Math.cos(p);
+  cam.fov=fov||30; cam.updateProjectionMatrix();
+  cam.position.set(Math.sin(a)*hz, hy, Math.cos(a)*hz);
+  cam.lookAt(0,lookY||-2,0);
+}
+window.__cam=setCam;
+
+// ---------- chromatic-offset "screenprint" post pass ----------
+let rt,postScene,postCam,postMat;
+function pr(){return Math.min(devicePixelRatio,2);}
+function initPost(){
+  rt=new THREE.WebGLRenderTarget(innerWidth*pr(),innerHeight*pr(),{samples:4});
+  postCam=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+  postScene=new THREE.Scene();
+  postMat=new THREE.ShaderMaterial({
+    uniforms:{tDiffuse:{value:rt.texture},uAmt:{value:2.2},uRes:{value:new THREE.Vector2(innerWidth,innerHeight)}},
+    vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}',
+    fragmentShader:[
+      'uniform sampler2D tDiffuse;uniform float uAmt;uniform vec2 uRes;varying vec2 vUv;',
+      'void main(){',
+      '  vec2 d=vUv-0.5; float r2=dot(d,d);',
+      '  vec2 off=d*(uAmt/uRes)*(1.0+r2*3.0);',   // stronger toward edges
+      '  float cr=texture2D(tDiffuse,vUv+off).r;',
+      '  float cg=texture2D(tDiffuse,vUv).g;',
+      '  float cb=texture2D(tDiffuse,vUv-off).b;',
+      '  vec3 col=vec3(cr,cg,cb);',
+      '  col*=1.0-r2*0.28;',                      // gentle vignette
+      '  gl_FragColor=vec4(col,1.0);',
+      '}'].join('\n')
+  });
+  postScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),postMat));
+}
+
+async function boot(){
+  rnd3d=new THREE.WebGLRenderer({antialias:true});
+  rnd3d.setSize(innerWidth,innerHeight); rnd3d.setPixelRatio(pr());
+  rnd3d.shadowMap.enabled=true; rnd3d.shadowMap.type=THREE.PCFSoftShadowMap;
+  if('outputColorSpace' in rnd3d) rnd3d.outputColorSpace=THREE.SRGBColorSpace;
+  document.body.appendChild(rnd3d.domElement);
+  cam=new THREE.PerspectiveCamera(30,innerWidth/innerHeight,1,600);
+  await Promise.all([loadNature(), loadBuildings()]); build(); initPost(); await loadRig(); spawnGame(); setupHUD(); followCam();
+  addEventListener('resize',()=>{
+    rnd3d.setSize(innerWidth,innerHeight); cam.aspect=innerWidth/innerHeight; cam.updateProjectionMatrix();
+    rt.setSize(innerWidth*pr(),innerHeight*pr()); postMat.uniforms.uRes.value.set(innerWidth,innerHeight);
+  });
+  let last=performance.now();
+  (function loop(){ requestAnimationFrame(loop);
+    const now=performance.now(); let dt=(now-last)/1000; last=now; if(dt>0.05)dt=0.05;
+    updateGame(dt); followCam(dt);
+    rnd3d.setRenderTarget(rt); rnd3d.render(scene,cam);
+    rnd3d.setRenderTarget(null); rnd3d.render(postScene,postCam);
+  })();
+  window.__ready=true;
+}
+boot();
+</script>
+</body>
+</html>

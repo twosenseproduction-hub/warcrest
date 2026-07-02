@@ -95,16 +95,48 @@
     return RTS.Factions[u.faction] || RTS.Factions[s.playerFaction] || RTS.Factions.aurex;
   }
 
+  // Thronefall fixed build plots: a pulsing on-ground foundation pad per plot.
+  function drawBuildPlots(s, ctx) {
+    var t = RTS._renderT || 0;
+    var plots = s.map.buildPlots;
+    for (var i = 0; i < plots.length; i++) {
+      var p = plots[i];
+      if (p.used) continue;
+      var pulse = 0.5 + 0.5 * Math.sin(t * 2.2 + i);
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      // flattened ground pad + dashed gold ring (reads as a build spot)
+      ctx.save();
+      ctx.scale(1, 0.5);
+      ctx.beginPath(); ctx.arc(0, 0, 24, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(247,238,212,' + (0.24 + pulse * 0.14) + ')'; ctx.fill();
+      ctx.beginPath(); ctx.arc(0, 0, 26 + pulse * 4, 0, Math.PI * 2);
+      ctx.lineWidth = 3; ctx.setLineDash([7, 7]);
+      ctx.strokeStyle = 'rgba(240,193,75,' + (0.65 + pulse * 0.3) + ')'; ctx.stroke();
+      ctx.restore();
+      // center "+" mark — vector, always visible (no emoji dependency)
+      ctx.lineWidth = 3.2; ctx.lineCap = 'round'; ctx.setLineDash([]);
+      ctx.strokeStyle = 'rgba(58,44,20,.88)';
+      ctx.beginPath(); ctx.moveTo(-6, 0); ctx.lineTo(6, 0); ctx.moveTo(0, -6); ctx.lineTo(0, 6); ctx.stroke();
+      ctx.restore();
+    }
+  }
+
   RTS.Render = {
     dpr: 1,
     resize: function (s) {
       var cv = RTS.canvas;
       var dpr = Math.min(window.devicePixelRatio || 1, 2);
       this.dpr = dpr;
-      cv.width = Math.floor(cv.clientWidth * dpr);
-      cv.height = Math.floor(cv.clientHeight * dpr);
-      cv.style.width  = cv.clientWidth + 'px';
-      cv.style.height = cv.clientHeight + 'px';
+      // The viewport is the source of truth, NOT clientWidth. The Phaser canvas
+      // runs Scale.NONE, so its style width is pinned at boot — after rotating
+      // portrait→landscape, clientWidth would stay at the portrait width, leaving
+      // a half-width canvas with dead input on the right. Drive it from innerWidth.
+      var cssW = window.innerWidth, cssH = window.innerHeight;
+      cv.style.width  = cssW + 'px';
+      cv.style.height = cssH + 'px';
+      cv.width = Math.floor(cssW * dpr);
+      cv.height = Math.floor(cssH * dpr);
       RTS.Cam.clamp(s);
       if (RTS._syncPhaserAfterResize) RTS._syncPhaserAfterResize();
       if (RTS._phaserWorldLayer && RTS._phaserWorldLayer.resize) {
@@ -166,6 +198,7 @@
       if (RTS.Assets && RTS.Assets.drawDecor) {
         RTS.Assets.drawDecor(s, ctx);
       }
+      if (RTS.Config.tfLook && s.map && s.map.buildPlots) drawBuildPlots(s, ctx);
       s.entities.resources.forEach(function (n) { if (n.amount > 0) Art().drawResource(ctx, n); });
       drawSelectionBack(s, ctx);
 
@@ -259,6 +292,16 @@
         ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r, 0, Math.PI * 2); ctx.stroke();
         ctx.fillStyle = RTS.hexA(fx.color, a * 0.15);
         ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r * 0.6, 0, Math.PI * 2); ctx.fill();
+      } else if (fx.kind === 'skillfx') {
+        if (RTS.SkillVFX) RTS.SkillVFX.drawFx(ctx, fx);
+      } else if (fx.kind === 'nova') {
+        // expanding spell ring (radius grows in updateEffects)
+        ctx.fillStyle = RTS.hexA(fx.color, a * 0.18);
+        ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = RTS.hexA(fx.color, a * 0.9); ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r, 0, Math.PI * 2); ctx.stroke();
+        ctx.strokeStyle = RTS.hexA('#ffffff', a * 0.5); ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r, 0, Math.PI * 2); ctx.stroke();
       } else if (fx.kind === 'boom') {
         ctx.fillStyle = RTS.hexA(fx.color, a * 0.55);
         ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r, 0, Math.PI * 2); ctx.fill();

@@ -218,35 +218,44 @@
 
     var size = cols * rows;
     var gScore = new Float32Array(size);
-    var fScore = new Float32Array(size);
     var came = new Int32Array(size);
-    var open = new Uint8Array(size);
     var closed = new Uint8Array(size);
-    var i, j, k, ci, ni, tentative, h0;
+    var i, j, k, ni, tentative;
 
     for (i = 0; i < size; i++) {
       gScore[i] = Infinity;
-      fScore[i] = Infinity;
       came[i] = -1;
     }
-
     gScore[startI] = 0;
-    fScore[startI] = octile(scx, scy, gcx, gcy);
-    open[startI] = 1;
 
-    var guard = 0;
-    while (guard++ < 6000) {
-      var best = -1, bestF = Infinity;
-      for (i = 0; i < size; i++) {
-        if (open[i] && fScore[i] < bestF) { bestF = fScore[i]; best = i; }
-      }
-      if (best < 0) return null;
-      if (best === goalI) break;
+    // Open set as a binary min-heap of cell indices keyed by f (parallel arrays).
+    // Replaces the old O(cells) linear min-scan per pop — pops are now O(log n).
+    // Stale entries (a cell re-pushed with a better f) are skipped via `closed`.
+    var heap = [], hf = [], hlen = 0;
+    function hpush(idx, f) {
+      heap[hlen] = idx; hf[hlen] = f; var c = hlen++;
+      while (c > 0) { var p = (c - 1) >> 1; if (hf[p] <= hf[c]) break;
+        var ti = heap[p]; heap[p] = heap[c]; heap[c] = ti; var tf = hf[p]; hf[p] = hf[c]; hf[c] = tf; c = p; }
+    }
+    function hpop() {
+      var top = heap[0]; hlen--;
+      heap[0] = heap[hlen]; hf[0] = hf[hlen];
+      var c = 0; while (true) { var l = 2 * c + 1, r = l + 1, m = c;
+        if (l < hlen && hf[l] < hf[m]) m = l;
+        if (r < hlen && hf[r] < hf[m]) m = r;
+        if (m === c) break;
+        var ti = heap[m]; heap[m] = heap[c]; heap[c] = ti; var tf = hf[m]; hf[m] = hf[c]; hf[c] = tf; c = m; }
+      return top;
+    }
 
-      open[best] = 0;
+    hpush(startI, octile(scx, scy, gcx, gcy));
+    var reached = (startI === goalI), guard = 0;
+    while (hlen > 0 && guard++ < 200000) {
+      var best = hpop();
+      if (closed[best]) continue;          // a stale, already-expanded entry
+      if (best === goalI) { reached = true; break; }
       closed[best] = 1;
-      ci = best;
-      var ccx = ci % cols, ccy = (ci / cols) | 0;
+      var ccx = best % cols, ccy = (best / cols) | 0;
 
       for (j = 0; j < DIRS.length; j++) {
         var nx = ccx + DIRS[j].dx, ny = ccy + DIRS[j].dy;
@@ -258,16 +267,16 @@
           if (blocked[cellIdx(cols, ccx + DIRS[j].dx, ccy)] ||
               blocked[cellIdx(cols, ccx, ccy + DIRS[j].dy)]) continue;
         }
-        tentative = gScore[ci] + DIRS[j].c;
+        tentative = gScore[best] + DIRS[j].c;
         if (tentative < gScore[ni]) {
-          came[ni] = ci;
+          came[ni] = best;
           gScore[ni] = tentative;
-          fScore[ni] = tentative + octile(nx, ny, gcx, gcy);
-          open[ni] = 1;
+          hpush(ni, tentative + octile(nx, ny, gcx, gcy));
         }
       }
     }
 
+    if (!reached) return null;
     if (came[goalI] < 0 && goalI !== startI) return null;
 
     var path = [];
@@ -384,10 +393,72 @@
     return RTS.Terrain.isWater(grid, nx, ny);
   }
 
+  // True when a circle of radius r centred at (x,y) overlaps a solid building.
+  // ignoreId lets a builder/attacker bear down on its own target structure.
+  function circleHitsBuilding(s, x, y, r, ignoreId) {
+    if (!RTS.Assets || !RTS.Assets.buildingCollisionRect) return false;
+    var bs = s.entities.buildings;
+    for (var i = 0; i < bs.length; i++) {
+      var b = bs[i];
+      if (b.dead || !b.built || b.id === ignoreId) continue;
+      var rect = RTS.Assets.buildingCollisionRect(b, s);
+      var cx = Math.max(rect.l, Math.min(x, rect.r));
+      var cy = Math.max(rect.t, Math.min(y, rect.b));
+      var dx = x - cx, dy = y - cy;
+      if (dx * dx + dy * dy < r * r) return true;
+    }
+    return false;
+  }
+
+  // Which building (if any) this unit is allowed to walk into — its build site
+  // or the structure it's meleeing — so local avoidance doesn't shove it away.
+  function navIgnoreBuilding(u, opts) {
+    if (opts && opts.skipBuildingId) return opts.skipBuildingId;
+    if (u.buildTask && u.buildTask.buildingId) return u.buildTask.buildingId;
+    // Melee units may bear down on the structure they're attacking (target may
+    // be a unit id, which simply matches no building — harmless).
+    if (u.target && !u.ranged) return u.target;
+    return null;
+  }
+
+  // Radius-aware local avoidance. A* routes at cell granularity and smoothPath
+  // cuts corners ignoring unit radius, so a unit can steer straight into a
+  // building corner, lose all velocity to the collision push, and wedge there.
+  // Before committing the heading, look a short way ahead; if it drives into a
+  // building, rotate the heading by the smallest angle that clears — the unit
+  // slides along the wall and rounds the corner instead of sticking.
+  function avoidBuildings(s, u, dt) {
+    if (!RTS.Assets || !RTS.Assets.buildingCollisionRect) return;
+    var vx = u.vx || 0, vy = u.vy || 0;
+    var sp = Math.sqrt(vx * vx + vy * vy);
+    if (sp < 1) return;
+    var ignoreId = u._navIgnoreId || null;
+    var look = u.radius + 12;
+    var ax = u.x + (vx / sp) * look, ay = u.y + (vy / sp) * look;
+    if (!circleHitsBuilding(s, ax, ay, u.radius, ignoreId)) return;
+    var base = Math.atan2(vy, vx);
+    var probes = [0.45, -0.45, 0.9, -0.9, 1.35, -1.35, 1.9, -1.9];
+    for (var i = 0; i < probes.length; i++) {
+      var a = base + probes[i];
+      var hx = Math.cos(a), hy = Math.sin(a);
+      var px = u.x + hx * look, py = u.y + hy * look;
+      if (circleHitsBuilding(s, px, py, u.radius, ignoreId)) continue;
+      if (s && wouldEnterWater(s, u.x, u.y, hx * sp, hy * sp, dt)) continue;
+      u.vx = hx * sp; u.vy = hy * sp; u.facing = a;
+      return;
+    }
+    // Boxed in on every heading — hold position rather than grind the wall.
+    u.vx = 0; u.vy = 0;
+  }
+
   function directMoveToward(s, u, tx, ty, dt, stop) {
     var dx = tx - u.x, dy = ty - u.y, d = Math.sqrt(dx * dx + dy * dy) || 1;
     if (d <= stop) { u.vx = 0; u.vy = 0; return; }
-    var vx = dx / d * u.speed, vy = dy / d * u.speed;
+    // March at the group's pace (slowest member) while pure-moving; a unit that
+    // has acquired a combat target ignores the cap and closes at full speed.
+    var base = RTS.effectiveSpeed ? RTS.effectiveSpeed(u) : u.speed;
+    var spd = (u._grpSpeed && !u.target) ? Math.min(u._grpSpeed, base) : base;
+    var vx = dx / d * spd, vy = dy / d * spd;
     if (s && wouldEnterWater(s, u.x, u.y, vx, vy, dt)) {
       u.vx = 0; u.vy = 0;
       return;
@@ -395,11 +466,13 @@
     u.vx = vx;
     u.vy = vy;
     u.facing = Math.atan2(dy, dx);
+    avoidBuildings(s, u, dt);
   }
 
   function moveToward(s, u, tx, ty, dt, stop, opts) {
     opts = opts || {};
     stop = stop == null ? 6 : stop;
+    u._navIgnoreId = navIgnoreBuilding(u, opts);
     var gx = opts.chasing ? Math.round(tx / 56) * 56 : Math.round(tx);
     var gy = opts.chasing ? Math.round(ty / 56) * 56 : Math.round(ty);
     var goalKey = gx + ',' + gy + ',' + (opts.skipBuildingId || '');

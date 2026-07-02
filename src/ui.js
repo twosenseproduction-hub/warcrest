@@ -158,6 +158,10 @@
   }
 
   function buildingUrl(factionId, type) {
+    // Ancestor's Shrine — one shared icon for every faction.
+    if (type === 'ancestor_shrine') {
+      return enc('assets/buildings/shared/', 'ancestor_shrine.png');
+    }
     if (type === 'core' && factionId === 'cinder') {
       return enc('assets/raider/', 'Warren_Maw.png');
     }

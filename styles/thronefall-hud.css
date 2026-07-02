@@ -1,0 +1,156 @@
+/* ============================================================================
+ * Warcrest — thronefall-hud.css
+ * Minimal, Thronefall-style HUD: strip the ornate console, float the
+ * selection-contextual command surfaces + macro as a right-side cluster of
+ * dark-translucent circular buttons, lean on radial menus over buildings.
+ * Loaded LAST so it overrides wc-hud.css / main.css. JS ids are untouched.
+ * ==========================================================================*/
+
+/* ── De-cloud the field: the warm soft-light colour-grade + vignette overlays
+ * sit on top of the canvas and wash/desaturate the battlefield. Pull them way
+ * back so the 3D scene reads crisp and saturated. ──────────────────────────── */
+body.tf-look #tf-grade { opacity: 0.4 !important; }      /* softer warm wash */
+body.tf-look #tf-vignette { opacity: 0.5 !important; }   /* lighter corner darkening */
+
+/* ── Tokens ─────────────────────────────────────────────────────────────── */
+:root {
+  --tf-disc:        rgba(18, 14, 9, 0.60);
+  --tf-disc-strong: rgba(14, 10, 6, 0.78);
+  --tf-ring:        rgba(243, 217, 164, 0.34);
+  --tf-ring-hot:    rgba(245, 205, 90, 0.95);
+}
+
+/* ── Top bar: no full-width slab — just floating pills ────────────────────── */
+#topbar {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  height: auto;
+  padding-top: calc(4px + env(safe-area-inset-top));
+}
+#topbar .hub-stats-row { gap: 6px; }
+#topbar .hs-cell {
+  background: var(--tf-disc-strong) !important;
+  border: none !important;
+  box-shadow: inset 0 0 0 1.5px var(--tf-ring) !important;
+  border-radius: 999px !important;
+  padding: 5px 10px !important;
+}
+#topbar .hs-cell .ic-ts { width: 15px; height: 15px; }
+#topbar .hs-cell .val { font-size: 12px; }
+.tb-crest { display: none; }                 /* drop the central crest for a clean field */
+#topbar .tb-icon {
+  width: 38px; height: 38px;
+  background: var(--tf-disc-strong);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--tf-ring);
+}
+
+/* ── Command surfaces: float bottom-RIGHT as a vertical cluster ──────────── */
+#command-deck {
+  position: absolute;
+  left: auto;
+  right: max(10px, env(safe-area-inset-right));
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  top: auto;
+  width: auto; height: auto;
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  z-index: 18;
+}
+#bottom-hub {
+  display: flex !important;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  --cmd-slot: 54px;
+  --act-slot: 50px;
+}
+.deck-center { display: none !important; }   /* drop the big selection parchment — minimal */
+.deck-left {
+  border: none !important;
+  border-image: none !important;
+  background: none !important;
+  padding: 0 !important;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+.deck-left .tf-sel-toggle { display: none; }
+
+/* Shared disc look for every command/macro button */
+.deck-left .ts-chip,
+.deck-left .cmd-slot,
+.deck-left .act-slot {
+  width: var(--cmd-slot); height: var(--cmd-slot);
+  border-radius: 50% !important;
+  background: var(--tf-disc) !important;
+  border: none !important;
+  box-shadow: inset 0 0 0 1.5px var(--tf-ring), 0 2px 6px rgba(0,0,0,.45) !important;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 !important;
+}
+.deck-left .act-slot { width: var(--act-slot); height: var(--act-slot); }
+.deck-left .ts-chip.active,
+.deck-left .cmd-slot.active,
+.deck-left .cmd-slot.targeting {
+  box-shadow: inset 0 0 0 2px var(--tf-ring-hot), 0 0 10px rgba(245,205,90,.5) !important;
+}
+.deck-left .cmd-slot.slot-hidden,
+.deck-left .cmd-slot.act-slot-empty,
+.deck-left .act-slot.act-slot-empty { display: none !important; }   /* drop empty discs entirely — clean field */
+.deck-left .ts-chip:active,
+.deck-left .cmd-slot:active,
+.deck-left .act-slot:active { transform: scale(0.92); }
+
+/* MACRO — type-select chips: a compact 2-wide cluster on top of the stack */
+#type-select {
+  grid-template-columns: repeat(2, var(--cmd-slot)) !important;
+  gap: 8px !important;
+  width: auto !important;
+  order: 0;
+}
+.deck-left .ts-chip .ts-ico { width: 70%; height: 70%; }
+.deck-left .ts-chip .ts-tag { bottom: 1px; font-size: 7px; }
+
+/* CONTEXTUAL COMMANDS — train/abilities for the current selection: 2-wide discs */
+#command-card { width: auto !important; align-self: flex-end !important; order: 1; }
+.deck-left .cmd-grid {
+  grid-template-columns: repeat(2, var(--cmd-slot)) !important;
+  grid-template-rows: none !important;
+  grid-auto-rows: var(--cmd-slot);
+  gap: 8px !important;
+  justify-content: end !important;
+}
+
+/* COMBAT CONTROLS — show the stop / attack-move / ability row (was hidden) */
+.deck-left .hub-action-grid {
+  display: flex !important;
+  flex-direction: row;
+  gap: 8px;
+  order: 2;
+}
+/* …but with nothing selected there is nothing to command — hide the whole row
+ * rather than float a strip of dead, dimmed discs (Thronefall keeps the field
+ * clean and only surfaces controls that actually do something). */
+.deck-left .hub-action-grid.no-selection { display: none !important; }
+
+/* A thin separating breath between macro, commands and combat controls */
+#command-card:not(:empty) { margin-top: 2px; }
+
+/* ── Radial avatars: build/train items inject portrait HTML with classes
+ * (.ts-building-portrait / .ts-strip-portrait) that BYPASS the .rcard-avatar
+ * sizing rule, so they collapse to nothing — leaving an empty disc with just a
+ * gold cost. Force any portrait content inside a radial card to a visible size. */
+#radial-menu .rcard-body img,
+#radial-menu .rcard-body .ts-building-portrait,
+#radial-menu .rcard-body .ts-avatar-portrait,
+#radial-menu .rcard-body .ts-hero-portrait {
+  width: 76% !important; height: 76% !important;
+  object-fit: contain; image-rendering: pixelated;
+}
+#radial-menu .rcard-body .ts-strip-portrait {
+  width: 76% !important; height: 76% !important;
+}

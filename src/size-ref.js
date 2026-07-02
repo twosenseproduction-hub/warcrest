@@ -34,13 +34,17 @@
   };
 
   /* Gameplay foot radii (collision / selection), derived from char foot. */
+  // Foot radii scaled to WC3-relative unit sizes: workers/archers/casters are
+  // small; melee (Footman/Grunt) bulkier; mounted lancers (Knight/Raider/Huntress)
+  // larger; siege (Glaive Thrower) largest of the trainables; heroes loom over all.
   var UNIT = {
-    pawn: REF.charFootR,
-    lancer: REF.charFootR * 1.08,
-    archer: REF.charFootR * 1.05,
-    monk: REF.charFootR * 1.05,
-    warrior: REF.charFootR * 1.18,
-    hero: REF.charFootR * 1.32,
+    pawn: REF.charFootR,               // Wisp / Peasant / Peon — small
+    archer: REF.charFootR * 1.02,      // Archer / Rifleman / Headhunter
+    monk: REF.charFootR * 1.02,        // Priest / Shaman / Mystic
+    warrior: REF.charFootR * 1.20,     // Footman / Grunt — bulky infantry
+    lancer: REF.charFootR * 1.30,      // Knight / Raider / Huntress — mounted
+    siege: REF.charFootR * 1.50,       // Glaive Thrower — war machine
+    hero: REF.charFootR * 1.40,
   };
 
   /* Draw size targets — width-led, height follows sprite aspect in assets.js */
@@ -52,6 +56,7 @@
     foundry: { w: 266, h: 216 },
     forge: { w: 296, h: 240 },
     chiefs_hall: { w: 296, h: 240 },
+    ancestor_shrine: { w: 300, h: 270 },
     turret: { w: 120, h: 160 },
   };
 
@@ -68,6 +73,7 @@
     foundry: { wMul: 1.00, hMul: 1.00, padL: 1, padR: 1, padT: 0, padB: 2, xOffset: 0, yOffset: 0 },
     forge:   { wMul: 1.00, hMul: 1.00, padL: 0, padR: 0, padT: 0, padB: 2, xOffset: 0, yOffset: 0 },
     chiefs_hall: { wMul: 1.00, hMul: 1.00, padL: 0, padR: 0, padT: 0, padB: 2, xOffset: 0, yOffset: 0 },
+    ancestor_shrine: { wMul: 1.00, hMul: 1.00, padL: 0, padR: 0, padT: 0, padB: 2, xOffset: 0, yOffset: 0 },
     turret:  { wMul: 1.00, hMul: 1.00, padL: 1, padR: 1, padT: 0, padB: 2, xOffset: 0, yOffset: 0 },
     outpost: { wMul: 1.00, hMul: 1.00, padL: 0, padR: 0, padT: 0, padB: 2, xOffset: 0, yOffset: 0 },
   };
@@ -279,6 +285,10 @@
     }
     if (kind === 'bush') return REF.bushH;
     if (kind === 'rock') return REF.rockH;
+    // small ground-detail props (scaled vs the ~big unit/tree art)
+    if (kind === 'grass') return 38;
+    if (kind === 'flower') return 34;
+    if (kind === 'pebble') return 26;
     return REF.bushH;
   }
 
@@ -287,6 +297,7 @@
     if (kind === 'tree') return h * 0.22;
     if (kind === 'bush') return h * 0.42;
     if (kind === 'rock') return h * 0.48;
+    if (kind === 'grass' || kind === 'flower' || kind === 'pebble') return h * 0.3;
     return h * 0.35;
   }
 
