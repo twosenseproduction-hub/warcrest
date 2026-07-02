@@ -316,6 +316,7 @@ function build(){
 // tap the ground to rally them; STOMP button = warstomp. Survive the wave.
 let hero=null, allies=[], enemies=[];
 let rallyPoint=null, rallyMarker=null, gameOver=0, spawnLeft=16, spawnTimer=1.2, killed=0;
+let heroFwd={x:0,z:1};
 let keys={}, joy={active:false,nx:0,ny:0,id:null,sx:0,sy:0};
 let heroHpEl, waveEl, resultEl, abilEl, joyBase, joyKnob;
 const raycaster=new THREE.Raycaster(), groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
@@ -329,16 +330,16 @@ function makeBar(fillHex){
 }
 function mkFighter(hex,scale,team,st){
   const g=makeUnit(hex,scale); scene.add(g);
-  const e=Object.assign({g,team,alive:true,cd:0,px:0,pz:0,hitT:0,
-    bar:makeBar(team==='enemy'?0xd23b3b:0x4ad0e0)},st);
+  const e=Object.assign({g,team,alive:true,cd:0,px:0,pz:0,hitT:0,face:0,phase:Math.random()*6.28,movedThis:false,
+    rad:team==='hero'?2.0:1.4, bar:makeBar(team==='enemy'?0xd23b3b:0x4ad0e0)},st);
   e.max=st.hp; return e;
 }
 function setP(e,x,z){ e.px=x; e.pz=z; e.g.position.set(x,topY(x,z),z); }
-function faceTo(e,dx,dz){ if(dx||dz) e.g.rotation.y=Math.atan2(dx,dz); }
+function faceTo(e,dx,dz){ if(dx||dz) e.face=Math.atan2(dx,dz); }
 function spawnGame(){
   hero=mkFighter(C.hero,1.9,'hero',{hp:260,dmg:20,range:3.6,atkEvery:0.5,spd:32,aCd:0}); setP(hero,-2,8);
-  for(let i=0;i<8;i++){ const e=mkFighter(i%2?C.teamBlue:C.teamBlueD,1.0,'ally',{hp:60,dmg:10,range:2.5,atkEvery:0.8,spd:22});
-    e.ox=((i%4)-1.5)*3.6; e.oz=Math.floor(i/4)*3.6+6; setP(e,-2+e.ox,12+e.oz); allies.push(e); }
+  for(let i=0;i<8;i++){ const e=mkFighter(i%2?C.teamBlue:C.teamBlueD,1.0,'ally',{hp:60,dmg:10,range:2.5,atkEvery:0.8,spd:24});
+    e.idx=i; setP(e,-2+((i%4)-1.5)*3.2, 13+Math.floor(i/4)*3.6); allies.push(e); }
   rallyMarker=new THREE.Mesh(new THREE.RingGeometry(1.6,2.3,22),new THREE.MeshBasicMaterial({color:0xffe089,transparent:true,opacity:0.9,side:THREE.DoubleSide}));
   rallyMarker.rotation.x=-Math.PI/2; rallyMarker.visible=false; scene.add(rallyMarker);
 }
@@ -346,7 +347,24 @@ function spawnEnemy(){ const a=0.25+rr(-0.6,0.6), er=edgeR(a)-10, x=Math.cos(a)*
   if(!onIsland(x,z))return; const e=mkFighter(C.enemyRed,1.05,'enemy',{hp:36,dmg:6,range:2.5,atkEvery:1.0,spd:14}); setP(e,x,z); enemies.push(e); }
 function nearest(x,z,list){ let b=null,bd=1e9; for(const t of list){ if(!t.alive)continue; const d=(t.px-x)**2+(t.pz-z)**2; if(d<bd){bd=d;b=t;} } return {t:b,d:Math.sqrt(bd)}; }
 function moveTo(e,tx,tz,dt){ let dx=tx-e.px,dz=tz-e.pz; const d=Math.hypot(dx,dz)||1; dx/=d;dz/=d;
-  const nx=e.px+dx*e.spd*dt, nz=e.pz+dz*e.spd*dt; if(onIsland(nx,nz)){setP(e,nx,nz);faceTo(e,dx,dz);} return d; }
+  const nx=e.px+dx*e.spd*dt, nz=e.pz+dz*e.spd*dt; if(onIsland(nx,nz)){setP(e,nx,nz);faceTo(e,dx,dz);e.movedThis=true;} return d; }
+// walk bob + smooth turn (units feel alive, not sliding statues)
+function loco(dt){ const all=[hero,...allies,...enemies];
+  for(const e of all){ if(!e||!e.alive)continue;
+    let d=e.face-e.g.rotation.y; while(d>Math.PI)d-=6.283; while(d<-Math.PI)d+=6.283; e.g.rotation.y+=d*Math.min(1,dt*10);
+    e.phase += (e.movedThis?11:2.5)*dt;
+    const bob = e.movedThis? Math.abs(Math.sin(e.phase))*0.45 : 0.05+Math.sin(e.phase)*0.05;
+    e.g.position.set(e.px, topY(e.px,e.pz)+bob, e.pz); e.movedThis=false;
+  } }
+// anti-stack separation (units spread out instead of piling up)
+function separate(){ const all=[hero,...allies,...enemies].filter(e=>e&&e.alive);
+  for(let i=0;i<all.length;i++)for(let j=i+1;j<all.length;j++){ const a=all[i],b=all[j];
+    let dx=b.px-a.px,dz=b.pz-a.pz; const d=Math.hypot(dx,dz), min=a.rad+b.rad;
+    if(d<min && d>0.0001){ const ov=(min-d); dx/=d;dz/=d;
+      let sa=0.5,sb=0.5; if(a.team==='hero'){sa=0;sb=1;} if(b.team==='hero'){sb=0;sa=1;}
+      const ax=a.px-dx*ov*sa, az=a.pz-dz*ov*sa; if(onIsland(ax,az)){a.px=ax;a.pz=az;}
+      const bx=b.px+dx*ov*sb, bz=b.pz+dz*ov*sb; if(onIsland(bx,bz)){b.px=bx;b.pz=bz;}
+    } } }
 function attack(a,d){ if(a.cd>0)return; d.hp-=a.dmg; d.hitT=0.12; a.cd=a.atkEvery; faceTo(a,d.px-a.px,d.pz-a.pz); }
 function groundBasis(){ const f=new THREE.Vector3(); cam.getWorldDirection(f); f.y=0; f.normalize();
   const r=new THREE.Vector3().crossVectors(f,new THREE.Vector3(0,1,0)).normalize(); return {f,r}; }
@@ -374,15 +392,20 @@ function updateGame(dt){
     if(joy.active){ ix=joy.nx; iy=joy.ny; }
     else { if(keys['w']||keys['arrowup'])iy-=1; if(keys['s']||keys['arrowdown'])iy+=1; if(keys['a']||keys['arrowleft'])ix-=1; if(keys['d']||keys['arrowright'])ix+=1; }
     const B=groundBasis(); let mvx=B.f.x*(-iy)+B.r.x*ix, mvz=B.f.z*(-iy)+B.r.z*ix; const ml=Math.hypot(mvx,mvz);
-    if(ml>0.01){ mvx/=ml;mvz/=ml; const nx=hero.px+mvx*hero.spd*dt, nz=hero.pz+mvz*hero.spd*dt; if(onIsland(nx,nz))setP(hero,nx,nz); faceTo(hero,mvx,mvz); }
+    if(ml>0.01){ mvx/=ml;mvz/=ml; const nx=hero.px+mvx*hero.spd*dt, nz=hero.pz+mvz*hero.spd*dt; if(onIsland(nx,nz))setP(hero,nx,nz);
+      faceTo(hero,mvx,mvz); hero.movedThis=true; heroFwd.x+=(mvx-heroFwd.x)*Math.min(1,dt*6); heroFwd.z+=(mvz-heroFwd.z)*Math.min(1,dt*6); }
     hero.cd-=dt; hero.aCd-=dt;
     { const {t,d}=nearest(hero.px,hero.pz,enemies); if(t&&d<=hero.range+1) attack(hero,t); }
+    const hl=Math.hypot(heroFwd.x,heroFwd.z)||1, ffx=heroFwd.x/hl, ffz=heroFwd.z/hl, rgx=ffz, rgz=-ffx;
     for(const e of allies){ if(!e.alive)continue; e.cd-=dt; const {t,d}=nearest(e.px,e.pz,enemies);
       const engage=t&&(d<24||Math.hypot(t.px-hero.px,t.pz-hero.pz)<28);
-      if(engage){ if(d>e.range)moveTo(e,t.px,t.pz,dt); else attack(e,t); }
-      else { const tx=rallyPoint?rallyPoint.x:hero.px+e.ox, tz=rallyPoint?rallyPoint.z:hero.pz+e.oz; if(Math.hypot(tx-e.px,tz-e.pz)>2.6)moveTo(e,tx,tz,dt); } }
+      if(engage){ if(d>e.range)moveTo(e,t.px,t.pz,dt); else { attack(e,t); faceTo(e,t.px-e.px,t.pz-e.pz); } }
+      else { let tx,tz; if(rallyPoint){ const col=((e.idx%4)-1.5)*3.0, row=Math.floor(e.idx/4)*3.0; tx=rallyPoint.x+col; tz=rallyPoint.z+row; }
+             else { const col=((e.idx%4)-1.5)*3.2, back=5+Math.floor(e.idx/4)*3.6; tx=hero.px-ffx*back+rgx*col; tz=hero.pz-ffz*back+rgz*col; }
+             if(Math.hypot(tx-e.px,tz-e.pz)>1.0) moveTo(e,tx,tz,dt); } }
     for(const e of enemies){ if(!e.alive)continue; e.cd-=dt; const {t,d}=nearest(e.px,e.pz,[hero,...allies]);
       if(t&&d<70){ if(d>e.range)moveTo(e,t.px,t.pz,dt); else attack(e,t); } else moveTo(e,-2,0,dt); }
+    separate(); loco(dt);
     const reap=l=>{ for(const e of l){ if(e.alive&&e.hp<=0){ e.alive=false; scene.remove(e.g); scene.remove(e.bar); if(e.team==='enemy')killed++; } } return l.filter(e=>e.alive); };
     allies=reap(allies); enemies=reap(enemies);
     if(hero.hp<=0) endGame(false); else if(spawnLeft===0&&enemies.length===0) endGame(true);
