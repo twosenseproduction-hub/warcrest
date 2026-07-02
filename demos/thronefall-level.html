@@ -453,7 +453,7 @@ function separate(){ const all=[hero,...allies,...enemies].filter(e=>e&&e.alive)
     if(a.target===b||b.target===a)continue;   // never shove a fighter and its own target apart
     // anchored (attacking) units and the hero hold ground; only movers get nudged apart
     const wa=(a.team==='hero'||a.state==='attack')?0:1, wb=(b.team==='hero'||b.state==='attack')?0:1;
-    if(!wa&&!wb)continue; const ov=(min-d); dx/=d;dz/=d; const tot=wa+wb;
+    if(!wa&&!wb)continue; const ov=(min-d)*0.5; dx/=d;dz/=d; const tot=wa+wb;   // ease apart (half the overlap/frame) so packed units glide, not pop back
     if(wa){ const ax=a.px-dx*ov*(wa/tot), az=a.pz-dz*ov*(wa/tot); if(onIsland(ax,az)){a.px=ax;a.pz=az;} }
     if(wb){ const bx=b.px+dx*ov*(wb/tot), bz=b.pz+dz*ov*(wb/tot); if(onIsland(bx,bz)){b.px=bx;b.pz=bz;} }
   } }
