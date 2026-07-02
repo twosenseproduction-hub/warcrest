@@ -22,6 +22,7 @@
 <script src="/vendor/NURBSCurve.js"></script>
 <script src="/vendor/NURBSUtils.js"></script>
 <script src="/vendor/FBXLoader.js"></script>
+<script src="/vendor/SkeletonUtils.js"></script>
 <script>
 // ---------- palette (sampled to match Thronefall reference) ----------
 const C = {
@@ -360,46 +361,46 @@ function mkFighter(hex,scale,team,st){
 }
 function setP(e,x,z){ e.px=x; e.pz=z; e.g.position.set(x,topY(x,z),z); }
 function faceTo(e,dx,dz){ if(dx||dz) e.face=Math.atan2(dx,dz); }
-// ---------- rigged unit: Bitgem elf mesh + Quaternius UAL (CC0) clips ----------
-let RIG=null; const ELF_YAW=Math.PI, ELF_H=3.2;
-// rotations only — bone positions stay at the FBX bind (keeps bone lengths; avoids the "collapsed ball")
-function fixClip(c){ if(!c)return null; return new THREE.AnimationClip(c.name,c.duration, c.tracks.filter(t=>t.name.endsWith('.quaternion'))); }
+// ---------- rigged units: Bitgem elf GLBs with native-skeleton (Mixamo-authored) clips ----------
+// Each GLB packs the mesh once + all its clips; the clips are authored on the Bitgem
+// skeleton so they play with no retarget. Textures are embedded (palette atlas, UVs
+// pre-flipped) — we just force NearestFilter so swatches sample solid, not the black gaps.
+const RIGS={}; const CHAR_H={queen:3.7, archer:3.05, priestess:3.2};   // world heights (queen tallest & regal)
 function loadRig(){ return new Promise(res=>{
-  const fx=new THREE.FBXLoader(), gl=new THREE.GLTFLoader(), tl=new THREE.TextureLoader();
-  let elf=null,lib=null,tex=null,n=0;
-  const done=()=>{ if(++n<3)return; if(elf&&lib){ const by=x=>lib.animations.find(a=>a.name===x);
-      RIG={ scene:elf, tex:tex, clips:{ idle:fixClip(by('Idle_Loop')), walk:fixClip(by('Walk_Loop')), attack:fixClip(by('Sword_Attack')), death:fixClip(by('Death01')) } }; } res(); };
-  // Bitgem palette atlas: FBX UVs need flipY=true, and NearestFilter (no mipmaps) so each vertex
-  // samples a solid swatch instead of bleeding into the black gaps between swatches (which read as pitch black).
-  tl.load('/assets/models/elf_archer_tex.png', t=>{ if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; else if(THREE.sRGBEncoding)t.encoding=THREE.sRGBEncoding; t.flipY=true; t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter; t.generateMipmaps=false; tex=t; done(); }, undefined, ()=>done());
-  fx.load('/assets/models/elf_archer.fbx', o=>{ elf=o; done(); }, undefined, ()=>done());
-  gl.load('/assets/models/ual_lib.glb', g=>{ lib=g; done(); }, undefined, ()=>done()); }); }
-function makeElf(){ const outer=new THREE.Group(), inner=RIG.scene;
-  inner.rotation.y=ELF_YAW; inner.position.set(0,0,0);
-  inner.traverse(nd=>{ if(nd.isMesh){ nd.material=new THREE.MeshBasicMaterial({map:RIG.tex,side:THREE.DoubleSide}); nd.castShadow=true; nd.frustumCulled=false; } });
+  const gl=new THREE.GLTFLoader(); const specs=[['queen','elf_queen'],['archer','elf_archer'],['priestess','elf_priestess']];
+  let n=0; const done=()=>{ if(++n>=specs.length) res(); };
+  specs.forEach(([k,f])=>gl.load('/assets/models/'+f+'_anim.glb', g=>{ RIGS[k]={scene:g.scene,anims:g.animations}; done(); }, undefined, ()=>done())); }); }
+// clone a rig (independent per unit), crisp texture, scale to target height, plant feet, wire clips
+function makeChar(key){ const src=RIGS[key]; if(!src)return null;
+  const inner=THREE.SkeletonUtils.clone(src.scene), outer=new THREE.Group();
+  inner.rotation.y=Math.PI;
+  inner.traverse(nd=>{ if(nd.isMesh){ nd.frustumCulled=false; nd.castShadow=true; const mm=nd.material;
+    if(mm&&mm.map){ mm.map.magFilter=THREE.NearestFilter; mm.map.minFilter=THREE.NearestFilter; mm.map.generateMipmaps=false; mm.map.needsUpdate=true; } } });
   outer.add(inner); outer.updateMatrixWorld(true);
-  // measure the rig at native scale, then scale the OUTER wrapper (reliable for skinned meshes)
   const bb=new THREE.Box3().setFromObject(inner); const hh=Math.max(0.001,bb.getSize(new THREE.Vector3()).y);
-  inner.position.y = -bb.min.y;              // rough feet-to-origin (native units)
-  outer.scale.setScalar(ELF_H/hh);           // whole rig scaled to ELF_H tall
+  inner.position.y=-bb.min.y; outer.scale.setScalar(CHAR_H[key]/hh);
   const mixer=new THREE.AnimationMixer(inner); const act={};
-  for(const k in RIG.clips){ if(RIG.clips[k]) act[k]=mixer.clipAction(RIG.clips[k]); }
+  src.anims.forEach(a=>{ act[a.name]=mixer.clipAction(a); });
   if(act.idle) act.idle.play();
-  mixer.update(0.3); outer.updateMatrixWorld(true);          // settle the idle pose, then plant feet exactly
+  mixer.update(0.3); outer.updateMatrixWorld(true);          // settle idle, then plant feet + centre exactly
   const b2=new THREE.Box3().setFromObject(inner); const c2=b2.getCenter(new THREE.Vector3());
-  inner.position.y -= b2.min.y/outer.scale.x;                // feet on ground
-  inner.position.x -= c2.x/outer.scale.x; inner.position.z -= c2.z/outer.scale.x;   // centre over the unit
+  inner.position.y-=b2.min.y/outer.scale.x; inner.position.x-=c2.x/outer.scale.x; inner.position.z-=c2.z/outer.scale.x;
   return {g:outer,mixer,act}; }
-function setHeroAnim(want){ if(!hero.act||hero.animState===want)return; const a=hero.act[want]; if(!a)return;
-  const cur=hero.act[hero.animState]; if(cur)cur.fadeOut(0.15); a.reset().fadeIn(0.15).play(); hero.animState=want; }
+// generic crossfade anim setter (hero + rigged allies)
+function setAnim(e,want){ if(!e.act||e.animState===want)return; const a=e.act[want]; if(!a)return;
+  const cur=e.act[e.animState]; if(cur)cur.fadeOut(0.16); a.reset().fadeIn(0.16).play(); e.animState=want; }
+// swap an entity's placeholder body for a rigged character
+function riggize(e,key){ const c=makeChar(key); if(!c)return; scene.remove(e.g); e.g=c.g; e.mixer=c.mixer; e.act=c.act; e.rigged=true; e.rigKey=key; e.animState='idle'; scene.add(e.g); }
 
 function spawnGame(){
   hero=mkFighter(C.hero,1.9,'hero',{hp:260,dmg:20,range:3.6,atkEvery:0.5,spd:32,aCd:0,spellCd:0});
-  if(RIG){ scene.remove(hero.g); const e=makeElf(); hero.g=e.g; hero.mixer=e.mixer; hero.act=e.act; hero.rigged=true; hero.animState='idle'; scene.add(hero.g); }
+  riggize(hero,'queen');                       // the Elf Queen — sword + spell hero
   setP(hero,2,34);
-  for(let i=0;i<8;i++){ const cleric=i>=6;
-    const e=mkFighter(cleric?C.cleric:(i%2?C.teamBlue:C.teamBlueD),1.0,'ally',{hp:cleric?52:60,dmg:cleric?6:10,range:3.0,atkEvery:0.8,spd:24});
-    e.idx=i; e.kind=cleric?'cleric':'warrior'; e.healCd=0; e.smiteCd=0; setP(e,2+((i%4)-1.5)*3.2, 42+Math.floor(i/4)*3.6); allies.push(e); }
+  for(let i=0;i<8;i++){ const caster=i>=6;      // idx 6,7 = priestess casters; the rest = archers
+    const e=mkFighter(caster?C.cleric:(i%2?C.teamBlue:C.teamBlueD),1.0,'ally',{hp:caster?52:60,dmg:caster?6:10,range:3.0,atkEvery:0.8,spd:24});
+    e.idx=i; e.kind=caster?'cleric':'warrior'; e.healCd=0; e.smiteCd=0;
+    riggize(e, caster?'priestess':'archer');    // tier-1 archers + priestess casters
+    setP(e,2+((i%4)-1.5)*3.2, 42+Math.floor(i/4)*3.6); allies.push(e); }
   rallyMarker=new THREE.Mesh(new THREE.RingGeometry(1.6,2.3,22),new THREE.MeshBasicMaterial({color:0xffe089,transparent:true,opacity:0.9,side:THREE.DoubleSide}));
   rallyMarker.rotation.x=-Math.PI/2; rallyMarker.visible=false; scene.add(rallyMarker);
 }
@@ -513,7 +514,7 @@ function updateGame(dt){
     if(autoBolt && hero.spellCd<=0 && enemies.length){ const {t}=nearest(hero.px,hero.pz,enemies); if(t) castBolt(t.px,t.pz); }
     { const {t,d}=nearest(hero.px,hero.pz,enemies); if(t&&d<=hero.range+1){ if(hero.rigged&&hero.cd<=0) hero.__atkT=0.55; attack(hero,t); } }
     if(hero.rigged){ hero.mixer.update(dt); hero.__atkT=Math.max(0,(hero.__atkT||0)-dt);
-      setHeroAnim(hero.__atkT>0?'attack':((ml>0.01&&camLocked)?'walk':'idle')); }
+      setAnim(hero, hero.__atkT>0?'attack':((ml>0.01&&camLocked)?'run':'idle')); }
     const hl=Math.hypot(heroFwd.x,heroFwd.z)||1, ffx=heroFwd.x/hl, ffz=heroFwd.z/hl, rgx=ffz, rgz=-ffx;
     for(const e of allies){ if(!e.alive)continue; e.cd-=dt;
       const heroDist=Math.hypot(hero.px-e.px,hero.pz-e.pz);
@@ -533,7 +534,8 @@ function updateGame(dt){
              const col=((e.idx%4)-1.5)*2.8, back=4.5+Math.floor(e.idx/4)*3.0, tx=hero.px-ffx*back+rgx*col, tz=hero.pz-ffz*back+rgz*col;
              if(!e.following && heroDist>FOLLOW_OUT) e.following=true;
              if(e.following){ e.state='move'; moveTo(e,tx,tz,dt); faceTo(e,ffx,ffz); if(Math.hypot(tx-e.px,tz-e.pz)<FOLLOW_IN) e.following=false; }
-             else { e.state='idle'; faceTo(e,ffx,ffz); } } }
+             else { e.state='idle'; faceTo(e,ffx,ffz); } }
+      if(e.rigged){ e.mixer.update(dt); setAnim(e, e.state==='attack'?'attack':(e.state==='move'?'run':'idle')); } }
     for(const e of enemies){ if(!e.alive)continue; e.cd-=dt;
       if(e.target && !e.target.alive) e.target=null;
       if(!e.target){ const {t}=nearest(e.px,e.pz,[hero,...allies]); e.target=t; }   // commit to a foe until it dies
