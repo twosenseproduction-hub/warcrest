@@ -55,9 +55,25 @@ function rr(a,b){return a+(b-a)*rnd();}
 
 // ---------- scene ----------
 let scene,cam,rnd3d,sunLight=null;
-// two isles joined by a land bridge — open grass meadow
-const LOBES=[ {cx:0,cz:0,R:150,ph:0.7}, {cx:270,cz:-10,R:105,ph:2.3} ];   // expanded — lots more room to roam
-const BR={x0:145,x1:180,z:-6,hw:26,bottom:-16};   // land bridge spanning the (now wider) gap
+// WC3-style archipelago: two base islands on the main diagonal (screen -x is right, -z is up,
+// so world (+,+) reads bottom-left and (-,-) reads top-right), a chain of forest islands through
+// the middle, open water between, all stitched by causeways.
+const LOBES=[
+  {cx:105, cz:105, R:90, ph:0.7},   // 0: PLAYER base island  — bottom-left
+  {cx:-105,cz:-105,R:90, ph:2.3},   // 1: ENEMY base island   — top-right
+  {cx:0,   cz:0,   R:56, ph:1.1},   // 2: central forest island
+  {cx:62,  cz:-46, R:40, ph:3.0},   // 3: forest island (N flank)
+  {cx:-62, cz:46,  R:40, ph:4.4},   // 4: forest island (S flank)
+];
+// causeways (arbitrary-orientation land strips) — the diagonal spine + flank links
+const BRIDGES=[
+  {a:[105,105],  b:[0,0],     hw:15},   // player base → center
+  {a:[0,0],      b:[-105,-105],hw:15},  // center → enemy base
+  {a:[0,0],      b:[62,-46],  hw:12},   // center → N-flank island
+  {a:[0,0],      b:[-62,46],  hw:12},   // center → S-flank island
+  {a:[105,105],  b:[-62,46],  hw:12},   // player base → S-flank
+  {a:[-105,-105],b:[62,-46],  hw:12},   // enemy base → N-flank
+];
 const sun=new THREE.Vector3(-0.55,0.75,0.38).normalize();
 
 function edgeRL(theta,L){ return L.R*(0.86 + 0.09*Math.sin(theta*3+L.ph) + 0.05*Math.sin(theta*7+2.1) + 0.03*Math.sin(theta*13)); }
@@ -66,10 +82,9 @@ function grassY(x,z){ return 2.2*(fbm(x*0.02+5,z*0.02+9)-0.5) + 1.0*(fbm(x*0.06,
 
 // paths (cream) as polylines on the grass — winding, radiating from the keep
 const PATHS=[
-  [[-12,-2],[-2,4],[10,20],[20,34],[27,50]],
-  [[-12,-2],[-22,-8],[-30,-20],[-42,-28],[-52,-34]],
-  [[-12,-2],[-2,-14],[16,-24],[36,-28],[56,-22]],
-  [[-12,-2],[6,2],[22,4]],
+  [[105,105],[52,52],[0,0],[-52,-52],[-105,-105]],   // the diagonal spine, base → center → base
+  [[0,0],[31,-23],[62,-46]],                          // spur to the N-flank island
+  [[0,0],[-31,23],[-62,46]],                          // spur to the S-flank island
 ];
 function pathDist(x,z){
   let best=1e9;
@@ -81,7 +96,8 @@ function pathDist(x,z){
   return best;
 }
 function inLobe(x,z,L){ const th=Math.atan2(z-L.cz,x-L.cx); return Math.hypot(x-L.cx,z-L.cz) < edgeRL(th,L)-2; }
-function onBridge(x,z){ return x>BR.x0 && x<BR.x1 && Math.abs(z-BR.z)<BR.hw-1; }
+function segDist(x,z,a,b){ const dx=b[0]-a[0],dz=b[1]-a[1]; const t=Math.max(0,Math.min(1,((x-a[0])*dx+(z-a[1])*dz)/(dx*dx+dz*dz+1e-6))); return Math.hypot(x-(a[0]+dx*t), z-(a[1]+dz*t)); }
+function onBridge(x,z){ for(const b of BRIDGES) if(segDist(x,z,b.a,b.b)<b.hw-1) return true; return false; }
 function onIsland(x,z){ for(const L of LOBES) if(inLobe(x,z,L)) return true; return onBridge(x,z); }
 function topY(x,z){ return grassY(x,z) - (pathDist(x,z)<7?0.6:0); }
 
@@ -139,17 +155,27 @@ function buildTerrain(){
       const a=cliffRings[k][j],b=cliffRings[k][j+1],c=cliffRings[k+1][j+1],d=cliffRings[k+1][j];
       pushTri(a,b,c,'cliff'); pushTri(a,c,d,'cliff'); }
   }
-  // land bridge: grass strip + two cliff walls
-  { const NBX=12,NBZ=6, top=[];
-    for(let i=0;i<=NBX;i++){ const row=[], x=BR.x0+(BR.x1-BR.x0)*(i/NBX);
-      for(let j=0;j<=NBZ;j++){ const z=BR.z-BR.hw+2*BR.hw*(j/NBZ);
-        let y=topY(x,z); if(j===0||j===NBZ)y=edgeTopY; row.push([x,y,z]); } top.push(row); }
-    for(let i=0;i<NBX;i++) for(let j=0;j<NBZ;j++){
+  // causeways: each an oriented grass strip (following the ground where it crosses land,
+  // a flat span over water) with two cliff walls dropping to the sea
+  const brBottom=-16;
+  for(const B of BRIDGES){
+    const ax=B.a[0],az=B.a[1],bx=B.b[0],bz=B.b[1];
+    const len=Math.hypot(bx-ax,bz-az); const ux=(bx-ax)/len,uz=(bz-az)/len;   // along
+    const px=-uz,pz=ux;                                                        // perpendicular
+    const NL=Math.max(6,Math.round(len/9)), NW=6, hw=B.hw;
+    const top=[];
+    for(let i=0;i<=NL;i++){ const cx=ax+(bx-ax)*(i/NL), cz=az+(bz-az)*(i/NL); const row=[];
+      for(let j=0;j<=NW;j++){ const off=-hw+2*hw*(j/NW); const x=cx+px*off, z=cz+pz*off;
+        // ride the land where there is land; hold rim height over the water gap
+        let y=onIsland(x,z)? topY(x,z) : edgeTopY;
+        if(j===0||j===NW) y=Math.min(y,edgeTopY);
+        row.push([x,y,z]); } top.push(row); }
+    for(let i=0;i<NL;i++) for(let j=0;j<NW;j++){
       const a=top[i][j],b=top[i][j+1],c=top[i+1][j+1],d=top[i+1][j];
       pushTri(a,b,c,'grass'); pushTri(a,c,d,'grass'); }
-    for(const side of [0,NBZ]){ const zE=BR.z-BR.hw+2*BR.hw*(side/NBZ);
-      for(let i=0;i<NBX;i++){ const xa=BR.x0+(BR.x1-BR.x0)*(i/NBX), xb=BR.x0+(BR.x1-BR.x0)*((i+1)/NBX);
-        const a=[xa,edgeTopY,zE],b=[xb,edgeTopY,zE],c=[xb,BR.bottom,zE],d=[xa,BR.bottom,zE];
+    for(const side of [0,NW]){ const off=-hw+2*hw*(side/NW);
+      for(let i=0;i<NL;i++){ const c0x=ax+(bx-ax)*(i/NL),c0z=az+(bz-az)*(i/NL),c1x=ax+(bx-ax)*((i+1)/NL),c1z=az+(bz-az)*((i+1)/NL);
+        const a=[c0x+px*off,edgeTopY,c0z+pz*off],b=[c1x+px*off,edgeTopY,c1z+pz*off],c=[c1x+px*off,brBottom,c1z+pz*off],d=[c0x+px*off,brBottom,c0z+pz*off];
         pushTri(a,b,c,'cliff'); pushTri(a,c,d,'cliff'); } }
   }
   const g=new THREE.BufferGeometry();
@@ -255,7 +281,7 @@ function loadBuildings(){ return new Promise(res=>{ new THREE.TextureLoader().lo
 function bldClone(k,H){ const e=BLD[k]; if(!e)return null; const g=e.scene.clone(true); g.scale.setScalar(H/e.h); return g; }
 
 // ================= BASE: Thronefall-style fixed build plots + passive economy =================
-let gold=140, incomeRate=1, plots=[], coreB=null, buildMenuEl=null, goldNumEl=null, menuPlot=null;
+let gold=140, incomeRate=1, plots=[], coreB=null, buildMenuEl=null, goldNumEl=null, menuPlot=null, enemyBase={x:-105,z:-108};
 // category → model prefix + per-level stats (index 0 = Lv1). cost[0]=build, cost[1]=→Lv2, cost[2]=→Lv3.
 const CAT={
   economy:{ label:'🏠 House',    model:'house',   H:[5.5,6.5,7.5], cost:[40,70,120],  income:[3,6,10] },
@@ -399,34 +425,35 @@ function build(){
   dir.shadow.bias=-0.0004; dir.shadow.normalBias=1.4; dir.shadow.radius=3;
   scene.add(dir); scene.add(dir.target); sunLight=dir;   // shadow frustum tracks the camera focus (keeps shadows sharp on a big map)
 
-  // water (big flat plane below rim, spanning both isles)
-  const water=new THREE.Mesh(new THREE.CircleGeometry(560,64),
+  // water (big flat plane below rim, the sea the archipelago sits in)
+  const water=new THREE.Mesh(new THREE.CircleGeometry(620,64),
     new THREE.MeshLambertMaterial({color:C.water}));
-  water.rotation.x=-Math.PI/2; water.position.set(140,-18,0); scene.add(water);
+  water.rotation.x=-Math.PI/2; water.position.set(0,-18,0); scene.add(water);
 
   scene.add(buildTerrain());
 
-  // dense perimeter forest ring framing each (now much larger) meadow — two staggered
-  // bands so the bigger rim still reads as a continuous wall of trees; interiors stay open
-  for(const L of LOBES){ for(let a=0;a<Math.PI*2;a+=0.14){
-    const er=edgeRL(a,L)-16; const x=L.cx+Math.cos(a)*er+rr(-4,4), z=L.cz+Math.sin(a)*er+rr(-4,4);
+  // perimeter forest ring framing every island — a wall of trees at each shoreline
+  for(const L of LOBES){ const step=L.R>70?0.14:0.20; for(let a=0;a<Math.PI*2;a+=step){
+    const er=edgeRL(a,L)-14; const x=L.cx+Math.cos(a)*er+rr(-4,4), z=L.cz+Math.sin(a)*er+rr(-4,4);
     if(onIsland(x,z)) scene.add(forestClump(x,z,3,9)); } }
-  // a few interior accent groves for landmarks (kept away from the central settlement)
-  for(const [x,z] of [[-90,60],[70,-95],[95,80],[-70,-80],[300,55],[235,-70],[300,-60]])
-    if(onIsland(x,z)) scene.add(forestClump(x,z,4,11));
+  // the middle islands (2,3,4) are heavily wooded — the forested hills of the reference map
+  for(const li of [2,3,4]){ const L=LOBES[li];
+    for(let k=0;k<Math.round(L.R*0.9);k++){ const a=rnd()*6.28,d=rr(0,L.R*0.72);
+      const x=L.cx+Math.cos(a)*d, z=L.cz+Math.sin(a)*d; if(onIsland(x,z)&&pathDist(x,z)>7) scene.add(forestClump(x,z,3,10)); } }
 
-  // central base — Thronefall-style: the core throne ringed by empty build plots
-  const KX=-12,KZ=-2;
+  // PLAYER base (bottom-left island) — Thronefall core ringed by empty build plots
+  const KX=105,KZ=108;
   placeCore(KX,KZ);
-  const RING=21; for(let i=0;i<6;i++){ const a=i/6*Math.PI*2+0.4, x=KX+Math.cos(a)*RING, z=KZ+Math.sin(a)*RING; if(onIsland(x,z)) makePlot(x,z); }
-  // forward outpost on the far lobe (gives the far end a destination to roam to)
-  scene.add(dirtPad(270,-10,9)); place(makeWatchtower(),270,-10,0);
-  scene.add(dirtPad(250,20,6)); place(makeHouse(),250,20,rr(0,6.28));
-  scene.add(dirtPad(292,-30,6)); place(makeHouse(),292,-30,rr(0,6.28));
+  const RING=22; for(let i=0;i<6;i++){ const a=i/6*Math.PI*2+0.4, x=KX+Math.cos(a)*RING, z=KZ+Math.sin(a)*RING; if(onIsland(x,z)) makePlot(x,z); }
+  // ENEMY stronghold (top-right island) — the warband musters here (decorative for now)
+  enemyBase={x:-105,z:-108};
+  scene.add(dirtPad(enemyBase.x,enemyBase.z,10));
+  { const g=bldClone('throne3',16)||makeKeep(); g.position.set(enemyBase.x,topY(enemyBase.x,enemyBase.z),enemyBase.z); scene.add(g); }
+  for(const [ox,oz] of [[-128,-86],[-84,-128],[-132,-120]]){ scene.add(dirtPad(ox,oz,6)); place(makeHouse(),ox,oz,rr(0,6.28)); }
 
-  // rocks scattered across both isles
-  for(let i=0;i<34;i++){ const L=LOBES[i%2]; const a=rnd()*6.28,d=rr(8,L.R*0.8);
-    const x=L.cx+Math.cos(a)*d, z=L.cz+Math.sin(a)*d; if(onIsland(x,z)) place(makeRock(),x,z); }
+  // rocks scattered across every island
+  for(let i=0;i<40;i++){ const L=LOBES[i%LOBES.length]; const a=rnd()*6.28,d=rr(8,L.R*0.8);
+    const x=L.cx+Math.cos(a)*d, z=L.cz+Math.sin(a)*d; if(onIsland(x,z)&&pathDist(x,z)>6) place(makeRock(),x,z); }
 
   // live fighters (hero + squad + enemies) are spawned by the gameplay module
 }
@@ -547,7 +574,7 @@ function riggize(e,key){ const c=makeChar(key); if(!c)return; scene.remove(e.g);
 function spawnGame(){
   hero=mkFighter(C.hero,1.9,'hero',{hp:260,dmg:20,range:3.6,atkEvery:0.5,spd:19,aCd:0,spellCd:0});
   riggize(hero,'queen');                       // the Elf Queen — sword + spell hero
-  setP(hero,2,34);
+  setP(hero,105,80);                            // muster at the player base (bottom-left island)
   // roster: 2 sword-and-shield warriors (melee front-line), 4 archers, 2 priestess casters
   const ROSTER=['warrior','warrior','archer','archer','archer','archer','priestess','priestess'];
   const STATS={ warrior:{hp:110,dmg:16,range:3.6,col:C.teamBlueD}, archer:{hp:60,dmg:10,range:9,col:C.teamBlue}, priestess:{hp:52,dmg:6,range:7,col:C.cleric} };
@@ -555,15 +582,15 @@ function spawnGame(){
     const e=mkFighter(s.col,1.0,'ally',{hp:s.hp,dmg:s.dmg,range:s.range,atkEvery:u==='warrior'?0.9:1.1,spd:15});
     e.idx=i; e.kind=(u==='priestess')?'cleric':u; e.healCd=0; e.smiteCd=0;   // 'cleric' drives the heal pass
     riggize(e, u);
-    setP(e,2+((i%4)-1.5)*3.2, 42+Math.floor(i/4)*3.6); allies.push(e); }
-  // Orc Chieftain — boss enemy marching on the keep from the south edge
+    setP(e,105+((i%4)-1.5)*3.2, 92+Math.floor(i/4)*3.6); allies.push(e); }
+  // Orc Chieftain — leads the warband from the enemy stronghold (top-right island)
   const boss=mkFighter(C.enemyRed,1.6,'enemy',{hp:640,dmg:34,range:4.6,atkEvery:1.3,spd:11});
-  boss.rad=2.8; boss.max=640; riggize(boss,'chief'); setP(boss,120,-8); enemies.push(boss);   // Chieftain leads the warband from the east
+  boss.rad=2.8; boss.max=640; riggize(boss,'chief'); setP(boss,enemyBase.x+8,enemyBase.z+8); enemies.push(boss);
   rallyMarker=new THREE.Mesh(new THREE.RingGeometry(1.6,2.3,22),new THREE.MeshBasicMaterial({color:0xffe089,transparent:true,opacity:0.9,side:THREE.DoubleSide}));
   rallyMarker.rotation.x=-Math.PI/2; rallyMarker.visible=false; scene.add(rallyMarker);
 }
 let spawnN=0;
-function spawnEnemy(){ const a=rr(-0.5,0.5), er=edgeR(a)-12, x=Math.cos(a)*er, z=Math.sin(a)*er;   // muster from the eastern tree line
+function spawnEnemy(){ const x=enemyBase.x+rr(-14,14), z=enemyBase.z+rr(-14,14);   // muster from the enemy stronghold (top-right)
   if(!onIsland(x,z))return;
   const kind=['orcarcher','orcgrunt','orcwarrior','orcshaman'][spawnN++ %4];   // rotate the horde: archer, grunt, warrior, shaman
   let e;
