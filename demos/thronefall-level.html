@@ -48,6 +48,19 @@ canvas{display:block}
 .bmRow .pr{font:800 14px system-ui;color:var(--gold);white-space:nowrap;display:flex;align-items:center;gap:3px}
 .bmRow .pr.free{color:var(--dim)}
 .bmRow.close{justify-content:center;background:rgba(255,255,255,0.04);min-height:40px;color:var(--dim);font:800 13px system-ui}
+/* radial build menu — options fan out around the tapped plot */
+.radial{position:fixed;z-index:8;display:none;width:0;height:0}
+.rHub{position:absolute;left:0;top:0;transform:translate(-50%,-50%);background:var(--panel2);border:1px solid var(--brd);color:var(--ink);
+  font:800 12px system-ui;padding:7px 12px;border-radius:20px;white-space:nowrap;box-shadow:0 3px 12px rgba(0,0,0,0.5);display:flex;align-items:center;gap:6px}
+.rBtn{position:absolute;transform:translate(-50%,-50%);width:62px;height:62px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;
+  background:var(--panel2);border:1px solid var(--brd);box-shadow:0 4px 12px rgba(0,0,0,0.5);cursor:pointer}
+.rBtn:active{filter:brightness(1.15)}
+.rBtn.buy{background:radial-gradient(circle at 40% 32%,rgba(80,200,140,0.4),var(--panel2))}
+.rBtn.sell{background:radial-gradient(circle at 40% 32%,rgba(220,120,90,0.38),var(--panel2))}
+.rBtn.no{opacity:0.38}
+.rBtn .ri{font-size:25px;line-height:1}
+.rBtn .rc{font:800 10px system-ui;color:var(--gold);margin-top:2px}
+.rLb{position:absolute;transform:translate(-50%,0);font:800 10px system-ui;color:#fff;text-shadow:0 1px 3px #000;white-space:nowrap;pointer-events:none}
 </style>
 </head>
 <body>
@@ -401,36 +414,34 @@ function catEffect(cat,lv){ const c=CAT[cat], i=lv-1;
   if(cat==='army') return 'Trains up to '+c.cap[i]+' troops';
   return c.dmg[i]+' dmg · '+Math.round(c.range[i])+' range'; }
 function sellValue(p){ let spent=0; for(let i=0;i<p.level;i++) spent+=CAT[p.cat].cost[i]; return Math.floor(spent*0.6); }
-function bmRow(icon,name,desc,price,ok,fn,extra){ const r=document.createElement('div'); r.className='bmRow'+(extra?(' '+extra):'')+(fn?(ok?' buy':' no'):'');
-  let h='<div class="ic">'+icon+'</div><div class="tx"><div class="nm">'+name+'</div><div class="ds">'+desc+'</div></div>';
-  if(price!=null) h+='<div class="pr'+(price==='—'?' free':'')+'">'+price+'</div>';
-  r.innerHTML=h; r.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); if(fn&&ok)fn(); }); return r; }
-function bmHead(txt){ const g=Math.floor(gold); const d=document.createElement('div'); d.className='bmTitle';
-  d.innerHTML='<span>'+txt+'</span><span class="sub">🪙 '+g+'</span>'; return d; }
-function bmClose(){ const c=document.createElement('div'); c.className='bmRow close'; c.textContent='Close';
-  c.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); closeBuildMenu(); }); return c; }
-function openPlotMenu(p){ if(!buildMenuEl)return; menuPlot=p; buildMenuEl.innerHTML=''; const g=Math.floor(gold);
-  if(!p.cat){ buildMenuEl.appendChild(bmHead('Build on plot'));
-    for(const k of ['economy','army','defense']){ const cost=CAT[k].cost[0], ok=g>=cost;
-      buildMenuEl.appendChild(bmRow(catIcon[k],catName[k],catEffect(k,1),cost+' g',ok,()=>startBuild(p,k))); } }
-  else { buildMenuEl.appendChild(bmHead(catIcon[p.cat]+' '+catName[p.cat]+' · Lv'+p.level));
-    buildMenuEl.appendChild(bmRow('•','Currently',catEffect(p.cat,p.level),'—',false,null));
-    if(p.level<3){ const cost=CAT[p.cat].cost[p.level], ok=g>=cost;
-      buildMenuEl.appendChild(bmRow('⬆','Upgrade to Lv'+(p.level+1),catEffect(p.cat,p.level+1),cost+' g',ok,()=>upgradePlot(p))); }
-    else buildMenuEl.appendChild(bmRow('★','Max level','Fully upgraded','—',false,null));
-    buildMenuEl.appendChild(bmRow('♻️','Sell','Demolish for a refund','+'+sellValue(p)+' g',true,()=>sellPlot(p))); }
-  buildMenuEl.appendChild(bmClose()); openPanel(); }
-function openCoreMenu(){ if(!buildMenuEl||!coreB)return; menuPlot=null; buildMenuEl.innerHTML=''; const g=Math.floor(gold);
-  buildMenuEl.appendChild(bmHead('👑 Throne · Lv'+coreB.level));
-  buildMenuEl.appendChild(bmRow('❤','Fortress','+'+Math.ceil(coreB.hp)+' / '+coreB.max+' HP','—',false,null));
-  if(coreB.level<3){ const cost=CORE_UP[coreB.level], ok=g>=cost;
-    buildMenuEl.appendChild(bmRow('⬆','Reinforce to Lv'+(coreB.level+1),CORE_HP[coreB.level]+' HP',cost+' g',ok,()=>upgradeCore())); }
-  else buildMenuEl.appendChild(bmRow('★','Max level','Fully reinforced','—',false,null));
-  buildMenuEl.appendChild(bmClose()); openPanel(); }
+// radial menu: options fan out around a screen point (cx,cy). items:{icon,label,cost,ok,fn,cls}
+function radialOpen(cx,cy,title,items){ if(!buildMenuEl)return;
+  cx=Math.max(120,Math.min(innerWidth-120,cx)); cy=Math.max(150,Math.min(innerHeight-150,cy));
+  buildMenuEl.className='radial'; buildMenuEl.innerHTML=''; buildMenuEl.style.left=cx+'px'; buildMenuEl.style.top=cy+'px';
+  const hub=document.createElement('div'); hub.className='rHub'; hub.textContent=title; buildMenuEl.appendChild(hub);
+  const n=items.length, R=94, step=Math.PI/3.2, span=(n-1)*step, start=-Math.PI/2-span/2;
+  items.forEach((it,i)=>{ const ang=n===1?-Math.PI/2:start+step*i, bx=Math.cos(ang)*R, by=Math.sin(ang)*R;
+    const b=document.createElement('div'); b.className='rBtn'+(it.cls?(' '+it.cls):'')+(it.ok===false?' no':(it.cost&&it.cls!=='sell'?' buy':''));
+    b.style.left=bx+'px'; b.style.top=by+'px';
+    b.innerHTML='<div class="ri">'+it.icon+'</div>'+(it.cost!=null?('<div class="rc">'+it.cost+'</div>'):'');
+    b.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); if(it.ok!==false&&it.fn)it.fn(); }); buildMenuEl.appendChild(b);
+    const lb=document.createElement('div'); lb.className='rLb'; lb.style.left=bx+'px'; lb.style.top=(by+36)+'px'; lb.textContent=it.label; buildMenuEl.appendChild(lb); });
+  bmBack.style.display='block'; buildMenuEl.style.display='block'; }
+function openPlotMenu(p){ if(!buildMenuEl)return; menuPlot=p; const g=Math.floor(gold); const [cx,cy]=screenOf(p.x,p.z); let items;
+  if(!p.cat){ items=['economy','army','defense'].map(k=>{ const cost=CAT[k].cost[0];
+      return {icon:catIcon[k], label:catName[k], cost:cost+'g', ok:g>=cost, fn:()=>startBuild(p,k)}; });
+    radialOpen(cx,cy,'Build ('+g+'g)',items); }
+  else { items=[]; if(p.level<3){ const cost=CAT[p.cat].cost[p.level]; items.push({icon:'⬆', label:'Upgrade', cost:cost+'g', ok:g>=cost, fn:()=>upgradePlot(p)}); }
+    else items.push({icon:'★', label:'Max', ok:false});
+    items.push({icon:'♻️', label:'Sell', cost:'+'+sellValue(p)+'g', cls:'sell', ok:true, fn:()=>sellPlot(p)});
+    radialOpen(cx,cy,catIcon[p.cat]+' '+catName[p.cat]+' L'+p.level,items); } }
+function openCoreMenu(){ if(!buildMenuEl||!coreB)return; menuPlot=null; const g=Math.floor(gold); const [cx,cy]=screenOf(coreB.x,coreB.z);
+  const items=[]; if(coreB.level<3){ const cost=CORE_UP[coreB.level]; items.push({icon:'⬆', label:'Reinforce', cost:cost+'g', ok:g>=cost, fn:()=>upgradeCore()}); }
+  else items.push({icon:'★', label:'Max', ok:false});
+  radialOpen(cx,cy,'👑 Throne L'+coreB.level+' · '+Math.ceil(coreB.hp)+'hp',items); }
 function sellPlot(p){ if(!p.cat)return; gold+=sellValue(p); if(p.g)scene.remove(p.g); p.g=null;
   p.cat=null; p.level=0; p.dmg=p.range=p.rof=p.every=p.cap=undefined; p.mine=[];
   if(p.ring)p.ring.visible=true; if(p.plus)p.plus.visible=true; recomputeIncome(); closeBuildMenu(); }
-function openPanel(){ if(bmBack)bmBack.style.display='block'; buildMenuEl.style.display='flex'; }
 function closeBuildMenu(){ if(buildMenuEl) buildMenuEl.style.display='none'; if(bmBack)bmBack.style.display='none'; menuPlot=null; }
 function makeKeep(){
   const b=bldClone('keep',14); if(b) return b;   // Bitgem elf throne — the heart of the settlement
@@ -755,10 +766,14 @@ function lassoSelect(pts){ selected.clear();
 function selectGroup(which){ selected.clear();
   const set = which==='L'?allies.filter(e=>e.idx<4) : which==='R'?allies.filter(e=>e.idx>=4) : allies.slice();
   set.forEach(e=>{ if(e.alive) selected.add(e); }); }
-function commandTo(gx,gz){ const list=[...selected].filter(e=>e.alive); if(!list.length) return false;
-  list.forEach((e,k)=>{ const col=((k%4)-1.5)*2.8, row=Math.floor(k/4)*2.8; e.order={x:gx+col,z:gz+row}; e.target=null; e.following=false; });
-  rallyMarker.position.set(gx,topY(gx,gz)+0.3,gz); rallyMarker.visible=true; clearTimeout(rallyMarker.__to); rallyMarker.__to=setTimeout(()=>rallyMarker.visible=false,2500); return true; }
-function recall(){ const list=[...selected].filter(e=>e.alive); (list.length?list:allies).forEach(e=>{e.order=null; e.forcedTarget=null;}); }
+// ---- Thronefall-minimal command: the whole army moves as one; no sub-group micro ----
+function commandTo(gx,gz){ const list=allies.filter(e=>e.alive); if(!list.length) return false;
+  list.forEach((e,k)=>{ const col=((k%4)-1.5)*2.8, row=Math.floor(k/4)*2.8; e.order={x:gx+col,z:gz+row}; e.forcedTarget=null; e.target=null; e.following=false; });
+  rallyMarker.material.color.setHex(0x9fe0ff); rallyMarker.position.set(gx,topY(gx,gz)+0.3,gz); rallyMarker.visible=true; clearTimeout(rallyMarker.__to); rallyMarker.__to=setTimeout(()=>rallyMarker.visible=false,2500); return true; }
+function chargeAll(){ let tx=enemyBase.x, tz=enemyBase.z; const en=nearestEnemyTo(hero.px,hero.pz,1e6);
+  if(en){ tx=en.px; tz=en.pz; } else if(enemyCore&&enemyCore.alive){ tx=enemyCore.x; tz=enemyCore.z; }
+  commandTo(tx,tz); rallyMarker.material.color.setHex(0xff6a5a); }
+function recall(){ allies.forEach(e=>{ if(e.alive){ e.order=null; e.forcedTarget=null; e.following=true; } }); }
 function nearestEnemyTo(x,z,maxd){ let b=null,bd=maxd*maxd; for(const e of enemies){ if(!e.alive)continue; const dd=(e.px-x)**2+(e.pz-z)**2; if(dd<bd){bd=dd;b=e;} } return b; }
 function readyClerics(){ return allies.filter(e=>e.alive&&e.kind==='cleric'&&e.smiteCd<=0).length; }
 function smiteAt(en){ // smart cast: exactly one ready cleric (nearest) fires
@@ -768,7 +783,7 @@ function healFx(t){ const r=new THREE.Mesh(new THREE.RingGeometry(0.4,1.1,16),ne
   r.rotation.x=-Math.PI/2; scene.add(r); let a=0;(function an(){a+=0.06; r.position.set(t.px,topY(t.px,t.pz)+0.4+a*4.5,t.pz); r.material.opacity=Math.max(0,0.9-a); if(a<0.9)requestAnimationFrame(an); else scene.remove(r);})(); }
 function smiteFx(en){ const r=new THREE.Mesh(new THREE.RingGeometry(0.5,1.4,20),new THREE.MeshBasicMaterial({color:0xfff2c0,transparent:true,side:THREE.DoubleSide}));
   r.rotation.x=-Math.PI/2; r.position.set(en.px,topY(en.px,en.pz)+0.5,en.pz); scene.add(r); let a=0;(function an(){a+=0.07;r.scale.setScalar(1+a*8);r.material.opacity=Math.max(0,0.95-a*1.2);if(a<0.9)requestAnimationFrame(an);else scene.remove(r);})(); }
-function focusFire(en){ const list=[...selected].filter(e=>e.alive); (list.length?list:allies).forEach(e=>{ if(e.alive){ e.forcedTarget=en; e.target=en; e.order=null; e.following=false; } });
+function focusFire(en){ allies.forEach(e=>{ if(e.alive){ e.forcedTarget=en; e.target=en; e.order=null; e.following=false; } });
   rallyMarker.material.color.setHex(0xff6a5a); rallyMarker.position.set(en.px,topY(en.px,en.pz)+0.3,en.pz); rallyMarker.visible=true; clearTimeout(rallyMarker.__to); rallyMarker.__to=setTimeout(()=>rallyMarker.visible=false,900); }
 // ---- refined projectiles ----
 // stylised arrow, built once & cloned: wood shaft + steel head + cream fletching + glowing tip. Long axis = +Y.
@@ -946,15 +961,13 @@ function setupHUD(){
   // lasso overlay
   lcv=document.createElement('canvas'); lcv.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:4'; lcv.width=innerWidth; lcv.height=innerHeight; document.body.appendChild(lcv); lctx=lcv.getContext('2d');
   addEventListener('resize',()=>{ lcv.width=innerWidth; lcv.height=innerHeight; });
-  // squad cards (control groups) + recall
+  // Thronefall-minimal command: the whole army follows the hero; two commands drive it
   const bar2=document.createElement('div'); bar2.className='hud';
-  bar2.style.cssText+=';left:50%;bottom:calc(16px + var(--sb));transform:translateX(-50%);display:flex;gap:8px';
+  bar2.style.cssText+=';left:50%;bottom:calc(16px + var(--sb));transform:translateX(-50%);display:flex;gap:10px';
   const mkCard=(label,fn)=>{ const c=document.createElement('div'); c.className='hchip'; c.textContent=label;
-    c.style.cssText+=';min-width:54px;padding:10px 12px;font:800 13px system-ui'; c.addEventListener('pointerdown',ev=>{ev.stopPropagation(); fn();}); return c; };
-  bar2.appendChild(mkCard('◤ Left',()=>selectGroup('L')));
-  bar2.appendChild(mkCard('All',()=>selectGroup('A')));
-  bar2.appendChild(mkCard('Right ◢',()=>selectGroup('R')));
-  bar2.appendChild(mkCard('↩ Recall',()=>recall()));
+    c.style.cssText+=';min-width:96px;padding:12px 16px;font:800 14px system-ui'; c.addEventListener('pointerdown',ev=>{ev.stopPropagation(); fn();}); return c; };
+  bar2.appendChild(mkCard('⚔ Charge',()=>chargeAll()));
+  bar2.appendChild(mkCard('⟲ Recall',()=>recall()));
   document.body.appendChild(bar2);
   addEventListener('pointerdown',onDown); addEventListener('pointermove',onMove); addEventListener('pointerup',onUp); addEventListener('pointercancel',onUp);
 }
@@ -965,24 +978,22 @@ function onDown(e){ if(gameOver)return; const left=e.clientX<innerWidth*0.5;
 function onMove(e){
   if(joy.active&&e.pointerId===joy.id){ const dx=e.clientX-joy.sx,dy=e.clientY-joy.sy, d=Math.hypot(dx,dy),R=54, cl=Math.min(d,R),ang=Math.atan2(dy,dx),kx=Math.cos(ang)*cl,ky=Math.sin(ang)*cl;
     joy.nx=kx/R; joy.ny=ky/R; joyKnob.style.left=(50+kx*0.8)+'%'; joyKnob.style.top=(50+ky*0.8)+'%'; }
-  else if(cmd.active&&e.pointerId===cmd.id){ cmd.pts.push([e.clientX,e.clientY]); if(Math.hypot(e.clientX-cmd.sx,e.clientY-cmd.sy)>12)cmd.moved=true; if(cmd.moved)drawLasso(); } }
+  else if(cmd.active&&e.pointerId===cmd.id){ /* right zone is command-only now; no lasso */ } }
 function onUp(e){
   if(joy.active&&e.pointerId===joy.id){ joy.active=false; joy.nx=0;joy.ny=0; joyBase.style.display='none'; return; }
   if(cmd.active&&e.pointerId===cmd.id){ cmd.active=false;
-    if(cmd.moved){ lassoSelect(cmd.pts); }                                       // drag = lasso select
-    else { const nd=new THREE.Vector2((e.clientX/innerWidth)*2-1,-(e.clientY/innerHeight)*2+1); raycaster.setFromCamera(nd,cam); const hit=new THREE.Vector3();
-      if(raycaster.ray.intersectPlane(groundPlane,hit)&&onIsland(hit.x,hit.z)){                    // tap
-        const pp=plots.find(p=>Math.hypot(hit.x-p.x,hit.z-p.z)<4.2);
-        if(pp){ openPlotMenu(pp); }                                                                 // tapped a build plot → build / upgrade
-        else if(coreB&&Math.hypot(hit.x-coreB.x,hit.z-coreB.z)<7){ openCoreMenu(); }                // tapped the throne → reinforce
-        else { closeBuildMenu();                                                                    // empty ground → smart command
-          if(spellArmed){ castBolt(hit.x,hit.z); }                                                  // armed hero spell → cast here
-          else if(smiteArmed){ const en=nearestEnemyTo(hit.x,hit.z,6); if(en){ smiteAt(en); if(!readyClerics())smiteArmed=false; } }  // smart-cast: one cleric per tap
-          else { const en=nearestEnemyTo(hit.x,hit.z,5);
-            if(en){ focusFire(en); }                                                                // tapped an enemy → focus fire
-            else { rallyMarker.material.color.setHex(0x9fe0ff);                                      // tapped ground → attack-move
-              const list=selected.size? [...selected].filter(a=>a.alive) : allies.filter(a=>a.alive);
-              list.forEach((a,k)=>{ const col=((k%4)-1.5)*2.8,row=Math.floor(k/4)*2.8; a.order={x:hit.x+col,z:hit.z+row}; a.forcedTarget=null; a.target=null; a.following=false; }); } } } } }
+    const nd=new THREE.Vector2((e.clientX/innerWidth)*2-1,-(e.clientY/innerHeight)*2+1); raycaster.setFromCamera(nd,cam); const hit=new THREE.Vector3();  // tap/drag-release → command at that point
+    if(raycaster.ray.intersectPlane(groundPlane,hit)&&onIsland(hit.x,hit.z)){
+      const pp=plots.find(p=>Math.hypot(hit.x-p.x,hit.z-p.z)<5.5);
+      if(pp){ openPlotMenu(pp); }                                                                   // tapped a build plot → radial build / upgrade
+      else if(coreB&&Math.hypot(hit.x-coreB.x,hit.z-coreB.z)<7){ openCoreMenu(); }                  // tapped the throne → reinforce
+      else { closeBuildMenu();
+        if(spellArmed){ castBolt(hit.x,hit.z); }
+        else if(smiteArmed){ const en=nearestEnemyTo(hit.x,hit.z,6); if(en){ smiteAt(en); if(!readyClerics())smiteArmed=false; } }
+        else { const en=nearestEnemyTo(hit.x,hit.z,5);
+          if(en){ focusFire(en); }                                                                  // tapped a foe → whole army focuses it
+          else { commandTo(hit.x,hit.z); } } }                                                      // tapped ground → whole army attack-moves there
+    }
     cmd.pts=[]; if(lctx)lctx.clearRect(0,0,lcv.width,lcv.height); } }
 
 // ---------- camera / render ----------
