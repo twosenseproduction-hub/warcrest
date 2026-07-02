@@ -373,7 +373,8 @@ function loadRig(){ return new Promise(res=>{
 // clone a rig (independent per unit), crisp texture, scale to target height, plant feet, wire clips
 function makeChar(key){ const src=RIGS[key]; if(!src)return null;
   const inner=THREE.SkeletonUtils.clone(src.scene), outer=new THREE.Group();
-  inner.rotation.y=Math.PI;
+  // models natively face +Z; face() sets outer.rotation.y=atan2(dx,dz) so +Z aligns with travel — no extra spin (was Math.PI → moonwalk)
+  inner.rotation.y=0;
   inner.traverse(nd=>{ if(nd.isMesh){ nd.frustumCulled=false; nd.castShadow=true; const mm=nd.material;
     if(mm&&mm.map){ mm.map.magFilter=THREE.NearestFilter; mm.map.minFilter=THREE.NearestFilter; mm.map.generateMipmaps=false; mm.map.needsUpdate=true; } } });
   outer.add(inner); outer.updateMatrixWorld(true);
