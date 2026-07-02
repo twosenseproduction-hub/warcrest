@@ -419,12 +419,12 @@ const RIGS={}, PROPS={}, TEXS={}; const CHAR_H={queen:4.4, archer:3.6, priestess
 // hand weapons: each char has a list of props → { prop FBX, hand bone, local transform }
 const WEAPONS={
   queen:    [{file:'glaive_elf_queen', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
-  archer:   [{file:'bow_elf_archer',   bone:'hand_l', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
+  archer:   [{file:'bow_elf_archer',   bone:'hand_l', pos:[0,0,0], rot:[0,0,Math.PI/2], scl:1}],
   priestess:[{file:'magic_ball',       bone:'hand_r', pos:[0,4,0], rot:[0,0,0],         scl:0.6}],
   warrior:  [{file:'sword_elf_warrior', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1},
-             {file:'shield_elf_warrior',bone:'hand_l', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
+             {file:'shield_elf_warrior',bone:'hand_l', pos:[0,0,0], rot:[0,Math.PI/2,0], scl:0.8}],
   chief:    [{file:'axe_orc_chieftain', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
-  orcarcher:[{file:'bow_orc_archer',    bone:'hand_l', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
+  orcarcher:[{file:'bow_orc_archer',    bone:'hand_l', pos:[0,0,0], rot:[0,0,Math.PI/2], scl:1}],
   orcgrunt: [{file:'axe_orc_grunt',     bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
   orcwarrior:[{file:'sword_orc_warrior',bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
   orcshaman:[{file:'staff_orc_shaman', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
