@@ -360,11 +360,13 @@ function loco(dt){ const all=[hero,...allies,...enemies];
 function separate(){ const all=[hero,...allies,...enemies].filter(e=>e&&e.alive);
   for(let i=0;i<all.length;i++)for(let j=i+1;j<all.length;j++){ const a=all[i],b=all[j];
     let dx=b.px-a.px,dz=b.pz-a.pz; const d=Math.hypot(dx,dz), min=a.rad+b.rad;
-    if(d<min && d>0.0001){ const ov=(min-d); dx/=d;dz/=d;
-      let sa=0.5,sb=0.5; if(a.team==='hero'){sa=0;sb=1;} if(b.team==='hero'){sb=0;sa=1;}
-      const ax=a.px-dx*ov*sa, az=a.pz-dz*ov*sa; if(onIsland(ax,az)){a.px=ax;a.pz=az;}
-      const bx=b.px+dx*ov*sb, bz=b.pz+dz*ov*sb; if(onIsland(bx,bz)){b.px=bx;b.pz=bz;}
-    } } }
+    if(d>=min||d<0.0001)continue;
+    // anchored (attacking) units and the hero hold ground; only movers get nudged apart
+    const wa=(a.team==='hero'||a.state==='attack')?0:1, wb=(b.team==='hero'||b.state==='attack')?0:1;
+    if(!wa&&!wb)continue; const ov=(min-d); dx/=d;dz/=d; const tot=wa+wb;
+    if(wa){ const ax=a.px-dx*ov*(wa/tot), az=a.pz-dz*ov*(wa/tot); if(onIsland(ax,az)){a.px=ax;a.pz=az;} }
+    if(wb){ const bx=b.px+dx*ov*(wb/tot), bz=b.pz+dz*ov*(wb/tot); if(onIsland(bx,bz)){b.px=bx;b.pz=bz;} }
+  } }
 function attack(a,d){ if(a.cd>0)return; d.hp-=a.dmg; d.hitT=0.12; a.cd=a.atkEvery; faceTo(a,d.px-a.px,d.pz-a.pz); }
 function groundBasis(){ const f=new THREE.Vector3(); cam.getWorldDirection(f); f.y=0; f.normalize();
   const r=new THREE.Vector3().crossVectors(f,new THREE.Vector3(0,1,0)).normalize(); return {f,r}; }
@@ -398,13 +400,15 @@ function updateGame(dt){
     { const {t,d}=nearest(hero.px,hero.pz,enemies); if(t&&d<=hero.range+1) attack(hero,t); }
     const hl=Math.hypot(heroFwd.x,heroFwd.z)||1, ffx=heroFwd.x/hl, ffz=heroFwd.z/hl, rgx=ffz, rgz=-ffx;
     for(const e of allies){ if(!e.alive)continue; e.cd-=dt; const {t,d}=nearest(e.px,e.pz,enemies);
-      const engage=t&&(d<24||Math.hypot(t.px-hero.px,t.pz-hero.pz)<28);
-      if(engage){ if(d>e.range)moveTo(e,t.px,t.pz,dt); else { attack(e,t); faceTo(e,t.px-e.px,t.pz-e.pz); } }
-      else { let tx,tz; if(rallyPoint){ const col=((e.idx%4)-1.5)*3.0, row=Math.floor(e.idx/4)*3.0; tx=rallyPoint.x+col; tz=rallyPoint.z+row; }
-             else { const col=((e.idx%4)-1.5)*3.2, back=5+Math.floor(e.idx/4)*3.6; tx=hero.px-ffx*back+rgx*col; tz=hero.pz-ffz*back+rgz*col; }
-             if(Math.hypot(tx-e.px,tz-e.pz)>1.0) moveTo(e,tx,tz,dt); } }
+      // only peel off for enemies that come near the hero — otherwise hold formation
+      const engage = t && Math.hypot(t.px-hero.px,t.pz-hero.pz) < 16;
+      if(engage){ if(d>e.range){ e.state='move'; moveTo(e,t.px,t.pz,dt); } else { e.state='attack'; faceTo(e,t.px-e.px,t.pz-e.pz); attack(e,t); } }
+      else { let tx,tz; if(rallyPoint){ const col=((e.idx%4)-1.5)*2.8, row=Math.floor(e.idx/4)*2.8; tx=rallyPoint.x+col; tz=rallyPoint.z+row; }
+             else { const col=((e.idx%4)-1.5)*2.8, back=4.5+Math.floor(e.idx/4)*3.0; tx=hero.px-ffx*back+rgx*col; tz=hero.pz-ffz*back+rgz*col; }
+             if(Math.hypot(tx-e.px,tz-e.pz)>1.4){ e.state='move'; moveTo(e,tx,tz,dt); faceTo(e,ffx,ffz); } else { e.state='idle'; faceTo(e,ffx,ffz); } } }
     for(const e of enemies){ if(!e.alive)continue; e.cd-=dt; const {t,d}=nearest(e.px,e.pz,[hero,...allies]);
-      if(t&&d<70){ if(d>e.range)moveTo(e,t.px,t.pz,dt); else attack(e,t); } else moveTo(e,-2,0,dt); }
+      if(t&&d<70){ if(d>e.range){ e.state='move'; moveTo(e,t.px,t.pz,dt); } else { e.state='attack'; faceTo(e,t.px-e.px,t.pz-e.pz); attack(e,t); } }
+      else { e.state='move'; moveTo(e,-2,0,dt); } }
     separate(); loco(dt);
     const reap=l=>{ for(const e of l){ if(e.alive&&e.hp<=0){ e.alive=false; scene.remove(e.g); scene.remove(e.bar); if(e.team==='enemy')killed++; } } return l.filter(e=>e.alive); };
     allies=reap(allies); enemies=reap(enemies);
