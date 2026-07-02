@@ -41,9 +41,16 @@
 
   <div id="autorig" style="border:1px solid var(--line);border-radius:8px;padding:8px;margin:8px 0">
     <label style="margin-top:0">🎯 Auto-rig from markers (Mixamo-style)</label>
-    <p class="hint" id="mkhint">Tap “Place markers”, then tap the model at each point it asks for.</p>
+    <p class="hint" id="mkhint">Tap “Place markers”, then tap the model right on each point it asks for — the dot lands exactly where you tap. Tap a list row to re-place or fine-tune it.</p>
+    <label style="display:flex;align-items:center;gap:7px;text-transform:none;margin:4px 0"><input type="checkbox" id="mirror" checked onchange="if(mode==='markers')startMarkers()"> Mirror left → right (place one side only)</label>
     <div class="btns"><button class="hot" onclick="startMarkers()">Place markers</button><button onclick="buildFromMarkers()">🦴 Build skeleton</button></div>
     <div id="mklist" style="font-size:12px;line-height:1.7"></div>
+    <div id="mknudge" style="display:none;margin-top:6px">
+      <label style="margin-top:0">Fine-tune selected point</label>
+      <div class="row"><span class="nm">X</span><input id="mkx" type="range"><span class="vv" id="mkxv">0</span></div>
+      <div class="row"><span class="nm">Y</span><input id="mky" type="range"><span class="vv" id="mkyv">0</span></div>
+      <div class="row"><span class="nm">Z</span><input id="mkz" type="range"><span class="vv" id="mkzv">0</span></div>
+    </div>
   </div>
 
   <label>Joints</label>
@@ -111,7 +118,7 @@ const cam=new THREE.PerspectiveCamera(35,1,0.001,100);
 let camR=3,camTheta=0.7,camPhi=1.2,target=new THREE.Vector3(0,1,0);
 function applyCam(){cam.position.set(target.x+camR*Math.sin(camPhi)*Math.cos(camTheta),target.y+camR*Math.cos(camPhi),target.z+camR*Math.sin(camPhi)*Math.sin(camTheta));cam.lookAt(target);}
 
-let modelRoot=null, mesh=null, joints=[], jointVis=[], sel=-1, mode='place', skinned=null;
+let modelRoot=null, mesh=null, joints=[], jointVis=[], sel=-1, mode='place', skinned=null, modelR=1;
 const loader=new THREE.GLTFLoader();
 
 function clearModel(){ if(modelRoot){scene.remove(modelRoot);} modelRoot=null;mesh=null;skinned=null;
@@ -132,7 +139,7 @@ function onModel(root){
     if(h0>8||h0<0.25){ modelRoot.scale.setScalar(2/h0); modelRoot.updateMatrixWorld(true); } }
   const box=new THREE.Box3().setFromObject(modelRoot); const c=box.getCenter(new THREE.Vector3()); const s=box.getSize(new THREE.Vector3());
   target.copy(c); camR=Math.max(s.x,s.y,s.z)*2.0;
-  const R=Math.max(s.x,s.y,s.z);
+  const R=Math.max(s.x,s.y,s.z); modelR=R;
   ['jx','jy','jz'].forEach(id=>{document.getElementById(id).min=(-R).toFixed(2);document.getElementById(id).max=R.toFixed(2);document.getElementById(id).step=(R/150).toFixed(4);});
 }
 function jointSphere(){ const m=new THREE.Mesh(new THREE.SphereGeometry(0.03,10,8), new THREE.MeshBasicMaterial({color:0xffd24b})); m.renderOrder=999; m.material.depthTest=false; return m; }
@@ -287,18 +294,40 @@ function doExport(){
 }
 
 // ---- Mixamo-style guided auto-rig ----
-const MARKERS=['chin','wrist_L','wrist_R','elbow_L','elbow_R','groin','knee_L','knee_R'];
-let mk={}, mkIdx=-1, mkVis=[];
-function startMarkers(){ mk={}; mkIdx=0; mode='markers'; mkVis.forEach(v=>scene.remove(v)); mkVis=[]; renderMk(); }
-function renderMk(){ const el=document.getElementById('mklist');
-  el.innerHTML=MARKERS.map((m,i)=>'<div style="color:'+(mk[m]?'#6fe3cf':(i===mkIdx?'#fff':'#7d8ea0'))+'">'+(mk[m]?'✓':(i===mkIdx?'▶':'○'))+' '+m.replace('_',' ')+'</div>').join('');
-  document.getElementById('mkhint').textContent = (mkIdx>=0&&mkIdx<MARKERS.length)?('Tap the model at:  '+MARKERS[mkIdx].replace('_',' ').toUpperCase()) : (Object.keys(mk).length>=MARKERS.length?'All placed — hit “Build skeleton”.':'Tap “Place markers” to begin.'); }
-function placeMarker(p){ if(mkIdx<0||mkIdx>=MARKERS.length)return; mk[MARKERS[mkIdx]]=p.clone();
-  const s=new THREE.Mesh(new THREE.SphereGeometry(0.035,10,8),new THREE.MeshBasicMaterial({color:0xff5aa0,depthTest:false})); s.renderOrder=1000; s.position.copy(p); scene.add(s); mkVis.push(s);
-  mkIdx++; renderMk(); }
+const MARKERS_ALL=['chin','groin','wrist_L','wrist_R','elbow_L','elbow_R','knee_L','knee_R'];
+function placeList(){ return document.getElementById('mirror').checked ? ['chin','groin','wrist_L','elbow_L','knee_L'] : MARKERS_ALL; }
+let mk={}, mkIdx=-1, mkSph={}, nudgeName=null;
+function mkSphere(color){ const s=new THREE.Mesh(new THREE.SphereGeometry(0.035,10,8),new THREE.MeshBasicMaterial({color:color,depthTest:false})); s.renderOrder=1000; scene.add(s); return s; }
+// place / replace one marker + its dot (replaces any existing dot for that name)
+function setMk(name,p,color){ mk[name]=p.clone(); if(mkSph[name])scene.remove(mkSph[name]); const s=mkSphere(color); s.position.copy(p); mkSph[name]=s; }
+function clearMkVis(){ Object.values(mkSph).forEach(s=>scene.remove(s)); mkSph={}; }
+function mirrorPt(p){ const m=mk.chin.clone().add(mk.groin).multiplyScalar(0.5); const r=p.clone();   // reflect across the chin↔groin midline, along whichever axis the limb is more offset
+  if(Math.abs(p.x-m.x)>=Math.abs(p.z-m.z)) r.x=2*m.x-p.x; else r.z=2*m.z-p.z; return r; }
+function reMirror(name){ if(document.getElementById('mirror').checked && /_L$/.test(name) && mk.chin && mk.groin) setMk(name.replace('_L','_R'), mirrorPt(mk[name]), 0x5ab0ff); }
+function reMirrorAll(){ placeList().forEach(m=>{ if(/_L$/.test(m)&&mk[m]) reMirror(m); }); }   // chin/groin moved → refresh every mirror
+function startMarkers(){ mk={}; mkIdx=0; mode='markers'; clearMkVis(); hideNudge(); renderMk(); }
+function renderMk(){ const PL=placeList(), mir=document.getElementById('mirror').checked, el=document.getElementById('mklist');
+  el.innerHTML=PL.map((m,i)=>'<div style="cursor:pointer;color:'+(mk[m]?'#6fe3cf':(i===mkIdx?'#fff':'#7d8ea0'))+'" onclick="selectMk('+i+')">'+(mk[m]?'✓':(i===mkIdx?'▶':'○'))+' '+m.replace('_',' ')+(mir&&/_L$/.test(m)?'  ⇄ (mirrored)':'')+(mk[m]?'  ✎':'')+'</div>').join('');
+  document.getElementById('mkhint').textContent = (mkIdx>=0&&mkIdx<PL.length&&!mk[PL[mkIdx]])?('Tap the model at:  '+PL[mkIdx].replace('_',' ').toUpperCase()) : (PL.every(m=>mk[m])?'All placed — tap a point to re-place, or ✎ fine-tune below, then Build skeleton.':'Tap a point in the list to place it.'); }
+// tap a list row: (re)arm that marker for placing AND, if already placed, open its fine-tune sliders
+function selectMk(i){ const PL=placeList(); if(i<0||i>=PL.length)return; mkIdx=i; renderMk(); if(mk[PL[i]]) showNudge(PL[i]); else hideNudge(); }
+function placeMarker(p){ const PL=placeList(); if(mkIdx<0||mkIdx>=PL.length)return; const name=PL[mkIdx]; setMk(name,p,0xff5aa0); reMirror(name);
+  // advance to the next still-unplaced marker (so re-placing one doesn't skip ahead)
+  let n=mkIdx+1; while(n<PL.length&&mk[PL[n]])n++; mkIdx=n; renderMk(); if(mkIdx<PL.length&&!mk[PL[mkIdx]])hideNudge(); }
+// ---- fine-tune sliders for the selected marker ----
+function showNudge(name){ nudgeName=name; const p=mk[name]; document.getElementById('mknudge').style.display='block';
+  document.querySelector('#mknudge label').textContent='Fine-tune: '+name.replace('_',' ');
+  [['mkx','x'],['mky','y'],['mkz','z']].forEach(([id,ax])=>{ const el=document.getElementById(id);
+    el.min=(target[ax]-modelR).toFixed(3); el.max=(target[ax]+modelR).toFixed(3); el.step=(modelR/400).toFixed(4);
+    el.value=p[ax]; document.getElementById(id+'v').textContent=p[ax].toFixed(2); }); }
+function hideNudge(){ nudgeName=null; document.getElementById('mknudge').style.display='none'; }
+['mkx','mky','mkz'].forEach((id,ax)=>document.getElementById(id).oninput=()=>{ if(!nudgeName||!mk[nudgeName])return; const k=['x','y','z'][ax];
+  mk[nudgeName][k]=+document.getElementById(id).value; if(mkSph[nudgeName])mkSph[nudgeName].position.copy(mk[nudgeName]);
+  document.getElementById(id+'v').textContent=mk[nudgeName][k].toFixed(2);
+  if(/_L$/.test(nudgeName)) reMirror(nudgeName); else if(nudgeName==='chin'||nudgeName==='groin') reMirrorAll(); });
 function buildFromMarkers(){
   if(!mesh){alert('Load a model first');return;}
-  for(const m of MARKERS) if(!mk[m]){ alert('Place all markers first — missing: '+m.replace('_',' ')); return; }
+  for(const m of MARKERS_ALL) if(!mk[m]){ alert('Place all markers first — missing: '+m.replace('_',' ')); return; }
   const box=new THREE.Box3().setFromObject(modelRoot); const minY=box.min.y;
   const V=(a,b,t)=>a.clone().lerp(b,t);
   const chin=mk.chin, gr=mk.groin, wL=mk.wrist_L, wR=mk.wrist_R, eL=mk.elbow_L, eR=mk.elbow_R, kL=mk.knee_L, kR=mk.knee_R;
@@ -323,7 +352,7 @@ function buildFromMarkers(){
   const tL=J('thigh_l',hipL,hi), cL=J('calf_l',kL,tL); J('foot_l',footL,cL);
   const tR=J('thigh_r',hipR,hi), cR=J('calf_r',kR,tR); J('foot_r',footR,cR);
   rebuildVis(); renderJList(); select(0);
-  mkVis.forEach(v=>scene.remove(v)); mkVis=[]; mode='place';
+  clearMkVis(); hideNudge(); mode='place';
   document.getElementById('skinstatus').textContent='Skeleton built from markers ('+joints.length+' joints) — hit 🦴 Auto-skin.';
 }
 // ---- procedural animation preview ----
@@ -350,13 +379,19 @@ cv.addEventListener('pointermove',e=>{ if(!down)return; const dx=e.clientX-down.
 cv.addEventListener('pointerup',e=>{ if(down&&!moved&&(mode==='place'||mode==='markers')&&mesh){ ndc.x=(e.clientX/innerWidth)*2-1; ndc.y=-(e.clientY/innerHeight)*2+1; ray.setFromCamera(ndc,cam);
     const hits=ray.intersectObject(mesh,true);
     if(hits.length){
-      let p=hits[0].point.clone();
-      // "Bones go near the center of the mesh volume": sink the joint to the midpoint of
-      // where the pick ray enters and exits the mesh — the center of the limb at that spot.
-      if(document.getElementById('centervol').checked && hits.length>=2){
-        p = hits[0].point.clone().add(hits[hits.length-1].point).multiplyScalar(0.5);
+      if(mode==='markers'){
+        // markers are surface-accurate: the dot lands exactly where you tapped (front face),
+        // e.g. the chin, not the mid-skull. Fine-tune with the sliders after.
+        placeMarker(hits[0].point.clone());
+      } else {
+        let p=hits[0].point.clone();
+        // joints "go near the center of the mesh volume": sink to the midpoint between where
+        // the pick ray enters and exits the mesh — the center of the limb at that spot.
+        if(document.getElementById('centervol').checked && hits.length>=2){
+          p = hits[0].point.clone().add(hits[hits.length-1].point).multiplyScalar(0.5);
+        }
+        addJoint(p);
       }
-      if(mode==='markers') placeMarker(p); else addJoint(p);
     } }
   down=null; });
 cv.addEventListener('wheel',e=>{camR=Math.max(0.3,Math.min(14,camR+e.deltaY*0.002));e.preventDefault();},{passive:false});
