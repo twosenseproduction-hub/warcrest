@@ -328,6 +328,7 @@ let keys={}, joy={active:false,nx:0,ny:0,id:null,sx:0,sy:0};
 let heroHpEl, waveEl, resultEl, abilEl, joyBase, joyKnob;
 const raycaster=new THREE.Raycaster(), groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
 const camF={pitch:52,az:34,dist:94,lookY:4,pos:new THREE.Vector3(),init:false};
+let camLocked=true, camEl, PAN_SPD=70; const camAim={x:0,z:0,init:false};
 
 function makeBar(fillHex){
   const g=new THREE.Group(), w=3.4,h=0.5;
@@ -440,8 +441,12 @@ function updateGame(dt){
     if(joy.active){ ix=joy.nx; iy=joy.ny; }
     else { if(keys['w']||keys['arrowup'])iy-=1; if(keys['s']||keys['arrowdown'])iy+=1; if(keys['a']||keys['arrowleft'])ix-=1; if(keys['d']||keys['arrowright'])ix+=1; }
     const B=groundBasis(); let mvx=B.f.x*(-iy)+B.r.x*ix, mvz=B.f.z*(-iy)+B.r.z*ix; const ml=Math.hypot(mvx,mvz);
-    if(ml>0.01){ mvx/=ml;mvz/=ml; const nx=hero.px+mvx*hero.spd*dt, nz=hero.pz+mvz*hero.spd*dt; if(onIsland(nx,nz))setP(hero,nx,nz);
-      faceTo(hero,mvx,mvz); hero.movedThis=true; heroFwd.x+=(mvx-heroFwd.x)*Math.min(1,dt*6); heroFwd.z+=(mvz-heroFwd.z)*Math.min(1,dt*6); }
+    if(camLocked){ // left stick drives the hero
+      if(ml>0.01){ mvx/=ml;mvz/=ml; const nx=hero.px+mvx*hero.spd*dt, nz=hero.pz+mvz*hero.spd*dt; if(onIsland(nx,nz))setP(hero,nx,nz);
+        faceTo(hero,mvx,mvz); hero.movedThis=true; heroFwd.x+=(mvx-heroFwd.x)*Math.min(1,dt*6); heroFwd.z+=(mvz-heroFwd.z)*Math.min(1,dt*6); } }
+    else { // free camera: left stick pans, hero holds its ground (still fights)
+      if(ml>0.01){ mvx/=ml;mvz/=ml; camAim.x+=mvx*PAN_SPD*dt; camAim.z+=mvz*PAN_SPD*dt;
+        const rr0=Math.hypot(camAim.x,camAim.z); if(rr0>96){ camAim.x*=96/rr0; camAim.z*=96/rr0; } } }
     hero.cd-=dt; hero.aCd-=dt; hero.spellCd-=dt;
     if(autoBolt && hero.spellCd<=0 && enemies.length){ const {t}=nearest(hero.px,hero.pz,enemies); if(t) castBolt(t.px,t.pz); }
     { const {t,d}=nearest(hero.px,hero.pz,enemies); if(t&&d<=hero.range+1) attack(hero,t); }
@@ -482,13 +487,18 @@ function updateGame(dt){
   }
   updBars();
 }
-function followCam(){ const p=camF.pitch*Math.PI/180,a=camF.az*Math.PI/180, hy=camF.dist*Math.sin(p),hz=camF.dist*Math.cos(p);
-  const tx=hero?hero.px:0, tz=hero?hero.pz:0; const want=new THREE.Vector3(tx+Math.sin(a)*hz,hy,tz+Math.cos(a)*hz);
-  if(!camF.init){ camF.pos.copy(want); camF.init=true; } else camF.pos.lerp(want,0.12);
-  cam.position.copy(camF.pos); cam.lookAt(tx,camF.lookY,tz); }
+function followCam(dt){
+  if(camLocked && hero){ if(!camAim.init){camAim.x=hero.px;camAim.z=hero.pz;camAim.init=true;} else { const k=Math.min(1,(dt||0.016)*4); camAim.x+=(hero.px-camAim.x)*k; camAim.z+=(hero.pz-camAim.z)*k; } }
+  const p=camF.pitch*Math.PI/180,a=camF.az*Math.PI/180, hy=camF.dist*Math.sin(p),hz=camF.dist*Math.cos(p);
+  const want=new THREE.Vector3(camAim.x+Math.sin(a)*hz,hy,camAim.z+Math.cos(a)*hz);
+  if(!camF.init){ camF.pos.copy(want); camF.init=true; } else camF.pos.lerp(want, camLocked?0.12:0.2);
+  cam.position.copy(camF.pos); cam.lookAt(camAim.x,camF.lookY,camAim.z); }
+function toggleCam(){ camLocked=!camLocked; if(camEl){ camEl.textContent=camLocked?'🔒 Cam':'🔓 Free'; camEl.style.background=camLocked?'#2b3a58cc':'#b5702a'; } }
 function setupHUD(){
-  addEventListener('keydown',e=>keys[e.key.toLowerCase()]=true);
+  addEventListener('keydown',e=>{ keys[e.key.toLowerCase()]=true; if(e.key.toLowerCase()==='c') toggleCam(); });
   addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+  camEl=document.createElement('div'); camEl.textContent='🔒 Cam'; camEl.style.cssText='position:fixed;right:16px;top:14px;padding:9px 12px;border-radius:10px;background:#2b3a58cc;color:#fff;font:700 13px system-ui;user-select:none;z-index:6';
+  camEl.addEventListener('pointerdown',ev=>{ev.stopPropagation(); toggleCam();}); document.body.appendChild(camEl);
   const hp=document.createElement('div'); hp.style.cssText='position:fixed;left:50%;top:14px;transform:translateX(-50%);width:240px;height:16px;background:#0006;border:2px solid #0008;border-radius:8px;overflow:hidden;z-index:5';
   heroHpEl=document.createElement('div'); heroHpEl.style.cssText='height:100%;width:100%;background:linear-gradient(#a6ec5e,#6fbf34)'; hp.appendChild(heroHpEl); document.body.appendChild(hp);
   waveEl=document.createElement('div'); waveEl.style.cssText='position:fixed;left:50%;top:36px;transform:translateX(-50%);color:#fff;font:600 13px system-ui;text-shadow:0 1px 2px #000;z-index:5'; document.body.appendChild(waveEl);
@@ -589,7 +599,7 @@ function boot(){
   let last=performance.now();
   (function loop(){ requestAnimationFrame(loop);
     const now=performance.now(); let dt=(now-last)/1000; last=now; if(dt>0.05)dt=0.05;
-    updateGame(dt); followCam();
+    updateGame(dt); followCam(dt);
     rnd3d.setRenderTarget(rt); rnd3d.render(scene,cam);
     rnd3d.setRenderTarget(null); rnd3d.render(postScene,postCam);
   })();
