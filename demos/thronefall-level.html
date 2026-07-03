@@ -182,7 +182,7 @@ function landField(x,z){
 function onIsland(x,z){ return landField(x,z)>0.02; }
 const smooth=t=>{ t=Math.max(0,Math.min(1,t)); return t*t*(3-2*t); };
 // level building plateaus under each base so structures + plots sit flat (playable footing)
-const FLATS=[{x:105,z:108,r:34,y:0.4},{x:-105,z:-108,r:34,y:0.4}];
+const FLATS=[{x:105,z:108,r:50,y:0.4},{x:-105,z:-108,r:50,y:0.4}];   // base plateaus sized for the full tier-3 expansion footprint
 function landH(x,z){
   let h=2.0*(fbm(x*0.02+5,z*0.02+9)-0.5) + 1.0*(fbm(x*0.06,z*0.06)-0.5);   // rolling snow
   for(const f of FLATS){ const t=smooth(Math.hypot(x-f.x,z-f.z)/f.r); h=f.y*(1-t)+h*t; }   // flatten base plateaus
@@ -392,20 +392,29 @@ function recomputeSupply(){ supplyCap=BASE_SUPPLY; for(const p of plots) if(p.ca
 function placeCore(x,z){ scene.add(dirtPad(x,z,10));
   coreB={x,z,px:x,pz:z,alive:true,level:1,hp:CORE_HP[0],max:CORE_HP[0],big:8,hitT:0,g:null,bar:makeBar(0x6fd0ff)};
   const g=bldClone('throne1',CORE_H[0])||makeKeep(); g.position.set(x,topY(x,z),z); scene.add(g); coreB.g=g; }
-function makePlot(x,z){ scene.add(dirtPad(x,z,5.5));
-  const ring=new THREE.Mesh(new THREE.RingGeometry(2.4,3.1,26),new THREE.MeshBasicMaterial({color:0x8fe6ff,transparent:true,opacity:0.55,side:THREE.DoubleSide,depthWrite:false}));
+// marker state: built → hidden; unlocked empty → bright (cyan gen / orange turret) + plus; locked → dim grey, no plus
+function styleRing(p){ if(!p.ring)return; if(p.cat){ p.ring.visible=false; if(p.plus)p.plus.visible=false; return; }
+  p.ring.visible=true; if(p.plus)p.plus.visible=!p.locked;
+  p.ring.material.color.setHex(p.locked?0x5a6a74 : (p.slot==='turret'?0xffb45c:0x8fe6ff));
+  p.ring.material.opacity=p.locked?0.26:0.55; }
+function makePlot(x,z,tier,slot){ slot=slot||'gen'; const pad=slot==='turret'?4.4:5.5; scene.add(dirtPad(x,z,pad));
+  const ri=slot==='turret'?1.9:2.4, ro=slot==='turret'?2.5:3.1;
+  const ring=new THREE.Mesh(new THREE.RingGeometry(ri,ro,26),new THREE.MeshBasicMaterial({color:0x8fe6ff,transparent:true,opacity:0.55,side:THREE.DoubleSide,depthWrite:false}));
   ring.rotation.x=-Math.PI/2; ring.position.set(x,topY(x,z)+0.25,z); scene.add(ring);
   const plus=new THREE.Group(), pm=new THREE.MeshBasicMaterial({color:0xe6f8ff});
   plus.add(new THREE.Mesh(new THREE.BoxGeometry(2.0,0.35,0.55),pm), new THREE.Mesh(new THREE.BoxGeometry(0.55,0.35,2.0),pm));
   plus.position.set(x,topY(x,z)+0.9,z); scene.add(plus);
-  const p={x,z,ring,plus,cat:null,level:0,g:null,cd:0,spawnCd:3,mine:[],queue:[]}; plots.push(p); return p; }
+  const p={x,z,ring,plus,cat:null,level:0,g:null,cd:0,spawnCd:3,mine:[],queue:[],tier:tier||1,slot:slot,locked:(tier||1)>1}; plots.push(p); styleRing(p); return p; }
+// reveal plots whose tier the throne has now reached (base expands as the throne is upgraded)
+function revealPlots(){ for(const p of plots){ if(p.locked && p.tier<=coreB.level){ p.locked=false; styleRing(p); } } }
 function buildOnPlot(p){ const c=CAT[p.cat]; if(p.g) scene.remove(p.g);
   const g=bldClone(c.model+p.level, c.H[p.level-1]); if(g){ g.position.set(p.x,topY(p.x,p.z),p.z); g.rotation.y=rr(0,6.28); scene.add(g); p.g=g; }
   p.ring.visible=false; p.plus.visible=false;
   if(p.cat==='defense'){ p.dmg=c.dmg[p.level-1]; p.range=c.range[p.level-1]; p.rof=c.rof[p.level-1]; }
   if(p.cat==='army'){ p.every=c.every[p.level-1]; p.cap=c.cap[p.level-1]; if(!p.queue)p.queue=[]; }
   recomputeIncome(); recomputeSupply(); }
-function startBuild(p,cat){ if(p.cat)return; const c=CAT[cat]; if(gold<c.cost[0])return; gold-=c.cost[0]; p.cat=cat; p.level=1; buildOnPlot(p); closeBuildMenu(); }
+function startBuild(p,cat){ if(p.cat||p.locked)return; if(p.slot==='turret'&&cat!=='defense')return;   // turret spots build towers only
+  const c=CAT[cat]; if(gold<c.cost[0])return; gold-=c.cost[0]; p.cat=cat; p.level=1; buildOnPlot(p); closeBuildMenu(); }
 // queue a unit at a Barracks (WC3-style): pay gold now, reserve supply, build over time, then it musters
 function queueUnit(p,def){ if(!p||p.cat!=='army')return; if(gold<def.gold)return; if(supplyUsed+def.sup>supplyCap)return;   // no gold / no pop room
   gold-=def.gold; if(!p.queue)p.queue=[]; p.queue.push({kind:def.kind, rig:def.rig, t:def.dur, dur:def.dur, sup:def.sup}); recomputeSupply(); openPlotMenu(p); }
@@ -416,7 +425,7 @@ function spawnTrained(p,q){ const st = q.kind==='warrior'?{hp:110,dmg:16,range:3
 function upgradePlot(p){ if(!p.cat||p.level>=3)return; const cost=CAT[p.cat].cost[p.level]; if(gold<cost)return; gold-=cost; p.level++; buildOnPlot(p); closeBuildMenu(); }
 function upgradeCore(){ if(!coreB||coreB.level>=3)return; const cost=CORE_UP[coreB.level]; if(gold<cost)return; gold-=cost; coreB.level++;
   const add=CORE_HP[coreB.level-1]-coreB.max; coreB.max=CORE_HP[coreB.level-1]; coreB.hp+=add;
-  scene.remove(coreB.g); const g=bldClone('throne'+coreB.level,CORE_H[coreB.level-1])||makeKeep(); g.position.set(coreB.x,topY(coreB.x,coreB.z),coreB.z); scene.add(g); coreB.g=g; closeBuildMenu(); }
+  scene.remove(coreB.g); const g=bldClone('throne'+coreB.level,CORE_H[coreB.level-1])||makeKeep(); g.position.set(coreB.x,topY(coreB.x,coreB.z),coreB.z); scene.add(g); coreB.g=g; revealPlots(); closeBuildMenu(); }
 function towerTick(p,dt){ p.cd-=dt; if(p.cd>0)return; let best=null,bd=p.range*p.range;
   for(const en of enemies){ if(!en.alive)continue; const dd=(en.px-p.x)**2+(en.pz-p.z)**2; if(dd<bd){bd=dd;best=en;} }
   if(best){ shootFx(p.x,p.z,best.px,best.pz,'arrow'); best.hp-=p.dmg; best.hitT=0.15; p.cd=p.rof; } }
@@ -441,8 +450,8 @@ function placeEnemyCore(x,z){ scene.add(dirtPad(x,z,10));
   enemyCore={x,z,px:x,pz:z,alive:true,level:1,hp:CORE_HP[0],max:CORE_HP[0],big:8,hitT:0,g:null,bar:makeBar(0xff6b5a),kind:'core'};
   const g=bldClone('orc_throne1',CORE_H[0])||makeKeep(); g.position.set(x,topY(x,z),z); g.rotation.y=2.4; scene.add(g); enemyCore.g=g;
   eStructs.push(enemyCore); }
-function makeEnemyPlot(x,z){ scene.add(dirtPad(x,z,5.5));
-  const p={x,z,cat:null,level:0,g:null,cd:0,spawnCd:3,mine:[],struct:null}; ePlots.push(p); return p; }
+function makeEnemyPlot(x,z,tier,slot){ slot=slot||'gen'; scene.add(dirtPad(x,z,slot==='turret'?4.4:5.5));
+  const p={x,z,cat:null,level:0,g:null,cd:0,spawnCd:3,mine:[],struct:null,tier:tier||1,slot:slot,locked:(tier||1)>1}; ePlots.push(p); return p; }
 function eRecomputeIncome(){ eIncome=1; for(const p of ePlots) if(p.cat==='mine') eIncome+=CAT.mine.income[p.level-1]; }
 function eRecomputeSupply(){ eSupplyCap=BASE_SUPPLY; for(const p of ePlots) if(p.cat==='economy') eSupplyCap+=CAT.economy.pop[p.level-1];
   eSupplyUsed=0; for(const e of enemies) if(e.alive) eSupplyUsed+=(UNIT_SUP[e.kind]||2); }
@@ -454,7 +463,8 @@ function eBuildOnPlot(p){ const c=CAT[p.cat]; if(p.g)scene.remove(p.g); if(p.str
   eRecomputeIncome(); }
 function eUpgradeCore(){ if(enemyCore.level>=3)return; enemyCore.level++;
   const add=CORE_HP[enemyCore.level-1]-enemyCore.max; enemyCore.max=CORE_HP[enemyCore.level-1]; enemyCore.hp+=add;
-  scene.remove(enemyCore.g); const g=bldClone('orc_throne'+enemyCore.level,CORE_H[enemyCore.level-1])||makeKeep(); g.position.set(enemyCore.x,topY(enemyCore.x,enemyCore.z),enemyCore.z); g.rotation.y=2.4; scene.add(g); enemyCore.g=g; }
+  scene.remove(enemyCore.g); const g=bldClone('orc_throne'+enemyCore.level,CORE_H[enemyCore.level-1])||makeKeep(); g.position.set(enemyCore.x,topY(enemyCore.x,enemyCore.z),enemyCore.z); g.rotation.y=2.4; scene.add(g); enemyCore.g=g;
+  for(const p of ePlots){ if(p.locked && p.tier<=enemyCore.level) p.locked=false; } }
 function eTowerTick(p,dt){ p.cd-=dt; if(p.cd>0)return; let best=null,bd=p.range*p.range;
   for(const t of [hero,...allies]){ if(!t||!t.alive)continue; const dd=(t.px-p.x)**2+(t.pz-p.z)**2; if(dd<bd){bd=dd;best=t;} }
   if(best){ shootFx(p.x,p.z,best.px,best.pz,'arrow'); best.hp-=p.dmg; best.hitT=0.15; p.cd=p.rof; } }
@@ -465,11 +475,13 @@ function eBarracksTick(p,dt){ p.mine=p.mine.filter(u=>u.alive); if(eSupplyUsed>=
   else { e=mkFighter(C.enemyRed,1.05,'enemy',{hp:64,dmg:9,range:3.4,atkEvery:1.0,spd:12}); riggize(e,'orcgrunt'); e.kind='grunt'; }
   setP(e,p.x+rr(-3,3),p.z+rr(3,5)); enemies.push(e); p.mine.push(e); }
 function enemyAI(dt){ aiCd-=dt; if(aiCd>0)return; aiCd=4;
-  const empty=ePlots.find(p=>!p.cat);
+  const empty=ePlots.find(p=>!p.cat && !p.locked);
   const nEco=ePlots.filter(p=>p.cat==='economy').length, nMine=ePlots.filter(p=>p.cat==='mine').length, nArmy=ePlots.filter(p=>p.cat==='army').length, nDef=ePlots.filter(p=>p.cat==='defense').length;
-  if(empty){ let cat; if(nMine<1)cat='mine'; else if(nArmy<1)cat='army'; else if(nEco<1)cat='economy'; else if(nMine<2)cat='mine'; else if(nArmy<2)cat='army'; else if(nDef<1)cat='defense'; else if(nEco<2)cat='economy'; else cat=['army','defense','mine','economy'][Math.floor(rnd()*4)];
+  if(empty){ let cat; if(empty.slot==='turret') cat='defense';   // turret spots are defense-only
+    else if(nMine<1)cat='mine'; else if(nArmy<1)cat='army'; else if(nEco<1)cat='economy'; else if(nMine<2)cat='mine'; else if(nArmy<2)cat='army'; else if(nDef<1)cat='defense'; else if(nEco<2)cat='economy'; else cat=['army','defense','mine','economy'][Math.floor(rnd()*4)];
     const cost=CAT[cat].cost[0]; if(eGold>=cost){ eGold-=cost; empty.cat=cat; empty.level=1; eBuildOnPlot(empty); return; } return; }
-  if(rnd()<0.4 && enemyCore.level<3){ const cost=CORE_UP[enemyCore.level]; if(eGold>=cost){ eGold-=cost; eUpgradeCore(); return; } }
+  // all reachable plots are full → expand the base (upgrade the throne) before polishing plot levels
+  if(enemyCore.level<3){ const cost=CORE_UP[enemyCore.level]; if(eGold>=cost){ eGold-=cost; eUpgradeCore(); } return; }   // save up if not yet affordable
   const upg=ePlots.filter(p=>p.cat&&p.level<3); if(upg.length){ const p=upg[Math.floor(rnd()*upg.length)], cost=CAT[p.cat].cost[p.level]; if(eGold>=cost){ eGold-=cost; p.level++; eBuildOnPlot(p); } } }
 function eBaseTick(dt){ if(!enemyCore)return; eGold+=eIncome*dt; eRecomputeSupply();
   for(const p of ePlots){ if(p.cat==='defense') eTowerTick(p,dt); else if(p.cat==='army') eBarracksTick(p,dt); }
@@ -498,10 +510,10 @@ function radialOpen(cx,cy,title,items){ if(!buildMenuEl)return;
     b.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); if(it.ok!==false&&it.fn)it.fn(); }); buildMenuEl.appendChild(b);
     const lb=document.createElement('div'); lb.className='rLb'; lb.style.left=bx+'px'; lb.style.top=(by+36)+'px'; lb.textContent=it.label; buildMenuEl.appendChild(lb); });
   bmBack.style.display='block'; buildMenuEl.style.display='block'; }
-function openPlotMenu(p){ if(!buildMenuEl)return; menuPlot=p; menuAnchor={x:p.x,z:p.z}; const g=Math.floor(gold); const [cx,cy]=screenOf(p.x,p.z); let items;
-  if(!p.cat){ items=['economy','mine','army','defense'].map(k=>{ const cost=CAT[k].cost[0];
-      return {icon:catIcon[k], label:catName[k], cost:cost+'g', ok:g>=cost, fn:()=>startBuild(p,k)}; });
-    radialOpen(cx,cy,'Build ('+g+'g · ⛺'+Math.round(supplyUsed)+'/'+supplyCap+')',items); }
+function openPlotMenu(p){ if(!buildMenuEl||p.locked)return; menuPlot=p; menuAnchor={x:p.x,z:p.z}; const g=Math.floor(gold); const [cx,cy]=screenOf(p.x,p.z); let items;
+  if(!p.cat){ const opts = p.slot==='turret' ? ['defense'] : ['economy','mine','army','defense'];   // turret spots are defense-only
+    items=opts.map(k=>{ const cost=CAT[k].cost[0]; return {icon:catIcon[k], label:catName[k], cost:cost+'g', ok:g>=cost, fn:()=>startBuild(p,k)}; });
+    radialOpen(cx,cy,(p.slot==='turret'?'🏹 Turret spot ':'Build ')+'('+g+'g · ⛺'+Math.round(supplyUsed)+'/'+supplyCap+')',items); }
   else if(p.cat==='army'){ items=TRAIN.filter(t=>t.minLvl<=p.level).map(t=>({icon:t.icon, label:t.label, cost:t.gold+'g',
         ok: g>=t.gold && supplyUsed+t.sup<=supplyCap, fn:()=>queueUnit(p,t)}));   // train (gold + supply gated)
     if(p.level<3){ const cost=CAT.army.cost[p.level]; items.push({icon:'⬆', label:'Upgrade', cost:cost+'g', ok:g>=cost, fn:()=>upgradePlot(p)}); }
@@ -513,12 +525,12 @@ function openPlotMenu(p){ if(!buildMenuEl)return; menuPlot=p; menuAnchor={x:p.x,
     items.push({icon:'♻️', label:'Sell', cost:'+'+sellValue(p)+'g', cls:'sell', ok:true, fn:()=>sellPlot(p)});
     radialOpen(cx,cy,catIcon[p.cat]+' '+catName[p.cat]+' L'+p.level,items); } }
 function openCoreMenu(){ if(!buildMenuEl||!coreB)return; menuPlot=null; menuAnchor={x:coreB.x,z:coreB.z}; const g=Math.floor(gold); const [cx,cy]=screenOf(coreB.x,coreB.z);
-  const items=[]; if(coreB.level<3){ const cost=CORE_UP[coreB.level]; items.push({icon:'⬆', label:'Reinforce', cost:cost+'g', ok:g>=cost, fn:()=>upgradeCore()}); }
+  const items=[]; if(coreB.level<3){ const cost=CORE_UP[coreB.level]; items.push({icon:'⬆', label:'Expand base', cost:cost+'g', ok:g>=cost, fn:()=>upgradeCore()}); }
   else items.push({icon:'★', label:'Max', ok:false});
   radialOpen(cx,cy,'👑 Throne L'+coreB.level+' · '+Math.ceil(coreB.hp)+'hp',items); }
 function sellPlot(p){ if(!p.cat)return; gold+=sellValue(p); if(p.g)scene.remove(p.g); p.g=null;
   p.cat=null; p.level=0; p.dmg=p.range=p.rof=p.every=p.cap=undefined; p.mine=[]; p.queue=[];
-  if(p.ring)p.ring.visible=true; if(p.plus)p.plus.visible=true; recomputeIncome(); recomputeSupply(); closeBuildMenu(); }
+  styleRing(p); recomputeIncome(); recomputeSupply(); closeBuildMenu(); }
 function closeBuildMenu(){ if(buildMenuEl) buildMenuEl.style.display='none'; if(bmBack)bmBack.style.display='none'; menuPlot=null; menuAnchor=null; }
 // keep the open radial glued to its plot as the camera pans/follows the hero
 function repositionRadial(){ if(!buildMenuEl||!menuAnchor||buildMenuEl.style.display!=='block')return;
@@ -631,14 +643,22 @@ function build(){
   for(let i=0;i<7;i++){ const a=i/7*6.28, x=Math.cos(a)*20, z=Math.sin(a)*20;
     if(onIsland(x,z)&&pathDist(x,z)>7) place(makeRock(),x,z); }
 
-  // PLAYER base (bottom-left island) — Thronefall core ringed by empty build plots
-  const KX=105,KZ=108;
-  placeCore(KX,KZ);
-  const RING=30; for(let i=0;i<6;i++){ const a=i/6*Math.PI*2+0.4, x=KX+Math.cos(a)*RING, z=KZ+Math.sin(a)*RING; if(onIsland(x,z)) makePlot(x,z); }
-  // ENEMY stronghold (top-right island) — AI core ringed by plots the orc AI fills itself
-  enemyBase={x:-105,z:-108};
-  placeEnemyCore(enemyBase.x,enemyBase.z);
-  for(let i=0;i<6;i++){ const a=i/6*Math.PI*2+0.9, x=enemyBase.x+Math.cos(a)*RING, z=enemyBase.z+Math.sin(a)*RING; if(onIsland(x,z)) makeEnemyPlot(x,z); }
+  // Base-expansion layout (per the concept sheet): plots gated by Throne tier + dedicated turret spots.
+  // Tier 1 opens an inner triangle of general plots; upgrading the Throne reveals the hexagon + turret ring,
+  // then an outer ring. slot 'gen' = build anything, 'turret' = tower-only.
+  const BASE_PLOTS=[
+    {r:22,a:90,t:1,s:'gen'},{r:22,a:210,t:1,s:'gen'},{r:22,a:330,t:1,s:'gen'},              // Tier 1 — inner triangle
+    {r:24,a:30,t:2,s:'gen'},{r:24,a:150,t:2,s:'gen'},{r:24,a:270,t:2,s:'gen'},              // Tier 2 — complete the hexagon
+    {r:37,a:0,t:2,s:'turret'},{r:37,a:90,t:2,s:'turret'},{r:37,a:180,t:2,s:'turret'},{r:37,a:270,t:2,s:'turret'},   // Tier 2 — 4 turret spots
+    {r:44,a:30,t:3,s:'gen'},{r:44,a:150,t:3,s:'gen'},{r:44,a:270,t:3,s:'gen'},              // Tier 3 — outer general
+    {r:44,a:90,t:3,s:'turret'},{r:44,a:210,t:3,s:'turret'},{r:44,a:330,t:3,s:'turret'},     // Tier 3 — outer turrets
+  ];
+  // PLAYER base (bottom-left island)
+  const KX=105,KZ=108; placeCore(KX,KZ);
+  for(const s of BASE_PLOTS){ const a=s.a*Math.PI/180, x=KX+Math.cos(a)*s.r, z=KZ+Math.sin(a)*s.r; if(onIsland(x,z)) makePlot(x,z,s.t,s.s); }
+  // ENEMY stronghold (top-right island) — same layout, AI fills + expands it
+  enemyBase={x:-105,z:-108}; placeEnemyCore(enemyBase.x,enemyBase.z);
+  for(const s of BASE_PLOTS){ const a=(s.a+180)*Math.PI/180, x=enemyBase.x+Math.cos(a)*s.r, z=enemyBase.z+Math.sin(a)*s.r; if(onIsland(x,z)) makeEnemyPlot(x,z,s.t,s.s); }
 
   // rocks scattered across the land
   for(let i=0;i<50;i++){ const x=rr(-WORLD,WORLD), z=rr(-WORLD,WORLD);
