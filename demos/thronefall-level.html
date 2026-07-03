@@ -18,26 +18,45 @@ canvas{display:block}
 .hchip{display:flex;align-items:center;justify-content:center;gap:6px;background:var(--panel);border:1px solid var(--brd);
   border-radius:10px;padding:9px 13px;min-height:40px;box-sizing:border-box;backdrop-filter:blur(8px);box-shadow:none;cursor:pointer;font-weight:700}
 .hchip:active{transform:scale(0.96);filter:brightness(1.1)}
-/* flat ability buttons — Thronefall-minimal: thin ring, icon + tiny caption, no bevel */
-.abilRow{position:fixed;z-index:6;display:flex;align-items:flex-end;gap:12px;right:calc(20px + var(--sr));bottom:calc(20px + var(--sb))}
-.abil{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;box-sizing:border-box;
-  width:58px;height:58px;border-radius:50%;background:var(--panel);border:1.5px solid var(--brd);backdrop-filter:blur(8px);
-  cursor:pointer;color:var(--ink);transition:transform .08s,opacity .15s,border-color .15s,box-shadow .15s;user-select:none}
-.abil:active{transform:scale(0.93)}
-.abil.big{width:70px;height:70px}
-.abil .ic{font-size:22px;line-height:1}
-.abil.big .ic{font-size:27px}
-.abil .cap{font:800 8.5px/1 system-ui;letter-spacing:.4px;color:var(--dim);text-transform:uppercase}
-.abil.off{opacity:0.38}
-.abil.armed{border-color:#ffffff !important;background:rgba(120,180,240,0.32);
-  box-shadow:0 0 0 3px rgba(255,255,255,0.7),0 0 20px rgba(150,210,255,0.7)}
+/* radial ability hand — Wild Rift style: glossy rings fanned around a primary anchor */
+.abilHand{position:fixed;z-index:6;right:calc(12px + var(--sr));bottom:calc(12px + var(--sb));width:244px;height:214px;pointer-events:none}
+.abil{position:absolute;pointer-events:auto;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  border-radius:50%;cursor:pointer;user-select:none;color:var(--ink);
+  background:radial-gradient(circle at 38% 30%,rgba(74,96,128,0.55),rgba(13,19,29,0.74));
+  border:2px solid var(--brd);box-shadow:0 2px 11px rgba(0,0,0,0.45),inset 0 1px 2px rgba(255,255,255,0.16);
+  backdrop-filter:blur(8px);transition:transform .08s,opacity .15s,box-shadow .15s,border-color .15s}
+.abil:active{transform:scale(0.92)}
+.abil .ic{font-size:22px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.5))}
+.abil.big .ic{font-size:29px}
+.abil .cap{font:800 8px/1 system-ui;letter-spacing:.3px;color:var(--dim);text-transform:uppercase}
+/* cooldown sweep: a conic overlay whose dark wedge shrinks as the ability comes off cooldown */
+.abil .cd{position:absolute;inset:-2px;border-radius:50%;pointer-events:none;opacity:0;transition:opacity .12s}
+.abil.cooling .cd{opacity:1}
+.abil.cooling .ic{opacity:0.5}
+.abil.off{opacity:0.4}
+.abil.armed{border-color:#ffffff !important;box-shadow:0 0 0 3px rgba(255,255,255,0.65),0 0 22px rgba(150,205,255,0.75)}
 .abil.armed .cap{color:#fff}
-.abil.stomp{border-color:rgba(224,122,78,0.55)} .abil.stomp .ic{color:#f2a074}
-.abil.bolt{border-color:rgba(107,155,224,0.55)}  .abil.bolt .ic{color:#8fb6ff}
-.abil.smite{border-color:rgba(140,190,110,0.55)} .abil.smite .ic{color:#b6e08a}
-.pill{position:absolute;top:-8px;left:50%;transform:translateX(-50%);font:800 7.5px/1 system-ui;letter-spacing:.4px;
-  padding:3px 6px;border-radius:8px;background:var(--panel2);border:1px solid var(--brd);color:var(--dim);white-space:nowrap;backdrop-filter:blur(8px)}
-.pill.on{background:rgba(90,150,220,0.6);color:#fff;border-color:rgba(150,200,255,0.6)}
+.abil.stomp{border-color:rgba(240,150,90,0.75)}
+.abil.bolt{border-color:rgba(120,170,255,0.75)}
+.abil.smite{border-color:rgba(150,210,110,0.75)}
+.abil.hit{border-color:rgba(255,220,150,0.55)}
+.abil.hit.ready{border-color:#ffe08a !important;animation:hitpulse 1s ease-in-out infinite}
+@keyframes hitpulse{0%,100%{box-shadow:0 0 0 2px rgba(255,220,140,0.4),0 0 15px rgba(255,210,120,0.5),inset 0 1px 2px rgba(255,255,255,0.16)}
+  50%{box-shadow:0 0 0 3px rgba(255,232,160,0.75),0 0 26px rgba(255,215,130,0.85),inset 0 1px 2px rgba(255,255,255,0.16)}}
+.pill{position:absolute;top:-7px;left:50%;transform:translateX(-50%);font:800 7.5px/1 system-ui;letter-spacing:.4px;
+  padding:3px 6px;border-radius:8px;background:var(--panel2);border:1px solid var(--brd);color:var(--dim);white-space:nowrap;backdrop-filter:blur(8px);z-index:2}
+.pill.on{background:rgba(90,150,220,0.65);color:#fff;border-color:rgba(150,200,255,0.6)}
+/* right-edge command strip — Wild Rift ping column: army orders out of the play area */
+.cmdStrip{position:fixed;z-index:6;right:calc(13px + var(--sr));top:calc(96px + var(--st));display:flex;flex-direction:column;gap:11px}
+.cmdBtn{width:50px;height:50px;border-radius:50%;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  background:radial-gradient(circle at 38% 30%,rgba(74,96,128,0.5),rgba(13,19,29,0.72));border:2px solid var(--brd);
+  box-shadow:0 2px 9px rgba(0,0,0,0.42),inset 0 1px 2px rgba(255,255,255,0.13);backdrop-filter:blur(8px);cursor:pointer;color:var(--ink);
+  transition:transform .08s,filter .12s}
+.cmdBtn:active{transform:scale(0.9);filter:brightness(1.15)}
+.cmdBtn .ci{font-size:18px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.5))}
+.cmdBtn .cl{font:800 7px/1 system-ui;letter-spacing:.3px;color:var(--dim);text-transform:uppercase}
+.cmdBtn.charge{border-color:rgba(240,170,90,0.7)}
+.cmdBtn.recall{border-color:rgba(120,170,255,0.7)}
 #tip{position:fixed;left:calc(14px + var(--sl));top:calc(14px + var(--st));max-width:228px;background:var(--panel);border:1px solid var(--brd);
   color:var(--ink);font:500 12.5px/1.45 system-ui;padding:10px 13px;border-radius:12px;z-index:6;box-shadow:none;backdrop-filter:blur(8px);
   transition:opacity .8s ease,transform .8s ease;opacity:0.96}
@@ -603,6 +622,7 @@ window.__follow=(o,i,e,b)=>{ if(o)FOLLOW_OUT=o; if(i)FOLLOW_IN=i; if(e)ENGAGE=e;
 // command layer: lasso-select a sub-group, draw/tap to send them (attack-move)
 let selected=new Set(), lcv, lctx, cmd={active:false,id:null,pts:[],moved:false};
 let spellArmed=false, autoBolt=false, orderMarkers=[], boltEl, autoEl, smiteArmed=false, smiteEl;
+let hitEl=null, heroCanHit=false, heroHitTarget=null;   // Wild-Rift attack button: active only when a foe is in the hero's reach
 let keys={}, joy={active:false,nx:0,ny:0,id:null,sx:0,sy:0};
 let heroHpEl, waveEl, resultEl, abilEl, joyBase, joyKnob;
 const raycaster=new THREE.Raycaster(), groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
@@ -772,6 +792,11 @@ function separate(){ const all=[hero,...allies,...enemies].filter(e=>e&&e.alive)
 function attack(a,d){ if(a.cd>0)return; d.hp-=a.dmg; d.hitT=0.12; a.cd=a.atkEvery; faceTo(a,d.px-a.px,d.pz-a.pz); }
 function groundBasis(){ const f=new THREE.Vector3(); cam.getWorldDirection(f); f.y=0; f.normalize();
   const r=new THREE.Vector3().crossVectors(f,new THREE.Vector3(0,1,0)).normalize(); return {f,r}; }
+// pick one of the hero's attack swings at random (Queen has several slash clips; others just have 'attack')
+function pickAtkClip(e){ if(!e||!e.act)return 'attack'; const a=['attack','attack2','attack3','attack4'].filter(n=>e.act[n]); return a.length?a[(Math.random()*a.length)|0]:'attack'; }
+// the Hit button: strike the nearest foe, but only if one is actually in reach (button is dimmed otherwise)
+function heroHit(){ if(!hero||gameOver)return; const {t,d}=nearest(hero.px,hero.pz,foes());
+  if(t&&d<=hero.range+(t.big||0)+1){ if(hero.rigged){ hero.__atkClip=pickAtkClip(hero); hero.__atkT=0.55; } attack(hero,t); } }
 function warstomp(){ if(!hero||hero.aCd>0||gameOver)return; hero.aCd=5;
   for(const e of enemies){ if(!e.alive)continue; const d=Math.hypot(e.px-hero.px,e.pz-hero.pz);
     if(d<11){ e.hp-=50; e.hitT=0.25; const nx=e.px+(e.px-hero.px)/(d||1)*5, nz=e.pz+(e.pz-hero.pz)/(d||1)*5; if(onIsland(nx,nz))setP(e,nx,nz);} }
@@ -849,7 +874,12 @@ function updateOrderMarkers(){
   for(const a of ord){ let c=clusters.find(c=>Math.hypot(c.x-a.order.x,c.z-a.order.z)<8); if(!c){c={x:a.order.x,z:a.order.z};clusters.push(c);} }
   while(orderMarkers.length<clusters.length){ const m=new THREE.Mesh(new THREE.RingGeometry(2.3,2.9,24),new THREE.MeshBasicMaterial({color:0x9fe0ff,transparent:true,opacity:0.55,side:THREE.DoubleSide})); m.rotation.x=-Math.PI/2; scene.add(m); orderMarkers.push(m); }
   orderMarkers.forEach((m,i)=>{ if(i<clusters.length){ m.visible=true; m.position.set(clusters[i].x,topY(clusters[i].x,clusters[i].z)+0.2,clusters[i].z); } else m.visible=false; }); }
-function updateSpellUI(){ if(boltEl){ boltEl.classList.toggle('off',hero.spellCd>0); boltEl.classList.toggle('armed',spellArmed); }
+function updateSpellUI(){
+  const ring=(el,cd,max)=>{ if(!el)return; const c=el.querySelector('.cd'); el.classList.toggle('cooling',cd>0);
+    if(c){ const f=Math.max(0,Math.min(1,cd/max)); c.style.background='conic-gradient(rgba(8,12,18,0.66) '+(f*360).toFixed(0)+'deg, rgba(0,0,0,0) 0deg)'; } };
+  if(hitEl){ hitEl.classList.toggle('off',!heroCanHit); hitEl.classList.toggle('ready',heroCanHit); }   // attack button lights up only in reach
+  if(abilEl){ ring(abilEl, hero?hero.aCd:0, 5); }
+  if(boltEl){ boltEl.classList.toggle('armed',spellArmed); ring(boltEl, hero?hero.spellCd:0, 6); }
   if(autoEl){ autoEl.classList.toggle('on',autoBolt); }
   if(smiteEl){ const n=readyClerics(); const cap=smiteEl.querySelector('.cap'); if(cap)cap.textContent=n?('Smite '+n):'Smite';
     smiteEl.classList.toggle('off',n===0); smiteEl.classList.toggle('armed',smiteArmed); } }
@@ -886,9 +916,10 @@ function updateGame(dt){
     hero.cd-=dt; hero.aCd-=dt; hero.spellCd-=dt;
     const FO=foes();   // enemy units + attackable enemy structures (core/buildings) — the player's valid targets
     if(autoBolt && hero.spellCd<=0 && enemies.length){ const {t}=nearest(hero.px,hero.pz,enemies); if(t) castBolt(t.px,t.pz); }
-    { const {t,d}=nearest(hero.px,hero.pz,FO); if(t&&d<=hero.range+(t.big||0)+1){ if(hero.rigged&&hero.cd<=0) hero.__atkT=0.55; attack(hero,t); } }
+    { const {t,d}=nearest(hero.px,hero.pz,FO); heroHitTarget=(t&&d<=hero.range+(t.big||0)+1)?t:null; heroCanHit=!!heroHitTarget;
+      if(heroHitTarget){ if(hero.rigged&&hero.cd<=0){ hero.__atkClip=pickAtkClip(hero); hero.__atkT=0.55; } attack(hero,heroHitTarget); } }
     if(hero.rigged){ hero.mixer.update(dt); hero.__atkT=Math.max(0,(hero.__atkT||0)-dt);
-      setAnim(hero, hero.__atkT>0?'attack':((ml>0.01&&camLocked)?'run':'idle')); }
+      setAnim(hero, hero.__atkT>0?(hero.__atkClip||'attack'):((ml>0.01&&camLocked)?'run':'idle')); }
     const hl=Math.hypot(heroFwd.x,heroFwd.z)||1, ffx=heroFwd.x/hl, ffz=heroFwd.z/hl, rgx=ffz, rgz=-ffx;
     for(const e of allies){ if(!e.alive)continue; e.cd-=dt;
       const heroDist=Math.hypot(hero.px-e.px,hero.pz-e.pz);
@@ -935,8 +966,7 @@ function updateGame(dt){
     if(hero.hp<=0||(coreB&&coreB.hp<=0)) endGame(false); else if(enemyCore&&enemyCore.hp<=0) endGame(true);
     if(heroHpEl) heroHpEl.style.width=(Math.max(0,hero.hp)/hero.max*100)+'%';
     if(waveEl&&enemyCore) waveEl.textContent = enemyCore.hp>0 ? ('⚔ Orc throne  '+Math.ceil(Math.max(0,enemyCore.hp))+'/'+enemyCore.max) : 'The orc throne has fallen!';
-    if(abilEl) abilEl.classList.toggle('off', hero.aCd>0);
-    updateOrderMarkers(); updateSpellUI();
+    updateOrderMarkers(); updateSpellUI();   // Stomp cooldown + Hit-in-range state handled in updateSpellUI
   }
   updBars();
 }
@@ -965,17 +995,19 @@ function setupHUD(){
   joyBase=document.createElement('div'); joyBase.id='joy';
   const jring=document.createElement('div'); jring.className='ring'; joyBase.appendChild(jring);
   joyKnob=document.createElement('div'); joyKnob.id='joyK'; joyBase.appendChild(joyKnob); document.body.appendChild(joyBase);
-  // ability cluster (bottom-right): flat icon buttons, Stomp largest under the thumb
-  const abilRow=document.createElement('div'); abilRow.className='abilRow';
-  const mkAbil=(cls,icon,cap,big,fn)=>{ const b=document.createElement('div'); b.className='abil '+cls+(big?' big':'');
-    b.innerHTML='<div class="ic">'+icon+'</div><div class="cap">'+cap+'</div>';
-    b.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); fn(); }); return b; };
-  smiteEl=mkAbil('smite','✨','Smite',false,()=>{ if(readyClerics()>0){ smiteArmed=!smiteArmed; spellArmed=false; } updateSpellUI(); });
-  boltEl =mkAbil('bolt','⚡','Bolt',false,()=>{ if(hero.spellCd<=0){ spellArmed=!spellArmed; smiteArmed=false; } updateSpellUI(); });
-  abilEl =mkAbil('stomp','👊','Stomp',true,()=>{ warstomp(); });
+  // radial ability hand (bottom-right): Hit is the primary anchor under the thumb; abilities fan up-left in an arc
+  const hand=document.createElement('div'); hand.className='abilHand';
+  const mkAbil=(cls,icon,cap,size,right,bottom,fn)=>{ const b=document.createElement('div'); b.className='abil '+cls+(size>=72?' big':'');
+    b.style.cssText='width:'+size+'px;height:'+size+'px;right:'+right+'px;bottom:'+bottom+'px';
+    b.innerHTML='<div class="cd"></div><div class="ic">'+icon+'</div><div class="cap">'+cap+'</div>';
+    b.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); fn(); }); hand.appendChild(b); return b; };
+  hitEl  =mkAbil('hit','🗡️','Hit',76,16,16,()=>{ heroHit(); });                                                    // basic attack — lights up only in range
+  abilEl =mkAbil('stomp','👊','Stomp',62,122,76,()=>{ warstomp(); });
+  boltEl =mkAbil('bolt','⚡','Bolt',58,84,120,()=>{ if(hero.spellCd<=0){ spellArmed=!spellArmed; smiteArmed=false; } updateSpellUI(); });
+  smiteEl=mkAbil('smite','✨','Smite',54,35,139,()=>{ if(readyClerics()>0){ smiteArmed=!smiteArmed; spellArmed=false; } updateSpellUI(); });
   autoEl=document.createElement('div'); autoEl.className='pill'; autoEl.textContent='AUTO';   // rides on the Bolt button
   autoEl.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); autoBolt=!autoBolt; updateSpellUI(); }); boltEl.appendChild(autoEl);
-  abilRow.appendChild(smiteEl); abilRow.appendChild(boltEl); abilRow.appendChild(abilEl); document.body.appendChild(abilRow);
+  document.body.appendChild(hand);
   resultEl=document.createElement('div'); resultEl.style.cssText='position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:#0008;color:#fff;font:600 18px system-ui;gap:12px;z-index:9';
   resultEl.innerHTML='<h1 style="font-size:48px;margin:0"></h1><div>tap to play again</div>'; resultEl.addEventListener('pointerdown',()=>location.reload()); document.body.appendChild(resultEl);
   goldNumEl=document.getElementById('goldn');
@@ -986,14 +1018,14 @@ function setupHUD(){
   // lasso overlay
   lcv=document.createElement('canvas'); lcv.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:4'; lcv.width=innerWidth; lcv.height=innerHeight; document.body.appendChild(lcv); lctx=lcv.getContext('2d');
   addEventListener('resize',()=>{ lcv.width=innerWidth; lcv.height=innerHeight; });
-  // Thronefall-minimal command: the whole army follows the hero; two commands drive it
-  const bar2=document.createElement('div'); bar2.className='hud';
-  bar2.style.cssText+=';left:50%;bottom:calc(16px + var(--sb));transform:translateX(-50%);display:flex;gap:10px';
-  const mkCard=(label,fn)=>{ const c=document.createElement('div'); c.className='hchip'; c.textContent=label;
-    c.style.cssText+=';min-width:0;padding:9px 15px;font:800 12.5px system-ui'; c.addEventListener('pointerdown',ev=>{ev.stopPropagation(); fn();}); return c; };
-  bar2.appendChild(mkCard('⚔ Charge',()=>chargeAll()));
-  bar2.appendChild(mkCard('⟲ Recall',()=>recall()));
-  document.body.appendChild(bar2);
+  // right-edge command strip (Wild Rift ping column): the whole army follows the hero; these two orders drive it
+  const strip=document.createElement('div'); strip.className='cmdStrip';
+  const mkCmd=(cls,icon,label,fn)=>{ const c=document.createElement('div'); c.className='cmdBtn '+cls;
+    c.innerHTML='<div class="ci">'+icon+'</div><div class="cl">'+label+'</div>';
+    c.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); fn(); }); strip.appendChild(c); return c; };
+  mkCmd('charge','⚔','Charge',()=>chargeAll());
+  mkCmd('recall','⟲','Recall',()=>recall());
+  document.body.appendChild(strip);
   // the opening tip fades on its own (and on tap) so the HUD gets out of the way, Thronefall-style
   const tipEl=document.getElementById('tip');
   if(tipEl){ tipEl.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); tipEl.classList.add('hide'); });
