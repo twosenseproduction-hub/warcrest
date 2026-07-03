@@ -47,7 +47,7 @@ canvas{display:block}
   padding:3px 6px;border-radius:8px;background:var(--panel2);border:1px solid var(--brd);color:var(--dim);white-space:nowrap;backdrop-filter:blur(8px);z-index:2}
 .pill.on{background:rgba(90,150,220,0.65);color:#fff;border-color:rgba(150,200,255,0.6)}
 /* right-edge command strip — Wild Rift ping column: army orders out of the play area */
-.cmdStrip{position:fixed;z-index:6;right:calc(13px + var(--sr));top:calc(96px + var(--st));display:flex;flex-direction:column;gap:11px}
+.cmdStrip{position:fixed;z-index:6;right:calc(13px + var(--sr));top:calc(158px + var(--st));display:flex;flex-direction:column;gap:11px}
 .cmdBtn{width:50px;height:50px;border-radius:50%;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
   background:radial-gradient(circle at 38% 30%,rgba(74,96,128,0.5),rgba(13,19,29,0.72));border:2px solid var(--brd);
   box-shadow:0 2px 9px rgba(0,0,0,0.42),inset 0 1px 2px rgba(255,255,255,0.13);backdrop-filter:blur(8px);cursor:pointer;color:var(--ink);
@@ -106,6 +106,14 @@ canvas{display:block}
 .hchip svg{width:15px;height:15px;display:inline-block;vertical-align:-2px}
 .rBtn .rc{font:800 10px system-ui;color:var(--gold);margin-top:2px}
 .rLb{position:absolute;transform:translate(-50%,0);font:800 10px system-ui;color:#fff;text-shadow:0 1px 3px #000;white-space:nowrap;pointer-events:none}
+/* perspective picker — four 90-degree views, pick sets + saves the default */
+#viewPop{position:fixed;z-index:8;right:calc(14px + var(--sr));top:calc(104px + var(--st));display:none;flex-direction:column;gap:6px;
+  background:var(--panel2);border:1px solid var(--brd);border-radius:12px;padding:8px;backdrop-filter:blur(9px)}
+#viewPop .vOpt{display:flex;align-items:center;gap:8px;padding:8px 13px;border-radius:8px;font:700 12px system-ui;color:var(--ink);
+  border:1px solid var(--brd);cursor:pointer;background:rgba(255,255,255,0.04);white-space:nowrap}
+#viewPop .vOpt .vArr{display:inline-block;font-size:14px}
+#viewPop .vOpt.on{border-color:#7fd8ff;color:#bfe9ff;background:rgba(90,160,220,0.22)}
+#viewPop .vHint{font:600 9.5px system-ui;color:var(--dim);text-align:center;padding-top:2px}
 /* top-centre resource bar — Siege-Up style */
 #resbar{position:fixed;z-index:6;left:50%;transform:translateX(-50%);top:calc(10px + var(--st));display:flex;gap:0;
   background:var(--panel);border:1px solid var(--brd);border-radius:20px;padding:5px 8px;backdrop-filter:blur(9px)}
@@ -810,9 +818,11 @@ let spellArmed=false, autoBolt=false, orderMarkers=[], boltEl, autoEl, smiteArme
 let hitEl=null, heroCanHit=false, heroHitTarget=null;   // Wild-Rift attack button: active only when a foe is in the hero's reach
 let abilHandEl=null, cmdStripEl=null;                   // thumb-cluster no-command zones (taps here never issue a ground order)
 let keys={}, joy={active:false,nx:0,ny:0,id:null,sx:0,sy:0};
-let heroHpEl, waveEl, resultEl, abilEl, joyBase, joyKnob, supEl, woodEl;
+let heroHpEl, waveEl, resultEl, abilEl, joyBase, joyKnob, supEl, woodEl, viewPop=null;
 const raycaster=new THREE.Raycaster(), groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
 const camF={pitch:52,az:34,dist:66,lookY:4,pos:new THREE.Vector3(),init:false};   // closer default view
+const VIEW_AZS=[34,124,214,304];   // four 90-degree-apart perspectives; the picked one persists as default
+try{ const sv=parseFloat(localStorage.getItem('wc_view_az')); if(!isNaN(sv)) camF.az=sv; }catch(_){}
 // zoom — wheel + two-finger pinch, clamped
 const ZMIN=34, ZMAX=170;   // allow pulling back to survey the larger map
 addEventListener('wheel', e=>{ camF.dist=Math.max(ZMIN,Math.min(ZMAX, camF.dist + e.deltaY*0.05)); }, {passive:true});
@@ -902,12 +912,15 @@ function makeChar(key){ const src=RIGS[key]; if(!src)return null;
   const b2=new THREE.Box3().setFromObject(inner); const c2=b2.getCenter(new THREE.Vector3());
   inner.position.y-=b2.min.y/outer.scale.x; inner.position.x-=c2.x/outer.scale.x; inner.position.z-=c2.z/outer.scale.x;
   // hand weapons — parent each prop to its hand bone (rides the animation), painted with the char atlas.
-  // Resolve the bone from the SkinnedMesh's actual skeleton (some orc rigs carry stray duplicate
-  // skeletons; a plain name-traverse grabs an unanimated bone and the weapon floats). Exact match
-  // first, then prefix (e.g. 'hand_r' → 'hand_r_2', 'Character1_RightHand' → '..._4').
-  let _skel=null; inner.traverse(n=>{ if(n.isSkinnedMesh&&!_skel)_skel=n.skeleton; });
-  const findBone=name=>{ if(_skel){ let b=_skel.bones.find(bn=>bn.name===name)||_skel.bones.find(bn=>bn.name.indexOf(name)===0); if(b)return b; }
-    let f=null; inner.traverse(o=>{ if(o.isBone&&o.name===name)f=o; }); return f; };
+  // Some orc rigs carry stray duplicate skeletons, so name matching alone (or the first SkinnedMesh's
+  // skeleton — the grunt/shaman regression) can land on an UNANIMATED clone bone and the weapon floats.
+  // Ground truth is the clips: prefer the candidate bone the animation tracks actually drive,
+  // then exact name, then prefix ('hand_r' → 'hand_r_2').
+  const animNames=new Set(); src.anims.forEach(a=>a.tracks.forEach(t=>animNames.add(t.name.split('.')[0])));
+  const findBone=name=>{ const cands=[]; inner.traverse(o=>{ if(o.isBone&&(o.name===name||o.name.indexOf(name)===0)) cands.push(o); });
+    cands.sort((a,b)=>{ const aa=animNames.has(a.name)?0:1, ba=animNames.has(b.name)?0:1; if(aa!==ba)return aa-ba;
+      return (a.name===name?0:1)-(b.name===name?0:1); });
+    return cands[0]||null; };
   (WEAPONS[key]||[]).forEach(w=>{ if(!PROPS[w.file])return; const bone=findBone(w.bone);
     if(bone){ const prop=PROPS[w.file].clone(true), tx=TEXS[key];
       prop.traverse(o=>{ if(o.isMesh){ o.material=new THREE.MeshBasicMaterial({map:tx,side:THREE.DoubleSide}); o.frustumCulled=false; } });
@@ -1209,6 +1222,18 @@ function followCam(dt){
   if(sunLight){ sunLight.target.position.set(camAim.x,0,camAim.z); sunLight.target.updateMatrixWorld();
     sunLight.position.set(camAim.x+sun.x*130, sun.y*130, camAim.z+sun.z*130); } }
 function toggleCam(){ camLocked=!camLocked; applyCamMode(); if(camLocked&&hero){ camAim.x=hero.px; camAim.z=hero.pz; } }
+function toggleViewPop(){ if(!viewPop)return;
+  if(viewPop.style.display==='flex'){ viewPop.style.display='none'; return; }
+  viewPop.innerHTML=''; const arrows=['\u2196','\u2197','\u2198','\u2199'];
+  VIEW_AZS.forEach((az,i)=>{ const d=((camF.az-az)%360+360)%360, cur=(d<45||d>315);
+    const c=document.createElement('div'); c.className='vOpt'+(cur?' on':'');
+    c.innerHTML='<span class="vArr">'+arrows[i]+'</span>View '+(i+1)+(cur?' \u2713':'');
+    c.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); camF.az=az;
+      try{ localStorage.setItem('wc_view_az',String(az)); }catch(_){}
+      viewPop.style.display='none'; });
+    viewPop.appendChild(c); });
+  const h=document.createElement('div'); h.className='vHint'; h.textContent='saved as default'; viewPop.appendChild(h);
+  viewPop.style.display='flex'; }
 function applyCamMode(){ if(camEl){ camEl.textContent=camLocked?'◎ Hero':'⛶ Free'; camEl.style.background=camLocked?'#b5702a':'#2b3a58cc'; } }
   // the stick always shows: it pans the camera in Free mode and drives the hero in Follow mode
 function setupHUD(){
@@ -1217,6 +1242,12 @@ function setupHUD(){
   camEl=document.createElement('div'); camEl.className='hud hchip'; camEl.textContent='🔒 Cam';
   camEl.style.cssText+=';right:calc(14px + var(--sr));top:calc(14px + var(--st))';
   camEl.addEventListener('pointerdown',ev=>{ev.stopPropagation(); toggleCam();}); document.body.appendChild(camEl);
+  // perspective picker: 4 views 90 degrees apart; the choice applies immediately and becomes the default
+  const viewEl=document.createElement('div'); viewEl.className='hud hchip'; viewEl.textContent='⤺ View';
+  viewEl.style.cssText+=';right:calc(14px + var(--sr));top:calc(62px + var(--st));padding:8px 12px;min-height:0;font:700 12px system-ui';
+  viewEl.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); toggleViewPop(); }); document.body.appendChild(viewEl);
+  viewPop=document.createElement('div'); viewPop.id='viewPop';
+  viewPop.addEventListener('pointerdown',ev=>ev.stopPropagation()); document.body.appendChild(viewPop);
   // hero HP bar + objective, stacked top-centre in one framed cluster
   const hp=document.createElement('div'); hp.className='hud';
   hp.style.cssText+=';left:50%;top:calc(52px + var(--st));transform:translateX(-50%);width:min(240px,56vw);height:13px;background:rgba(10,14,20,0.5);border:1px solid var(--brd);border-radius:7px;overflow:hidden;box-shadow:none;backdrop-filter:blur(6px)';
