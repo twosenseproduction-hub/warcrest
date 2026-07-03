@@ -128,12 +128,12 @@ canvas{display:block}
   border:1px solid var(--brd);color:var(--dim);cursor:pointer}
 #selP .spX svg{width:14px;height:14px}
 /* fixed movement joystick, bottom-left */
-#joy{position:fixed;left:calc(30px + var(--sl));bottom:calc(104px + var(--sb));width:132px;height:132px;border-radius:50%;z-index:6;
+#joy{position:fixed;left:calc(12px + var(--sl));bottom:calc(16px + var(--sb));width:98px;height:98px;border-radius:50%;z-index:6;
   background:radial-gradient(circle at 50% 50%,rgba(30,42,60,0.30),rgba(20,27,38,0.42));border:2px solid rgba(150,190,225,0.45);
   box-shadow:0 3px 14px rgba(0,0,0,0.35),inset 0 0 22px rgba(120,170,220,0.15);touch-action:none}
-#joyK{position:absolute;left:50%;top:50%;width:62px;height:62px;border-radius:50%;transform:translate(-50%,-50%);
+#joyK{position:absolute;left:50%;top:50%;width:44px;height:44px;border-radius:50%;transform:translate(-50%,-50%);
   background:radial-gradient(circle at 40% 34%,#eaf3fb,#aec6dd 70%);border:1px solid rgba(255,255,255,0.5);box-shadow:0 2px 8px rgba(0,0,0,0.4)}
-#joy .ring{position:absolute;inset:14px;border-radius:50%;border:1px dashed rgba(180,210,235,0.35)}
+#joy .ring{position:absolute;inset:10px;border-radius:50%;border:1px dashed rgba(180,210,235,0.35)}
 </style>
 </head>
 <body>
@@ -555,10 +555,13 @@ function initFog(){
   fogCv=document.createElement('canvas'); fogCv.width=FOG_N; fogCv.height=FOG_N; fogCtx=fogCv.getContext('2d');
   fogMiniCv=document.createElement('canvas'); fogMiniCv.width=FOG_N; fogMiniCv.height=FOG_N; fogMiniCtx=fogMiniCv.getContext('2d');
   fogTex=new THREE.CanvasTexture(fogCv); fogTex.magFilter=THREE.LinearFilter; fogTex.minFilter=THREE.LinearFilter;
-  const m=new THREE.Mesh(new THREE.PlaneGeometry(2*FOG_HALF,2*FOG_HALF),
-    new THREE.MeshBasicMaterial({map:fogTex,transparent:true,depthWrite:false}));
-  m.rotation.x=-Math.PI/2;   // lay flat: canvas row 0 ↔ world -z, column 0 ↔ world -x (flipY handles the rest)
-  m.position.set(0,26,0); m.renderOrder=50; scene.add(m); fogMesh=m; updateFog(); }
+  // terrain-conforming cloud blanket: a displaced grid that follows the ground profile (~7u above it)
+  const geo=new THREE.PlaneGeometry(2*FOG_HALF,2*FOG_HALF,78,78); geo.rotateX(-Math.PI/2);   // same UV↔world mapping as the old flat plane
+  const pos=geo.attributes.position;
+  for(let i=0;i<pos.count;i++){ const x=pos.getX(i), z=pos.getZ(i); pos.setY(i, Math.max(topY(x,z),-1)+7); }
+  pos.needsUpdate=true;
+  const m=new THREE.Mesh(geo, new THREE.MeshBasicMaterial({map:fogTex,transparent:true,depthWrite:false}));
+  m.renderOrder=50; scene.add(m); fogMesh=m; updateFog(); }
 function fogStamp(buf,x,z,r){ const ci=(x+FOG_HALF)/FOG_CELL, cj=(z+FOG_HALF)/FOG_CELL, cr=r/FOG_CELL, cr2=cr*cr;
   const i0=Math.max(0,Math.floor(ci-cr)), i1=Math.min(FOG_N-1,Math.ceil(ci+cr));
   const j0=Math.max(0,Math.floor(cj-cr)), j1=Math.min(FOG_N-1,Math.ceil(cj+cr));
@@ -1138,7 +1141,7 @@ function updateGame(dt){
         const nx=hero.px+dx*hero.spd*dt, nz=hero.pz+dz*hero.spd*dt; if(onIsland(nx,nz))setP(hero,nx,nz); else hero.order=null;
         faceTo(hero,dx,dz); hero.movedThis=true; heroMoved=true;
         heroFwd.x+=(dx-heroFwd.x)*Math.min(1,dt*6); heroFwd.z+=(dz-heroFwd.z)*Math.min(1,dt*6); } }
-    if(!camLocked && ml>0.01){ const nx=mvx/ml, nz=mvz/ml; camAim.x+=nx*PAN_SPD*dt; camAim.z+=nz*PAN_SPD*dt; clampAim(); }   // WASD pans the free camera (desktop)
+    if(!camLocked && ml>0.01){ const nx=mvx/ml, nz=mvz/ml, sp=PAN_SPD*Math.max(0.6,camF.dist/66); camAim.x+=nx*sp*dt; camAim.z+=nz*sp*dt; clampAim(); }   // stick/WASD pans the free camera
     hero.cd-=dt; hero.aCd-=dt; hero.spellCd-=dt;
     const FO=foes();   // enemy units + attackable enemy structures (core/buildings) — the player's valid targets
     if(autoBolt && hero.spellCd<=0 && enemies.length){ const {t}=nearest(hero.px,hero.pz,enemies); if(t) castBolt(t.px,t.pz); }
@@ -1206,8 +1209,8 @@ function followCam(dt){
   if(sunLight){ sunLight.target.position.set(camAim.x,0,camAim.z); sunLight.target.updateMatrixWorld();
     sunLight.position.set(camAim.x+sun.x*130, sun.y*130, camAim.z+sun.z*130); } }
 function toggleCam(){ camLocked=!camLocked; applyCamMode(); if(camLocked&&hero){ camAim.x=hero.px; camAim.z=hero.pz; } }
-function applyCamMode(){ if(camEl){ camEl.textContent=camLocked?'◎ Hero':'⛶ Free'; camEl.style.background=camLocked?'#b5702a':'#2b3a58cc'; }
-  if(joyBase) joyBase.style.display=camLocked?'block':'none'; }   // the movement stick only drives the hero in follow mode
+function applyCamMode(){ if(camEl){ camEl.textContent=camLocked?'◎ Hero':'⛶ Free'; camEl.style.background=camLocked?'#b5702a':'#2b3a58cc'; } }
+  // the stick always shows: it pans the camera in Free mode and drives the hero in Follow mode
 function setupHUD(){
   addEventListener('keydown',e=>{ keys[e.key.toLowerCase()]=true; if(e.key.toLowerCase()==='c') toggleCam(); });
   addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
@@ -1309,7 +1312,7 @@ function drawMini(){ if(!mctx)return; mctx.clearRect(0,0,MSZ,MSZ); mctx.drawImag
 function onDown(e){ if(gameOver)return;
   ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
   const r=joyBase.getBoundingClientRect(), jcx=r.left+r.width/2, jcy=r.top+r.height/2;
-  if(camLocked && Math.hypot(e.clientX-jcx,e.clientY-jcy) <= r.width/2+34){   // joystick drives the hero only in follow mode
+  if(Math.hypot(e.clientX-jcx,e.clientY-jcy) <= r.width/2+30){   // the stick: hero in Follow mode, camera pan in Free mode
     joy.active=true; joy.id=e.pointerId; joy.cx=jcx; joy.cy=jcy; joy.R=r.width/2-14; joy.nx=0;joy.ny=0;
     joyKnob.style.left='50%'; joyKnob.style.top='50%'; return; }
   const inZone=el=>{ if(!el)return false; const b=el.getBoundingClientRect(); return e.clientX>=b.left&&e.clientX<=b.right&&e.clientY>=b.top&&e.clientY<=b.bottom; };
