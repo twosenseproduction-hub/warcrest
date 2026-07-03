@@ -100,6 +100,10 @@ canvas{display:block}
 .rBtn.sell{background:radial-gradient(circle at 40% 32%,rgba(220,120,90,0.38),var(--panel2))}
 .rBtn.no{opacity:0.38}
 .rBtn .ri{font-size:25px;line-height:1}
+.rBtn .ri svg{width:27px;height:27px;display:block}
+.abil .ic svg{width:24px;height:24px;display:block} .abil.big .ic svg{width:30px;height:30px}
+.cmdBtn .ci svg{width:20px;height:20px;display:block}
+.hchip svg{width:15px;height:15px;display:inline-block;vertical-align:-2px}
 .rBtn .rc{font:800 10px system-ui;color:var(--gold);margin-top:2px}
 .rLb{position:absolute;transform:translate(-50%,0);font:800 10px system-ui;color:#fff;text-shadow:0 1px 3px #000;white-space:nowrap;pointer-events:none}
 /* fixed movement joystick, bottom-left */
@@ -384,23 +388,23 @@ function loadBuildings(){ return new Promise(res=>{
 function bldClone(k,H){ const e=BLD[k]; if(!e)return null; const g=e.scene.clone(true); g.scale.setScalar(H/e.h); return g; }
 
 // ================= BASE: Thronefall-style fixed build plots + passive economy =================
-let gold=140, wood=0, incomeRate=1, woodRate=0, plots=[], coreB=null, buildMenuEl=null, bmBack=null, goldNumEl=null, menuPlot=null, menuAnchor=null, enemyBase={x:-105,z:-108};
+let gold=180, wood=0, incomeRate=1, woodRate=0, plots=[], coreB=null, buildMenuEl=null, bmBack=null, goldNumEl=null, menuPlot=null, menuAnchor=null, enemyBase={x:-105,z:-108};
 // category → model prefix + per-level stats (index 0 = Lv1). cost[0]=build, cost[1]=→Lv2, cost[2]=→Lv3.
 const CAT={
-  economy:{ label:'🏠 House',    model:'house',   H:[5.5,6.5,7.5], cost:[40,60,90],   pop:[6,10,15] },     // population/supply cap
-  mine:   { label:'⛏ Gold Mine', model:'mine',    H:[6,7.5,9],     cost:[55,95,150],  income:[3,6,10] },   // gold generation
-  lumber: { label:'🪓 Lumber Mill',model:'mill',  H:[5.5,6.5,7.5], cost:[45,80,130],  woodInc:[2,4,7] },   // wood generation
-  army:   { label:'🗡 Barracks', model:'barrack', H:[6.5,7.5,8.5], cost:[80,130,200], every:[7,5.5,4], cap:[2,3,4] },
-  defense:{ label:'🏹 Tower',    model:'tower',   H:[8,9.5,11],    cost:[55,90,150],  dmg:[16,28,44], range:[30,34,38], rof:[1.1,0.9,0.75] },
+  economy:{ label:'House',      model:'house',   H:[5.5,6.5,7.5], cost:[40,65,100],  pop:[8,13,18] },      // population/supply cap
+  mine:   { label:'Gold Mine',  model:'mine',    H:[6,7.5,9],     cost:[60,110,170], income:[4,8,13] },    // gold generation
+  lumber: { label:'Lumber Mill',model:'mill',    H:[5.5,6.5,7.5], cost:[50,95,150],  woodInc:[3,6,10] },   // wood generation
+  army:   { label:'Barracks',   model:'barrack', H:[6.5,7.5,8.5], cost:[90,150,220], every:[7,5.5,4], cap:[2,3,4] },
+  defense:{ label:'Tower',      model:'tower',   H:[8,9.5,11],    cost:[60,100,160], dmg:[16,30,48], range:[30,34,38], rof:[1.1,0.9,0.75] },
 };
 // WC3-style supply: the Throne seeds a base cap, each House raises it; units cost supply and gate training
-const BASE_SUPPLY=10, UNIT_SUP={warrior:3,archer:2,cleric:3,grunt:3,shaman:3};
+const BASE_SUPPLY=12, UNIT_SUP={warrior:3,archer:2,cleric:3,grunt:3,shaman:3};
 let supplyCap=BASE_SUPPLY, supplyUsed=0;
 // per-Barracks train catalogue (min barracks level = tech gate; foundation for the tech tree)
 const TRAIN=[
-  {kind:'warrior', rig:'warrior',  icon:'🛡️', label:'Warrior',   gold:60, sup:3, dur:6,  minLvl:1},
-  {kind:'archer',  rig:'archer',   icon:'🏹', label:'Archer',    gold:55, sup:2, dur:6,  minLvl:1},
-  {kind:'cleric',  rig:'priestess',icon:'✨', label:'Priestess', gold:90, sup:3, dur:9,  minLvl:2},
+  {kind:'warrior', rig:'warrior',  icon:'warrior', label:'Warrior',   gold:65, sup:3, dur:7,  minLvl:1},
+  {kind:'archer',  rig:'archer',   icon:'archer',  label:'Archer',    gold:55, sup:2, dur:6,  minLvl:1},
+  {kind:'cleric',  rig:'priestess',icon:'cleric',  label:'Priestess', gold:95, sup:3, dur:10, minLvl:2},
 ];
 const CORE_H=[9,10.5,12], CORE_HP=[1600,2400,3400], CORE_UP=[0,300,480];
 const UP_WOOD=[0,15,30], CORE_WOOD=[0,40,70];   // wood required to upgrade a plot / expand the throne
@@ -430,7 +434,7 @@ function buildOnPlot(p){ const c=CAT[p.cat]; if(p.g) scene.remove(p.g);
   const g=bldClone(c.model+p.level, c.H[p.level-1]); if(g){ g.position.set(p.x,topY(p.x,p.z),p.z); g.rotation.y=rr(0,6.28); scene.add(g); p.g=g; }
   p.ring.visible=false; p.plus.visible=false;
   if(p.cat==='defense'){ p.dmg=c.dmg[p.level-1]; p.range=c.range[p.level-1]; p.rof=c.rof[p.level-1]; }
-  if(p.cat==='army'){ p.every=c.every[p.level-1]; p.cap=c.cap[p.level-1]; if(!p.queue)p.queue=[]; }
+  if(p.cat==='army'){ p.every=c.every[p.level-1]; p.cap=c.cap[p.level-1]; if(!p.queue)p.queue=[]; if(!p.pbar)p.pbar=makeBar(0xffd24a); }
   recomputeIncome(); recomputeSupply(); }
 function startBuild(p,cat){ if(p.cat||p.locked)return; if(p.slot==='turret'&&cat!=='defense')return;   // turret spots build towers only
   const c=CAT[cat]; if(gold<c.cost[0])return; gold-=c.cost[0]; p.cat=cat; p.level=1; buildOnPlot(p); closeBuildMenu(); }
@@ -450,15 +454,19 @@ function upgradeCore(){ if(!coreB||coreB.level>=3)return; const cost=CORE_UP[cor
 function towerTick(p,dt){ p.cd-=dt; if(p.cd>0)return; let best=null,bd=p.range*p.range;
   for(const en of enemies){ if(!en.alive)continue; const dd=(en.px-p.x)**2+(en.pz-p.z)**2; if(dd<bd){bd=dd;best=en;} }
   if(best){ shootFx(p.x,p.z,best.px,best.pz,'arrow'); best.hp-=p.dmg; best.hitT=0.15; p.cd=p.rof; } }
-function barracksTick(p,dt){ if(!p.queue||!p.queue.length)return; const q=p.queue[0]; q.t-=dt;   // advance the train queue
-  if(q.t<=0){ spawnTrained(p,q); p.queue.shift(); recomputeSupply(); } }
+function barracksTick(p,dt){
+  if(p.queue&&p.queue.length){ const q=p.queue[0]; q.t-=dt; if(q.t<=0){ spawnTrained(p,q); p.queue.shift(); recomputeSupply(); } }
+  if(p.pbar){ if(p.queue&&p.queue.length){ const q=p.queue[0], f=Math.max(0,Math.min(1,(q.dur-q.t)/q.dur));   // training progress bar over the barracks
+      p.pbar.__fl.scale.x=f; p.pbar.__fl.position.x=-(1-f)*p.pbar.__w/2;
+      p.pbar.position.set(p.x,topY(p.x,p.z)+CAT.army.H[p.level-1]+1.8,p.z); p.pbar.quaternion.copy(cam.quaternion); p.pbar.visible=true; }
+    else p.pbar.visible=false; } }
 function baseTick(dt){ gold+=incomeRate*dt; wood+=woodRate*dt; recomputeSupply();
   for(const p of plots){ if(p.cat==='defense') towerTick(p,dt); else if(p.cat==='army') barracksTick(p,dt); }
   if(coreB&&coreB.bar){ const f=Math.max(0,coreB.hp/coreB.max); coreB.bar.__fl.scale.x=f; coreB.bar.__fl.position.x=-(1-f)*coreB.bar.__w/2;
     coreB.bar.position.set(coreB.x,topY(coreB.x,coreB.z)+CORE_H[coreB.level-1]+2,coreB.z); coreB.bar.quaternion.copy(cam.quaternion); }
   if(goldNumEl) goldNumEl.textContent=Math.floor(gold);
-  if(woodEl) woodEl.firstChild.nodeValue='🪵 '+Math.floor(wood);
-  if(supEl){ supEl.firstChild.nodeValue='⛺ '+Math.round(supplyUsed)+'/'+supplyCap; supEl.style.color = supplyUsed>=supplyCap?'#ff8a7a':'var(--ink)'; } }
+  if(woodEl){ const v=woodEl.querySelector('.v'); if(v)v.textContent=Math.floor(wood); }
+  if(supEl){ const v=supEl.querySelector('.v'); if(v)v.textContent=Math.round(supplyUsed)+'/'+supplyCap; supEl.style.color = supplyUsed>=supplyCap?'#ff8a7a':'var(--ink)'; } }
 
 // ================= ENEMY AI: a mirror economy that builds its orc base and attacks =================
 // The orc stronghold runs the same Thronefall loop as the player, driven by a simple planner:
@@ -512,7 +520,30 @@ function eBaseTick(dt){ if(!enemyCore)return; eGold+=eIncome*dt; eWood+=eWoodRat
   for(const s of eStructs){ if(s.kind==='bld'&&s.alive) updateStructBar(s,4); } }
 function foes(){ const a=[]; for(const e of enemies) if(e.alive)a.push(e); for(const s of eStructs) if(s.alive)a.push(s); return a; }
 // build-menu DOM (styled panel built in setupHUD; these open/populate it)
-const catIcon={economy:'🏠',mine:'⛏️',lumber:'🪓',army:'🗡️',defense:'🏹'}, catName={economy:'House',mine:'Gold Mine',lumber:'Lumber Mill',army:'Barracks',defense:'Tower'};
+// ---------- inline-SVG icon set (crisp, theme-aware; currentColor so button colour tints them) ----------
+const ICON={
+  house:'<path d="M3 11l9-7 9 7"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5h4v5"/>',
+  mine:'<path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18"/><path d="M9 3l3 6 3-6"/>',
+  lumber:'<circle cx="7.5" cy="9" r="3"/><circle cx="16.5" cy="9" r="3"/><circle cx="12" cy="15.5" r="3"/>',
+  barracks:'<path d="M6 3v18"/><path d="M6 4h12l-3 3.5L18 11H6"/>',
+  tower:'<path d="M7 21V8l5-4 5 4v13"/><path d="M7 8h10"/><path d="M10 21v-4h4v4"/><path d="M8 5h1.5M11.2 3h1.6M14.5 5H16"/>',
+  warrior:'<path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/>',
+  archer:'<path d="M5 4a13 13 0 0 1 0 16"/><path d="M5 4v16"/><path d="M5 12h13"/><path d="M15 9l4 3-4 3"/>',
+  cleric:'<path d="M12 22V9"/><circle cx="12" cy="6" r="3"/><path d="M9 22h6"/>',
+  sword:'<path d="M15 4h5v5l-9 9-3 1 1-3z"/><path d="M6.5 17.5L3 21"/><path d="M13 6l5 5"/>',
+  fist:'<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.5 5.5l2 2M16.5 16.5l2 2M18.5 5.5l-2 2M5.5 18.5l2-2"/>',
+  bolt:'<path d="M13 2L4 14h6l-1 8 9-12h-6z" fill="currentColor" stroke="none"/>',
+  smite:'<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5.2 5.2l2.1 2.1M16.7 16.7l2.1 2.1M18.8 5.2l-2.1 2.1M5.2 18.8l2.1-2.1"/>',
+  swords:'<path d="M5 5l9 9M14.5 14.5L17 17"/><path d="M19 5l-9 9M9.5 14.5L7 17"/><path d="M16 5h3v3M8 5H5v3"/>',
+  recall:'<path d="M9 14l-4-4 4-4"/><path d="M5 10h9a5 5 0 0 1 0 10h-4"/>',
+  upgrade:'<path d="M12 20V6"/><path d="M6 12l6-6 6 6"/>',
+  sell:'<ellipse cx="12" cy="6" rx="7" ry="2.6"/><path d="M5 6v11c0 1.5 3.1 2.6 7 2.6s7-1.1 7-2.6V6"/><path d="M5 11.5c0 1.5 3.1 2.6 7 2.6s7-1.1 7-2.6"/>',
+  star:'<path d="M12 2.5l2.8 6 6.6.6-5 4.4 1.5 6.4L12 16.9 6.1 20.3l1.5-6.4-5-4.4 6.6-.6z" fill="currentColor" stroke="none"/>',
+  wood:'<rect x="3" y="9" width="18" height="6" rx="3"/><circle cx="6.5" cy="12" r="1.6"/>',
+  tent:'<path d="M12 4L3 20h18z"/><path d="M12 4v16"/><path d="M9.5 20l2.5-4.5 2.5 4.5"/>',
+};
+function ic(n){ const p=ICON[n]; return p?('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+p+'</svg>'):''; }
+const catIcon={economy:'house',mine:'mine',lumber:'lumber',army:'barracks',defense:'tower'}, catName={economy:'House',mine:'Gold Mine',lumber:'Lumber Mill',army:'Barracks',defense:'Tower'};
 function catEffect(cat,lv){ const c=CAT[cat], i=lv-1;
   if(cat==='mine') return '+'+c.income[i]+' gold / sec';
   if(cat==='lumber') return '+'+c.woodInc[i]+' wood / sec';
@@ -536,25 +567,26 @@ function radialOpen(cx,cy,title,items){ if(!buildMenuEl)return;
 function openPlotMenu(p){ if(!buildMenuEl||p.locked)return; menuPlot=p; menuAnchor={x:p.x,z:p.z}; const g=Math.floor(gold), w=Math.floor(wood); const [cx,cy]=screenOf(p.x,p.z); let items;
   // upgrade cost label + affordability (gold + wood)
   const upItem=()=>{ const gc=CAT[p.cat].cost[p.level], wc=UP_WOOD[p.level];
-    return {icon:'⬆', label:'Upgrade', cost:gc+'g '+wc+'🪵', ok:g>=gc&&w>=wc, fn:()=>upgradePlot(p)}; };
+    return {icon:ic('upgrade'), label:'Upgrade', cost:gc+'g · '+wc+'w', ok:g>=gc&&w>=wc, fn:()=>upgradePlot(p)}; };
+  const sellItem=()=>({icon:ic('sell'), label:'Sell', cost:'+'+sellValue(p)+'g', cls:'sell', ok:true, fn:()=>sellPlot(p)});
   if(!p.cat){ const opts = p.slot==='turret' ? ['defense'] : ['economy','mine','lumber','army','defense'];   // turret spots are defense-only
-    items=opts.map(k=>{ const cost=CAT[k].cost[0]; return {icon:catIcon[k], label:catName[k], cost:cost+'g', ok:g>=cost, fn:()=>startBuild(p,k)}; });
-    radialOpen(cx,cy,(p.slot==='turret'?'🏹 Turret spot ':'Build ')+'('+g+'g · ⛺'+Math.round(supplyUsed)+'/'+supplyCap+')',items); }
-  else if(p.cat==='army'){ items=TRAIN.filter(t=>t.minLvl<=p.level).map(t=>({icon:t.icon, label:t.label, cost:t.gold+'g',
+    items=opts.map(k=>{ const cost=CAT[k].cost[0]; return {icon:ic(catIcon[k]), label:catName[k], cost:cost+'g', ok:g>=cost, fn:()=>startBuild(p,k)}; });
+    radialOpen(cx,cy,(p.slot==='turret'?'Turret spot · ':'Build · ')+g+'g · '+Math.round(supplyUsed)+'/'+supplyCap+' pop',items); }
+  else if(p.cat==='army'){ items=TRAIN.filter(t=>t.minLvl<=p.level).map(t=>({icon:ic(t.icon), label:t.label, cost:t.gold+'g',
         ok: g>=t.gold && supplyUsed+t.sup<=supplyCap, fn:()=>queueUnit(p,t)}));   // train (gold + supply gated)
     if(p.level<3) items.push(upItem());
-    items.push({icon:'♻️', label:'Sell', cost:'+'+sellValue(p)+'g', cls:'sell', ok:true, fn:()=>sellPlot(p)});
-    const q=(p.queue&&p.queue.length)?(' · ⏳'+p.queue.length):'';
-    radialOpen(cx,cy,'🗡 Barracks L'+p.level+q+' · ⛺'+Math.round(supplyUsed)+'/'+supplyCap,items); }
-  else { items=[]; if(p.level<3) items.push(upItem()); else items.push({icon:'★', label:'Max', ok:false});
-    items.push({icon:'♻️', label:'Sell', cost:'+'+sellValue(p)+'g', cls:'sell', ok:true, fn:()=>sellPlot(p)});
-    radialOpen(cx,cy,catIcon[p.cat]+' '+catName[p.cat]+' L'+p.level,items); } }
+    items.push(sellItem());
+    const q=(p.queue&&p.queue.length)?(' · '+p.queue.length+' queued'):'';
+    radialOpen(cx,cy,'Barracks L'+p.level+q+' · '+Math.round(supplyUsed)+'/'+supplyCap+' pop',items); }
+  else { items=[]; if(p.level<3) items.push(upItem()); else items.push({icon:ic('star'), label:'Max', ok:false});
+    items.push(sellItem());
+    radialOpen(cx,cy,catName[p.cat]+' L'+p.level,items); } }
 function openCoreMenu(){ if(!buildMenuEl||!coreB)return; menuPlot=null; menuAnchor={x:coreB.x,z:coreB.z}; const g=Math.floor(gold), w=Math.floor(wood); const [cx,cy]=screenOf(coreB.x,coreB.z);
-  const items=[]; if(coreB.level<3){ const gc=CORE_UP[coreB.level], wc=CORE_WOOD[coreB.level]; items.push({icon:'⬆', label:'Expand base', cost:gc+'g '+wc+'🪵', ok:g>=gc&&w>=wc, fn:()=>upgradeCore()}); }
-  else items.push({icon:'★', label:'Max', ok:false});
-  radialOpen(cx,cy,'👑 Throne L'+coreB.level+' · '+Math.ceil(coreB.hp)+'hp',items); }
+  const items=[]; if(coreB.level<3){ const gc=CORE_UP[coreB.level], wc=CORE_WOOD[coreB.level]; items.push({icon:ic('upgrade'), label:'Expand base', cost:gc+'g · '+wc+'w', ok:g>=gc&&w>=wc, fn:()=>upgradeCore()}); }
+  else items.push({icon:ic('star'), label:'Max', ok:false});
+  radialOpen(cx,cy,'Throne L'+coreB.level+' · '+Math.ceil(coreB.hp)+'hp',items); }
 function sellPlot(p){ if(!p.cat)return; gold+=sellValue(p); if(p.g)scene.remove(p.g); p.g=null;
-  p.cat=null; p.level=0; p.dmg=p.range=p.rof=p.every=p.cap=undefined; p.mine=[]; p.queue=[];
+  p.cat=null; p.level=0; p.dmg=p.range=p.rof=p.every=p.cap=undefined; p.mine=[]; p.queue=[]; if(p.pbar)p.pbar.visible=false;
   styleRing(p); recomputeIncome(); recomputeSupply(); closeBuildMenu(); }
 function closeBuildMenu(){ if(buildMenuEl) buildMenuEl.style.display='none'; if(bmBack)bmBack.style.display='none'; menuPlot=null; menuAnchor=null; }
 // keep the open radial glued to its plot as the camera pans/follows the hero
@@ -1086,10 +1118,10 @@ function setupHUD(){
     b.style.cssText='width:'+size+'px;height:'+size+'px;right:'+right+'px;bottom:'+bottom+'px';
     b.innerHTML='<div class="cd"></div><div class="ic">'+icon+'</div><div class="cap">'+cap+'</div>';
     b.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); fn(); }); hand.appendChild(b); return b; };
-  hitEl  =mkAbil('hit','🗡️','Hit',76,16,16,()=>{ heroHit(); });                                                    // basic attack — lights up only in range
-  abilEl =mkAbil('stomp','👊','Stomp',62,122,76,()=>{ warstomp(); });
-  boltEl =mkAbil('bolt','⚡','Bolt',58,84,120,()=>{ if(hero.spellCd<=0){ spellArmed=!spellArmed; smiteArmed=false; } updateSpellUI(); });
-  smiteEl=mkAbil('smite','✨','Smite',54,35,139,()=>{ if(readyClerics()>0){ smiteArmed=!smiteArmed; spellArmed=false; } updateSpellUI(); });
+  hitEl  =mkAbil('hit',ic('sword'),'Hit',76,16,16,()=>{ heroHit(); });                                            // basic attack — lights up only in range
+  abilEl =mkAbil('stomp',ic('fist'),'Stomp',62,122,76,()=>{ warstomp(); });
+  boltEl =mkAbil('bolt',ic('bolt'),'Bolt',58,84,120,()=>{ if(hero.spellCd<=0){ spellArmed=!spellArmed; smiteArmed=false; } updateSpellUI(); });
+  smiteEl=mkAbil('smite',ic('smite'),'Smite',54,35,139,()=>{ if(readyClerics()>0){ smiteArmed=!smiteArmed; spellArmed=false; } updateSpellUI(); });
   autoEl=document.createElement('div'); autoEl.className='pill'; autoEl.textContent='AUTO';   // rides on the Bolt button
   autoEl.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); autoBolt=!autoBolt; updateSpellUI(); }); boltEl.appendChild(autoEl);
   document.body.appendChild(hand); abilHandEl=hand;
@@ -1097,10 +1129,10 @@ function setupHUD(){
   resultEl.innerHTML='<h1 style="font-size:48px;margin:0"></h1><div>tap to play again</div>'; resultEl.addEventListener('pointerdown',()=>location.reload()); document.body.appendChild(resultEl);
   goldNumEl=document.getElementById('goldn');
   // supply/population readout, sits just above the gold chip (bottom-left)
-  supEl=document.createElement('div'); supEl.className='hud hchip'; supEl.appendChild(document.createTextNode('⛺ 0/10'));
-  supEl.style.cssText+=';left:calc(14px + var(--sl));bottom:calc(58px + var(--sb));padding:6px 11px;min-height:0;font:800 14px system-ui'; document.body.appendChild(supEl);
-  woodEl=document.createElement('div'); woodEl.className='hud hchip'; woodEl.appendChild(document.createTextNode('🪵 0'));
-  woodEl.style.cssText+=';left:calc(92px + var(--sl));bottom:calc(58px + var(--sb));padding:6px 11px;min-height:0;font:800 14px system-ui'; document.body.appendChild(woodEl);
+  supEl=document.createElement('div'); supEl.className='hud hchip'; supEl.innerHTML=ic('tent')+'<span class="v">0/12</span>';
+  supEl.style.cssText+=';left:calc(14px + var(--sl));bottom:calc(58px + var(--sb));padding:6px 11px;min-height:0;font:800 14px system-ui;gap:5px'; document.body.appendChild(supEl);
+  woodEl=document.createElement('div'); woodEl.className='hud hchip'; woodEl.innerHTML=ic('wood')+'<span class="v">0</span>';
+  woodEl.style.cssText+=';left:calc(96px + var(--sl));bottom:calc(58px + var(--sb));padding:6px 11px;min-height:0;font:800 14px system-ui;gap:5px'; document.body.appendChild(woodEl);
   // build panel + backdrop (centred modal so it never sits under the thumb clusters)
   bmBack=document.createElement('div'); bmBack.id='bmBack'; bmBack.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); closeBuildMenu(); }); document.body.appendChild(bmBack);
   buildMenuEl=document.createElement('div'); buildMenuEl.className='bmPanel';
@@ -1113,8 +1145,8 @@ function setupHUD(){
   const mkCmd=(cls,icon,label,fn)=>{ const c=document.createElement('div'); c.className='cmdBtn '+cls;
     c.innerHTML='<div class="ci">'+icon+'</div><div class="cl">'+label+'</div>';
     c.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); fn(); }); strip.appendChild(c); return c; };
-  mkCmd('charge','⚔','Charge',()=>chargeAll());
-  mkCmd('recall','⟲','Recall',()=>recall());
+  mkCmd('charge',ic('swords'),'Charge',()=>chargeAll());
+  mkCmd('recall',ic('recall'),'Recall',()=>recall());
   document.body.appendChild(strip); cmdStripEl=strip;
   // the opening tip fades on its own (and on tap) so the HUD gets out of the way, Thronefall-style
   const tipEl=document.getElementById('tip');
