@@ -106,6 +106,13 @@ canvas{display:block}
 .hchip svg{width:15px;height:15px;display:inline-block;vertical-align:-2px}
 .rBtn .rc{font:800 10px system-ui;color:var(--gold);margin-top:2px}
 .rLb{position:absolute;transform:translate(-50%,0);font:800 10px system-ui;color:#fff;text-shadow:0 1px 3px #000;white-space:nowrap;pointer-events:none}
+/* top-centre resource bar — Siege-Up style */
+#resbar{position:fixed;z-index:6;left:50%;transform:translateX(-50%);top:calc(10px + var(--st));display:flex;gap:0;
+  background:var(--panel);border:1px solid var(--brd);border-radius:20px;padding:5px 8px;backdrop-filter:blur(9px)}
+#resbar .rs{display:flex;align-items:center;gap:5px;padding:2px 11px;font:800 13.5px system-ui;color:var(--ink)}
+#resbar .rs+.rs{border-left:1px solid var(--brd)}
+#resbar .rs svg{width:15px;height:15px}
+#resbar .rs.g{color:#ffd76a} #resbar .rs.w{color:#d8b48a} #resbar .rs.p{color:#a8c8e8}
 /* selection panel — Siege-Up style unit card, bottom-centre */
 #selP{position:fixed;z-index:6;left:50%;transform:translateX(-50%);bottom:calc(14px + var(--sb));display:none;align-items:center;gap:11px;
   background:var(--panel2);border:1px solid var(--brd);border-radius:13px;padding:9px 12px;min-width:225px;backdrop-filter:blur(9px)}
@@ -488,7 +495,7 @@ function baseTick(dt){ gold+=incomeRate*dt; wood+=woodRate*dt; recomputeSupply()
 // are attackable (pushed into eStructs / targeted via foes()), so razing the throne wins the game.
 let eGold=130, eWood=0, eIncome=1, eWoodRate=0, ePlots=[], enemyCore=null, eStructs=[], aiCd=3, eSupplyCap=BASE_SUPPLY, eSupplyUsed=0;
 const BLD_HP=[220,340,480];   // per-level HP of an enemy plot building
-function updateStructBar(s,topH){ if(!s.bar)return; const f=Math.max(0,s.hp/s.max); s.bar.__fl.scale.x=f; s.bar.__fl.position.x=-(1-f)*s.bar.__w/2;
+function updateStructBar(s,topH){ if(!s.bar)return; if(s.__vis===false){ s.bar.visible=false; return; } const f=Math.max(0,s.hp/s.max); s.bar.__fl.scale.x=f; s.bar.__fl.position.x=-(1-f)*s.bar.__w/2;
   s.bar.visible=true; s.bar.position.set(s.x,topY(s.x,s.z)+topH+2,s.z); s.bar.quaternion.copy(cam.quaternion); }
 function placeEnemyCore(x,z){ scene.add(courtyard(x,z,13));
   enemyCore={x,z,px:x,pz:z,alive:true,level:1,hp:CORE_HP[0],max:CORE_HP[0],big:8,hitT:0,g:null,bar:makeBar(0xff6b5a),kind:'core'};
@@ -533,6 +540,49 @@ function eBaseTick(dt){ if(!enemyCore)return; eGold+=eIncome*dt; eWood+=eWoodRat
   updateStructBar(enemyCore, CORE_H[enemyCore.level-1]);
   for(const s of eStructs){ if(s.kind==='bld'&&s.alive) updateStructBar(s,4); } }
 function foes(){ const a=[]; for(const e of enemies) if(e.alive)a.push(e); for(const s of eStructs) if(s.alive)a.push(s); return a; }
+// ================= FOG OF WAR (Siege-Up style) =================
+// Grid over the world: unexplored = opaque cloud, explored-but-dark = dimmed, visible = clear.
+// Friendly units & buildings project sight; enemy UNITS only render when currently seen,
+// enemy STRUCTURES stay as last-seen ghosts once explored (WC3 behaviour).
+const FOG_N=128, FOG_HALF=155, FOG_CELL=2*FOG_HALF/FOG_N;
+let fogExplored=new Uint8Array(FOG_N*FOG_N), fogVis=new Uint8Array(FOG_N*FOG_N);
+let fogCv=null,fogCtx=null,fogTex=null,fogMesh=null,fogMiniCv=null,fogMiniCtx=null;
+function fogIdx(x,z){ const i=Math.floor((x+FOG_HALF)/FOG_CELL), j=Math.floor((z+FOG_HALF)/FOG_CELL);
+  if(i<0||j<0||i>=FOG_N||j>=FOG_N)return -1; return j*FOG_N+i; }
+function isVisible(x,z){ const k=fogIdx(x,z); return k<0?false:fogVis[k]===1; }
+function isExplored(x,z){ const k=fogIdx(x,z); return k<0?false:fogExplored[k]===1; }
+function initFog(){
+  fogCv=document.createElement('canvas'); fogCv.width=FOG_N; fogCv.height=FOG_N; fogCtx=fogCv.getContext('2d');
+  fogMiniCv=document.createElement('canvas'); fogMiniCv.width=FOG_N; fogMiniCv.height=FOG_N; fogMiniCtx=fogMiniCv.getContext('2d');
+  fogTex=new THREE.CanvasTexture(fogCv); fogTex.magFilter=THREE.LinearFilter; fogTex.minFilter=THREE.LinearFilter;
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(2*FOG_HALF,2*FOG_HALF),
+    new THREE.MeshBasicMaterial({map:fogTex,transparent:true,depthWrite:false}));
+  m.rotation.x=-Math.PI/2;   // lay flat: canvas row 0 ↔ world -z, column 0 ↔ world -x (flipY handles the rest)
+  m.position.set(0,26,0); m.renderOrder=50; scene.add(m); fogMesh=m; updateFog(); }
+function fogStamp(buf,x,z,r){ const ci=(x+FOG_HALF)/FOG_CELL, cj=(z+FOG_HALF)/FOG_CELL, cr=r/FOG_CELL, cr2=cr*cr;
+  const i0=Math.max(0,Math.floor(ci-cr)), i1=Math.min(FOG_N-1,Math.ceil(ci+cr));
+  const j0=Math.max(0,Math.floor(cj-cr)), j1=Math.min(FOG_N-1,Math.ceil(cj+cr));
+  for(let j=j0;j<=j1;j++) for(let i=i0;i<=i1;i++){ const dx=i+0.5-ci, dz=j+0.5-cj; if(dx*dx+dz*dz<=cr2) buf[j*FOG_N+i]=1; } }
+function updateFog(){
+  fogVis.fill(0);
+  const src=[];
+  if(hero&&hero.alive) src.push([hero.px,hero.pz,30]);
+  for(const e of allies) if(e.alive) src.push([e.px,e.pz,22]);
+  if(coreB) src.push([coreB.x,coreB.z,30]);
+  for(const p of plots) if(p.cat) src.push([p.x,p.z,p.cat==='defense'?32:24]);
+  for(const [x,z,r] of src){ fogStamp(fogVis,x,z,r); fogStamp(fogExplored,x,z,r); }
+  // paint both fog textures from the grids
+  const im=fogCtx.createImageData(FOG_N,FOG_N), d=im.data;
+  const mi=fogMiniCtx.createImageData(FOG_N,FOG_N), md=mi.data;
+  for(let k=0;k<FOG_N*FOG_N;k++){ const o=k*4;
+    if(fogVis[k]){ d[o+3]=0; md[o+3]=0; }
+    else if(fogExplored[k]){ d[o]=26;d[o+1]=36;d[o+2]=48;d[o+3]=96;  md[o]=0;md[o+1]=0;md[o+2]=0;md[o+3]=95; }   // seen before: dim
+    else { d[o]=224;d[o+1]=232;d[o+2]=238;d[o+3]=252;  md[o]=8;md[o+1]=10;md[o+2]=14;md[o+3]=225; } }            // unexplored: cloud / near-black
+  fogCtx.putImageData(im,0,0); fogMiniCtx.putImageData(mi,0,0); if(fogTex)fogTex.needsUpdate=true;
+  // enemy presence honours the fog: units render only in live sight, structures once explored
+  for(const e of enemies){ const v=e.alive&&isVisible(e.px,e.pz); e.__vis=v; if(e.g)e.g.visible=v; if(!v&&e.bar)e.bar.visible=false; }
+  for(const s of eStructs){ const v=s.alive&&isExplored(s.px,s.pz); s.__vis=v&&isVisible(s.px,s.pz); if(s.g)s.g.visible=v; if(!s.__vis&&s.bar)s.bar.visible=false; }
+  for(const p of ePlots){ if(p.g) p.g.visible=isExplored(p.x,p.z); } }
 // build-menu DOM (styled panel built in setupHUD; these open/populate it)
 // ---------- inline-SVG icon set (crisp, theme-aware; currentColor so button colour tints them) ----------
 const ICON={
@@ -959,7 +1009,8 @@ function chargeAll(){ let tx=enemyBase.x, tz=enemyBase.z; const en=nearestEnemyT
   if(en){ tx=en.px; tz=en.pz; } else if(enemyCore&&enemyCore.alive){ tx=enemyCore.x; tz=enemyCore.z; }
   commandTo(tx,tz); rallyMarker.material.color.setHex(0xff6a5a); }
 function recall(){ allies.forEach(e=>{ if(e.alive){ e.order=null; e.forcedTarget=null; e.following=true; } }); }
-function nearestEnemyTo(x,z,maxd){ let b=null,bd=maxd*maxd; for(const e of enemies){ if(!e.alive)continue; const dd=(e.px-x)**2+(e.pz-z)**2; if(dd<bd){bd=dd;b=e;} } return b; }
+function nearestEnemyTo(x,z,maxd){ let b=null,bd=maxd*maxd;   // fog-gated: hidden foes can't be tap-targeted
+  for(const e of enemies){ if(!e.alive||e.__vis===false)continue; const dd=(e.px-x)**2+(e.pz-z)**2; if(dd<bd){bd=dd;b=e;} } return b; }
 function readyClerics(){ return allies.filter(e=>e.alive&&e.kind==='cleric'&&e.smiteCd<=0).length; }
 function smiteAt(en){ // smart cast: exactly one ready cleric (nearest) fires
   let best=null,bd=1e9; for(const e of allies){ if(!e.alive||e.kind!=='cleric'||e.smiteCd>0)continue; const d=(e.px-en.px)**2+(e.pz-en.pz)**2; if(d<bd){bd=d;best=e;} }
@@ -1061,7 +1112,7 @@ function endGame(win){ gameOver=win?1:2; resultEl.style.display='flex';
   const h=resultEl.querySelector('h1'); h.textContent=win?'Victory!':'Defeated'; h.style.color=win?'#8be04a':'#e05a5a'; }
 function updBars(){ const all=[hero,...allies,...enemies];
   for(const e of all){ if(!e||!e.alive)continue; const f=Math.max(0,e.hp/e.max);
-    e.bar.visible=(e.team!=='hero'); e.bar.__fl.scale.x=f; e.bar.__fl.position.x=-(1-f)*e.bar.__w/2;
+    e.bar.visible=(e.team!=='hero') && (e.team!=='enemy'||e.__vis!==false); e.bar.__fl.scale.x=f; e.bar.__fl.position.x=-(1-f)*e.bar.__w/2;
     e.bar.position.set(e.px, topY(e.px,e.pz)+(e.team==='hero'?4.6:4.4), e.pz); e.bar.quaternion.copy(cam.quaternion);
     if(e.ring){ e.ring.visible=selected.has(e); if(e.ring.visible) e.ring.position.set(e.px, topY(e.px,e.pz)+0.18, e.pz); }
     e.hitT-=0.016; e.g.traverse(o=>{ if(o.isMesh&&o.material&&o.material.emissive) o.material.emissive.setHex(e.hitT>0?0x992a1a:0x000000); });
@@ -1165,10 +1216,10 @@ function setupHUD(){
   camEl.addEventListener('pointerdown',ev=>{ev.stopPropagation(); toggleCam();}); document.body.appendChild(camEl);
   // hero HP bar + objective, stacked top-centre in one framed cluster
   const hp=document.createElement('div'); hp.className='hud';
-  hp.style.cssText+=';left:50%;top:calc(12px + var(--st));transform:translateX(-50%);width:min(240px,56vw);height:13px;background:rgba(10,14,20,0.5);border:1px solid var(--brd);border-radius:7px;overflow:hidden;box-shadow:none;backdrop-filter:blur(6px)';
+  hp.style.cssText+=';left:50%;top:calc(52px + var(--st));transform:translateX(-50%);width:min(240px,56vw);height:13px;background:rgba(10,14,20,0.5);border:1px solid var(--brd);border-radius:7px;overflow:hidden;box-shadow:none;backdrop-filter:blur(6px)';
   heroHpEl=document.createElement('div'); heroHpEl.style.cssText='height:100%;width:100%;background:linear-gradient(#a6ec5e,#5cb43a)'; hp.appendChild(heroHpEl); document.body.appendChild(hp);
   waveEl=document.createElement('div'); waveEl.className='hud';
-  waveEl.style.cssText+=';left:50%;top:calc(34px + var(--st));transform:translateX(-50%);font:800 12px system-ui;color:#ffd9d2;text-shadow:0 1px 3px #000;white-space:nowrap'; document.body.appendChild(waveEl);
+  waveEl.style.cssText+=';left:50%;top:calc(72px + var(--st));transform:translateX(-50%);font:800 12px system-ui;color:#ffd9d2;text-shadow:0 1px 3px #000;white-space:nowrap'; document.body.appendChild(waveEl);
   joyBase=document.createElement('div'); joyBase.id='joy';
   const jring=document.createElement('div'); jring.className='ring'; joyBase.appendChild(jring);
   joyKnob=document.createElement('div'); joyKnob.id='joyK'; joyBase.appendChild(joyKnob); document.body.appendChild(joyBase);
@@ -1187,12 +1238,15 @@ function setupHUD(){
   document.body.appendChild(hand); abilHandEl=hand;
   resultEl=document.createElement('div'); resultEl.style.cssText='position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:#0008;color:#fff;font:600 18px system-ui;gap:12px;z-index:9';
   resultEl.innerHTML='<h1 style="font-size:48px;margin:0"></h1><div>tap to play again</div>'; resultEl.addEventListener('pointerdown',()=>location.reload()); document.body.appendChild(resultEl);
-  goldNumEl=document.getElementById('goldn');
-  // supply/population readout, sits just above the gold chip (bottom-left)
-  supEl=document.createElement('div'); supEl.className='hud hchip'; supEl.innerHTML=ic('tent')+'<span class="v">0/12</span>';
-  supEl.style.cssText+=';left:calc(14px + var(--sl));bottom:calc(58px + var(--sb));padding:6px 11px;min-height:0;font:800 14px system-ui;gap:5px'; document.body.appendChild(supEl);
-  woodEl=document.createElement('div'); woodEl.className='hud hchip'; woodEl.innerHTML=ic('wood')+'<span class="v">0</span>';
-  woodEl.style.cssText+=';left:calc(96px + var(--sl));bottom:calc(58px + var(--sb));padding:6px 11px;min-height:0;font:800 14px system-ui;gap:5px'; document.body.appendChild(woodEl);
+  // Siege-Up top-centre resource bar: gold | wood | population (replaces the bottom-left chips)
+  const og=document.getElementById('gold'); if(og)og.style.display='none';
+  const rb=document.createElement('div'); rb.id='resbar';
+  rb.innerHTML='<div class="rs g"><span class="c" style="width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffe27a,#f4c53b 60%,#c9962a);box-shadow:inset 0 0 0 2px #b98a1e"></span><span id="rgold">180</span></div>'+
+    '<div class="rs w">'+ic('wood')+'<span class="v">0</span></div>'+
+    '<div class="rs p">'+ic('tent')+'<span class="v">0/12</span></div>';
+  document.body.appendChild(rb);
+  goldNumEl=document.getElementById('rgold');
+  woodEl=rb.querySelector('.rs.w'); supEl=rb.querySelector('.rs.p');
   // build panel + backdrop (centred modal so it never sits under the thumb clusters)
   bmBack=document.createElement('div'); bmBack.id='bmBack'; bmBack.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); closeBuildMenu(); }); document.body.appendChild(bmBack);
   buildMenuEl=document.createElement('div'); buildMenuEl.className='bmPanel';
@@ -1245,12 +1299,13 @@ function drawMini(){ if(!mctx)return; mctx.clearRect(0,0,MSZ,MSZ); mctx.drawImag
   const dot=(x,z,c,r)=>{ const [px,py]=w2m(x,z); mctx.fillStyle=c; mctx.beginPath(); mctx.arc(px,py,r,0,6.283); mctx.fill(); };
   for(const p of plots){ if(p.cat) dot(p.x,p.z,'#f2c94c',1.6); }
   if(coreB) dot(coreB.x,coreB.z,'#7fd8ff',3);
-  if(enemyCore) dot(enemyCore.x,enemyCore.z,'#ff5a4a',3);
-  for(const e of eStructs){ if(e.alive) dot(e.px,e.pz,'#c8603a',1.6); }
+  if(enemyCore&&isExplored(enemyCore.x,enemyCore.z)) dot(enemyCore.x,enemyCore.z,'#ff5a4a',3);
+  for(const e of eStructs){ if(e.alive&&isExplored(e.px,e.pz)) dot(e.px,e.pz,'#c8603a',1.6); }
   for(const e of allies){ if(e.alive) dot(e.px,e.pz,'#5bd0ff',1.7); }
-  for(const e of enemies){ if(e.alive) dot(e.px,e.pz,'#ff7a5a',1.7); }
+  for(const e of enemies){ if(e.alive&&e.__vis) dot(e.px,e.pz,'#ff7a5a',1.7); }
   if(hero&&hero.alive){ const [px,py]=w2m(hero.px,hero.pz); mctx.fillStyle='#ffffff'; mctx.strokeStyle='#123'; mctx.lineWidth=1;
-    mctx.beginPath(); mctx.arc(px,py,2.6,0,6.283); mctx.fill(); mctx.stroke(); } }
+    mctx.beginPath(); mctx.arc(px,py,2.6,0,6.283); mctx.fill(); mctx.stroke(); }
+  if(fogMiniCv) mctx.drawImage(fogMiniCv,0,0,MSZ,MSZ); }
 function onDown(e){ if(gameOver)return;
   ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
   const r=joyBase.getBoundingClientRect(), jcx=r.left+r.width/2, jcy=r.top+r.height/2;
@@ -1347,7 +1402,7 @@ async function boot(){
   if('outputColorSpace' in rnd3d) rnd3d.outputColorSpace=THREE.SRGBColorSpace;
   document.body.appendChild(rnd3d.domElement);
   cam=new THREE.PerspectiveCamera(30,innerWidth/innerHeight,1,600);
-  await Promise.all([loadNature(), loadBuildings()]); build(); initPost(); await loadRig(); spawnGame(); setupHUD(); followCam();
+  await Promise.all([loadNature(), loadBuildings()]); build(); initPost(); await loadRig(); spawnGame(); initFog(); setupHUD(); followCam();
   addEventListener('resize',()=>{
     rnd3d.setSize(innerWidth,innerHeight); cam.aspect=innerWidth/innerHeight; cam.updateProjectionMatrix();
     rt.setSize(innerWidth*pr(),innerHeight*pr()); postMat.uniforms.uRes.value.set(innerWidth,innerHeight);
@@ -1357,6 +1412,7 @@ async function boot(){
     const now=performance.now(); let dt=(now-last)/1000; last=now; if(dt>0.05)dt=0.05;
     updateGame(dt); followCam(dt); repositionRadial();
     if(++miniAcc%4===0){ drawMini(); updateSelPanel(); }   // ~15fps minimap + selection-card refresh
+    if(miniAcc%6===0) updateFog();   // ~10fps fog recompute
     rnd3d.setRenderTarget(rt); rnd3d.render(scene,cam);
     rnd3d.setRenderTarget(null); rnd3d.render(postScene,postCam);
   })();
