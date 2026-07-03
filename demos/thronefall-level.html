@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Warcrest — Thronefall-style level</title>
 <style>
 :root{
@@ -361,7 +361,7 @@ function loadBuildings(){ return new Promise(res=>{
 function bldClone(k,H){ const e=BLD[k]; if(!e)return null; const g=e.scene.clone(true); g.scale.setScalar(H/e.h); return g; }
 
 // ================= BASE: Thronefall-style fixed build plots + passive economy =================
-let gold=140, incomeRate=1, plots=[], coreB=null, buildMenuEl=null, bmBack=null, goldNumEl=null, menuPlot=null, enemyBase={x:-105,z:-108};
+let gold=140, incomeRate=1, plots=[], coreB=null, buildMenuEl=null, bmBack=null, goldNumEl=null, menuPlot=null, menuAnchor=null, enemyBase={x:-105,z:-108};
 // category → model prefix + per-level stats (index 0 = Lv1). cost[0]=build, cost[1]=→Lv2, cost[2]=→Lv3.
 const CAT={
   economy:{ label:'🏠 House',    model:'house',   H:[5.5,6.5,7.5], cost:[40,70,120],  income:[3,6,10] },
@@ -471,7 +471,7 @@ function radialOpen(cx,cy,title,items){ if(!buildMenuEl)return;
     b.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); if(it.ok!==false&&it.fn)it.fn(); }); buildMenuEl.appendChild(b);
     const lb=document.createElement('div'); lb.className='rLb'; lb.style.left=bx+'px'; lb.style.top=(by+36)+'px'; lb.textContent=it.label; buildMenuEl.appendChild(lb); });
   bmBack.style.display='block'; buildMenuEl.style.display='block'; }
-function openPlotMenu(p){ if(!buildMenuEl)return; menuPlot=p; const g=Math.floor(gold); const [cx,cy]=screenOf(p.x,p.z); let items;
+function openPlotMenu(p){ if(!buildMenuEl)return; menuPlot=p; menuAnchor={x:p.x,z:p.z}; const g=Math.floor(gold); const [cx,cy]=screenOf(p.x,p.z); let items;
   if(!p.cat){ items=['economy','army','defense'].map(k=>{ const cost=CAT[k].cost[0];
       return {icon:catIcon[k], label:catName[k], cost:cost+'g', ok:g>=cost, fn:()=>startBuild(p,k)}; });
     radialOpen(cx,cy,'Build ('+g+'g)',items); }
@@ -479,14 +479,19 @@ function openPlotMenu(p){ if(!buildMenuEl)return; menuPlot=p; const g=Math.floor
     else items.push({icon:'★', label:'Max', ok:false});
     items.push({icon:'♻️', label:'Sell', cost:'+'+sellValue(p)+'g', cls:'sell', ok:true, fn:()=>sellPlot(p)});
     radialOpen(cx,cy,catIcon[p.cat]+' '+catName[p.cat]+' L'+p.level,items); } }
-function openCoreMenu(){ if(!buildMenuEl||!coreB)return; menuPlot=null; const g=Math.floor(gold); const [cx,cy]=screenOf(coreB.x,coreB.z);
+function openCoreMenu(){ if(!buildMenuEl||!coreB)return; menuPlot=null; menuAnchor={x:coreB.x,z:coreB.z}; const g=Math.floor(gold); const [cx,cy]=screenOf(coreB.x,coreB.z);
   const items=[]; if(coreB.level<3){ const cost=CORE_UP[coreB.level]; items.push({icon:'⬆', label:'Reinforce', cost:cost+'g', ok:g>=cost, fn:()=>upgradeCore()}); }
   else items.push({icon:'★', label:'Max', ok:false});
   radialOpen(cx,cy,'👑 Throne L'+coreB.level+' · '+Math.ceil(coreB.hp)+'hp',items); }
 function sellPlot(p){ if(!p.cat)return; gold+=sellValue(p); if(p.g)scene.remove(p.g); p.g=null;
   p.cat=null; p.level=0; p.dmg=p.range=p.rof=p.every=p.cap=undefined; p.mine=[];
   if(p.ring)p.ring.visible=true; if(p.plus)p.plus.visible=true; recomputeIncome(); closeBuildMenu(); }
-function closeBuildMenu(){ if(buildMenuEl) buildMenuEl.style.display='none'; if(bmBack)bmBack.style.display='none'; menuPlot=null; }
+function closeBuildMenu(){ if(buildMenuEl) buildMenuEl.style.display='none'; if(bmBack)bmBack.style.display='none'; menuPlot=null; menuAnchor=null; }
+// keep the open radial glued to its plot as the camera pans/follows the hero
+function repositionRadial(){ if(!buildMenuEl||!menuAnchor||buildMenuEl.style.display!=='block')return;
+  let [cx,cy]=screenOf(menuAnchor.x,menuAnchor.z);
+  cx=Math.max(120,Math.min(innerWidth-120,cx)); cy=Math.max(150,Math.min(innerHeight-150,cy));
+  buildMenuEl.style.left=cx+'px'; buildMenuEl.style.top=cy+'px'; }
 function makeKeep(){
   const b=bldClone('keep',14); if(b) return b;   // Bitgem elf throne — the heart of the settlement
   const g=new THREE.Group();
@@ -623,6 +628,7 @@ window.__follow=(o,i,e,b)=>{ if(o)FOLLOW_OUT=o; if(i)FOLLOW_IN=i; if(e)ENGAGE=e;
 let selected=new Set(), lcv, lctx, cmd={active:false,id:null,pts:[],moved:false};
 let spellArmed=false, autoBolt=false, orderMarkers=[], boltEl, autoEl, smiteArmed=false, smiteEl;
 let hitEl=null, heroCanHit=false, heroHitTarget=null;   // Wild-Rift attack button: active only when a foe is in the hero's reach
+let abilHandEl=null, cmdStripEl=null;                   // thumb-cluster no-command zones (taps here never issue a ground order)
 let keys={}, joy={active:false,nx:0,ny:0,id:null,sx:0,sy:0};
 let heroHpEl, waveEl, resultEl, abilEl, joyBase, joyKnob;
 const raycaster=new THREE.Raycaster(), groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
@@ -1007,7 +1013,7 @@ function setupHUD(){
   smiteEl=mkAbil('smite','✨','Smite',54,35,139,()=>{ if(readyClerics()>0){ smiteArmed=!smiteArmed; spellArmed=false; } updateSpellUI(); });
   autoEl=document.createElement('div'); autoEl.className='pill'; autoEl.textContent='AUTO';   // rides on the Bolt button
   autoEl.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); autoBolt=!autoBolt; updateSpellUI(); }); boltEl.appendChild(autoEl);
-  document.body.appendChild(hand);
+  document.body.appendChild(hand); abilHandEl=hand;
   resultEl=document.createElement('div'); resultEl.style.cssText='position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:#0008;color:#fff;font:600 18px system-ui;gap:12px;z-index:9';
   resultEl.innerHTML='<h1 style="font-size:48px;margin:0"></h1><div>tap to play again</div>'; resultEl.addEventListener('pointerdown',()=>location.reload()); document.body.appendChild(resultEl);
   goldNumEl=document.getElementById('goldn');
@@ -1025,7 +1031,7 @@ function setupHUD(){
     c.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); fn(); }); strip.appendChild(c); return c; };
   mkCmd('charge','⚔','Charge',()=>chargeAll());
   mkCmd('recall','⟲','Recall',()=>recall());
-  document.body.appendChild(strip);
+  document.body.appendChild(strip); cmdStripEl=strip;
   // the opening tip fades on its own (and on tap) so the HUD gets out of the way, Thronefall-style
   const tipEl=document.getElementById('tip');
   if(tipEl){ tipEl.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); tipEl.classList.add('hide'); });
@@ -1036,8 +1042,13 @@ function onDown(e){ if(gameOver)return;
   const r=joyBase.getBoundingClientRect(), jcx=r.left+r.width/2, jcy=r.top+r.height/2;
   if(Math.hypot(e.clientX-jcx,e.clientY-jcy) <= r.width/2+34){   // grabbed the fixed BL stick
     joy.active=true; joy.id=e.pointerId; joy.cx=jcx; joy.cy=jcy; joy.R=r.width/2-14; joy.nx=0;joy.ny=0;
-    joyKnob.style.left='50%'; joyKnob.style.top='50%'; }
-  else { cmd.active=true; cmd.id=e.pointerId; cmd.pts=[[e.clientX,e.clientY]]; cmd.moved=false; cmd.sx=e.clientX; cmd.sy=e.clientY; }   // anywhere else → command
+    joyKnob.style.left='50%'; joyKnob.style.top='50%'; return; }
+  // thumb clusters are no-command zones: the round buttons have transparent rounded corners, so taps that miss
+  // a button fall through to the canvas — swallow them here so they never register as a ground order.
+  const inZone=el=>{ if(!el)return false; const b=el.getBoundingClientRect(); return e.clientX>=b.left&&e.clientX<=b.right&&e.clientY>=b.top&&e.clientY<=b.bottom; };
+  if(inZone(abilHandEl)||inZone(cmdStripEl)) return;
+  if(e.target && rnd3d && e.target!==rnd3d.domElement) return;   // tap landed on a HUD element, not the world
+  cmd.active=true; cmd.id=e.pointerId; cmd.pts=[[e.clientX,e.clientY]]; cmd.moved=false; cmd.sx=e.clientX; cmd.sy=e.clientY;   // anywhere else → command
 }
 function onMove(e){
   if(joy.active&&e.pointerId===joy.id){ const dx=e.clientX-joy.cx,dy=e.clientY-joy.cy, d=Math.hypot(dx,dy),R=joy.R, cl=Math.min(d,R),ang=Math.atan2(dy,dx),kx=Math.cos(ang)*cl,ky=Math.sin(ang)*cl;
@@ -1111,7 +1122,7 @@ async function boot(){
   let last=performance.now();
   (function loop(){ requestAnimationFrame(loop);
     const now=performance.now(); let dt=(now-last)/1000; last=now; if(dt>0.05)dt=0.05;
-    updateGame(dt); followCam(dt);
+    updateGame(dt); followCam(dt); repositionRadial();
     rnd3d.setRenderTarget(rt); rnd3d.render(scene,cam);
     rnd3d.setRenderTarget(null); rnd3d.render(postScene,postCam);
   })();
