@@ -13,3 +13,5 @@ tools/
 docs/
 scripts/
 .cursor/
+# Source asset packs — build-from material, never served at runtime
+assets/source/
