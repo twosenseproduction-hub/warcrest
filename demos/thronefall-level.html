@@ -852,7 +852,7 @@ function faceTo(e,dx,dz){ if(dx||dz) e.face=Math.atan2(dx,dz); }
 // Each GLB packs the mesh once + all its clips; the clips are authored on the Bitgem
 // skeleton so they play with no retarget. Textures are embedded (palette atlas, UVs
 // pre-flipped) — we just force NearestFilter so swatches sample solid, not the black gaps.
-const RIGS={}, PROPS={}, TEXS={}; const CHAR_H={queen:4.4, archer:3.6, priestess:3.8, warrior:3.9, chief:4.9, orcarcher:3.7, orcgrunt:3.7, orcwarrior:4.1, orcshaman:3.7};   // world heights (chief = boss, imposing)
+const RIGS={}, PROPS={}, TEXS={}; const CHAR_H={thoryn:4.8, queen:4.4, archer:3.6, priestess:3.8, warrior:3.9, chief:4.9, orcarcher:3.7, orcgrunt:3.7, orcwarrior:4.1, orcshaman:3.7};   // world heights (chief = boss, imposing)
 // hand weapons: each char has a list of props → { prop FBX, hand bone, local transform }
 const WEAPONS={
   queen:    [{file:'glaive_elf_queen', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
@@ -866,7 +866,7 @@ const WEAPONS={
   orcwarrior:[{file:'sword_orc_warrior',bone:'Character1_RightHand', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
   orcshaman:[{file:'staff_orc_shaman', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
 };
-const RIG_SPECS=[['queen','elf_queen'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior'],['chief','orc_chieftain'],['orcarcher','orc_archer'],['orcgrunt','orc_grunt'],['orcwarrior','orc_warrior'],['orcshaman','orc_shaman']];
+const RIG_SPECS=[['thoryn','thoryn'],['queen','elf_queen'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior'],['chief','orc_chieftain'],['orcarcher','orc_archer'],['orcgrunt','orc_grunt'],['orcwarrior','orc_warrior'],['orcshaman','orc_shaman']];
 // Several FBX (the elf/orc bows AND every elf building) export as SkinnedMesh with a rigid little
 // armature. Cloned with a plain .clone(true) — not SkeletonUtils.clone — the skeleton binding
 // breaks: the renderer skins the mesh in the skeleton's own space, so it renders at ~world origin
@@ -885,7 +885,10 @@ function loadRig(){ return new Promise(res=>{
   const propFiles=[...new Set(Object.values(WEAPONS).flat().map(w=>w.file))];
   let n=0, need=RIG_SPECS.length*2 + propFiles.length; const done=()=>{ if(++n>=need) res(); };   // body GLB + atlas per char, + each prop once
   RIG_SPECS.forEach(([k,f])=>{
-    gl.load('/assets/models/'+f+'_anim.glb', g=>{ RIGS[k]={scene:g.scene,anims:g.animations}; done(); }, undefined, ()=>done());
+    gl.load('/assets/models/'+f+'_anim.glb', g=>{
+      if(k==='thoryn') g.scene.traverse(o=>{ if(o.isMesh&&o.material&&o.material.map){   // Tripo PBR (metallic) renders black in our unlit look — flatten to Basic like every other unit
+        const t=o.material.map; if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; o.material=new THREE.MeshBasicMaterial({map:t,side:THREE.DoubleSide}); } });
+      RIGS[k]={scene:g.scene,anims:g.animations}; done(); }, undefined, ()=>done());
     tl.load('/assets/models/'+f+'_tex.png', t=>{ t.flipY=true; t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter; t.generateMipmaps=false; if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; TEXS[k]=t; done(); }, undefined, ()=>done());
   });
   propFiles.forEach(f=>fx.load('/assets/models/'+f+'.fbx', o=>{ PROPS[f]=bakeProp(o); done(); }, undefined, ()=>done()));
@@ -934,7 +937,8 @@ function riggize(e,key){ const c=makeChar(key); if(!c)return; scene.remove(e.g);
 
 function spawnGame(){
   hero=mkFighter(C.hero,1.9,'hero',{hp:260,dmg:20,range:3.6,atkEvery:0.5,spd:19,aCd:0,spellCd:0});
-  riggize(hero,'queen');                       // the Elf Queen — sword + spell hero
+  if(RIGS.thoryn&&RIGS.queen){ RIGS.thoryn.anims=RIGS.queen.anims; }   // Thoryn is skinned to the queen's skeleton; her clips drive him
+  riggize(hero, RIGS.thoryn?'thoryn':'queen');   // Thoryn the Demon Hunter — the hero
   setP(hero,105,80);                            // muster at the player base (bottom-left island)
   // skirmish start: the hero rides out with just two base units — a warrior + an archer.
   // (The rest of the army comes from Barracks the player builds; the AI grows the same way.)
@@ -1052,7 +1056,7 @@ function moveOrder(list,gx,gz){ let k=0; for(const e of list){ if(!e.alive)conti
 function attackOrder(list,en){ for(const e of list){ if(!e.alive)continue;
     if(e===hero){ e.order={x:en.px,z:en.pz}; } else { e.forcedTarget=en; e.target=en; e.order=null; e.following=false; } }
   rallyMarker.material.color.setHex(0xff6a5a); rallyMarker.position.set(en.px,topY(en.px,en.pz)+0.3,en.pz); rallyMarker.visible=true; clearTimeout(rallyMarker.__to); rallyMarker.__to=setTimeout(()=>rallyMarker.visible=false,900); }
-const KIND_NAME={hero:'Queen Lethaine', warrior:'Warrior', archer:'Archer', cleric:'Priestess'};
+const KIND_NAME={hero:'Thoryn', warrior:'Warrior', archer:'Archer', cleric:'Priestess'};
 const KIND_ICON={hero:'sword', warrior:'warrior', archer:'archer', cleric:'cleric'};
 function updateSelPanel(){ if(!selPanelEl)return; const sel=[...selected].filter(u=>u.alive);
   if(!sel.length){ selPanelEl.style.display='none'; return; }
