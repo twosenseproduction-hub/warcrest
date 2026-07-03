@@ -106,6 +106,20 @@ canvas{display:block}
 .hchip svg{width:15px;height:15px;display:inline-block;vertical-align:-2px}
 .rBtn .rc{font:800 10px system-ui;color:var(--gold);margin-top:2px}
 .rLb{position:absolute;transform:translate(-50%,0);font:800 10px system-ui;color:#fff;text-shadow:0 1px 3px #000;white-space:nowrap;pointer-events:none}
+/* selection panel — Siege-Up style unit card, bottom-centre */
+#selP{position:fixed;z-index:6;left:50%;transform:translateX(-50%);bottom:calc(14px + var(--sb));display:none;align-items:center;gap:11px;
+  background:var(--panel2);border:1px solid var(--brd);border-radius:13px;padding:9px 12px;min-width:225px;backdrop-filter:blur(9px)}
+#selP .spIc{width:42px;height:42px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 38% 30%,rgba(110,200,130,0.4),rgba(13,19,29,0.7));border:1.5px solid rgba(120,225,140,0.6);color:#a9f0b4}
+#selP .spIc svg{width:22px;height:22px}
+#selP .spTx{display:flex;flex-direction:column;gap:3px;flex:1 1 auto;min-width:0}
+#selP .spNm{font:800 13px system-ui;color:var(--ink);white-space:nowrap}
+#selP .spBar{height:6px;border-radius:3px;background:rgba(10,14,20,0.6);overflow:hidden}
+#selP .spBarF{height:100%;width:100%;background:linear-gradient(#a6ec5e,#5cb43a)}
+#selP .spRow{display:flex;gap:9px;font:700 10.5px system-ui;color:var(--dim);white-space:nowrap}
+#selP .spX{width:30px;height:30px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;border-radius:50%;
+  border:1px solid var(--brd);color:var(--dim);cursor:pointer}
+#selP .spX svg{width:14px;height:14px}
 /* fixed movement joystick, bottom-left */
 #joy{position:fixed;left:calc(30px + var(--sl));bottom:calc(104px + var(--sb));width:132px;height:132px;border-radius:50%;z-index:6;
   background:radial-gradient(circle at 50% 50%,rgba(30,42,60,0.30),rgba(20,27,38,0.42));border:2px solid rgba(150,190,225,0.45);
@@ -541,6 +555,9 @@ const ICON={
   star:'<path d="M12 2.5l2.8 6 6.6.6-5 4.4 1.5 6.4L12 16.9 6.1 20.3l1.5-6.4-5-4.4 6.6-.6z" fill="currentColor" stroke="none"/>',
   wood:'<rect x="3" y="9" width="18" height="6" rx="3"/><circle cx="6.5" cy="12" r="1.6"/>',
   tent:'<path d="M12 4L3 20h18z"/><path d="M12 4v16"/><path d="M9.5 20l2.5-4.5 2.5 4.5"/>',
+  select:'<rect x="3.5" y="3.5" width="11" height="11" rx="1.5" stroke-dasharray="3.4 2.4"/><path d="M13 13l7 7"/><path d="M13 13l1.2 4.6 1.7-1.7 1.7-1.7z" fill="currentColor" stroke="none"/>',
+  stop:'<rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none"/>',
+  close:'<path d="M6 6l12 12M18 6L6 18"/>',
 };
 function ic(n){ const p=ICON[n]; return p?('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+p+'</svg>'):''; }
 const catIcon={economy:'house',mine:'mine',lumber:'lumber',army:'barracks',defense:'tower'}, catName={economy:'House',mine:'Gold Mine',lumber:'Lumber Mill',army:'Barracks',defense:'Tower'};
@@ -763,7 +780,7 @@ function mkFighter(hex,scale,team,st){
   const g=makeUnit(hex,scale); scene.add(g);
   const e=Object.assign({g,team,alive:true,cd:0,px:0,pz:0,hitT:0,face:0,phase:Math.random()*6.28,movedThis:false,following:false,target:null,forcedTarget:null,order:null,
     rad:team==='hero'?2.3:1.5, bar:makeBar(team==='enemy'?0xd23b3b:0x4ad0e0)},st);
-  if(team==='ally'){ e.ring=new THREE.Mesh(new THREE.RingGeometry(1.7,2.15,20),new THREE.MeshBasicMaterial({color:0x7ff0ff,transparent:true,opacity:0.95,side:THREE.DoubleSide})); e.ring.rotation.x=-Math.PI/2; e.ring.visible=false; scene.add(e.ring); }
+  if(team==='ally'||team==='hero'){ e.ring=new THREE.Mesh(new THREE.RingGeometry(1.7,2.15,20),new THREE.MeshBasicMaterial({color:0x59e06c,transparent:true,opacity:0.95,side:THREE.DoubleSide})); e.ring.rotation.x=-Math.PI/2; e.ring.visible=false; scene.add(e.ring); }   // Siege-Up green selection ring
   e.max=st.hp; return e;
 }
 function setP(e,x,z){ e.px=x; e.pz=z; e.g.position.set(x,topY(x,z),z); }
@@ -953,6 +970,40 @@ function smiteFx(en){ const r=new THREE.Mesh(new THREE.RingGeometry(0.5,1.4,20),
   r.rotation.x=-Math.PI/2; r.position.set(en.px,topY(en.px,en.pz)+0.5,en.pz); scene.add(r); let a=0;(function an(){a+=0.07;r.scale.setScalar(1+a*8);r.material.opacity=Math.max(0,0.95-a*1.2);if(a<0.9)requestAnimationFrame(an);else scene.remove(r);})(); }
 function focusFire(en){ allies.forEach(e=>{ if(e.alive){ e.forcedTarget=en; e.target=en; e.order=null; e.following=false; } });
   rallyMarker.material.color.setHex(0xff6a5a); rallyMarker.position.set(en.px,topY(en.px,en.pz)+0.3,en.pz); rallyMarker.visible=true; clearTimeout(rallyMarker.__to); rallyMarker.__to=setTimeout(()=>rallyMarker.visible=false,900); }
+// ---------- RTS selection + context orders (Siege-Up style) ----------
+let boxMode=false, boxBtn=null, selPanelEl=null;
+function nearestAllyTo(x,z,maxd){ let b=null,bd=maxd*maxd;
+  for(const e of [hero,...allies]){ if(!e||!e.alive)continue; const dd=(e.px-x)**2+(e.pz-z)**2; if(dd<bd){bd=dd;b=e;} } return b; }
+function clearSel(){ selected.clear(); updateSelPanel(); }
+function selectOne(u){ selected.clear(); if(u&&u.alive)selected.add(u); updateSelPanel(); }
+function selectMany(list){ selected.clear(); for(const u of list) if(u&&u.alive)selected.add(u); updateSelPanel(); }
+// context orders operate on the current selection only
+function moveOrder(list,gx,gz){ let k=0; for(const e of list){ if(!e.alive)continue;
+    const col=((k%4)-1.5)*2.8, row=Math.floor(k/4)*2.8; k++;
+    if(e===hero){ e.order={x:gx,z:gz}; } else { e.order={x:gx+col,z:gz+row}; e.forcedTarget=null; e.target=null; e.following=false; } }
+  rallyMarker.material.color.setHex(0x8df09b); rallyMarker.position.set(gx,topY(gx,gz)+0.3,gz); rallyMarker.visible=true; clearTimeout(rallyMarker.__to); rallyMarker.__to=setTimeout(()=>rallyMarker.visible=false,1800); }
+function attackOrder(list,en){ for(const e of list){ if(!e.alive)continue;
+    if(e===hero){ e.order={x:en.px,z:en.pz}; } else { e.forcedTarget=en; e.target=en; e.order=null; e.following=false; } }
+  rallyMarker.material.color.setHex(0xff6a5a); rallyMarker.position.set(en.px,topY(en.px,en.pz)+0.3,en.pz); rallyMarker.visible=true; clearTimeout(rallyMarker.__to); rallyMarker.__to=setTimeout(()=>rallyMarker.visible=false,900); }
+const KIND_NAME={hero:'Queen Lethaine', warrior:'Warrior', archer:'Archer', cleric:'Priestess'};
+const KIND_ICON={hero:'sword', warrior:'warrior', archer:'archer', cleric:'cleric'};
+function updateSelPanel(){ if(!selPanelEl)return; const sel=[...selected].filter(u=>u.alive);
+  if(!sel.length){ selPanelEl.style.display='none'; return; }
+  selPanelEl.style.display='flex';
+  const u=sel[0], kind=(u===hero)?'hero':u.kind;
+  const nm=sel.length>1 ? (sel.length+' units') : (KIND_NAME[kind]||kind);
+  selPanelEl.querySelector('.spIc').innerHTML=ic(KIND_ICON[kind]||'warrior');
+  selPanelEl.querySelector('.spNm').textContent=nm;
+  const hp=sel.reduce((a,e)=>a+Math.max(0,e.hp),0), max=sel.reduce((a,e)=>a+e.max,0);
+  selPanelEl.querySelector('.spHp').textContent=Math.ceil(hp)+' / '+max+' hp';
+  selPanelEl.querySelector('.spSt').textContent = sel.length>1 ? ('attack '+Math.round(sel.reduce((a,e)=>a+e.dmg,0))+' total')
+    : (u.dmg+' dmg · '+(+u.range.toFixed(1))+' range · '+Math.round(u.spd)+' spd');
+  const f=Math.max(0,Math.min(1,hp/max)); selPanelEl.querySelector('.spBarF').style.width=(f*100)+'%'; }
+function selectInRect(x0,y0,x1,y1){ const lo=[Math.min(x0,x1),Math.min(y0,y1)], hi=[Math.max(x0,x1),Math.max(y0,y1)]; const got=[];
+  for(const e of [hero,...allies]){ if(!e||!e.alive)continue; const [sx,sy]=screenOf(e.px,e.pz);
+    if(sx>=lo[0]&&sx<=hi[0]&&sy>=lo[1]&&sy<=hi[1]) got.push(e); }
+  selectMany(got); return got.length; }
+function setBoxMode(on){ boxMode=on; if(boxBtn){ boxBtn.style.borderColor=on?'#7ef08a':''; boxBtn.style.boxShadow=on?'0 0 0 2px rgba(120,230,140,0.55),0 0 16px rgba(120,230,140,0.5)':''; } }
 // ---- refined projectiles ----
 // stylised arrow, built once & cloned: wood shaft + steel head + cream fletching + glowing tip. Long axis = +Y.
 let ARROW_PROTO=null;
@@ -1025,19 +1076,25 @@ function updateGame(dt){
     if(joy.active){ ix=joy.nx; iy=joy.ny; }
     else { if(keys['w']||keys['arrowup'])iy-=1; if(keys['s']||keys['arrowdown'])iy+=1; if(keys['a']||keys['arrowleft'])ix-=1; if(keys['d']||keys['arrowright'])ix+=1; }
     const B=groundBasis(); let mvx=B.f.x*(-iy)+B.r.x*ix, mvz=B.f.z*(-iy)+B.r.z*ix; const ml=Math.hypot(mvx,mvz);
-    if(camLocked){ // left stick drives the hero
-      if(ml>0.01){ mvx/=ml;mvz/=ml; const nx=hero.px+mvx*hero.spd*dt, nz=hero.pz+mvz*hero.spd*dt; if(onIsland(nx,nz))setP(hero,nx,nz);
-        faceTo(hero,mvx,mvz); hero.movedThis=true; heroFwd.x+=(mvx-heroFwd.x)*Math.min(1,dt*6); heroFwd.z+=(mvz-heroFwd.z)*Math.min(1,dt*6); } }
-    else { // free camera: left stick pans, hero holds its ground (still fights)
-      if(ml>0.01){ mvx/=ml;mvz/=ml; camAim.x+=mvx*PAN_SPD*dt; camAim.z+=mvz*PAN_SPD*dt;
-        const rr0=Math.hypot(camAim.x-120,camAim.z); if(rr0>320){ camAim.x=120+(camAim.x-120)*320/rr0; camAim.z*=320/rr0; } } }
+    let heroMoved=false;
+    if(camLocked && ml>0.01){ // left stick drives the hero (follow mode); stick input cancels any tap order
+      hero.order=null; mvx/=ml;mvz/=ml; const nx=hero.px+mvx*hero.spd*dt, nz=hero.pz+mvz*hero.spd*dt; if(onIsland(nx,nz))setP(hero,nx,nz);
+      faceTo(hero,mvx,mvz); hero.movedThis=true; heroMoved=true; heroFwd.x+=(mvx-heroFwd.x)*Math.min(1,dt*6); heroFwd.z+=(mvz-heroFwd.z)*Math.min(1,dt*6); }
+    else if(hero.order){ // RTS: tap-ordered hero walks to the point like any selected unit
+      const d=Math.hypot(hero.order.x-hero.px,hero.order.z-hero.pz);
+      if(d<1.6){ hero.order=null; }
+      else { const dx=(hero.order.x-hero.px)/d, dz=(hero.order.z-hero.pz)/d;
+        const nx=hero.px+dx*hero.spd*dt, nz=hero.pz+dz*hero.spd*dt; if(onIsland(nx,nz))setP(hero,nx,nz); else hero.order=null;
+        faceTo(hero,dx,dz); hero.movedThis=true; heroMoved=true;
+        heroFwd.x+=(dx-heroFwd.x)*Math.min(1,dt*6); heroFwd.z+=(dz-heroFwd.z)*Math.min(1,dt*6); } }
+    if(!camLocked && ml>0.01){ const nx=mvx/ml, nz=mvz/ml; camAim.x+=nx*PAN_SPD*dt; camAim.z+=nz*PAN_SPD*dt; clampAim(); }   // WASD pans the free camera (desktop)
     hero.cd-=dt; hero.aCd-=dt; hero.spellCd-=dt;
     const FO=foes();   // enemy units + attackable enemy structures (core/buildings) — the player's valid targets
     if(autoBolt && hero.spellCd<=0 && enemies.length){ const {t}=nearest(hero.px,hero.pz,enemies); if(t) castBolt(t.px,t.pz); }
     { const {t,d}=nearest(hero.px,hero.pz,FO); heroHitTarget=(t&&d<=hero.range+(t.big||0)+1)?t:null; heroCanHit=!!heroHitTarget;
       if(heroHitTarget){ if(hero.rigged&&hero.cd<=0){ hero.__atkClip=pickAtkClip(hero); hero.__atkT=0.55; } attack(hero,heroHitTarget); } }
     if(hero.rigged){ hero.mixer.update(dt); hero.__atkT=Math.max(0,(hero.__atkT||0)-dt);
-      setAnim(hero, hero.__atkT>0?(hero.__atkClip||'attack'):((ml>0.01&&camLocked)?'run':'idle')); }
+      setAnim(hero, hero.__atkT>0?(hero.__atkClip||'attack'):(heroMoved?'run':'idle')); }
     const hl=Math.hypot(heroFwd.x,heroFwd.z)||1, ffx=heroFwd.x/hl, ffz=heroFwd.z/hl, rgx=ffz, rgz=-ffx;
     for(const e of allies){ if(!e.alive)continue; e.cd-=dt;
       const heroDist=Math.hypot(hero.px-e.px,hero.pz-e.pz);
@@ -1148,9 +1205,17 @@ function setupHUD(){
   const mkCmd=(cls,icon,label,fn)=>{ const c=document.createElement('div'); c.className='cmdBtn '+cls;
     c.innerHTML='<div class="ci">'+icon+'</div><div class="cl">'+label+'</div>';
     c.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); fn(); }); strip.appendChild(c); return c; };
+  boxBtn=mkCmd('selectbox',ic('select'),'Select',()=>setBoxMode(!boxMode));   // arm marquee: next drag selects troops
   mkCmd('charge',ic('swords'),'Charge',()=>chargeAll());
   mkCmd('recall',ic('recall'),'Recall',()=>recall());
   document.body.appendChild(strip); cmdStripEl=strip;
+  // selection panel (Siege-Up style): portrait, name, hp bar, stats, dismiss
+  selPanelEl=document.createElement('div'); selPanelEl.id='selP';
+  selPanelEl.innerHTML='<div class="spIc"></div><div class="spTx"><div class="spNm"></div><div class="spBar"><div class="spBarF"></div></div>'+
+    '<div class="spRow"><span class="spHp"></span><span class="spSt"></span></div></div><div class="spX">'+ic('close')+'</div>';
+  selPanelEl.addEventListener('pointerdown',ev=>ev.stopPropagation());
+  selPanelEl.querySelector('.spX').addEventListener('pointerdown',ev=>{ ev.stopPropagation(); clearSel(); });
+  document.body.appendChild(selPanelEl);
   // the opening tip fades on its own (and on tap) so the HUD gets out of the way, Thronefall-style
   const tipEl=document.getElementById('tip');
   if(tipEl){ tipEl.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); tipEl.classList.add('hide'); });
@@ -1197,7 +1262,7 @@ function onDown(e){ if(gameOver)return;
   if(e.target && rnd3d && e.target!==rnd3d.domElement) return;   // tap landed on a HUD element, not the world
   if(ptrs.size>=2){ cmd.active=false; const v=[...ptrs.values()], a=v[0], b=v[1];   // second finger → pinch-zoom + rotate
     gesture={mode:'pinch', d0:Math.max(1,Math.hypot(a.x-b.x,a.y-b.y)), ang0:Math.atan2(b.y-a.y,b.x-a.x), dist0:camF.dist, az0:camF.az}; return; }
-  cmd.active=true; cmd.id=e.pointerId; cmd.moved=false; cmd.sx=e.clientX; cmd.sy=e.clientY; cmd.lx=e.clientX; cmd.ly=e.clientY;   // one finger → tap-command or drag-pan
+  cmd.active=true; cmd.id=e.pointerId; cmd.moved=false; cmd.box=boxMode; cmd.sx=e.clientX; cmd.sy=e.clientY; cmd.lx=e.clientX; cmd.ly=e.clientY;   // one finger → tap-command, drag-pan, or box-select
 }
 function onMove(e){
   if(ptrs.has(e.pointerId)) ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
@@ -1208,24 +1273,36 @@ function onMove(e){
     camF.dist=Math.max(ZMIN,Math.min(ZMAX, gesture.dist0*gesture.d0/d)); camF.az=gesture.az0+(ang-gesture.ang0)*180/Math.PI; return; }
   if(cmd.active&&e.pointerId===cmd.id){ const ddx=e.clientX-cmd.lx, ddy=e.clientY-cmd.ly; cmd.lx=e.clientX; cmd.ly=e.clientY;
     if(Math.hypot(e.clientX-cmd.sx,e.clientY-cmd.sy)>10) cmd.moved=true;
-    if(cmd.moved) panWorld(ddx,ddy); } }
+    if(cmd.moved){ if(cmd.box){ if(lctx){ lctx.clearRect(0,0,lcv.width,lcv.height);   // box-select mode: draw the marquee
+          lctx.strokeStyle='rgba(126,240,138,0.95)'; lctx.lineWidth=2; lctx.setLineDash([7,5]);
+          lctx.strokeRect(Math.min(cmd.sx,e.clientX),Math.min(cmd.sy,e.clientY),Math.abs(e.clientX-cmd.sx),Math.abs(e.clientY-cmd.sy));
+          lctx.fillStyle='rgba(126,240,138,0.10)';
+          lctx.fillRect(Math.min(cmd.sx,e.clientX),Math.min(cmd.sy,e.clientY),Math.abs(e.clientX-cmd.sx),Math.abs(e.clientY-cmd.sy)); } }
+      else panWorld(ddx,ddy); } } }
 function onUp(e){
   ptrs.delete(e.pointerId); if(ptrs.size<2) gesture=null;
   if(joy.active&&e.pointerId===joy.id){ joy.active=false; joy.nx=0;joy.ny=0; joyKnob.style.left='50%'; joyKnob.style.top='50%'; return; }
-  if(cmd.active&&e.pointerId===cmd.id){ cmd.active=false; if(cmd.moved) return;   // a drag was a camera pan, not a command
-    const nd=new THREE.Vector2((e.clientX/innerWidth)*2-1,-(e.clientY/innerHeight)*2+1); raycaster.setFromCamera(nd,cam); const hit=new THREE.Vector3();  // tap/drag-release → command at that point
+  if(cmd.active&&e.pointerId===cmd.id){ cmd.active=false;
+    if(cmd.box){ setBoxMode(false); if(lctx)lctx.clearRect(0,0,lcv.width,lcv.height);   // finish the marquee: select everything inside
+      if(cmd.moved){ selectInRect(cmd.sx,cmd.sy,e.clientX,e.clientY); return; } }
+    else if(cmd.moved) return;   // a drag was a camera pan, not a command
+    const nd=new THREE.Vector2((e.clientX/innerWidth)*2-1,-(e.clientY/innerHeight)*2+1); raycaster.setFromCamera(nd,cam); const hit=new THREE.Vector3();
     if(raycaster.ray.intersectPlane(groundPlane,hit)&&onIsland(hit.x,hit.z)){
       const pp=plots.find(p=>Math.hypot(hit.x-p.x,hit.z-p.z)<5.5);
-      if(pp){ openPlotMenu(pp); }                                                                   // tapped a build plot → radial build / upgrade
-      else if(coreB&&Math.hypot(hit.x-coreB.x,hit.z-coreB.z)<7){ openCoreMenu(); }                  // tapped the throne → reinforce
+      if(pp){ openPlotMenu(pp); }                                                                   // tapped a build plot → radial build / upgrade / train
+      else if(coreB&&Math.hypot(hit.x-coreB.x,hit.z-coreB.z)<7){ openCoreMenu(); }                  // tapped the throne → expand
       else { closeBuildMenu();
         if(spellArmed){ castBolt(hit.x,hit.z); }
         else if(smiteArmed){ const en=nearestEnemyTo(hit.x,hit.z,6); if(en){ smiteAt(en); if(!readyClerics())smiteArmed=false; } }
-        else { const en=nearestEnemyTo(hit.x,hit.z,5);
-          if(en){ focusFire(en); }                                                                  // tapped a foe → whole army focuses it
-          else { commandTo(hit.x,hit.z); } } }                                                      // tapped ground → whole army attack-moves there
+        else { // context tap (Siege-Up): friendly → select · enemy → attack order · ground → move order
+          const en=nearestEnemyTo(hit.x,hit.z,5), al=nearestAllyTo(hit.x,hit.z,4);
+          const alD=al?Math.hypot(al.px-hit.x,al.pz-hit.z):1e9, enD=en?Math.hypot(en.px-hit.x,en.pz-hit.z):1e9;
+          if(al && alD<=enD){ selectOne(al); }
+          else if(selected.size){ if(en) attackOrder([...selected],en); else moveOrder([...selected],hit.x,hit.z); }
+          else if(en){ /* nothing selected: tapping a foe does nothing — select troops first */ }
+          else clearSel(); } }
     }
-    cmd.pts=[]; if(lctx)lctx.clearRect(0,0,lcv.width,lcv.height); } }
+    if(lctx)lctx.clearRect(0,0,lcv.width,lcv.height); } }
 
 // ---------- camera / render ----------
 function setCam(pitchDeg,dist,fov,az,lookY){
@@ -1279,7 +1356,7 @@ async function boot(){
   (function loop(){ requestAnimationFrame(loop);
     const now=performance.now(); let dt=(now-last)/1000; last=now; if(dt>0.05)dt=0.05;
     updateGame(dt); followCam(dt); repositionRadial();
-    if(++miniAcc%4===0) drawMini();   // ~15fps minimap refresh
+    if(++miniAcc%4===0){ drawMini(); updateSelPanel(); }   // ~15fps minimap + selection-card refresh
     rnd3d.setRenderTarget(rt); rnd3d.render(scene,cam);
     rnd3d.setRenderTarget(null); rnd3d.render(postScene,postCam);
   })();
