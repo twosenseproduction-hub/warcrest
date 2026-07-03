@@ -928,16 +928,27 @@ function makeChar(key){ const src=RIGS[key]; if(!src)return null;
     if(bone){ const prop=PROPS[w.file].clone(true), tx=TEXS[key];
       prop.traverse(o=>{ if(o.isMesh){ o.material=new THREE.MeshBasicMaterial({map:tx,side:THREE.DoubleSide}); o.frustumCulled=false; } });
       prop.position.fromArray(w.pos); prop.rotation.set(w.rot[0],w.rot[1],w.rot[2]); prop.scale.setScalar(w.scl); bone.add(prop); } });
-  return {g:outer,mixer,act}; }
+  const out={g:outer,mixer,act};
+  if(key==='thoryn'){ out.armL=findBone('upperarm_l'); out.armR=findBone('upperarm_r'); }   // long arms need a post-anim relax
+  return out; }
+// Thoryn's arms are ~2.5x the queen's: her clip angles read as 'airplane arms' on his longer
+// limbs, so after the mixer poses him each frame we relax the upper arms toward the body.
+let ARM_TUNE={x:0,y:1,z:0,ang:0};   // his own unarmed clip set fits his proportions; tuner kept for fine-tuning (window.__armTune)
+window.__armTune=(x,y,z,a)=>{ ARM_TUNE={x,y,z,ang:a}; };
+const _qArm=new THREE.Quaternion(), _vArm=new THREE.Vector3();
+function armRelax(e){ if(!e||!e.armL||!e.armR)return;
+  _vArm.set(ARM_TUNE.x,ARM_TUNE.y,ARM_TUNE.z).normalize();
+  e.armL.quaternion.multiply(_qArm.setFromAxisAngle(_vArm, ARM_TUNE.ang));
+  e.armR.quaternion.multiply(_qArm.setFromAxisAngle(_vArm,-ARM_TUNE.ang)); }
 // generic crossfade anim setter (hero + rigged allies)
 function setAnim(e,want){ if(!e.act||e.animState===want)return; const a=e.act[want]; if(!a)return;
   const cur=e.act[e.animState]; if(cur)cur.fadeOut(0.16); a.reset().fadeIn(0.16).play(); e.animState=want; }
 // swap an entity's placeholder body for a rigged character
-function riggize(e,key){ const c=makeChar(key); if(!c)return; scene.remove(e.g); e.g=c.g; e.mixer=c.mixer; e.act=c.act; e.rigged=true; e.rigKey=key; e.animState='idle'; scene.add(e.g); }
+function riggize(e,key){ const c=makeChar(key); if(!c)return; scene.remove(e.g); e.g=c.g; e.mixer=c.mixer; e.act=c.act; e.armL=c.armL; e.armR=c.armR; e.rigged=true; e.rigKey=key; e.animState='idle'; scene.add(e.g); }
 
 function spawnGame(){
   hero=mkFighter(C.hero,1.9,'hero',{hp:260,dmg:20,range:3.6,atkEvery:0.5,spd:19,aCd:0,spellCd:0});
-  if(RIGS.thoryn&&RIGS.queen){ RIGS.thoryn.anims=RIGS.queen.anims; }   // Thoryn is skinned to the queen's skeleton; her clips drive him
+  if(RIGS.thoryn&&(!RIGS.thoryn.anims||!RIGS.thoryn.anims.length)&&RIGS.queen) RIGS.thoryn.anims=RIGS.queen.anims;   // safety net only — he ships his own brute clip set
   riggize(hero, RIGS.thoryn?'thoryn':'queen');   // Thoryn the Demon Hunter — the hero
   setP(hero,105,80);                            // muster at the player base (bottom-left island)
   // skirmish start: the hero rides out with just two base units — a warrior + an archer.
@@ -1164,7 +1175,7 @@ function updateGame(dt){
     if(autoBolt && hero.spellCd<=0 && enemies.length){ const {t}=nearest(hero.px,hero.pz,enemies); if(t) castBolt(t.px,t.pz); }
     { const {t,d}=nearest(hero.px,hero.pz,FO); heroHitTarget=(t&&d<=hero.range+(t.big||0)+1)?t:null; heroCanHit=!!heroHitTarget;
       if(heroHitTarget){ if(hero.rigged&&hero.cd<=0){ hero.__atkClip=pickAtkClip(hero); hero.__atkT=0.55; } attack(hero,heroHitTarget); } }
-    if(hero.rigged){ hero.mixer.update(dt); hero.__atkT=Math.max(0,(hero.__atkT||0)-dt);
+    if(hero.rigged){ hero.mixer.update(dt); armRelax(hero); hero.__atkT=Math.max(0,(hero.__atkT||0)-dt);
       setAnim(hero, hero.__atkT>0?(hero.__atkClip||'attack'):(heroMoved?'run':'idle')); }
     const hl=Math.hypot(heroFwd.x,heroFwd.z)||1, ffx=heroFwd.x/hl, ffz=heroFwd.z/hl, rgx=ffz, rgz=-ffx;
     for(const e of allies){ if(!e.alive)continue; e.cd-=dt;
