@@ -57,7 +57,11 @@ canvas{display:block}
 .cmdBtn .cl{font:800 7px/1 system-ui;letter-spacing:.3px;color:var(--dim);text-transform:uppercase}
 .cmdBtn.charge{border-color:rgba(240,170,90,0.7)}
 .cmdBtn.recall{border-color:rgba(120,170,255,0.7)}
-#tip{position:fixed;left:calc(14px + var(--sl));top:calc(14px + var(--st));max-width:228px;background:var(--panel);border:1px solid var(--brd);
+/* minimap — Wild Rift style: persistent top-left situational map */
+#mini{position:fixed;z-index:6;left:calc(12px + var(--sl));top:calc(12px + var(--st));width:132px;height:132px;border-radius:12px;
+  border:1px solid var(--brd);background:var(--panel);backdrop-filter:blur(8px);overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.35)}
+#mini canvas{display:block;width:100%;height:100%}
+#tip{position:fixed;left:calc(14px + var(--sl));top:calc(156px + var(--st));max-width:216px;background:var(--panel);border:1px solid var(--brd);
   color:var(--ink);font:500 12.5px/1.45 system-ui;padding:10px 13px;border-radius:12px;z-index:6;box-shadow:none;backdrop-filter:blur(8px);
   transition:opacity .8s ease,transform .8s ease;opacity:0.96}
 #tip.hide{opacity:0;transform:translateY(-6px);pointer-events:none}
@@ -1036,8 +1040,37 @@ function setupHUD(){
   const tipEl=document.getElementById('tip');
   if(tipEl){ tipEl.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); tipEl.classList.add('hide'); });
     setTimeout(()=>tipEl.classList.add('hide'),9000); }
+  buildMini();
   addEventListener('pointerdown',onDown); addEventListener('pointermove',onMove); addEventListener('pointerup',onUp); addEventListener('pointercancel',onUp);
 }
+// ---------- minimap ----------
+let mcv=null, mctx=null, miniLand=null, miniAcc=0; const MHALF=155, MSZ=132;
+function w2m(x,z){ return [ (x+MHALF)/(2*MHALF)*MSZ, (z+MHALF)/(2*MHALF)*MSZ ]; }   // world → minimap px (north-up)
+function buildMini(){
+  const wrap=document.createElement('div'); wrap.id='mini';
+  mcv=document.createElement('canvas'); const dpr=Math.min(devicePixelRatio||1,2);
+  mcv.width=MSZ*dpr; mcv.height=MSZ*dpr; wrap.appendChild(mcv); document.body.appendChild(wrap);
+  mctx=mcv.getContext('2d'); mctx.scale(dpr,dpr);
+  // tap the map to pan the free camera there (ignored while the camera is locked to the hero)
+  wrap.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); if(camLocked)return;
+    const r=wrap.getBoundingClientRect(); const mx=(ev.clientX-r.left)/r.width*MSZ, my=(ev.clientY-r.top)/r.height*MSZ;
+    camAim.x=mx/MSZ*2*MHALF-MHALF; camAim.z=my/MSZ*2*MHALF-MHALF; camAim.init=true; });
+  // static land silhouette, baked once
+  miniLand=document.createElement('canvas'); miniLand.width=MSZ; miniLand.height=MSZ; const g=miniLand.getContext('2d');
+  g.fillStyle='#2f6d93'; g.fillRect(0,0,MSZ,MSZ);
+  const step=2.4; g.fillStyle='#8c9089';
+  for(let x=-MHALF;x<=MHALF;x+=step) for(let z=-MHALF;z<=MHALF;z+=step){ if(onIsland(x,z)){ const [px,py]=w2m(x,z); g.fillRect(px,py,2,2); } }
+}
+function drawMini(){ if(!mctx)return; mctx.clearRect(0,0,MSZ,MSZ); mctx.drawImage(miniLand,0,0);
+  const dot=(x,z,c,r)=>{ const [px,py]=w2m(x,z); mctx.fillStyle=c; mctx.beginPath(); mctx.arc(px,py,r,0,6.283); mctx.fill(); };
+  for(const p of plots){ if(p.cat) dot(p.x,p.z,'#f2c94c',1.6); }
+  if(coreB) dot(coreB.x,coreB.z,'#7fd8ff',3);
+  if(enemyCore) dot(enemyCore.x,enemyCore.z,'#ff5a4a',3);
+  for(const e of eStructs){ if(e.alive) dot(e.px,e.pz,'#c8603a',1.6); }
+  for(const e of allies){ if(e.alive) dot(e.px,e.pz,'#5bd0ff',1.7); }
+  for(const e of enemies){ if(e.alive) dot(e.px,e.pz,'#ff7a5a',1.7); }
+  if(hero&&hero.alive){ const [px,py]=w2m(hero.px,hero.pz); mctx.fillStyle='#ffffff'; mctx.strokeStyle='#123'; mctx.lineWidth=1;
+    mctx.beginPath(); mctx.arc(px,py,2.6,0,6.283); mctx.fill(); mctx.stroke(); } }
 function onDown(e){ if(gameOver)return;
   const r=joyBase.getBoundingClientRect(), jcx=r.left+r.width/2, jcy=r.top+r.height/2;
   if(Math.hypot(e.clientX-jcx,e.clientY-jcy) <= r.width/2+34){   // grabbed the fixed BL stick
@@ -1123,6 +1156,7 @@ async function boot(){
   (function loop(){ requestAnimationFrame(loop);
     const now=performance.now(); let dt=(now-last)/1000; last=now; if(dt>0.05)dt=0.05;
     updateGame(dt); followCam(dt); repositionRadial();
+    if(++miniAcc%4===0) drawMini();   // ~15fps minimap refresh
     rnd3d.setRenderTarget(rt); rnd3d.render(scene,cam);
     rnd3d.setRenderTarget(null); rnd3d.render(postScene,postCam);
   })();
