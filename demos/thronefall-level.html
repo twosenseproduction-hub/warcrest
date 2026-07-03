@@ -323,6 +323,21 @@ function dirtPad(x,z,r){
   const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,0.4,14),lam(C.path));
   m.position.set(x,topY(x,z)+0.05,z); m.receiveShadow=true; return m;
 }
+// concept-sheet base pads: a paved top on a stone-border base. Hex for general plots, square (w/ corner posts) for turrets.
+function hexPad(x,z,r){ const g=new THREE.Group();
+  const base=new THREE.Mesh(new THREE.CylinderGeometry(r+0.5,r+0.5,0.4,6),lam(C.cliffMid)); base.position.y=0.03; base.receiveShadow=true; g.add(base);
+  const top=new THREE.Mesh(new THREE.CylinderGeometry(r*0.92,r*0.92,0.46,6),lam(C.path)); top.position.y=0.08; top.receiveShadow=true; g.add(top);
+  g.position.set(x,topY(x,z)+0.02,z); return g; }
+function turretPad(x,z,r){ const g=new THREE.Group();
+  const base=new THREE.Mesh(new THREE.BoxGeometry(r*2+1,0.4,r*2+1),lam(C.cliffMid)); base.position.y=0.03; base.receiveShadow=true; g.add(base);
+  const top=new THREE.Mesh(new THREE.BoxGeometry(r*1.7,0.46,r*1.7),lam(C.path)); top.position.y=0.08; top.receiveShadow=true; g.add(top);
+  const post=(dx,dz)=>{ const m=new THREE.Mesh(new THREE.BoxGeometry(0.85,1.5,0.85),lam(C.cliffMid)); m.position.set(dx,0.75,dz); m.castShadow=true; g.add(m); };
+  const c=r+0.35; post(c,c); post(-c,c); post(c,-c); post(-c,-c);   // corner watch-posts (concept turret spot)
+  g.position.set(x,topY(x,z)+0.02,z); return g; }
+function courtyard(x,z,r){ const g=new THREE.Group();
+  const disc=new THREE.Mesh(new THREE.CylinderGeometry(r,r,0.4,40),lam(C.path)); disc.position.y=0.03; disc.receiveShadow=true; g.add(disc);
+  const rim=new THREE.Mesh(new THREE.TorusGeometry(r-0.5,0.45,8,44),lam(C.cliffMid)); rim.rotation.x=Math.PI/2; rim.position.y=0.28; g.add(rim);
+  g.position.set(x,topY(x,z)+0.02,z); return g; }
 function makeHouse(){
   const b=bldClone('house',9); if(b) return b;   // Bitgem elf house
   const g=new THREE.Group();
@@ -389,7 +404,7 @@ function recomputeIncome(){ incomeRate=1; for(const p of plots) if(p.cat==='mine
 function recomputeSupply(){ supplyCap=BASE_SUPPLY; for(const p of plots) if(p.cat==='economy') supplyCap+=CAT.economy.pop[p.level-1];
   supplyUsed=0; for(const e of allies) if(e.alive) supplyUsed+=(UNIT_SUP[e.kind]||2);
   for(const p of plots) if(p.cat==='army'&&p.queue) for(const q of p.queue) supplyUsed+=(UNIT_SUP[q.kind]||2); }   // queued units reserve supply
-function placeCore(x,z){ scene.add(dirtPad(x,z,10));
+function placeCore(x,z){ scene.add(courtyard(x,z,13));
   coreB={x,z,px:x,pz:z,alive:true,level:1,hp:CORE_HP[0],max:CORE_HP[0],big:8,hitT:0,g:null,bar:makeBar(0x6fd0ff)};
   const g=bldClone('throne1',CORE_H[0])||makeKeep(); g.position.set(x,topY(x,z),z); scene.add(g); coreB.g=g; }
 // marker state: built → hidden; unlocked empty → bright (cyan gen / orange turret) + plus; locked → dim grey, no plus
@@ -397,10 +412,10 @@ function styleRing(p){ if(!p.ring)return; if(p.cat){ p.ring.visible=false; if(p.
   p.ring.visible=true; if(p.plus)p.plus.visible=!p.locked;
   p.ring.material.color.setHex(p.locked?0x5a6a74 : (p.slot==='turret'?0xffb45c:0x8fe6ff));
   p.ring.material.opacity=p.locked?0.26:0.55; }
-function makePlot(x,z,tier,slot){ slot=slot||'gen'; const pad=slot==='turret'?4.4:5.5; scene.add(dirtPad(x,z,pad));
+function makePlot(x,z,tier,slot){ slot=slot||'gen'; scene.add(slot==='turret'?turretPad(x,z,3.4):hexPad(x,z,5.3));
   const ri=slot==='turret'?1.9:2.4, ro=slot==='turret'?2.5:3.1;
   const ring=new THREE.Mesh(new THREE.RingGeometry(ri,ro,26),new THREE.MeshBasicMaterial({color:0x8fe6ff,transparent:true,opacity:0.55,side:THREE.DoubleSide,depthWrite:false}));
-  ring.rotation.x=-Math.PI/2; ring.position.set(x,topY(x,z)+0.25,z); scene.add(ring);
+  ring.rotation.x=-Math.PI/2; ring.position.set(x,topY(x,z)+0.4,z); scene.add(ring);
   const plus=new THREE.Group(), pm=new THREE.MeshBasicMaterial({color:0xe6f8ff});
   plus.add(new THREE.Mesh(new THREE.BoxGeometry(2.0,0.35,0.55),pm), new THREE.Mesh(new THREE.BoxGeometry(0.55,0.35,2.0),pm));
   plus.position.set(x,topY(x,z)+0.9,z); scene.add(plus);
@@ -446,11 +461,11 @@ let eGold=130, eIncome=1, ePlots=[], enemyCore=null, eStructs=[], aiCd=3, eSuppl
 const BLD_HP=[220,340,480];   // per-level HP of an enemy plot building
 function updateStructBar(s,topH){ if(!s.bar)return; const f=Math.max(0,s.hp/s.max); s.bar.__fl.scale.x=f; s.bar.__fl.position.x=-(1-f)*s.bar.__w/2;
   s.bar.visible=true; s.bar.position.set(s.x,topY(s.x,s.z)+topH+2,s.z); s.bar.quaternion.copy(cam.quaternion); }
-function placeEnemyCore(x,z){ scene.add(dirtPad(x,z,10));
+function placeEnemyCore(x,z){ scene.add(courtyard(x,z,13));
   enemyCore={x,z,px:x,pz:z,alive:true,level:1,hp:CORE_HP[0],max:CORE_HP[0],big:8,hitT:0,g:null,bar:makeBar(0xff6b5a),kind:'core'};
   const g=bldClone('orc_throne1',CORE_H[0])||makeKeep(); g.position.set(x,topY(x,z),z); g.rotation.y=2.4; scene.add(g); enemyCore.g=g;
   eStructs.push(enemyCore); }
-function makeEnemyPlot(x,z,tier,slot){ slot=slot||'gen'; scene.add(dirtPad(x,z,slot==='turret'?4.4:5.5));
+function makeEnemyPlot(x,z,tier,slot){ slot=slot||'gen'; scene.add(slot==='turret'?turretPad(x,z,3.4):hexPad(x,z,5.3));
   const p={x,z,cat:null,level:0,g:null,cd:0,spawnCd:3,mine:[],struct:null,tier:tier||1,slot:slot,locked:(tier||1)>1}; ePlots.push(p); return p; }
 function eRecomputeIncome(){ eIncome=1; for(const p of ePlots) if(p.cat==='mine') eIncome+=CAT.mine.income[p.level-1]; }
 function eRecomputeSupply(){ eSupplyCap=BASE_SUPPLY; for(const p of ePlots) if(p.cat==='economy') eSupplyCap+=CAT.economy.pop[p.level-1];
