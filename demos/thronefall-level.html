@@ -348,6 +348,7 @@ const BLD_GROUPS=[
       orc_throne1:'orc_throne_Lv1', orc_throne2:'orc_throne_Lv2', orc_throne3:'orc_throne_Lv3',
       orc_house1:'orc_house_Lv1',   orc_house2:'orc_house_Lv2',   orc_house3:'orc_house_Lv3',
       orc_tower1:'orc_tower_Lv1',   orc_tower2:'orc_tower_Lv2',   orc_tower3:'orc_tower_Lv3',
+      orc_mine1:'orc_mine_Lv1',     orc_mine2:'orc_mine_Lv2',     orc_mine3:'orc_mine_Lv3',
       orc_barrack1:'orc_barrack_Lv1', orc_barrack2:'orc_barrack_Lv2', orc_barrack3:'orc_barrack_Lv3' } },
 ];
 function loadBuildings(){ return new Promise(res=>{
@@ -446,8 +447,7 @@ function eRecomputeIncome(){ eIncome=1; for(const p of ePlots) if(p.cat==='mine'
 function eRecomputeSupply(){ eSupplyCap=BASE_SUPPLY; for(const p of ePlots) if(p.cat==='economy') eSupplyCap+=CAT.economy.pop[p.level-1];
   eSupplyUsed=0; for(const e of enemies) if(e.alive) eSupplyUsed+=(UNIT_SUP[e.kind]||2); }
 function eBuildOnPlot(p){ const c=CAT[p.cat]; if(p.g)scene.remove(p.g); if(p.struct){p.struct.alive=false; scene.remove(p.struct.bar);}
-  const model=(p.cat==='mine')?'orc_house':'orc_'+c.model;   // no orc mine art yet → the orc house stands in
-  const g=bldClone(model+p.level, c.H[p.level-1]); if(g){ g.position.set(p.x,topY(p.x,p.z),p.z); g.rotation.y=rr(0,6.28); scene.add(g); p.g=g; }
+  const g=bldClone('orc_'+c.model+p.level, c.H[p.level-1]); if(g){ g.position.set(p.x,topY(p.x,p.z),p.z); g.rotation.y=rr(0,6.28); scene.add(g); p.g=g; }
   const hp=BLD_HP[p.level-1]; p.struct={x:p.x,z:p.z,px:p.x,pz:p.z,alive:true,hp,max:hp,big:3.5,hitT:0,g,bar:makeBar(0xff6b5a),kind:'bld',plot:p}; eStructs.push(p.struct);
   if(p.cat==='defense'){ p.dmg=c.dmg[p.level-1]; p.range=c.range[p.level-1]; p.rof=c.rof[p.level-1]; }
   if(p.cat==='army'){ p.every=c.every[p.level-1]; p.cap=c.cap[p.level-1]; }
