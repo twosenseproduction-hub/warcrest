@@ -158,7 +158,8 @@ function build(key){
   // map KayKit clip names onto idle/run/attack/block. Handles both the clean names (Idle, Walking_A)
   // and the Rig-suffixed merged names (Idle_A_Rig_Medium.001). Patterns are tried in priority order.
   const alias={ idle:[/^idle$/i,/^idle_a/i,/unarmed_idle/i,/idle/i],
-                run:[/^running_a/i,/^walking_a/i,/^walk$/i,/running/i,/walking/i,/walk/i,/^run$/i],
+                walk:[/^walking_a/i,/^walk$/i,/walking/i,/walk/i],
+                run:[/^running_a/i,/^run$/i,/running/i,/\brun/i],
                 attack:[/1h_melee_attack_chop/i,/melee_attack/i,/^attack/i,/smash/i,/slam/i,/throw/i,/swipe/i,/bite/i,/spit/i,/gore/i],
                 block:[/^blocking$/i,/^block$/i,/block/i] };
   const _keys=Object.keys(act);
@@ -188,7 +189,7 @@ function setAnim(want){ if(!cur||!cur.act[want])return; for(const k in cur.act){
 // ---- UI ----
 const unitsEl=document.getElementById('units'), animsEl=document.getElementById('anims'), propsEl=document.getElementById('props');
 RIG_SPECS.forEach(([k])=>{ const b=document.createElement('div'); b.className='u'; b.textContent=LABEL[k]||k; b.dataset.k=k; b.onclick=()=>{ [...unitsEl.children].forEach(c=>c.classList.remove('on')); b.classList.add('on'); build(k); }; unitsEl.appendChild(b); });
-function buildAnimChips(){ animsEl.innerHTML=''; if(!cur)return; ['idle','run','attack','block'].forEach(a=>{ if(!cur.act[a])return; const c=document.createElement('div'); c.className='chip'+(cur.anim===a?' on':''); c.textContent=a; c.onclick=()=>setAnim(a); animsEl.appendChild(c); }); }
+function buildAnimChips(){ animsEl.innerHTML=''; if(!cur)return; ['idle','walk','run','attack','block'].forEach(a=>{ if(!cur.act[a])return; const c=document.createElement('div'); c.className='chip'+(cur.anim===a?' on':''); c.textContent=a; c.onclick=()=>setAnim(a); animsEl.appendChild(c); }); }
 function buildPropChips(){ propsEl.innerHTML=''; if(!cur||cur.props.length<2)return; cur.props.forEach((p,i)=>{ const c=document.createElement('div'); c.className='chip'+(cur.pi===i?' on':''); c.textContent=p.file.split('_')[0]; c.onclick=()=>selectProp(i); propsEl.appendChild(c); }); }
 const S={px:'px',py:'py',pz:'pz',rx:'rx',ry:'ry',rz:'rz',sc:'sc'};
 function selectProp(i){ if(!cur||!cur.props[i])return; cur.pi=i; buildPropChips(); const p=cur.props[i], r=p.ref;
