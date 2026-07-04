@@ -1164,7 +1164,7 @@ function puff(x,y,z,col,r,op){ const m=new THREE.Mesh(new THREE.SphereGeometry(r
   m.position.set(x,y,z); scene.add(m); let a=0;(function an(){ a+=0.09; m.scale.setScalar(Math.max(0.01,1-a*0.7)); m.material.opacity=Math.max(0,op-a*op*1.3); if(a<1)requestAnimationFrame(an); else scene.remove(m); })(); }
 // ---------- juice: screen shake, floating damage numbers, squash/impact, shockwaves ----------
 let shakeAmt=0, dmgLayer=null, dmgCount=0; const _pv=new THREE.Vector3();
-function addShake(a){ shakeAmt=Math.min(3.4, Math.max(shakeAmt, a)); }
+function addShake(a){ shakeAmt=Math.min(1.6, Math.max(shakeAmt, a*0.45)); }   // global shake damped ~55% + lower cap
 function toScreen(x,y,z){ _pv.set(x,y,z).project(cam); return {x:(_pv.x*0.5+0.5)*innerWidth, y:(-_pv.y*0.5+0.5)*innerHeight, vis:_pv.z>-1&&_pv.z<1}; }
 function popDmg(wx,wy,wz,txt,cls){ if(!dmgLayer||dmgCount>44)return; const s=toScreen(wx,wy,wz);
   if(!s.vis||s.x<-30||s.x>innerWidth+30||s.y<-30||s.y>innerHeight+30)return;
