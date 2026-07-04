@@ -1004,15 +1004,17 @@ function makeChar(key){ const src=RIGS[key]; if(!src)return null;
   const b2=new THREE.Box3().setFromObject(inner); const c2=b2.getCenter(new THREE.Vector3());
   inner.position.y-=b2.min.y/outer.scale.x; inner.position.x-=c2.x/outer.scale.x; inner.position.z-=c2.z/outer.scale.x;
   // hand weapons — parent each prop to its hand bone (rides the animation), painted with the char atlas.
-  // Some orc rigs carry stray duplicate skeletons, so name matching alone (or the first SkinnedMesh's
-  // skeleton — the grunt/shaman regression) can land on an UNANIMATED clone bone and the weapon floats.
-  // Ground truth is the clips: prefer the candidate bone the animation tracks actually drive,
-  // then exact name, then prefix ('hand_r' → 'hand_r_2').
-  const animNames=new Set(); src.anims.forEach(a=>a.tracks.forEach(t=>animNames.add(t.name.split('.')[0])));
-  const findBone=name=>{ const cands=[]; inner.traverse(o=>{ if(o.isBone&&(o.name===name||o.name.indexOf(name)===0)) cands.push(o); });
-    cands.sort((a,b)=>{ const aa=animNames.has(a.name)?0:1, ba=animNames.has(b.name)?0:1; if(aa!==ba)return aa-ba;
-      return (a.name===name?0:1)-(b.name===name?0:1); });
-    return cands[0]||null; };
+  // Some orc rigs ship 5-6 DUPLICATE skeletons (a Character-Studio biped overlaid with a second rig):
+  // the clip drives the base-named bone, but the visible arm mesh is skinned to a *different* duplicate
+  // (Character1_RightHand_2, hand_r_2, …). Binding the weapon by name lands on the clip's bone, which
+  // drifts from the bone that actually moves the rendered hand — so the weapon floats and no offset fixes
+  // it. Ground truth is the mesh: bind to the hand bone belonging to the skeleton of the largest skinned
+  // mesh (the body), so the weapon rides the exact deform bone the visible hand follows.
+  let bodySkel=null,_bv=-1; inner.traverse(o=>{ if(o.isSkinnedMesh&&o.skeleton){ const n=o.geometry.attributes.position.count; if(n>_bv){_bv=n;bodySkel=o.skeleton;} } });
+  const pickFrom=(bones,name)=> bones.find(bn=>bn.name===name) || bones.find(bn=>bn.name.indexOf(name)===0) || null;
+  const findBone=name=>{ if(bodySkel){ const b=pickFrom(bodySkel.bones,name); if(b)return b; }
+    const cands=[]; inner.traverse(o=>{ if(o.isBone&&(o.name===name||o.name.indexOf(name)===0)) cands.push(o); });
+    return pickFrom(cands,name); };
   (WEAPONS[key]||[]).forEach(w=>{ if(!PROPS[w.file])return; const bone=findBone(w.bone);
     if(bone){ const prop=PROPS[w.file].clone(true), tx=TEXS[key];
       prop.traverse(o=>{ if(o.isMesh){ o.material=new THREE.MeshBasicMaterial({map:tx,side:THREE.DoubleSide}); o.frustumCulled=false; } });

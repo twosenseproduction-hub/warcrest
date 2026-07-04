@@ -70,16 +70,16 @@
 // ---- data mirrored from demos/thronefall-level.html (keep in sync) ----
 const CHAR_H={thoryn:4.8, queen:4.4, paladin:4.4, archer:3.6, priestess:3.8, warrior:3.9, chief:4.9, orcarcher:3.7, orcgrunt:3.7, orcwarrior:4.1, orcshaman:3.7};
 const WEAPONS={
-  queen:    [{file:'glaive_elf_queen', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
-  paladin:  [{file:'hammer_human_paladin', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
-  archer:   [{file:'bow_elf_archer',   bone:'hand_l', pos:[0,0,0], rot:[0,0,Math.PI/2], scl:1}],
-  priestess:[{file:'magic_ball',       bone:'hand_r', pos:[0,4,0], rot:[0,0,0],         scl:0.6}],
-  warrior:  [{file:'sword_elf_warrior', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1},
-             {file:'shield_elf_warrior',bone:'hand_l', pos:[0,0,0], rot:[0,Math.PI/2,0], scl:0.8}],
-  chief:    [{file:'axe_orc_chieftain', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
-  orcarcher:[{file:'bow_orc_archer',    bone:'hand_l', pos:[0,0,0], rot:[0,0,Math.PI/2], scl:1}],
+  queen:    [{file:'glaive_elf_queen', bone:'hand_r', pos:[-6.2,-1.25,-0.1], rot:[Math.PI/2,-1.326,0], scl:1}],
+  paladin:  [{file:'hammer_human_paladin', bone:'hand_r', pos:[-8.4,-2.6,0], rot:[Math.PI/2,1.379,0.035], scl:1}],
+  archer:   [{file:'bow_elf_archer',   bone:'hand_l', pos:[10,-3.55,0], rot:[-2.845,Math.PI/2,-1.518], scl:0.86}],
+  priestess:[{file:'magic_ball',       bone:'hand_r', pos:[-10,-10,6.9], rot:[0,0,0], scl:0.52}],
+  warrior:  [{file:'sword_elf_warrior', bone:'hand_r', pos:[-10,-2.55,0.3], rot:[Math.PI/2,2.705,Math.PI], scl:0.66},
+             {file:'shield_elf_warrior',bone:'hand_l', pos:[7.95,-3.7,0.45], rot:[1.292,3.019,0], scl:0.8}],
+  chief:    [{file:'axe_orc_chieftain', bone:'hand_r', pos:[-10,-2.15,2.1], rot:[1.501,1.641,-0.192], scl:1}],
+  orcarcher:[{file:'bow_orc_archer',    bone:'hand_l', pos:[6.4,-5,2.95], rot:[-2.164,1.71,-2.217], scl:0.76}],
   orcgrunt: [{file:'axe_orc_grunt',     bone:'Character1_RightHand', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
-  orcwarrior:[{file:'sword_orc_warrior',bone:'Character1_RightHand', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
+  orcwarrior:[{file:'sword_orc_warrior',bone:'Character1_RightHand', pos:[-10,-3.6,-2.8], rot:[0,0,-1.309], scl:0.66}],
   orcshaman:[{file:'staff_orc_shaman', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
 };
 const RIG_SPECS=[['thoryn','thoryn'],['queen','elf_queen'],['paladin','human_paladin'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior'],['chief','orc_chieftain'],['orcarcher','orc_archer'],['orcgrunt','orc_grunt'],['orcwarrior','orc_warrior'],['orcshaman','orc_shaman']];
@@ -131,10 +131,14 @@ function loadAll(){ return new Promise(res=>{
 
 // ---- character builder (mirrors makeChar; returns per-prop refs so we can live-edit) ----
 let cur=null; // {g,mixer,act,props:[{ref,def,bone}]}
-function findBone(inner,anims,name){ const set=new Set(); anims.forEach(a=>a.tracks.forEach(t=>set.add(t.name.split('.')[0])));
+// mirror the game's makeChar: bind to the hand bone of the LARGEST skinned mesh's skeleton,
+// so weapons ride the deform bone the visible hand actually follows (orc rigs ship duplicate
+// skeletons; a plain name search lands on a stray bone and the weapon floats).
+function findBone(inner,anims,name){ let skel=null,bv=-1; inner.traverse(o=>{ if(o.isSkinnedMesh&&o.skeleton){ const n=o.geometry.attributes.position.count; if(n>bv){bv=n;skel=o.skeleton;} } });
+  const pick=(bones)=> bones.find(b=>b.name===name) || bones.find(b=>b.name.indexOf(name)===0) || null;
+  if(skel){ const b=pick(skel.bones); if(b)return b; }
   const cands=[]; inner.traverse(o=>{ if(o.isBone&&(o.name===name||o.name.indexOf(name)===0))cands.push(o); });
-  cands.sort((a,b)=>{ const aa=set.has(a.name)?0:1, ba=set.has(b.name)?0:1; if(aa!==ba)return aa-ba; return (a.name===name?0:1)-(b.name===name?0:1); });
-  return cands[0]||null; }
+  return pick(cands); }
 function build(key){
   if(cur){ scene.remove(cur.g); cur=null; }
   const src=RIGS[key]; if(!src){ status.textContent='missing rig: '+key; return; }
