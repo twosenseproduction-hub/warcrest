@@ -145,8 +145,55 @@ function findBone(inner,anims,name){ let skel=null,bv=-1; inner.traverse(o=>{ if
   if(skel){ const b=pick(skel.bones); if(b)return b; }
   const cands=[]; inner.traverse(o=>{ if(o.isBone&&(o.name===name||o.name.indexOf(name)===0))cands.push(o); });
   return pick(cands); }
+// ---- procedural VFX: rising smoke, glowing eyes, green flame, floating crystals ----
+function radialTex(stops){ const c=document.createElement('canvas'); c.width=c.height=64; const g=c.getContext('2d');
+  const rg=g.createRadialGradient(32,32,0,32,32,32); stops.forEach(s=>rg.addColorStop(s[0],s[1])); g.fillStyle=rg; g.fillRect(0,0,64,64);
+  const t=new THREE.CanvasTexture(c); t.needsUpdate=true; return t; }
+const TEX_SMOKE=radialTex([[0,'rgba(210,210,214,0.85)'],[0.45,'rgba(150,150,158,0.5)'],[1,'rgba(120,120,128,0)']]);
+const TEX_GLOW =radialTex([[0,'rgba(255,255,255,1)'],[0.28,'rgba(255,255,255,0.85)'],[1,'rgba(255,255,255,0)']]);
+// per-unit effect config (colors + which effects); geometry anchored to the measured world box
+const VFX={
+  ashtreant:  {eyes:{color:0xffb544,size:0.055}, smoke:{color:0xc0bfb8,count:16,life:2.6,rise:0.6,anchors:[[0.42,0.5,0.05],[-0.42,0.5,0.05],[0.34,0.74,-0.1],[-0.34,0.74,-0.1],[0,0.66,-0.34]]}},
+  emberspitter:{eyes:{color:0xff8a24,size:0.07}, smoke:{color:0xb9b6ae,count:11,life:2.2,rise:0.62,anchors:[[0.3,0.55,0.0],[-0.3,0.55,0.0],[0,0.72,-0.28]]}},
+  revenant:   {eyes:{color:0x9dff4a,size:0.05}, flame:{color:0x7dff2e,count:9,life:0.85,rise:1.35}, smoke:{color:0x8f8f96,count:9,life:2.4,rise:0.8,anchors:[[0,1.02,0.0],[0.18,0.98,-0.05],[-0.18,0.98,-0.05]]}, crystals:{color:0x8dff3a,count:2}},
+};
+function makeVfx(key,wb,headY){ const cfg=VFX[key]; if(!cfg)return null;
+  const grp=new THREE.Group(); scene.add(grp);
+  const sz=wb.getSize(new THREE.Vector3()), cx=(wb.min.x+wb.max.x)/2, cz=(wb.min.z+wb.max.z)/2;
+  const wx=sz.x, hy=sz.y, dz=sz.z, frontZ=wb.max.z; const smokeP=[], flameP=[], eyes=[], crystals=[];
+  function spr(tex,color,blend){ const m=new THREE.SpriteMaterial({map:tex,color:color,transparent:true,depthWrite:false,opacity:0,blending:blend}); const s=new THREE.Sprite(m); grp.add(s); return s; }
+  // smoke
+  if(cfg.smoke){ for(let i=0;i<cfg.smoke.count;i++){ const s=spr(TEX_SMOKE,cfg.smoke.color,THREE.NormalBlending); smokeP.push({s,life:1e9,max:1,x:0,y:0,z:0,vx:0,vy:0,vz:0,sz0:1}); } }
+  // green flame (additive) rising off the head
+  if(cfg.flame){ for(let i=0;i<cfg.flame.count;i++){ const s=spr(TEX_GLOW,cfg.flame.color,THREE.AdditiveBlending); flameP.push({s,life:Math.random(),max:1,x:0,y:0,z:0,sz0:1}); } }
+  // glowing eyes (additive), static at head front
+  if(cfg.eyes){ const s0=cfg.eyes.size*hy; for(const sgn of [-1,1]){ const s=spr(TEX_GLOW,cfg.eyes.color,THREE.AdditiveBlending);
+      s.position.set(cx+sgn*wx*0.13, headY+hy*0.015, frontZ*0.62); s.scale.setScalar(s0); s.material.opacity=0.95; eyes.push(s); } }
+  // floating crystals (revenant) — angular green gems + glow halo
+  if(cfg.crystals){ const geo=new THREE.OctahedronGeometry(1); for(const sgn of [-1,1]){
+      const mat=new THREE.MeshBasicMaterial({color:cfg.crystals.color}); const m=new THREE.Mesh(geo,mat);
+      const r=hy*0.11; m.scale.set(r*0.55,r,r*0.55); const halo=spr(TEX_GLOW,cfg.crystals.color,THREE.AdditiveBlending); halo.scale.setScalar(r*3.2); halo.material.opacity=0.7;
+      const base=new THREE.Vector3(cx+sgn*wx*0.72, hy*0.6, cz); m.position.copy(base); halo.position.copy(base);
+      grp.add(m); crystals.push({m,halo,base,ph:sgn>0?0:Math.PI}); } }
+  function reseed(p,c){ p.life=0; p.max=c.life*(0.7+Math.random()*0.6);
+    const a=c.anchors?c.anchors[(Math.random()*c.anchors.length)|0]:[0,0,0];
+    p.x=cx+a[0]*wx+(Math.random()-0.5)*0.15*wx; p.y=a[1]*hy; p.z=cz+a[2]*dz+(Math.random()-0.5)*0.15*dz;
+    p.vx=(Math.random()-0.5)*0.12*wx; p.vy=c.rise*hy*(0.7+Math.random()*0.6); p.vz=(Math.random()-0.5)*0.12*dz;
+    p.sz0=(c===cfg.flame? hy*0.09 : hy*0.16)*(0.7+Math.random()*0.6); }
+  function upd(dt,t){
+    for(const p of smokeP){ p.life+=dt; if(p.life>=p.max)reseed(p,cfg.smoke); p.x+=p.vx*dt; p.y+=p.vy*dt; p.z+=p.vz*dt; p.vy*=(1-0.35*dt);
+      const f=p.life/p.max; p.s.position.set(p.x,p.y,p.z); p.s.material.opacity=Math.sin(Math.min(1,f)*Math.PI)*0.6; const s=p.sz0*(0.55+f*1.2); p.s.scale.set(s,s,s); }
+    if(cfg.flame){ const fh=headY+hy*0.13; for(const p of flameP){ p.life+=dt; if(p.life>=p.max){ p.life=0; p.max=cfg.flame.life*(0.6+Math.random()*0.8);
+        p.x=cx+(Math.random()-0.5)*wx*0.28; p.y=fh; p.z=cz+(Math.random()-0.5)*dz*0.16; p.sz0=hy*0.17*(0.7+Math.random()*0.7); }
+      const f=p.life/p.max; p.s.position.set(p.x+Math.sin(t*8+p.max)*wx*0.03, p.y+f*cfg.flame.rise*hy, p.z);
+      p.s.material.opacity=(1-f)*0.9; const s=p.sz0*(1.15-f*0.7); p.s.scale.set(s,s,s); } }
+    for(const e of eyes){ e.material.opacity=0.75+0.25*Math.sin(t*5); }
+    for(const c of crystals){ const y=c.base.y+Math.sin(t*1.6+c.ph)*hy*0.05; c.m.position.y=y; c.halo.position.y=y; c.m.rotation.y=t*0.9; c.m.rotation.x=t*0.5; c.halo.material.opacity=0.55+0.2*Math.sin(t*3+c.ph); }
+  }
+  return {group:grp,update:upd};
+}
 function build(key){
-  if(cur){ scene.remove(cur.g); cur=null; }
+  if(cur){ scene.remove(cur.g); if(cur.vfx)scene.remove(cur.vfx.group); cur=null; }
   const src=RIGS[key]; if(!src){ status.textContent='missing rig: '+key; return; }
   const inner=THREE.SkeletonUtils.clone(src.scene), outer=new THREE.Group(); inner.rotation.y=0;
   inner.traverse(nd=>{ if(nd.isMesh){ nd.frustumCulled=false; const mm=nd.material; if(mm&&mm.map){ mm.map.magFilter=THREE.NearestFilter; mm.map.minFilter=THREE.NearestFilter; mm.map.generateMipmaps=false; } } });
@@ -178,7 +225,14 @@ function build(key){
     prop.position.fromArray(def.pos); prop.rotation.set(def.rot[0],def.rot[1],def.rot[2]); prop.scale.setScalar(def.scl); bone.add(prop);
     props.push({ref:prop,def,file:w.file,bone:w.bone,boneReal:bone.name}); });
   scene.add(outer);
-  cur={g:outer,mixer,act,key,props,anim:idle?(act.idle?'idle':Object.keys(act)[0]):null,pi:0};
+  // procedural VFX layer (smoke / glowing eyes / green flame / floating crystals) in world space
+  outer.updateMatrixWorld(true);
+  let vfx=null;
+  if(VFX[key]){ const wb=new THREE.Box3().setFromObject(inner);
+    const hb=findBone(inner,src.anims,'head'); const hw=new THREE.Vector3();
+    if(hb){ hb.getWorldPosition(hw); } else { hw.set(0,(wb.min.y+wb.max.y)*0.5+ (wb.max.y-wb.min.y)*0.3,0); }
+    vfx=makeVfx(key,wb,hw.y); }
+  cur={g:outer,mixer,act,key,props,vfx,anim:idle?(act.idle?'idle':Object.keys(act)[0]):null,pi:0};
   // frame camera to unit height
   const th=CHAR_H[key]||4; orbit.ty=th*0.5; orbit.r=th*2.2; applyCam();
   buildAnimChips(); buildPropChips(); selectProp(0);
@@ -218,7 +272,7 @@ document.getElementById('dumpall').onclick=()=>{ const all=RIG_SPECS.map(([k])=>
 
 // ---- loop ----
 let last=performance.now();
-function loop(t){ requestAnimationFrame(loop); const dt=(t-last)/1000; last=t; if(cur&&cur.mixer)cur.mixer.update(dt); renderer.render(scene,cam); }
+function loop(t){ requestAnimationFrame(loop); const dt=(t-last)/1000; last=t; if(cur&&cur.mixer)cur.mixer.update(dt); if(cur&&cur.vfx)cur.vfx.update(Math.min(0.05,dt),t/1000); renderer.render(scene,cam); }
 resize(); applyCam(); loop(performance.now());
 loadAll().then(()=>{ status.textContent='ready — pick a unit'; const first=unitsEl.querySelector('[data-k="orcgrunt"]')||unitsEl.firstChild; first.click(); });
 window.__ready=()=>!!cur;
