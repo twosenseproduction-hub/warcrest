@@ -159,16 +159,49 @@ function flameTex(){ const c=document.createElement('canvas'); c.width=c.height=
   lg.addColorStop(0,'rgba(255,255,255,0.95)'); lg.addColorStop(0.3,'rgba(255,255,255,0.9)'); lg.addColorStop(0.7,'rgba(255,255,255,0.45)'); lg.addColorStop(1,'rgba(255,255,255,0)');
   g.fillStyle=lg; g.fill(); const t=new THREE.CanvasTexture(c); t.needsUpdate=true; return t; }
 const TEX_FLAME=flameTex();
+// seamless tiling fBm noise (for the shader fire ring) — value-noise octaves on a wrapped grid
+function tileNoise(N){ const c=document.createElement('canvas'); c.width=c.height=N; const g=c.getContext('2d'); const im=g.createImageData(N,N), d=im.data;
+  function oct(cells){ const gr=[]; for(let y=0;y<cells;y++){gr[y]=[];for(let x=0;x<cells;x++)gr[y][x]=Math.random();}
+    return (fx,fy)=>{ const gx=fx*cells,gy=fy*cells,x0=Math.floor(gx)%cells,y0=Math.floor(gy)%cells,x1=(x0+1)%cells,y1=(y0+1)%cells;
+      const tx=gx-Math.floor(gx),ty=gy-Math.floor(gy),sx=tx*tx*(3-2*tx),sy=ty*ty*(3-2*ty);
+      return (gr[y0][x0]*(1-sx)+gr[y0][x1]*sx)*(1-sy)+(gr[y1][x0]*(1-sx)+gr[y1][x1]*sx)*sy; }; }
+  const o1=oct(4),o2=oct(8),o3=oct(16);
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){ const fx=x/N,fy=y/N; let v=o1(fx,fy)*0.5+o2(fx,fy)*0.35+o3(fx,fy)*0.15; v=Math.pow(v,1.15);
+    const i=(y*N+x)*4, c8=Math.max(0,Math.min(255,v*255)); d[i]=d[i+1]=d[i+2]=c8; d[i+3]=255; }
+  g.putImageData(im,0,0); const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.needsUpdate=true; return t; }
+const TEX_FIRENOISE=tileNoise(128);
+// shader fire (Leelu-style static fire on a hollow cylinder): scrolling noise -> vertical
+// brightness + top-fade subtract -> clamp -> fire color ramp -> additive alpha; verts wobble along normals
+function fireRingMaterial(fr,worldDisp){ return new THREE.ShaderMaterial({
+  transparent:true, depthWrite:false, side:THREE.DoubleSide, blending:THREE.AdditiveBlending,
+  uniforms:{ uTime:{value:0}, uNoise:{value:TEX_FIRENOISE},
+    uSpeed:{value:new THREE.Vector2(fr.sx!=null?fr.sx:0.06, fr.sy!=null?fr.sy:-0.6)},
+    uScale:{value:new THREE.Vector2(fr.scx||3.0, fr.scy||2.2)},
+    uDispSpeed:{value:0.6}, uDispScale:{value:2.2}, uDispInt:{value:worldDisp},
+    uColHot:{value:new THREE.Color(fr.hot||0xffe28c)}, uColMid:{value:new THREE.Color(fr.mid||0xff6a1e)}, uColTip:{value:new THREE.Color(fr.tip||0x8c1c00)},
+    uPower:{value:fr.power||1.3} },
+  vertexShader:`uniform float uTime,uDispSpeed,uDispScale,uDispInt; uniform sampler2D uNoise; varying vec2 vUv;
+    void main(){ vUv=uv; vec2 duv=uv*uDispScale+vec2(0.0,uTime*uDispSpeed); float d=texture2D(uNoise,duv).r-0.5;
+      vec3 p=position+normal*d*uDispInt*(0.3+uv.y); gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0); }`,
+  fragmentShader:`uniform float uTime,uPower; uniform sampler2D uNoise; uniform vec2 uSpeed,uScale; uniform vec3 uColHot,uColMid,uColTip; varying vec2 vUv;
+    void main(){ vec2 uv1=vUv*uScale+uSpeed*uTime; vec2 uv2=vUv*uScale*1.7+uSpeed*uTime*1.4+vec2(0.35,0.1);
+      float n=texture2D(uNoise,uv1).r*0.6+texture2D(uNoise,uv2).r*0.4;
+      float v=n*1.4+(1.0-vUv.y)*0.35-0.26; v-=smoothstep(0.2,0.98,vUv.y); v-=smoothstep(0.08,0.0,vUv.y)*0.5;
+      float a=pow(clamp(v,0.0,1.0),uPower); if(a<0.02) discard;
+      float h=clamp(vUv.y*1.1+(1.0-n)*0.2,0.0,1.0);
+      vec3 col=mix(uColHot,uColMid,smoothstep(0.0,0.5,h)); col=mix(col,uColTip,smoothstep(0.5,1.0,h));
+      gl_FragColor=vec4(col*1.5,a); }` }); }
 // per-unit effect config (colors + which effects); geometry anchored to the measured world box
 const VFX={
   ashtreant:  {eyes:{color:0xffb544,size:0.05,sep:0.085,up:0.11,fwd:0.13}, smoke:{color:0xc0bfb8,count:16,life:2.6,rise:0.6,anchors:[[0.42,0.5,0.05],[-0.42,0.5,0.05],[0.34,0.74,-0.1],[-0.34,0.74,-0.1],[0,0.66,-0.34]]}},
   emberspitter:{eyes:{color:0xff8a24,size:0.06,sep:0.1,up:0.06,fwd:0.16}, smoke:{color:0xb9b6ae,count:11,life:2.2,rise:0.62,anchors:[[0.3,0.55,0.0],[-0.3,0.55,0.0],[0,0.72,-0.28]]}},
   revenant:   {eyes:{color:0x9dff4a,size:0.045,sep:0.09,up:0.13,fwd:0.13}, flame:{color:0x62ff20,core:0xe8ff96,count:14,life:0.5,rise:0.5}, smoke:{color:0x8f8f96,count:7,life:2.2,rise:0.7,anchors:[[0,1.12,0.0],[0.14,1.06,-0.05],[-0.14,1.06,-0.05]]}, crystals:{color:0x9dff4a,count:2}},
+  moltenwisp: {firering:{radius:0.5,height:0.72,y:0.0,disp:0.16,scx:6.0,scy:1.5,sx:0.08,sy:-0.8,power:1.6,hot:0xffe28c,mid:0xff6a1e,tip:0x8c1c00}},
 };
 function makeVfx(key,wb,head){ const cfg=VFX[key]; if(!cfg)return null;
   const grp=new THREE.Group(); scene.add(grp);
   const sz=wb.getSize(new THREE.Vector3()), cx=(wb.min.x+wb.max.x)/2, cz=(wb.min.z+wb.max.z)/2;
-  const wx=sz.x, hy=sz.y, dz=sz.z, frontZ=wb.max.z; const smokeP=[], flameP=[], eyes=[], crystals=[];
+  const wx=sz.x, hy=sz.y, dz=sz.z, frontZ=wb.max.z; const smokeP=[], flameP=[], eyes=[], crystals=[], rings=[];
   const _hp=new THREE.Vector3(); const headPos=()=>{ if(head){ head.getWorldPosition(_hp); return _hp; } _hp.set(cx,(wb.min.y+wb.max.y)*0.5+hy*0.3,frontZ*0.5); return _hp; };
   const headY=headPos().y;
   function spr(tex,color,blend){ const m=new THREE.SpriteMaterial({map:tex,color:color,transparent:true,depthWrite:false,opacity:0,blending:blend}); const s=new THREE.Sprite(m); grp.add(s); return s; }
@@ -185,6 +218,10 @@ function makeVfx(key,wb,head){ const cfg=VFX[key]; if(!cfg)return null;
       const r=hy*0.07; m.scale.set(r*0.68,r,r*0.68); const halo=spr(TEX_GLOW,cfg.crystals.color,THREE.AdditiveBlending); halo.scale.setScalar(r*2.0); halo.material.opacity=0.42;
       const base=new THREE.Vector3(cx+sgn*wx*0.62, hy*0.72, cz); m.position.copy(base); halo.position.copy(base);
       grp.add(m); crystals.push({m,halo,base,ph:sgn>0?0:Math.PI}); } }
+  // shader fire ring under the unit (e.g. the floating Molten Wisp)
+  if(cfg.firering){ const fr=cfg.firering; const R=Math.max(wx,dz)*(fr.radius||0.6), H=hy*(fr.height||0.4);
+    const geo=new THREE.CylinderGeometry(R*0.82,R,H,56,14,true); const mat=fireRingMaterial(fr,R*(fr.disp||0.14));
+    const m=new THREE.Mesh(geo,mat); m.frustumCulled=false; m.position.set(cx, wb.min.y+H*0.5+(fr.y||0)*hy, cz); grp.add(m); rings.push(mat); }
   function reseed(p,c){ p.life=0; p.max=c.life*(0.7+Math.random()*0.6);
     const a=c.anchors?c.anchors[(Math.random()*c.anchors.length)|0]:[0,0,0];
     p.x=cx+a[0]*wx+(Math.random()-0.5)*0.15*wx; p.y=a[1]*hy; p.z=cz+a[2]*dz+(Math.random()-0.5)*0.15*dz;
@@ -200,6 +237,7 @@ function makeVfx(key,wb,head){ const cfg=VFX[key]; if(!cfg)return null;
     if(eyes.length){ const hp=headPos(), o=cfg.eyes, sep=(o.sep||0.1)*hy, up=(o.up||0.12)*hy, fwd=(o.fwd||0.15)*hy;
       for(const e of eyes){ e.s.position.set(hp.x+e.sgn*sep, hp.y+up, hp.z+fwd); e.s.material.opacity=0.75+0.25*Math.sin(t*5); } }
     for(const c of crystals){ const y=c.base.y+Math.sin(t*1.6+c.ph)*hy*0.05; c.m.position.y=y; c.halo.position.y=y; c.m.rotation.y=t*0.9; c.m.rotation.x=t*0.5; c.halo.material.opacity=0.55+0.2*Math.sin(t*3+c.ph); }
+    for(const m of rings){ m.uniforms.uTime.value=t; }
   }
   return {group:grp,update:upd};
 }
