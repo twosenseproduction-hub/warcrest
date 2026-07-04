@@ -1107,7 +1107,9 @@ function fanOfKnives(){ if(!hero||!hero.alive||hero.aCd>0||gameOver)return; hero
   const R=15; for(const e of enemies){ if(!e.alive)continue; if(Math.hypot(e.px-hero.px,e.pz-hero.pz)<R) damage(e,44,true); }
   const N=16; for(let i=0;i<N;i++){ const a=i/N*6.28; bladeSpin(hero.px,hero.pz, hero.px+Math.sin(a)*R, hero.pz+Math.cos(a)*R, 0xbfe9ff, 0.34); }
   shockwave(hero.px,hero.pz,0xcdeeff,15); addShake(1.5); }
-function shadowStrike(en){ if(!hero||!hero.alive||hero.spellCd>0||!en||!en.alive)return false; hero.spellCd=8; spellArmed=false;   // poisoned glaive: burst + DoT
+function shadowStrike(en){ if(!hero||!hero.alive||hero.spellCd>0||!en||!en.alive)return false;
+  if(Math.hypot(en.px-hero.px,en.pz-hero.pz)>ABIL_RANGE)return false;   // must be within cast range of the hero
+  hero.spellCd=8; spellArmed=false;   // poisoned glaive: burst + DoT
   if(hero.rigged){ hero.__atkClip=pickAtkClip(hero); hero.__atkT=0.45; }
   faceTo(hero, en.px-hero.px, en.pz-hero.pz); shootFx(hero.px,hero.pz,en.px,en.pz,'shadow');
   damage(en,48,true); en.poison={t:4, dps:11}; en.__pt=0.5; addShake(0.5); return true; }
@@ -1115,6 +1117,7 @@ function focusFire(en){ allies.forEach(e=>{ if(e.alive){ e.forcedTarget=en; e.ta
   rallyMarker.material.color.setHex(0xff6a5a); rallyMarker.position.set(en.px,topY(en.px,en.pz)+0.3,en.pz); rallyMarker.visible=true; clearTimeout(rallyMarker.__to); rallyMarker.__to=setTimeout(()=>rallyMarker.visible=false,900); }
 // ---------- RTS selection + context orders (Siege-Up style) ----------
 let boxMode=false, boxBtn=null, selPanelEl=null, respawnEl=null; const HERO_RESPAWN=8;
+const ABIL_RANGE=26;   // hard cap on targeted-ability reach — inside hero sight (30) so nothing casts/lands from the fog
 function nearestAllyTo(x,z,maxd){ let b=null,bd=maxd*maxd;
   for(const e of [hero,...allies]){ if(!e||!e.alive)continue; const dd=(e.px-x)**2+(e.pz-z)**2; if(dd<bd){bd=dd;b=e;} } return b; }
 function clearSel(){ selected.clear(); updateSelPanel(); }
@@ -1331,7 +1334,7 @@ function bossTick(b,dt){ if(!b.alive||gameOver)return; b.hurlCd-=dt; b.slamCd-=d
   const t=b.target||nearest(b.px,b.pz,pFoes()).t; if(!t){ if(b.roarCd<=0){ b.roarCd=13; warRoar(b); } return; }
   const d=Math.hypot(t.px-b.px,t.pz-b.pz);
   if(b.slamCd<=0 && d<14){ b.slamCd=9; seismicSlam(b); return; }
-  if(b.hurlCd<=0 && d>9 && d<72){ b.hurlCd=7; boulderHurl(b,t); return; }
+  if(b.hurlCd<=0 && d>9 && d<ABIL_RANGE){ b.hurlCd=7; boulderHurl(b,t); return; }   // only lob at foes it can actually see
   if(b.roarCd<=0){ b.roarCd=13; warRoar(b); } }
 function updateOrderMarkers(){
   const ord=allies.filter(a=>a.alive&&a.order&&!a.forcedTarget), clusters=[];
