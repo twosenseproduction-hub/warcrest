@@ -472,7 +472,7 @@ const CAT={
   defense:{ label:'Tower',      model:'tower',   H:[8,9.5,11],    cost:[60,100,160], dmg:[18,32,52], range:[22,26,30], rof:[1.15,0.95,0.8] },
 };
 // WC3-style supply: the Throne seeds a base cap, each House raises it; units cost supply and gate training
-const BASE_SUPPLY=12, UNIT_SUP={warrior:3,archer:2,cleric:3,grunt:2,shaman:3};
+const BASE_SUPPLY=12, UNIT_SUP={warrior:3,archer:2,cleric:3,grunt:2,shaman:3,drake:6};
 let supplyCap=BASE_SUPPLY, supplyUsed=0;
 // ===== Central combat balance table — every spawn path (player train, enemy AI, waves,
 // starting warband) reads its base stats from here, so tuning one number tunes the whole
@@ -485,6 +485,7 @@ const UBAL={
   cleric: {hp:62,  dmg:7,  range:7,   atk:1.3},   // support/heal, light dmg
   grunt:  {hp:92,  dmg:11, range:3.4, atk:1.0},   // enemy cheap chaff, ~11 dps
   shaman: {hp:60,  dmg:13, range:10,  atk:1.7},   // enemy caster, long-range magic
+  drake:  {hp:520, dmg:34, range:5,   atk:1.1},   // elite winged bruiser — expensive, tanky, hits hard
 };
 const HERO_STAT={hp:320, dmg:22, range:3.6, atk:0.55, spd:19};   // heroes feel powerful but killable
 const BOSS_STAT={hp:900, dmg:30, range:4.6, atk:1.2,  spd:11};   // chieftain: army-buster, abilities carry threat
@@ -494,6 +495,7 @@ const TRAIN=[
   {kind:'warrior', rig:'warrior',  icon:'warrior', label:'Warrior',   gold:65, sup:3, dur:7,  minLvl:1},
   {kind:'archer',  rig:'archer',   icon:'archer',  label:'Archer',    gold:55, sup:2, dur:6,  minLvl:1},
   {kind:'cleric',  rig:'priestess',icon:'cleric',  label:'Priestess', gold:95, sup:3, dur:10, minLvl:2},
+  {kind:'drake',   rig:'drake',    icon:'drake',   label:'Drake',     gold:240,sup:6, dur:18, minLvl:3},
 ];
 const CORE_H=[9,10.5,12], CORE_HP=[1600,2400,3400], CORE_UP=[0,300,480];
 const UP_WOOD=[0,15,30], CORE_WOOD=[0,40,70];   // wood required to upgrade a plot / expand the throne
@@ -531,7 +533,7 @@ function startBuild(p,cat){ if(p.cat||p.locked)return; if(p.slot==='turret'&&cat
 function queueUnit(p,def){ if(!p||p.cat!=='army')return; if(gold<def.gold)return; if(supplyUsed+def.sup>supplyCap)return;   // no gold / no pop room
   gold-=def.gold; sfx('build'); if(!p.queue)p.queue=[]; p.queue.push({kind:def.kind, rig:def.rig, t:def.dur, dur:def.dur, sup:def.sup}); recomputeSupply(); openPlotMenu(p); }
 function spawnTrained(p,q){ const b=UBAL[q.kind]||UBAL.warrior;
-  const col = q.kind==='cleric'?C.cleric : q.kind==='archer'?C.teamBlue : C.teamBlueD;
+  const col = q.kind==='cleric'?C.cleric : q.kind==='archer'?C.teamBlue : q.kind==='drake'?0x9b6bd6 : C.teamBlueD;
   const e=mkFighter(col,1.0,'ally',{hp:b.hp,dmg:b.dmg,range:b.range,atkEvery:b.atk,spd:ALLY_SPD});
   e.idx=allies.length; e.kind=q.kind; e.healCd=0; e.smiteCd=0; riggize(e,q.rig||q.kind); setP(e,p.x+rr(-2,2),p.z+rr(3,5)); allies.push(e); }
 function upgradePlot(p){ if(!p.cat||p.level>=3)return; const cost=CAT[p.cat].cost[p.level], wcost=UP_WOOD[p.level];   // upgrades cost gold + wood
@@ -700,6 +702,7 @@ const ICON={
   shield:'<path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M9.2 12l2 2 3.6-4"/>',
   hold:'<rect x="6.5" y="5.5" width="3.6" height="13" rx="1.2"/><rect x="13.9" y="5.5" width="3.6" height="13" rx="1.2"/>',
   amove:'<circle cx="12" cy="12" r="7"/><path d="M12 2.5v3.2M12 18.3v3.2M2.5 12h3.2M18.3 12h3.2"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/>',
+  drake:'<path d="M12 4c1.6 1.4 1.6 3.6 0 5-1.6-1.4-1.6-3.6 0-5z"/><path d="M12 9c-2.5 0-4.5 1.5-4.5 4 0 2 1.2 4 4.5 6 3.3-2 4.5-4 4.5-6 0-2.5-2-4-4.5-4z"/><path d="M7.5 11L3 8l1.5 5 3 1M16.5 11L21 8l-1.5 5-3 1"/>',
 };
 function ic(n){ const p=ICON[n]; return p?('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+p+'</svg>'):''; }
 const catIcon={economy:'house',mine:'mine',lumber:'lumber',army:'barracks',defense:'tower'}, catName={economy:'House',mine:'Gold Mine',lumber:'Lumber Mill',army:'Barracks',defense:'Tower'};
@@ -933,22 +936,22 @@ function faceTo(e,dx,dz){ if(dx||dz) e.face=Math.atan2(dx,dz); }
 // Each GLB packs the mesh once + all its clips; the clips are authored on the Bitgem
 // skeleton so they play with no retarget. Textures are embedded (palette atlas, UVs
 // pre-flipped) — we just force NearestFilter so swatches sample solid, not the black gaps.
-const RIGS={}, PROPS={}, TEXS={}; const CHAR_H={thoryn:4.8, queen:4.4, paladin:4.4, archer:3.6, priestess:3.8, warrior:3.9, chief:4.9, orcarcher:3.7, orcgrunt:3.7, orcwarrior:4.1, orcshaman:3.7};   // world heights (chief = boss, imposing)
+const RIGS={}, PROPS={}, TEXS={}; const CHAR_H={thoryn:4.8, queen:4.4, paladin:4.4, archer:3.6, priestess:3.8, warrior:3.9, chief:4.9, orcarcher:3.7, orcgrunt:3.7, orcwarrior:4.1, orcshaman:3.7, drake:5.4};   // world heights (chief = boss, imposing; drake = winged elite)
 // hand weapons: each char has a list of props → { prop FBX, hand bone, local transform }
 const WEAPONS={
-  queen:    [{file:'glaive_elf_queen', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
-  paladin:  [{file:'hammer_human_paladin', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
-  archer:   [{file:'bow_elf_archer',   bone:'hand_l', pos:[0,0,0], rot:[0,0,Math.PI/2], scl:1}],
-  priestess:[{file:'magic_ball',       bone:'hand_r', pos:[0,4,0], rot:[0,0,0],         scl:0.6}],
-  warrior:  [{file:'sword_elf_warrior', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1},
-             {file:'shield_elf_warrior',bone:'hand_l', pos:[0,0,0], rot:[0,Math.PI/2,0], scl:0.8}],
-  chief:    [{file:'axe_orc_chieftain', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
-  orcarcher:[{file:'bow_orc_archer',    bone:'hand_l', pos:[0,0,0], rot:[0,0,Math.PI/2], scl:1}],
+  queen:    [{file:'glaive_elf_queen', bone:'hand_r', pos:[-6.2,-1.25,-0.1], rot:[Math.PI/2,-1.326,0], scl:1}],
+  paladin:  [{file:'hammer_human_paladin', bone:'hand_r', pos:[-8.4,-2.6,0], rot:[Math.PI/2,1.379,0.035], scl:1}],
+  archer:   [{file:'bow_elf_archer',   bone:'hand_l', pos:[10,-3.55,0], rot:[-2.845,Math.PI/2,-1.518], scl:0.86}],
+  priestess:[{file:'magic_ball',       bone:'hand_r', pos:[-10,-10,6.9], rot:[0,0,0], scl:0.52}],
+  warrior:  [{file:'sword_elf_warrior', bone:'hand_r', pos:[-10,-2.55,0.3], rot:[Math.PI/2,2.705,Math.PI], scl:0.66},
+             {file:'shield_elf_warrior',bone:'hand_l', pos:[7.95,-3.7,0.45], rot:[1.292,3.019,0], scl:0.8}],
+  chief:    [{file:'axe_orc_chieftain', bone:'hand_r', pos:[-10,-2.15,2.1], rot:[1.501,1.641,-0.192], scl:1}],
+  orcarcher:[{file:'bow_orc_archer',    bone:'hand_l', pos:[6.4,-5,2.95], rot:[-2.164,1.71,-2.217], scl:0.76}],
   orcgrunt: [{file:'axe_orc_grunt',     bone:'Character1_RightHand', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],   // this rig has no hand_r — the right hand is a Character-Studio bone
-  orcwarrior:[{file:'sword_orc_warrior',bone:'Character1_RightHand', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
+  orcwarrior:[{file:'sword_orc_warrior',bone:'Character1_RightHand', pos:[-10,-3.6,-2.8], rot:[0,0,-1.309], scl:0.66}],
   orcshaman:[{file:'staff_orc_shaman', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
 };
-const RIG_SPECS=[['thoryn','thoryn'],['queen','elf_queen'],['paladin','human_paladin'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior'],['chief','orc_chieftain'],['orcarcher','orc_archer'],['orcgrunt','orc_grunt'],['orcwarrior','orc_warrior'],['orcshaman','orc_shaman']];
+const RIG_SPECS=[['thoryn','thoryn'],['queen','elf_queen'],['paladin','human_paladin'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior'],['chief','orc_chieftain'],['orcarcher','orc_archer'],['orcgrunt','orc_grunt'],['orcwarrior','orc_warrior'],['orcshaman','orc_shaman'],['drake','dragon']];
 // Several FBX (the elf/orc bows AND every elf building) export as SkinnedMesh with a rigid little
 // armature. Cloned with a plain .clone(true) — not SkeletonUtils.clone — the skeleton binding
 // breaks: the renderer skins the mesh in the skeleton's own space, so it renders at ~world origin
@@ -968,7 +971,7 @@ function loadRig(){ return new Promise(res=>{
   let n=0, need=RIG_SPECS.length*2 + propFiles.length; const done=()=>{ if(++n>=need) res(); };   // body GLB + atlas per char, + each prop once
   RIG_SPECS.forEach(([k,f])=>{
     gl.load('/assets/models/'+f+'_anim.glb', g=>{
-      if(k==='thoryn') g.scene.traverse(o=>{ if(o.isMesh&&o.material&&o.material.map){   // Tripo PBR (metallic) renders black in our unlit look — flatten to Basic like every other unit
+      if(k==='thoryn'||k==='drake') g.scene.traverse(o=>{ if(o.isMesh&&o.material&&o.material.map){   // Tripo/PBR (metallic) renders black in our unlit look — flatten to Basic like every other unit
         const t=o.material.map; if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; o.material=new THREE.MeshBasicMaterial({map:t,side:THREE.DoubleSide}); } });
       RIGS[k]={scene:g.scene,anims:g.animations}; done(); }, undefined, ()=>done());
     tl.load('/assets/models/'+f+'_tex.png', t=>{ t.flipY=true; t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter; t.generateMipmaps=false; if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; TEXS[k]=t; done(); }, undefined, ()=>done());
@@ -990,6 +993,10 @@ function makeChar(key){ const src=RIGS[key]; if(!src)return null;
   // (run ≈ 250u forward), which otherwise slides the body ahead of its game position,
   // arcs it wide on turns, and snaps it back each loop. The game drives translation.
   src.anims.forEach(a=>{ const clip=new THREE.AnimationClip(a.name,a.duration, a.tracks.filter(t=>!t.name.endsWith('.position'))); act[a.name]=mixer.clipAction(clip); });
+  // creatures shipped with a single clip (e.g. the drake's 'Flap') — alias it to the standard
+  // idle/run/attack/block names (as independent actions) so the anim state machine can drive it.
+  if(!act.idle && src.anims.length){ const base=src.anims[0];
+    ['idle','run','attack','block'].forEach(n=>{ if(!act[n]){ const clip=new THREE.AnimationClip(n, base.duration, base.tracks.filter(t=>!t.name.endsWith('.position'))); act[n]=mixer.clipAction(clip); } }); }
   if(act.run) act.run.setEffectiveTimeScale(0.8);   // legs cycle a touch slower to match the calmer move speed
   if(act.attack) act.attack.setEffectiveTimeScale(1.4);   // snappier draw-and-release so it reads as a shot
   if(act.idle) act.idle.play();
@@ -1241,8 +1248,8 @@ function moveOrder(list,gx,gz){ let k=0; for(const e of list){ if(!e.alive)conti
 function attackOrder(list,en){ for(const e of list){ if(!e.alive)continue;
     if(e===hero){ e.order={x:en.px,z:en.pz}; } else { e.forcedTarget=en; e.target=en; e.order=null; e.following=false; } }
   rallyMarker.material.color.setHex(0xff6a5a); rallyMarker.position.set(en.px,topY(en.px,en.pz)+0.3,en.pz); rallyMarker.visible=true; clearTimeout(rallyMarker.__to); rallyMarker.__to=setTimeout(()=>rallyMarker.visible=false,900); }
-const KIND_NAME={hero:'Elf Queen', warrior:'Warrior', archer:'Archer', cleric:'Priestess'};
-const KIND_ICON={hero:'sword', warrior:'warrior', archer:'archer', cleric:'cleric'};
+const KIND_NAME={hero:'Elf Queen', warrior:'Warrior', archer:'Archer', cleric:'Priestess', drake:'Drake'};
+const KIND_ICON={hero:'sword', warrior:'warrior', archer:'archer', cleric:'cleric', drake:'drake'};
 function updateSelPanel(){ if(!selPanelEl)return; const sel=[...selected].filter(u=>u.alive);
   if(!sel.length){ selPanelEl.style.display='none'; return; }
   selPanelEl.style.display='flex';
