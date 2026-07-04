@@ -988,6 +988,8 @@ function spawnGame(){
   recomputeSupply(); recomputeIncome();   // seed cap/income from the starting warband + empty economy
   rallyMarker=new THREE.Mesh(new THREE.RingGeometry(1.6,2.3,22),new THREE.MeshBasicMaterial({color:0xffe089,transparent:true,opacity:0.9,side:THREE.DoubleSide}));
   rallyMarker.rotation.x=-Math.PI/2; rallyMarker.visible=false; scene.add(rallyMarker);
+  // brazier torches flanking each throne — showcases the 3D fire
+  for(const c of [coreB, enemyCore]){ if(!c)continue; for(const dx of [-7,7]){ const fx=c.x+dx, fz=c.z+6; makeFire(fx, topY(fx,fz)+0.3, fz, 1.15); } }
 }
 let spawnN=0;
 function spawnEnemy(){ const x=enemyBase.x+rr(-14,14), z=enemyBase.z+rr(-14,14);   // muster from the enemy stronghold (top-right)
@@ -1164,6 +1166,37 @@ function deathFx(e){ const x=e.px,z=e.pz,y=topY(x,z)+1.4;
   const n=(e.kind==='core')?18:(e.kind==='bld'?11:7);
   for(let i=0;i<n;i++){ const a=rnd()*6.28,d=rr(0.3,e.big?e.big:2); puff(x+Math.cos(a)*d, y+rr(0,e.big?3:1.7), z+Math.sin(a)*d, col, rr(0.45,e.big?1.5:0.9), 0.55); }
   pingRing(x,z,col); if(e.kind==='core')shockwave(x,z,0xffb060,20); addShake(e.kind==='core'?2.8:(e.kind==='bld'?1.3:0.5)); }
+// ---------- stylised 3D fire: cylindrical-billboard flame layers + ember disc + flickering warm light ----------
+let FLAME_TEX=null, fires=[];
+function flameTex(){ if(FLAME_TEX)return FLAME_TEX; const c=document.createElement('canvas'); c.width=c.height=128; const g=c.getContext('2d');
+  // layered flame: cool red tongue reaches highest, hot white core sits low → natural bottom-hot/top-cool gradient
+  const blob=(cx,cy,r,stops)=>{ g.save(); g.translate(cx,cy); g.scale(0.6,1); const grd=g.createRadialGradient(0,0,1,0,0,r);
+    stops.forEach(s=>grd.addColorStop(s[0],s[1])); g.fillStyle=grd; g.beginPath(); g.arc(0,0,r,0,6.29); g.fill(); g.restore(); };
+  blob(64,74,62,[[0,'rgba(255,120,30,0.92)'],[0.55,'rgba(228,58,16,0.5)'],[1,'rgba(150,26,8,0)']]);      // red-orange outer tongue
+  blob(64,86,46,[[0,'rgba(255,178,60,0.96)'],[0.55,'rgba(255,104,28,0.6)'],[1,'rgba(200,48,10,0)']]);    // orange body
+  blob(64,96,30,[[0,'rgba(255,236,150,1)'],[0.6,'rgba(255,176,60,0.7)'],[1,'rgba(255,120,30,0)']]);      // yellow heat
+  blob(64,101,15,[[0,'rgba(255,255,238,1)'],[1,'rgba(255,228,150,0)']]);                                 // white-hot base
+  FLAME_TEX=new THREE.CanvasTexture(c); return FLAME_TEX; }
+function makeFire(x,y,z,scale){ scale=scale||1; const grp=new THREE.Group(); grp.position.set(x,y,z);
+  const glow=new THREE.Mesh(new THREE.PlaneGeometry(3.4*scale,3.8*scale), new THREE.MeshBasicMaterial({map:flameTex(),color:0xff8028,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,opacity:0.4}));
+  const body=new THREE.Mesh(new THREE.PlaneGeometry(2.0*scale,3.0*scale), new THREE.MeshBasicMaterial({map:flameTex(),transparent:true,depthWrite:false,opacity:0.98}));   // opaque flame shape reads on any bg
+  const core=new THREE.Mesh(new THREE.PlaneGeometry(1.05*scale,1.8*scale), new THREE.MeshBasicMaterial({map:flameTex(),color:0xffcf7a,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,opacity:0.55}));
+  glow.renderOrder=48; body.renderOrder=49; core.renderOrder=50;
+  glow.position.y=body.position.y=core.position.y=1.4*scale; grp.add(glow,body,core);
+  const disc=new THREE.Mesh(new THREE.CircleGeometry(1.6*scale,18), new THREE.MeshBasicMaterial({color:0xff7a2a,transparent:true,opacity:0.42,blending:THREE.AdditiveBlending,depthWrite:false}));
+  disc.rotation.x=-Math.PI/2; disc.position.y=0.14; disc.renderOrder=47; grp.add(disc);
+  const light=new THREE.PointLight(0xff8a3a, 1.3*scale, 16*scale, 2); light.position.y=2*scale; grp.add(light);   // warms the (lit) terrain around it
+  scene.add(grp); const f={grp,glow,body,core,disc,light,scale,phase:rnd()*6.28}; fires.push(f); return f; }
+function updateFires(dt){ if(!fires.length||!cam)return;
+  for(const f of fires){ f.phase+=dt*10; const s=f.scale;
+    const yaw=Math.atan2(cam.position.x-f.grp.position.x, cam.position.z-f.grp.position.z);   // cylindrical billboard: stays upright, yaws to camera
+    f.glow.rotation.set(0,yaw,0); f.body.rotation.set(0,yaw,0); f.core.rotation.set(0,yaw,0);
+    const bh=0.9+Math.sin(f.phase*1.6)*0.16+Math.sin(f.phase*3.1)*0.06;                        // body flicker
+    f.body.scale.set(0.86+Math.sin(f.phase*2.2)*0.1, bh, 1); f.body.position.set(Math.sin(f.phase*0.9)*0.1*s,(1.35+bh*0.15)*s,0);
+    const ch=0.8+Math.sin(f.phase*3.4+1)*0.2;                                                  // hot core: faster, taller lick
+    f.core.scale.set(0.7+Math.sin(f.phase*3.0)*0.12, ch*1.05, 1); f.core.position.set(Math.sin(f.phase*1.3+2)*0.12*s,(1.55+ch*0.25)*s,0);
+    f.glow.scale.setScalar(0.95+Math.sin(f.phase*1.1)*0.12); f.glow.position.y=1.4*s;
+    f.light.intensity=(1.1+Math.sin(f.phase*1.3)*0.4)*s; f.disc.material.opacity=0.34+Math.sin(f.phase*1.1)*0.1; } }
 // thin steel glaive blade, built once & cloned (long axis = +Y); colour comes from the trail, not the blade
 let BLADE_PROTO=null;
 function bladeProto(){ if(BLADE_PROTO)return BLADE_PROTO; const g=new THREE.Group();
@@ -1561,7 +1594,7 @@ async function boot(){
   let last=performance.now();
   (function loop(){ requestAnimationFrame(loop);
     const now=performance.now(); let dt=(now-last)/1000; last=now; if(dt>0.05)dt=0.05;
-    updateGame(dt); followCam(dt); repositionRadial();
+    updateGame(dt); followCam(dt); repositionRadial(); updateFires(dt);
     if(++miniAcc%4===0){ drawMini(); updateSelPanel(); }   // ~15fps minimap + selection-card refresh
     if(miniAcc%6===0) updateFog();   // ~10fps fog recompute
     rnd3d.setRenderTarget(rt); rnd3d.render(scene,cam);
