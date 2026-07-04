@@ -31,6 +31,32 @@ canvas{display:block}
 #heroSel .hc .ic svg{width:36px;height:36px;display:inline-block}
 #heroSel .hc .nm{font:800 18px system-ui;margin-bottom:6px}
 #heroSel .hc .kit{font:600 12px/1.5 system-ui;color:#cbb98f}
+/* mode-select + campaign mission-select overlays (share the heroSel look) */
+#modeSel,#missionSel{position:fixed;inset:0;z-index:21;display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:rgba(6,10,16,0.62);backdrop-filter:blur(6px)}
+#modeSel h2,#missionSel h2{font:800 24px system-ui;color:#f4e6c4;text-shadow:0 2px 8px #000;margin:0;letter-spacing:.5px}
+#modeSel .cards{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;padding:0 14px}
+.modeCard{width:220px;background:var(--tile);color:#f2ead6;border-radius:16px;padding:22px 18px;cursor:pointer;text-align:center;box-shadow:0 8px 22px rgba(0,0,0,.4);border:2px solid transparent;transition:transform .08s,filter .08s}
+.modeCard:active{transform:scale(0.97);filter:brightness(1.12)}
+.modeCard .nm{font:800 20px system-ui;margin:6px 0}
+.modeCard .kit{font:600 12px/1.5 system-ui;color:#cbb98f}
+.modeCard .ic{color:#ffd98a}.modeCard .ic svg{width:38px;height:38px}
+#missionSel .mlist{display:flex;flex-direction:column;gap:9px;width:min(440px,92vw);max-height:64vh;overflow-y:auto;padding:2px}
+#missionSel .act{font:800 12px system-ui;color:#ffd98a;letter-spacing:.8px;text-transform:uppercase;margin:8px 2px 1px}
+.mCard{display:flex;align-items:center;gap:12px;background:var(--tile);color:#f2ead6;border-radius:13px;padding:12px 15px;cursor:pointer;border:2px solid transparent;text-align:left}
+.mCard.lock{opacity:.5;cursor:default}
+.mCard.done{border-color:#5a9b5a}
+.mCard:not(.lock):active{transform:scale(0.98);filter:brightness(1.1)}
+.mCard .mn{font:800 15px system-ui}
+.mCard .md{font:600 11.5px/1.4 system-ui;color:#cbb98f;margin-top:2px}
+.mCard .mstar{margin-left:auto;font:800 13px system-ui;color:#8be04a}
+#missionCard{position:fixed;inset:0;z-index:22;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:rgba(6,10,16,0.82);backdrop-filter:blur(7px);padding:0 22px;text-align:center}
+#missionCard .mc-act{font:800 12px system-ui;color:#ffd98a;letter-spacing:1px;text-transform:uppercase}
+#missionCard .mc-title{font:900 27px system-ui;color:#f4e6c4;text-shadow:0 2px 8px #000;margin:2px 0}
+#missionCard .mc-body{font:600 15px/1.6 system-ui;color:#dfe6ee;max-width:520px}
+#missionCard .mc-obj{font:700 13px system-ui;color:#ffcf87;background:rgba(0,0,0,.35);border-radius:9px;padding:8px 14px;margin-top:4px}
+#missionCard .mc-go,#missionSel .mback,#modeSel .mback{margin-top:8px;background:var(--brass,#c79a42);color:#1a140a;font:800 15px system-ui;border:0;border-radius:10px;padding:11px 26px;cursor:pointer}
+.mback{background:none!important;color:#cbb98f!important;font-weight:700}
+#objBanner{position:fixed;left:50%;top:64px;transform:translateX(-50%);z-index:6;display:none;background:rgba(6,10,16,0.72);color:#ffcf87;font:700 13px system-ui;padding:7px 16px;border-radius:9px;box-shadow:0 3px 10px rgba(0,0,0,.4);pointer-events:none;text-align:center}
 /* floating combat numbers (juice): pop up + drift + fade */
 #dmgLayer{position:fixed;inset:0;pointer-events:none;z-index:5;overflow:hidden}
 .dmgN{position:fixed;font:900 15px/1 system-ui;color:#fff;letter-spacing:.3px;pointer-events:none;
@@ -495,7 +521,7 @@ const TRAIN=[
   {kind:'warrior', rig:'warrior',  icon:'warrior', label:'Warrior',   gold:65, sup:3, dur:7,  minLvl:1},
   {kind:'archer',  rig:'archer',   icon:'archer',  label:'Archer',    gold:55, sup:2, dur:6,  minLvl:1},
   {kind:'cleric',  rig:'priestess',icon:'cleric',  label:'Priestess', gold:95, sup:3, dur:10, minLvl:2},
-  {kind:'drake',   rig:'drake',    icon:'drake',   label:'Drake',     gold:240,sup:6, dur:18, minLvl:3},
+  // Drake shelved for now — earmarked as the RIMWALKER flying unit (to be renamed). See docs/CAMPAIGN.md roster gaps.
 ];
 const CORE_H=[9,10.5,12], CORE_HP=[1600,2400,3400], CORE_UP=[0,300,480];
 const UP_WOOD=[0,15,30], CORE_WOOD=[0,40,70];   // wood required to upgrade a plot / expand the throne
@@ -951,7 +977,7 @@ const WEAPONS={
   orcwarrior:[{file:'sword_orc_warrior',bone:'Character1_RightHand', pos:[-10,-3.6,-2.8], rot:[0,0,-1.309], scl:0.66}],
   orcshaman:[{file:'staff_orc_shaman', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
 };
-const RIG_SPECS=[['thoryn','thoryn'],['queen','elf_queen'],['paladin','human_paladin'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior'],['chief','orc_chieftain'],['orcarcher','orc_archer'],['orcgrunt','orc_grunt'],['orcwarrior','orc_warrior'],['orcshaman','orc_shaman'],['drake','dragon']];
+const RIG_SPECS=[['thoryn','thoryn'],['queen','elf_queen'],['paladin','human_paladin'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior'],['chief','orc_chieftain'],['orcarcher','orc_archer'],['orcgrunt','orc_grunt'],['orcwarrior','orc_warrior'],['orcshaman','orc_shaman']];   // ['drake','dragon'] shelved — becomes the Rimwalker flyer (renamed) later
 // Several FBX (the elf/orc bows AND every elf building) export as SkinnedMesh with a rigid little
 // armature. Cloned with a plain .clone(true) — not SkeletonUtils.clone — the skeleton binding
 // breaks: the renderer skins the mesh in the skeleton's own space, so it renders at ~world origin
@@ -1211,10 +1237,45 @@ function pickHero(kind){ if(!HERO_KIT[kind])kind='queen'; heroKind=kind; try{loc
     if(camLocked){ camAim.x=hero.px; camAim.z=hero.pz; } }
   applyHeroKit(); if(heroSelEl)heroSelEl.style.display='none'; started=true; refreshRadial();
   initAudio(); resumeAudio(); startMusic(); sfx('build'); }
+// ===== Campaign / Skirmish (see docs/CAMPAIGN.md, docs/LORE.md) =====
+// Skirmish = the current free-play; Campaign = linear missions on hand-authored maps.
+// First scaffold: Act I Mission 1 runs on the live Sapphire-Shores map (Paladin ~ Valdris
+// of the Iron Crown vs the Raider Horde). Later missions are shown but locked.
+let gameMode='skirmish', activeMission=null;
+const CAMP_KEY='verath_campaign';
+function campCleared(){ try{ return new Set(JSON.parse(localStorage.getItem(CAMP_KEY))||[]); }catch(_){ return new Set(); } }
+function campMarkClear(id){ const s=campCleared(); s.add(id); try{ localStorage.setItem(CAMP_KEY,JSON.stringify([...s])); }catch(_){ } }
+const CAMPAIGN=[
+  {id:'a1m1', act:'Act I — Inevitable', title:'The Survey Road', hero:'paladin', map:'Sapphire Shores', playable:true,
+   intro:'The Iron Crown crossed the western Reach two generations ago, following an abandoned survey road. On the Verath Floor they found ironstone beyond counting — and the Raider Horde, who call this ground home. Valdris the Ironwarden is sent to end the war in one campaign.',
+   objective:'Raze the Raider warcamp — destroy its throne.',
+   outro:'The Shores are held. But beneath them the surveys have struck something that rings wrong — and the Horde is pulling back not in defeat, but in fear.'},
+  {id:'a1m2', act:'Act I — Inevitable',            title:'Beachhead',            hero:'paladin', map:'Sapphire Shores', playable:false},
+  {id:'a1m3', act:'Act I — Inevitable',            title:'Ring the Ironstone',   hero:'paladin', map:'Sapphire Shores', playable:false},
+  {id:'a2m1', act:'Act II — Cornered',             title:'The Long Retreat',     hero:'paladin', map:'Verath Floor',    playable:false},
+  {id:'a3m1', act:'Act III — The Silent Council',  title:'Parley at the High Rim',hero:'queen',  map:'Rimwall Pass',    playable:false},
+  {id:'a4m1', act:'Act IV — The Deepvein',         title:'The Ashfall Remembered',hero:'queen',  map:'The Deepvein',    playable:false},
+];
+function startMission(m){ if(!m||!m.playable)return; activeMission=m; gameMode='campaign';
+  if(modeSelEl)modeSelEl.style.display='none'; if(missionSelEl)missionSelEl.style.display='none'; if(missionCardEl)missionCardEl.style.display='none';
+  pickHero(m.hero);   // pickHero flips `started` + starts audio; campaign forces the act's hero
+  if(objBannerEl){ objBannerEl.textContent='◈ '+m.objective; objBannerEl.style.display='block'; } }
+function buildMissionList(){ const list=missionSelEl.querySelector('.mlist'); list.innerHTML=''; const cleared=campCleared(); let curAct=null;
+  CAMPAIGN.forEach(m=>{ if(m.act!==curAct){ curAct=m.act; const a=document.createElement('div'); a.className='act'; a.textContent=m.act; list.appendChild(a); }
+    const done=cleared.has(m.id); const c=document.createElement('div'); c.className='mCard'+(m.playable?'':' lock')+(done?' done':'');
+    c.innerHTML='<div><div class="mn">'+m.title+'</div><div class="md">'+m.map+(m.playable?'':' · locked')+'</div></div>'+(done?'<div class="mstar">✓</div>':'');
+    if(m.playable) c.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); showMissionCard(m); });
+    list.appendChild(c); }); }
+function showMissionCard(m){ missionSelEl.style.display='none';
+  missionCardEl.innerHTML='<div class="mc-act">'+m.act+'</div><div class="mc-title">'+m.title+'</div><div class="mc-body">'+m.intro+'</div>'
+    +'<div class="mc-obj">Objective: '+m.objective+'</div><button class="mc-go">Begin — '+m.map+'</button>';
+  missionCardEl.querySelector('.mc-go').addEventListener('pointerdown',ev=>{ ev.stopPropagation(); startMission(m); });
+  missionCardEl.style.display='flex'; }
 function focusFire(en){ allies.forEach(e=>{ if(e.alive){ e.forcedTarget=en; e.target=en; e.order=null; e.following=false; } });
   rallyMarker.material.color.setHex(0xff6a5a); rallyMarker.position.set(en.px,topY(en.px,en.pz)+0.3,en.pz); rallyMarker.visible=true; clearTimeout(rallyMarker.__to); rallyMarker.__to=setTimeout(()=>rallyMarker.visible=false,900); }
 // ---------- RTS selection + context orders (Siege-Up style) ----------
 let boxMode=false, boxBtn=null, selPanelEl=null, respawnEl=null, heroSelEl=null; const HERO_RESPAWN=8;
+let modeSelEl=null, missionSelEl=null, missionCardEl=null, objBannerEl=null;   // campaign/skirmish UI
 const ABIL_RANGE=26;   // hard cap on targeted-ability reach — inside hero sight (30) so nothing casts/lands from the fog
 let heroKind='queen', started=false, holyGrounds=[]; try{ heroKind=localStorage.getItem('wc_hero')||'queen'; }catch(_){}
 // per-hero ability kits — icon/label/cooldown per slot (a=AoE, spell=armed-target, blink=utility). Handlers dispatch on hero.kit.
@@ -1541,7 +1602,12 @@ function drawLasso(){ if(!lctx)return; lctx.clearRect(0,0,lcv.width,lcv.height);
   lctx.fillStyle='rgba(127,240,255,0.12)'; lctx.fill(); }
 
 function endGame(win){ gameOver=win?1:2; sfx(win?'win':'lose'); resultEl.style.display='flex';
-  const h=resultEl.querySelector('h1'); h.textContent=win?'Victory!':'Defeated'; h.style.color=win?'#8be04a':'#e05a5a'; }
+  if(objBannerEl)objBannerEl.style.display='none';
+  const h=resultEl.querySelector('h1'); h.textContent=win?'Victory!':'Defeated'; h.style.color=win?'#8be04a':'#e05a5a';
+  const sub=resultEl.querySelector('.sub');
+  if(gameMode==='campaign' && activeMission){ if(win)campMarkClear(activeMission.id);
+    if(sub)sub.textContent = win ? activeMission.outro : 'The line broke. Try again.'; }
+  else if(sub){ sub.textContent='tap to play again'; } }
 function updBars(){ const all=[hero,...allies,...enemies];
   for(const e of all){ if(!e||!e.alive)continue; const f=Math.max(0,e.hp/e.max);
     e.bar.visible=(e.team!=='hero') && (e.team!=='enemy'||e.__vis!==false); e.bar.__fl.scale.x=f; e.bar.__fl.position.x=-(1-f)*e.bar.__w/2;
@@ -1733,11 +1799,35 @@ function setupHUD(){
                 ['paladin','shield','Paladin','Holy tank — Consecration · Hammer of Justice · Divine Shield. Durable, stuns, invulnerable.']];
   for(const [k,icn,nm,blurb] of HEROES){ const c=document.createElement('div'); c.className='hc';
     c.innerHTML='<div class="ic">'+ic(icn)+'</div><div class="nm">'+nm+'</div><div class="kit">'+blurb+'</div>';
-    c.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); pickHero(k); }); cards.appendChild(c); }
-  document.body.appendChild(heroSelEl); heroSelEl.style.display='flex';
+    c.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); gameMode='skirmish'; pickHero(k); }); cards.appendChild(c); }
+  document.body.appendChild(heroSelEl);   // hidden until the player picks Skirmish (mode-select gates it)
   refreshRadial();   // initialise the radial in hero mode
-  resultEl=document.createElement('div'); resultEl.style.cssText='position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:#0008;color:#fff;font:600 18px system-ui;gap:12px;z-index:9';
-  resultEl.innerHTML='<h1 style="font-size:48px;margin:0"></h1><div>tap to play again</div>'; resultEl.addEventListener('pointerdown',()=>location.reload()); document.body.appendChild(resultEl);
+
+  // objective banner (campaign)
+  objBannerEl=document.createElement('div'); objBannerEl.id='objBanner'; document.body.appendChild(objBannerEl);
+
+  // ---- mode-select: Campaign vs Skirmish (shown first) ----
+  modeSelEl=document.createElement('div'); modeSelEl.id='modeSel';
+  modeSelEl.innerHTML='<h2>VERATH</h2><div class="cards">'
+    +'<div class="modeCard" data-m="campaign"><div class="ic">'+ic('shield')+'</div><div class="nm">Campaign</div><div class="kit">The Verath Wars — hand-authored missions with story. Iron Crown vs the Raider Horde.</div></div>'
+    +'<div class="modeCard" data-m="skirmish"><div class="ic">'+ic('swords')+'</div><div class="nm">Skirmish</div><div class="kit">Free play — pick a hero and raze the enemy throne. One AI opponent.</div></div>'
+    +'</div>';
+  modeSelEl.querySelector('[data-m="campaign"]').addEventListener('pointerdown',ev=>{ ev.stopPropagation(); modeSelEl.style.display='none'; buildMissionList(); missionSelEl.style.display='flex'; });
+  modeSelEl.querySelector('[data-m="skirmish"]').addEventListener('pointerdown',ev=>{ ev.stopPropagation(); modeSelEl.style.display='none'; heroSelEl.style.display='flex'; });
+  document.body.appendChild(modeSelEl); modeSelEl.style.display='flex';
+
+  // ---- campaign mission select ----
+  missionSelEl=document.createElement('div'); missionSelEl.id='missionSel';
+  missionSelEl.innerHTML='<h2>Campaign</h2><div class="mlist"></div><button class="mback">&larr; Back</button>';
+  missionSelEl.querySelector('.mback').addEventListener('pointerdown',ev=>{ ev.stopPropagation(); missionSelEl.style.display='none'; modeSelEl.style.display='flex'; });
+  document.body.appendChild(missionSelEl);
+
+  // ---- mission intro card ----
+  missionCardEl=document.createElement('div'); missionCardEl.id='missionCard';
+  document.body.appendChild(missionCardEl);
+
+  resultEl=document.createElement('div'); resultEl.style.cssText='position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:#0008;color:#fff;font:600 18px system-ui;gap:12px;z-index:9;padding:0 22px;text-align:center';
+  resultEl.innerHTML='<h1 style="font-size:48px;margin:0"></h1><div class="sub" style="max-width:520px;line-height:1.6">tap to play again</div>'; resultEl.addEventListener('pointerdown',()=>location.reload()); document.body.appendChild(resultEl);
   // Siege-Up top-centre resource bar: gold | wood | population (replaces the bottom-left chips)
   const og=document.getElementById('gold'); if(og)og.style.display='none';
   const rb=document.createElement('div'); rb.id='resbar';
