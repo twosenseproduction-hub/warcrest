@@ -636,6 +636,9 @@ const ICON={
   select:'<rect x="3.5" y="3.5" width="11" height="11" rx="1.5" stroke-dasharray="3.4 2.4"/><path d="M13 13l7 7"/><path d="M13 13l1.2 4.6 1.7-1.7 1.7-1.7z" fill="currentColor" stroke="none"/>',
   stop:'<rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none"/>',
   close:'<path d="M6 6l12 12M18 6L6 18"/>',
+  blink:'<path d="M3 12h7"/><path d="M7 8l4 4-4 4"/><circle cx="17" cy="12" r="3.2" stroke-dasharray="2.4 2.2"/>',
+  fan:'<path d="M12 12V3.5"/><path d="M12 12l7.4-4.3"/><path d="M12 12l7.4 4.3"/><path d="M12 12l-7.4 4.3"/><path d="M12 12l-7.4-4.3"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/>',
+  shadow:'<path d="M12 3l3.2 9.2L12 15.4 8.8 12.2z"/><path d="M12 15.4V19"/><circle cx="12" cy="20.6" r="1.2" fill="currentColor" stroke="none"/>',
 };
 function ic(n){ const p=ICON[n]; return p?('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+p+'</svg>'):''; }
 const catIcon={economy:'house',mine:'mine',lumber:'lumber',army:'barracks',defense:'tower'}, catName={economy:'House',mine:'Gold Mine',lumber:'Lumber Mill',army:'Barracks',defense:'Tower'};
@@ -964,9 +967,8 @@ function setAnim(e,want){ if(!e.act||e.animState===want)return; const a=e.act[wa
 function riggize(e,key){ const c=makeChar(key); if(!c)return; scene.remove(e.g); e.g=c.g; e.mixer=c.mixer; e.act=c.act; e.armL=c.armL; e.armR=c.armR; e.rigged=true; e.rigKey=key; e.animState='idle'; scene.add(e.g); }
 
 function spawnGame(){
-  hero=mkFighter(C.hero,1.9,'hero',{hp:260,dmg:20,range:3.6,atkEvery:0.5,spd:19,aCd:0,spellCd:0});
-  if(RIGS.thoryn&&(!RIGS.thoryn.anims||!RIGS.thoryn.anims.length)&&RIGS.queen) RIGS.thoryn.anims=RIGS.queen.anims;   // safety net only — he ships his own brute clip set
-  riggize(hero, RIGS.thoryn?'thoryn':'queen');   // Thoryn the Demon Hunter — the hero
+  hero=mkFighter(C.hero,1.9,'hero',{hp:260,dmg:20,range:3.6,atkEvery:0.5,spd:19,aCd:0,spellCd:0,blinkCd:0});
+  riggize(hero, RIGS.queen?'queen':'thoryn');   // the Elf Queen — a Warden-style glaive hero
   setP(hero,105,80);                            // muster at the player base (bottom-left island)
   // skirmish start: the hero rides out with just two base units — a warrior + an archer.
   // (The rest of the army comes from Barracks the player builds; the AI grows the same way.)
@@ -1072,6 +1074,23 @@ function healFx(t){ const r=new THREE.Mesh(new THREE.RingGeometry(0.4,1.1,16),ne
   r.rotation.x=-Math.PI/2; scene.add(r); let a=0;(function an(){a+=0.06; r.position.set(t.px,topY(t.px,t.pz)+0.4+a*4.5,t.pz); r.material.opacity=Math.max(0,0.9-a); if(a<0.9)requestAnimationFrame(an); else scene.remove(r);})(); }
 function smiteFx(en){ const r=new THREE.Mesh(new THREE.RingGeometry(0.5,1.4,20),new THREE.MeshBasicMaterial({color:0xfff2c0,transparent:true,side:THREE.DoubleSide}));
   r.rotation.x=-Math.PI/2; r.position.set(en.px,topY(en.px,en.pz)+0.5,en.pz); scene.add(r); let a=0;(function an(){a+=0.07;r.scale.setScalar(1+a*8);r.material.opacity=Math.max(0,0.95-a*1.2);if(a<0.9)requestAnimationFrame(an);else scene.remove(r);})(); }
+// ---------- Warden kit (Elf Queen hero): Blink · Fan of Knives · Shadow Strike ----------
+function blinkPop(x,z){ const g=new THREE.Mesh(new THREE.SphereGeometry(1.6,12,10), new THREE.MeshBasicMaterial({color:0x7a4fd0,transparent:true,opacity:0.75,blending:THREE.AdditiveBlending,depthWrite:false}));
+  g.position.set(x,topY(x,z)+2,z); scene.add(g); let a=0;(function an(){a+=0.09; g.scale.setScalar(1+a*3.2); g.material.opacity=Math.max(0,0.75-a*0.95); if(a<0.9)requestAnimationFrame(an); else scene.remove(g);})();
+  pingRing(x,z,0x9b6be6); for(let i=0;i<6;i++){ const a2=rnd()*6.28; puff(x+Math.cos(a2)*rr(0.4,1.6),topY(x,z)+rr(0.5,2.5),z+Math.sin(a2)*rr(0.4,1.6),0x8a5fd0,0.7,0.55); } }
+function blink(){ if(!hero||hero.blinkCd>0||gameOver)return; hero.blinkCd=7;
+  const a=hero.face; let bx=hero.px, bz=hero.pz;                              // teleport forward, clamped to stay on the island
+  for(let s=17;s>=3;s-=1.5){ const nx=hero.px+Math.sin(a)*s, nz=hero.pz+Math.cos(a)*s; if(onIsland(nx,nz)){ bx=nx; bz=nz; break; } }
+  blinkPop(hero.px,hero.pz); setP(hero,bx,bz); blinkPop(bx,bz); addShake(0.4); }
+function fanOfKnives(){ if(!hero||hero.aCd>0||gameOver)return; hero.aCd=6;                 // instant AoE glaive nova
+  if(hero.rigged){ hero.__atkClip=pickAtkClip(hero); hero.__atkT=0.5; }
+  const R=15; for(const e of enemies){ if(!e.alive)continue; if(Math.hypot(e.px-hero.px,e.pz-hero.pz)<R) damage(e,44,true); }
+  const N=16; for(let i=0;i<N;i++){ const a=i/N*6.28; bladeSpin(hero.px,hero.pz, hero.px+Math.sin(a)*R, hero.pz+Math.cos(a)*R, 0xbfe9ff, 0.34); }
+  shockwave(hero.px,hero.pz,0xcdeeff,15); addShake(1.5); }
+function shadowStrike(en){ if(!hero||hero.spellCd>0||!en||!en.alive)return false; hero.spellCd=8; spellArmed=false;   // poisoned glaive: burst + DoT
+  if(hero.rigged){ hero.__atkClip=pickAtkClip(hero); hero.__atkT=0.45; }
+  faceTo(hero, en.px-hero.px, en.pz-hero.pz); shootFx(hero.px,hero.pz,en.px,en.pz,'shadow');
+  damage(en,48,true); en.poison={t:4, dps:11}; en.__pt=0.5; addShake(0.5); return true; }
 function focusFire(en){ allies.forEach(e=>{ if(e.alive){ e.forcedTarget=en; e.target=en; e.order=null; e.following=false; } });
   rallyMarker.material.color.setHex(0xff6a5a); rallyMarker.position.set(en.px,topY(en.px,en.pz)+0.3,en.pz); rallyMarker.visible=true; clearTimeout(rallyMarker.__to); rallyMarker.__to=setTimeout(()=>rallyMarker.visible=false,900); }
 // ---------- RTS selection + context orders (Siege-Up style) ----------
@@ -1089,7 +1108,7 @@ function moveOrder(list,gx,gz){ let k=0; for(const e of list){ if(!e.alive)conti
 function attackOrder(list,en){ for(const e of list){ if(!e.alive)continue;
     if(e===hero){ e.order={x:en.px,z:en.pz}; } else { e.forcedTarget=en; e.target=en; e.order=null; e.following=false; } }
   rallyMarker.material.color.setHex(0xff6a5a); rallyMarker.position.set(en.px,topY(en.px,en.pz)+0.3,en.pz); rallyMarker.visible=true; clearTimeout(rallyMarker.__to); rallyMarker.__to=setTimeout(()=>rallyMarker.visible=false,900); }
-const KIND_NAME={hero:'Thoryn', warrior:'Warrior', archer:'Archer', cleric:'Priestess'};
+const KIND_NAME={hero:'Elf Queen', warrior:'Warrior', archer:'Archer', cleric:'Priestess'};
 const KIND_ICON={hero:'sword', warrior:'warrior', archer:'archer', cleric:'cleric'};
 function updateSelPanel(){ if(!selPanelEl)return; const sel=[...selected].filter(u=>u.alive);
   if(!sel.length){ selPanelEl.style.display='none'; return; }
@@ -1145,23 +1164,52 @@ function deathFx(e){ const x=e.px,z=e.pz,y=topY(x,z)+1.4;
   const n=(e.kind==='core')?18:(e.kind==='bld'?11:7);
   for(let i=0;i<n;i++){ const a=rnd()*6.28,d=rr(0.3,e.big?e.big:2); puff(x+Math.cos(a)*d, y+rr(0,e.big?3:1.7), z+Math.sin(a)*d, col, rr(0.45,e.big?1.5:0.9), 0.55); }
   pingRing(x,z,col); if(e.kind==='core')shockwave(x,z,0xffb060,20); addShake(e.kind==='core'?2.8:(e.kind==='bld'?1.3:0.5)); }
+// thin steel glaive blade, built once & cloned (long axis = +Y); colour comes from the trail, not the blade
+let BLADE_PROTO=null;
+function bladeProto(){ if(BLADE_PROTO)return BLADE_PROTO; const g=new THREE.Group();
+  const blade=new THREE.Mesh(new THREE.OctahedronGeometry(1.0,0), new THREE.MeshBasicMaterial({color:0xe6eef6})); blade.scale.set(0.22,1.0,0.5);
+  const edge=new THREE.Mesh(new THREE.OctahedronGeometry(1.05,0), new THREE.MeshBasicMaterial({color:0xbfe0ff,transparent:true,opacity:0.5,blending:THREE.AdditiveBlending,depthWrite:false})); edge.scale.set(0.3,1.15,0.62);
+  g.add(blade,edge); g.scale.setScalar(1.1); BLADE_PROTO=g; return g; }
+// bright impact flash + spark burst + small ground ring, tinted to the projectile's element
+function impactFx(x,y,z,col){ const f=new THREE.Mesh(new THREE.SphereGeometry(1.1,12,10), new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.9,blending:THREE.AdditiveBlending,depthWrite:false}));
+  f.position.set(x,y,z); scene.add(f); let a=0;(function an(){a+=0.14; f.scale.setScalar(1+a*2.2); f.material.opacity=Math.max(0,0.9-a*1.4); if(a<0.7)requestAnimationFrame(an); else scene.remove(f);})();
+  for(let i=0;i<5;i++) puff(x+rr(-0.8,0.8),y+rr(-0.6,0.9),z+rr(-0.8,0.8),col,rr(0.4,0.8),0.6); }
+function arrowShot(sx,sz,tx,tz){ const m=arrowProto().clone(true); scene.add(m);
+  const y0=topY(sx,sz)+2.6,y1=topY(tx,tz)+2.0,dist=Math.hypot(tx-sx,tz-sz),dur=Math.max(0.16,Math.min(0.5,dist/44)); let t=0,tick=0;
+  (function an(){ t+=0.033;tick++; const k=Math.min(1,t/dur); const x=sx+(tx-sx)*k,z=sz+(tz-sz)*k,y=y0+(y1-y0)*k+Math.sin(k*Math.PI)*2.6;
+    m.position.set(x,y,z); m.lookAt(tx,y1,tz); m.rotateX(Math.PI/2);
+    if(tick%2===0) puff(x,y,z,0xffe6a8,0.22,0.4);
+    if(k<1)requestAnimationFrame(an); else { scene.remove(m); for(let i=0;i<4;i++) puff(tx+rr(-0.8,0.8),y1+rr(-0.4,1.2),tz+rr(-0.8,0.8),0xffe6a8,0.5,0.55); pingRing(tx,tz,0xffe6a8); } })(); }
+// spinning glaive to a specific target — used by Shadow Strike (poison=green trail + lingering cloud)
+function bladeShot(sx,sz,tx,tz,col,poison){ const m=bladeProto().clone(true); scene.add(m);
+  const y0=topY(sx,sz)+2.6,y1=topY(tx,tz)+2.2,dist=Math.hypot(tx-sx,tz-sz),dur=Math.max(0.14,Math.min(0.42,dist/48)); let t=0,tick=0;
+  (function an(){ t+=0.033;tick++; const k=Math.min(1,t/dur); const x=sx+(tx-sx)*k,z=sz+(tz-sz)*k,y=y0+(y1-y0)*k+Math.sin(k*Math.PI)*1.8;
+    m.position.set(x,y,z); m.lookAt(tx,y1,tz); m.rotateX(Math.PI/2); m.rotateY(t*40);
+    puff(x,y,z,col,0.35,0.45);
+    if(k<1)requestAnimationFrame(an); else { scene.remove(m); impactFx(tx,y1,tz,col); if(poison) for(let i=0;i<5;i++) puff(tx+rr(-1,1),y1+rr(0,1.5),tz+rr(-1,1),col,0.6,0.5); } })(); }
+// glaive flung outward to a point then gone — Fan of Knives radial blades
+function bladeSpin(sx,sz,tx,tz,col,dur){ const m=bladeProto().clone(true); scene.add(m); const y=topY(sx,sz)+2.4; let t=0,tick=0;
+  (function an(){ t+=0.033;tick++; const k=Math.min(1,t/dur); const x=sx+(tx-sx)*k,z=sz+(tz-sz)*k,yy=y+Math.sin(k*Math.PI)*1.2;
+    m.position.set(x,yy,z); m.lookAt(tx,yy,tz); m.rotateX(Math.PI/2); m.rotateY(t*46);
+    if(tick%2===0) puff(x,yy,z,col,0.3,0.4);
+    if(k<1)requestAnimationFrame(an); else scene.remove(m); })(); }
 function shootFx(sx,sz,tx,tz,kind){
-  const arrow=kind==='arrow'; const col = kind==='heal'?0x9dffb0 : arrow?0xfff2c8 : 0x86ccff;
-  let m,core,glow;
-  if(arrow){ m=arrowProto().clone(true); }
-  else { m=new THREE.Group();
-    core=new THREE.Mesh(new THREE.SphereGeometry(0.6,16,12), new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.95,blending:THREE.AdditiveBlending,depthWrite:false}));
-    glow=new THREE.Mesh(new THREE.SphereGeometry(1.25,16,12), new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.35,blending:THREE.AdditiveBlending,depthWrite:false}));
-    m.add(core,glow); }
-  scene.add(m);
-  const y0=topY(sx,sz)+2.6, y1=topY(tx,tz)+2.0, dist=Math.hypot(tx-sx,tz-sz), dur=Math.max(0.16,Math.min(0.55,dist/40)); let t=0,tick=0;
-  (function an(){ t+=0.033; tick++; const k=Math.min(1,t/dur); const x=sx+(tx-sx)*k, z=sz+(tz-sz)*k, y=y0+(y1-y0)*k+Math.sin(k*Math.PI)*(arrow?2.4:1.4);
-    m.position.set(x,y,z);
-    if(arrow){ m.lookAt(tx,y1,tz); m.rotateX(Math.PI/2); }              // proto long axis is +Y
-    else { const p=1+Math.sin(t*32)*0.14; core.scale.setScalar(p); glow.scale.setScalar(p); }
-    if(tick%2===0) puff(x,y,z,col, arrow?0.2:0.55, arrow?0.4:0.5);      // motion streak
-    if(k<1)requestAnimationFrame(an); else { scene.remove(m); if(!arrow) for(let i=0;i<5;i++) puff(tx+rr(-1,1),y1+rr(-1,1),tz+rr(-1,1),col,0.6,0.6); } })();
-}
+  if(kind==='arrow') return arrowShot(sx,sz,tx,tz);
+  if(kind==='shadow') return bladeShot(sx,sz,tx,tz,0x8ef07a,true);      // Shadow Strike poisoned glaive
+  // energy orb (caster magic / heal): white-hot core, coloured body, soft halo, swirling glow trail
+  const heal=kind==='heal'; const col=heal?0x8dffab:0x7fd0ff;
+  const m=new THREE.Group();
+  const core=new THREE.Mesh(new THREE.SphereGeometry(0.5,14,10), new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:1,blending:THREE.AdditiveBlending,depthWrite:false}));
+  const mid =new THREE.Mesh(new THREE.SphereGeometry(0.85,14,10), new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.8,blending:THREE.AdditiveBlending,depthWrite:false}));
+  const halo=new THREE.Mesh(new THREE.SphereGeometry(1.5,14,10), new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.28,blending:THREE.AdditiveBlending,depthWrite:false}));
+  m.add(core,mid,halo); scene.add(m);
+  const y0=topY(sx,sz)+2.6,y1=topY(tx,tz)+2.0,dist=Math.hypot(tx-sx,tz-sz),dur=Math.max(0.18,Math.min(0.6,dist/38)); let t=0,tick=0;
+  const perpx=-(tz-sz)/(dist||1), perpz=(tx-sx)/(dist||1);              // swirl axis
+  (function an(){ t+=0.033;tick++; const k=Math.min(1,t/dur); const sw=Math.sin(t*26)*0.7*(1-k*0.4);
+    const x=sx+(tx-sx)*k+perpx*sw, z=sz+(tz-sz)*k+perpz*sw, y=y0+(y1-y0)*k+Math.sin(k*Math.PI)*1.6;
+    m.position.set(x,y,z); const p=1+Math.sin(t*30)*0.16; core.scale.setScalar(p); mid.scale.setScalar(p);
+    if(tick%2===0) puff(x,y,z,col,0.5,0.5);
+    if(k<1)requestAnimationFrame(an); else { scene.remove(m); impactFx(tx,y1,tz,col); } })(); }
 function castBolt(gx,gz){ if(!hero||hero.spellCd>0)return false; hero.spellCd=6; spellArmed=false;
   for(const e of enemies){ if(!e.alive)continue; if(Math.hypot(e.px-gx,e.pz-gz)<7){ damage(e,60,true); } }
   const r=new THREE.Mesh(new THREE.RingGeometry(0.6,1.6,26),new THREE.MeshBasicMaterial({color:0x74c0ff,transparent:true,side:THREE.DoubleSide}));
@@ -1177,11 +1225,10 @@ function updateSpellUI(){
   const ring=(el,cd,max)=>{ if(!el)return; const c=el.querySelector('.cd'); el.classList.toggle('cooling',cd>0);
     if(c){ const f=Math.max(0,Math.min(1,cd/max)); c.style.background='conic-gradient(rgba(8,12,18,0.66) '+(f*360).toFixed(0)+'deg, rgba(0,0,0,0) 0deg)'; } };
   if(hitEl){ hitEl.classList.toggle('off',!heroCanHit); hitEl.classList.toggle('ready',heroCanHit); }   // attack button lights up only in reach
-  if(abilEl){ ring(abilEl, hero?hero.aCd:0, 5); }
-  if(boltEl){ boltEl.classList.toggle('armed',spellArmed); ring(boltEl, hero?hero.spellCd:0, 6); }
+  if(abilEl){ ring(abilEl, hero?hero.aCd:0, 6); }                                    // Fan of Knives
+  if(boltEl){ boltEl.classList.toggle('armed',spellArmed); ring(boltEl, hero?hero.spellCd:0, 8); }   // Shadow Strike
   if(autoEl){ autoEl.classList.toggle('on',autoBolt); }
-  if(smiteEl){ const n=readyClerics(); const cap=smiteEl.querySelector('.cap'); if(cap)cap.textContent=n?('Smite '+n):'Smite';
-    smiteEl.classList.toggle('off',n===0); smiteEl.classList.toggle('armed',smiteArmed); } }
+  if(smiteEl){ ring(smiteEl, hero?hero.blinkCd:0, 7); } }                             // Blink
 function drawLasso(){ if(!lctx)return; lctx.clearRect(0,0,lcv.width,lcv.height); const p=cmd.pts; if(p.length<2)return;
   lctx.beginPath(); lctx.moveTo(p[0][0],p[0][1]); for(let i=1;i<p.length;i++)lctx.lineTo(p[i][0],p[i][1]);
   lctx.strokeStyle='rgba(127,240,255,0.95)'; lctx.lineWidth=3; lctx.stroke();
@@ -1221,9 +1268,12 @@ function updateGame(dt){
       // fast at full tilt), not the hero's normalized fixed-speed movement — a camera, not a character
       const m=Math.min(1,ml), nx=mvx/ml, nz=mvz/ml, sp=110*Math.max(0.6,camF.dist/66)*m*m;
       camAim.x+=nx*sp*dt; camAim.z+=nz*sp*dt; clampAim(); }
-    hero.cd-=dt; hero.aCd-=dt; hero.spellCd-=dt;
+    hero.cd-=dt; hero.aCd-=dt; hero.spellCd-=dt; hero.blinkCd-=dt;
     const FO=foes();   // enemy units + attackable enemy structures (core/buildings) — the player's valid targets
-    if(autoBolt && hero.spellCd<=0 && enemies.length){ const {t}=nearest(hero.px,hero.pz,enemies); if(t) castBolt(t.px,t.pz); }
+    if(autoBolt && hero.spellCd<=0 && enemies.length){ const t=nearestEnemyTo(hero.px,hero.pz,26); if(t) shadowStrike(t); }   // AUTO = auto Shadow Strike nearest visible foe
+    for(const e of enemies){ if(!e.alive||!e.poison)continue; e.poison.t-=dt; e.__pt-=dt;   // Shadow Strike poison DoT
+      if(e.__pt<=0){ e.__pt=0.5; damage(e, e.poison.dps*0.5, false); if(isVisible(e.px,e.pz)) puff(e.px+rr(-0.6,0.6),topY(e.px,e.pz)+2+rr(0,1.4),e.pz+rr(-0.6,0.6),0x8ef07a,0.5,0.5); }
+      if(e.poison.t<=0)e.poison=null; }
     { const {t,d}=nearest(hero.px,hero.pz,FO); heroHitTarget=(t&&d<=hero.range+(t.big||0)+1)?t:null; heroCanHit=!!heroHitTarget;
       if(heroHitTarget){ if(hero.rigged&&hero.cd<=0){ hero.__atkClip=pickAtkClip(hero); hero.__atkT=0.55; } attack(hero,heroHitTarget); } }
     if(hero.rigged){ hero.mixer.update(dt); armRelax(hero); hero.__atkT=Math.max(0,(hero.__atkT||0)-dt);
@@ -1334,10 +1384,10 @@ function setupHUD(){
     b.innerHTML='<div class="cd"></div><div class="ic">'+icon+'</div><div class="cap">'+cap+'</div>';
     b.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); fn(); }); hand.appendChild(b); return b; };
   hitEl  =mkAbil('hit',ic('sword'),'Hit',76,12,12,()=>{ heroHit(); });                                            // basic attack — lights up only in range
-  // inner ring — hero abilities (spokes low→high: 14°, 51°, 88°)
-  abilEl =mkAbil('stomp',ic('fist'),'Stomp',56,121,47,()=>{ warstomp(); });
-  boltEl =mkAbil('bolt',ic('bolt'),'Bolt',56,86,101,()=>{ if(hero.spellCd<=0){ spellArmed=!spellArmed; smiteArmed=false; } updateSpellUI(); });
-  smiteEl=mkAbil('smite',ic('smite'),'Smite',56,26,124,()=>{ if(readyClerics()>0){ smiteArmed=!smiteArmed; spellArmed=false; } updateSpellUI(); });
+  // inner ring — Warden abilities (spokes low→high: 14°, 51°, 88°)
+  abilEl =mkAbil('stomp',ic('fan'),'Fan',56,121,47,()=>{ fanOfKnives(); });                                          // Fan of Knives — instant AoE
+  boltEl =mkAbil('bolt',ic('shadow'),'Strike',56,86,101,()=>{ if(hero.spellCd<=0){ spellArmed=!spellArmed; } updateSpellUI(); });   // Shadow Strike — tap a foe to hurl a poisoned glaive
+  smiteEl=mkAbil('smite',ic('blink'),'Blink',56,26,124,()=>{ blink(); });                                            // Blink — instant forward teleport
   // outer ring — army orders (same three spokes, one radius further out)
   boxBtn =mkAbil('select',ic('select'),'Select',50,185,65,()=>setBoxMode(!boxMode));   // arm marquee: next drag selects troops
   mkAbil('charge',ic('swords'),'Charge',50,129,153,()=>chargeAll());
@@ -1449,8 +1499,7 @@ function onUp(e){
       if(pp){ openPlotMenu(pp); }                                                                   // tapped a build plot → radial build / upgrade / train
       else if(coreB&&Math.hypot(hit.x-coreB.x,hit.z-coreB.z)<7){ openCoreMenu(); }                  // tapped the throne → expand
       else { closeBuildMenu();
-        if(spellArmed){ castBolt(hit.x,hit.z); }
-        else if(smiteArmed){ const en=nearestEnemyTo(hit.x,hit.z,6); if(en){ smiteAt(en); if(!readyClerics())smiteArmed=false; } }
+        if(spellArmed){ const en=nearestEnemyTo(hit.x,hit.z,7); if(en){ shadowStrike(en); } else spellArmed=false; updateSpellUI(); }   // Shadow Strike: tap a foe
         else { // context tap (Siege-Up): friendly → select · enemy → attack order · ground → move order
           const en=nearestEnemyTo(hit.x,hit.z,5), al=nearestAllyTo(hit.x,hit.z,4);
           const alD=al?Math.hypot(al.px-hit.x,al.pz-hit.z):1e9, enD=en?Math.hypot(en.px-hit.x,en.pz-hit.z):1e9;
