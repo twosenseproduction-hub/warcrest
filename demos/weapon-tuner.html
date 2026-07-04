@@ -196,7 +196,7 @@ const VFX={
   ashtreant:  {eyes:{color:0xffb544,size:0.05,sep:0.085,up:0.11,fwd:0.13}, smoke:{color:0xc0bfb8,count:16,life:2.6,rise:0.6,anchors:[[0.42,0.5,0.05],[-0.42,0.5,0.05],[0.34,0.74,-0.1],[-0.34,0.74,-0.1],[0,0.66,-0.34]]}},
   emberspitter:{eyes:{color:0xff8a24,size:0.06,sep:0.1,up:0.06,fwd:0.16}, smoke:{color:0xb9b6ae,count:11,life:2.2,rise:0.62,anchors:[[0.3,0.55,0.0],[-0.3,0.55,0.0],[0,0.72,-0.28]]}},
   revenant:   {eyes:{color:0x9dff4a,size:0.045,sep:0.09,up:0.13,fwd:0.13}, flame:{color:0x62ff20,core:0xe8ff96,count:14,life:0.5,rise:0.5}, smoke:{color:0x8f8f96,count:7,life:2.2,rise:0.7,anchors:[[0,1.12,0.0],[0.14,1.06,-0.05],[-0.14,1.06,-0.05]]}, crystals:{color:0x9dff4a,count:2}},
-  moltenwisp: {firering:{radius:0.5,height:0.72,y:0.0,disp:0.16,scx:6.0,scy:1.5,sx:0.08,sy:-0.8,power:1.6,hot:0xffe28c,mid:0xff6a1e,tip:0x8c1c00}},
+  moltenwisp: {firering:{radius:0.36,height:0.66,y:0.0,disp:0.34,scx:6.5,scy:1.4,sx:0.08,sy:-0.85,power:1.35,hot:0xffe28c,mid:0xff6a1e,tip:0x8c1c00}},
 };
 function makeVfx(key,wb,head){ const cfg=VFX[key]; if(!cfg)return null;
   const grp=new THREE.Group(); scene.add(grp);
