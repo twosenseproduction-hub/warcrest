@@ -49,19 +49,30 @@ for o in list(bpy.data.objects):
         for c in list(o.children):
             mw=c.matrix_world.copy(); c.parent=None; c.matrix_world=mw
         bpy.data.objects.remove(o,do_unlink=True)
-# bind (automatic weights)
+# bind: PROXIMITY weights (not heat) — heat-weighting fails across a multi-shell sculpt and
+# orphans most verts. Instead weight every vertex to its nearest bones by segment distance, so
+# joints actually articulate. parent_set(ARMATURE_NAME) sets up the modifier + empty bone groups.
 for o in bpy.context.selected_objects: o.select_set(False)
 gol.select_set(True); arm.select_set(True); bpy.context.view_layer.objects.active=arm
-bpy.ops.object.parent_set(type='ARMATURE_AUTO')
-# fully weight orphan verts -> a central bone (prevents the exporter neutral-bone crash)
-central=None
-for cand in ('Hips','spine','Spine','Root','root','Pelvis','pelvis','spine_01'):
-    if gol.vertex_groups.get(cand): central=cand; break
-if central is None:
-    central=arm.data.bones[0].name
-    if not gol.vertex_groups.get(central): gol.vertex_groups.new(name=central)
-orphans=[v.index for v in gol.data.vertices if len(v.groups)==0]
-if orphans: gol.vertex_groups.get(central).add(orphans,1.0,'REPLACE')
+bpy.ops.object.parent_set(type='ARMATURE_NAME')   # modifier + bone-named groups, no weights
+# deform-bone rest segments in world space (skip IK/control bones)
+segs=[]
+for bn in arm.data.bones:
+    if any(k in bn.name.lower() for k in ('ik','ctrl','pole','target','_end')): continue
+    segs.append((bn.name, arm.matrix_world@bn.head_local, arm.matrix_world@bn.tail_local))
+def seg_dist(P,H,T):
+    d=T-H; L2=d.dot(d)
+    if L2<1e-9: return (P-H).length
+    t=max(0.0,min(1.0,(P-H).dot(d)/L2)); return (P-(H+d*t)).length
+grp={nm:(gol.vertex_groups.get(nm) or gol.vertex_groups.new(name=nm)) for nm,_,_ in segs}
+mw=gol.matrix_world; K=3; POW=4.0
+for v in gol.data.vertices:
+    P=mw@v.co
+    ds=sorted((seg_dist(P,H,T),nm) for nm,H,T in segs)[:K]
+    ws=[((1.0/(d+1e-3))**POW, nm) for d,nm in ds]; tot=sum(w for w,_ in ws) or 1.0
+    for w,nm in ws: grp[nm].add([v.index], w/tot, 'REPLACE')
+orphans=[v.index for v in gol.data.vertices if len(v.groups)==0]   # should be 0 now
+print('proximity-weighted; residual orphans',len(orphans),'; deform bones',len(segs))
 # export armature + sculpt + all clips
 bpy.ops.object.select_all(action='DESELECT'); arm.select_set(True); gol.select_set(True)
 os.makedirs(OUT,exist_ok=True); out=os.path.join(OUT,NAME+'_anim.glb')
