@@ -155,8 +155,8 @@ function build(key){
   // map KayKit clip names onto idle/run/attack/block. Handles both the clean names (Idle, Walking_A)
   // and the Rig-suffixed merged names (Idle_A_Rig_Medium.001). Patterns are tried in priority order.
   const alias={ idle:[/^idle$/i,/^idle_a/i,/unarmed_idle/i,/idle/i],
-                run:[/^running_a/i,/^walking_a/i,/running/i,/walking/i,/^run$/i],
-                attack:[/1h_melee_attack_chop/i,/melee_attack/i,/^attack/i,/throw/i],
+                run:[/^running_a/i,/^walking_a/i,/^walk$/i,/running/i,/walking/i,/walk/i,/^run$/i],
+                attack:[/1h_melee_attack_chop/i,/melee_attack/i,/^attack/i,/smash/i,/slam/i,/throw/i],
                 block:[/^blocking$/i,/^block$/i,/block/i] };
   const _keys=Object.keys(act);
   for(const std in alias){ if(act[std])continue;
