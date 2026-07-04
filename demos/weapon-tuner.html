@@ -196,12 +196,12 @@ const VFX={
   ashtreant:  {eyes:{color:0xffb544,size:0.05,sep:0.085,up:0.11,fwd:0.13}, smoke:{color:0xc0bfb8,count:16,life:2.6,rise:0.6,anchors:[[0.42,0.5,0.05],[-0.42,0.5,0.05],[0.34,0.74,-0.1],[-0.34,0.74,-0.1],[0,0.66,-0.34]]}},
   emberspitter:{eyes:{color:0xff8a24,size:0.06,sep:0.1,up:0.06,fwd:0.16}, smoke:{color:0xb9b6ae,count:11,life:2.2,rise:0.62,anchors:[[0.3,0.55,0.0],[-0.3,0.55,0.0],[0,0.72,-0.28]]}},
   revenant:   {eyes:{color:0x9dff4a,size:0.045,sep:0.09,up:0.13,fwd:0.13}, flame:{color:0x62ff20,core:0xe8ff96,count:14,life:0.5,rise:0.5}, smoke:{color:0x8f8f96,count:7,life:2.2,rise:0.7,anchors:[[0,1.12,0.0],[0.14,1.06,-0.05],[-0.14,1.06,-0.05]]}, crystals:{color:0x9dff4a,count:2}},
-  moltenwisp: {firering:{radius:0.36,height:0.66,y:0.0,disp:0.34,scx:6.5,scy:1.4,sx:0.08,sy:-0.85,power:1.35,hot:0xffe28c,mid:0xff6a1e,tip:0x8c1c00}},
+  moltenwisp: {baseglow:{color:0x9dff4a,size:0.42}, ash:{count:30,color:0x8f8f92,ember:0x9dff4a,life:1.8,fall:0.55,spread:0.16}},
 };
-function makeVfx(key,wb,head){ const cfg=VFX[key]; if(!cfg)return null;
+function makeVfx(key,wb,head,getBone){ const cfg=VFX[key]; if(!cfg)return null;
   const grp=new THREE.Group(); scene.add(grp);
   const sz=wb.getSize(new THREE.Vector3()), cx=(wb.min.x+wb.max.x)/2, cz=(wb.min.z+wb.max.z)/2;
-  const wx=sz.x, hy=sz.y, dz=sz.z, frontZ=wb.max.z; const smokeP=[], flameP=[], eyes=[], crystals=[], rings=[];
+  const wx=sz.x, hy=sz.y, dz=sz.z, frontZ=wb.max.z; const smokeP=[], flameP=[], eyes=[], crystals=[], rings=[], ashP=[]; let baseGlow=null;
   const _hp=new THREE.Vector3(); const headPos=()=>{ if(head){ head.getWorldPosition(_hp); return _hp; } _hp.set(cx,(wb.min.y+wb.max.y)*0.5+hy*0.3,frontZ*0.5); return _hp; };
   const headY=headPos().y;
   function spr(tex,color,blend){ const m=new THREE.SpriteMaterial({map:tex,color:color,transparent:true,depthWrite:false,opacity:0,blending:blend}); const s=new THREE.Sprite(m); grp.add(s); return s; }
@@ -222,6 +222,18 @@ function makeVfx(key,wb,head){ const cfg=VFX[key]; if(!cfg)return null;
   if(cfg.firering){ const fr=cfg.firering; const R=Math.max(wx,dz)*(fr.radius||0.6), H=hy*(fr.height||0.4);
     const geo=new THREE.CylinderGeometry(R*0.82,R,H,56,14,true); const mat=fireRingMaterial(fr,R*(fr.disp||0.14));
     const m=new THREE.Mesh(geo,mat); m.frustumCulled=false; m.position.set(cx, wb.min.y+H*0.5+(fr.y||0)*hy, cz); grp.add(m); rings.push(mat); }
+  // tail-anchored base glow + downward ash/ember exhaust ("what propels the float") + trailing plume
+  const emitBone=(getBone&&(getBone('tail_03')||getBone('tail_02')||getBone('tail_01')))||head||null;
+  const _ep=new THREE.Vector3();
+  function emitPos(){ if(emitBone){ emitBone.getWorldPosition(_ep); } else { _ep.set(cx, wb.min.y+hy*0.05, cz); } return _ep; }
+  if(cfg.baseglow){ baseGlow=spr(TEX_GLOW,cfg.baseglow.color,THREE.AdditiveBlending); baseGlow.scale.setScalar((cfg.baseglow.size||0.4)*hy); baseGlow.material.opacity=0.85; }
+  if(cfg.ash){ for(let i=0;i<cfg.ash.count;i++){ const em=(i%3===0);
+      const s=spr(em?TEX_GLOW:TEX_SMOKE, em?(cfg.ash.ember||0x9dff4a):(cfg.ash.color||0x9a9a9a), em?THREE.AdditiveBlending:THREE.NormalBlending);
+      ashP.push({s,em,life:1e9,max:1,x:0,y:0,z:0,vx:0,vy:0,vz:0,sz0:1}); } }
+  function reseedAsh(p){ const e=emitPos(), c=cfg.ash; p.life=0; p.max=c.life*(0.6+Math.random()*0.8);
+    p.x=e.x+(Math.random()-0.5)*c.spread*wx; p.y=e.y+(Math.random()*0.05-0.02)*hy; p.z=e.z+(Math.random()-0.5)*c.spread*dz;
+    const ang=Math.random()*6.283, rad=Math.random()*0.05*wx; p.vx=Math.cos(ang)*rad; p.vz=Math.sin(ang)*rad;
+    p.vy=-(c.fall||0.5)*hy*(0.6+Math.random()*0.7); p.sz0=(p.em?hy*0.028:hy*0.13)*(0.7+Math.random()*0.6); }
   function reseed(p,c){ p.life=0; p.max=c.life*(0.7+Math.random()*0.6);
     const a=c.anchors?c.anchors[(Math.random()*c.anchors.length)|0]:[0,0,0];
     p.x=cx+a[0]*wx+(Math.random()-0.5)*0.15*wx; p.y=a[1]*hy; p.z=cz+a[2]*dz+(Math.random()-0.5)*0.15*dz;
@@ -238,6 +250,11 @@ function makeVfx(key,wb,head){ const cfg=VFX[key]; if(!cfg)return null;
       for(const e of eyes){ e.s.position.set(hp.x+e.sgn*sep, hp.y+up, hp.z+fwd); e.s.material.opacity=0.75+0.25*Math.sin(t*5); } }
     for(const c of crystals){ const y=c.base.y+Math.sin(t*1.6+c.ph)*hy*0.05; c.m.position.y=y; c.halo.position.y=y; c.m.rotation.y=t*0.9; c.m.rotation.x=t*0.5; c.halo.material.opacity=0.55+0.2*Math.sin(t*3+c.ph); }
     for(const m of rings){ m.uniforms.uTime.value=t; }
+    if(baseGlow){ const e=emitPos(); baseGlow.position.set(e.x,e.y+hy*0.02,e.z); baseGlow.material.opacity=0.65+0.28*Math.sin(t*4.5); }
+    for(const p of ashP){ p.life+=dt; if(p.life>=p.max)reseedAsh(p);
+      p.vy-=(p.em?0.25:0.55)*hy*dt; p.x+=p.vx*dt; p.y+=p.vy*dt; p.z+=p.vz*dt; const f=p.life/p.max; p.s.position.set(p.x,p.y,p.z);
+      if(p.em){ p.s.material.opacity=(1-f)*0.9; const s=p.sz0*(1.0-f*0.4); p.s.scale.set(s,s,s); }
+      else { p.s.material.opacity=Math.sin(Math.min(1,f)*Math.PI)*0.42; const s=p.sz0*(0.6+f*1.15); p.s.scale.set(s,s,s); } }
   }
   return {group:grp,update:upd};
 }
@@ -279,7 +296,7 @@ function build(key){
   let vfx=null;
   if(VFX[key]){ const wb=new THREE.Box3().setFromObject(inner);
     const hb=findBone(inner,src.anims,'head');
-    vfx=makeVfx(key,wb,hb); }
+    vfx=makeVfx(key,wb,hb,(n)=>findBone(inner,src.anims,n)); }
   cur={g:outer,mixer,act,key,props,vfx,anim:idle?(act.idle?'idle':Object.keys(act)[0]):null,pi:0};
   // frame camera to unit height
   const th=CHAR_H[key]||4; orbit.ty=th*0.5; orbit.r=th*2.2; applyCam();
