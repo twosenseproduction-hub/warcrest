@@ -1037,7 +1037,7 @@ function groundBasis(){ const f=new THREE.Vector3(); cam.getWorldDirection(f); f
 // pick one of the hero's attack swings at random (Queen has several slash clips; others just have 'attack')
 function pickAtkClip(e){ if(!e||!e.act)return 'attack'; const a=['attack','attack2','attack3','attack4'].filter(n=>e.act[n]); return a.length?a[(Math.random()*a.length)|0]:'attack'; }
 // the Hit button: strike the nearest foe, but only if one is actually in reach (button is dimmed otherwise)
-function heroHit(){ if(!hero||gameOver)return; const {t,d}=nearest(hero.px,hero.pz,foes());
+function heroHit(){ if(!hero||!hero.alive||gameOver)return; const {t,d}=nearest(hero.px,hero.pz,foes());
   if(t&&d<=hero.range+(t.big||0)+1){ if(hero.rigged){ hero.__atkClip=pickAtkClip(hero); hero.__atkT=0.55; } attack(hero,t); } }
 function warstomp(){ if(!hero||hero.aCd>0||gameOver)return; hero.aCd=5;
   for(const e of enemies){ if(!e.alive)continue; const d=Math.hypot(e.px-hero.px,e.pz-hero.pz);
@@ -1081,23 +1081,23 @@ function smiteFx(en){ const r=new THREE.Mesh(new THREE.RingGeometry(0.5,1.4,20),
 function blinkPop(x,z){ const g=new THREE.Mesh(new THREE.SphereGeometry(1.6,12,10), new THREE.MeshBasicMaterial({color:0x7a4fd0,transparent:true,opacity:0.75,blending:THREE.AdditiveBlending,depthWrite:false}));
   g.position.set(x,topY(x,z)+2,z); scene.add(g); let a=0;(function an(){a+=0.09; g.scale.setScalar(1+a*3.2); g.material.opacity=Math.max(0,0.75-a*0.95); if(a<0.9)requestAnimationFrame(an); else scene.remove(g);})();
   pingRing(x,z,0x9b6be6); for(let i=0;i<6;i++){ const a2=rnd()*6.28; puff(x+Math.cos(a2)*rr(0.4,1.6),topY(x,z)+rr(0.5,2.5),z+Math.sin(a2)*rr(0.4,1.6),0x8a5fd0,0.7,0.55); } }
-function blink(){ if(!hero||hero.blinkCd>0||gameOver)return; hero.blinkCd=7;
+function blink(){ if(!hero||!hero.alive||hero.blinkCd>0||gameOver)return; hero.blinkCd=7;
   const a=hero.face; let bx=hero.px, bz=hero.pz;                              // teleport forward, clamped to stay on the island
   for(let s=17;s>=3;s-=1.5){ const nx=hero.px+Math.sin(a)*s, nz=hero.pz+Math.cos(a)*s; if(onIsland(nx,nz)){ bx=nx; bz=nz; break; } }
   blinkPop(hero.px,hero.pz); setP(hero,bx,bz); blinkPop(bx,bz); addShake(0.4); }
-function fanOfKnives(){ if(!hero||hero.aCd>0||gameOver)return; hero.aCd=6;                 // instant AoE glaive nova
+function fanOfKnives(){ if(!hero||!hero.alive||hero.aCd>0||gameOver)return; hero.aCd=6;                 // instant AoE glaive nova
   if(hero.rigged){ hero.__atkClip=pickAtkClip(hero); hero.__atkT=0.5; }
   const R=15; for(const e of enemies){ if(!e.alive)continue; if(Math.hypot(e.px-hero.px,e.pz-hero.pz)<R) damage(e,44,true); }
   const N=16; for(let i=0;i<N;i++){ const a=i/N*6.28; bladeSpin(hero.px,hero.pz, hero.px+Math.sin(a)*R, hero.pz+Math.cos(a)*R, 0xbfe9ff, 0.34); }
   shockwave(hero.px,hero.pz,0xcdeeff,15); addShake(1.5); }
-function shadowStrike(en){ if(!hero||hero.spellCd>0||!en||!en.alive)return false; hero.spellCd=8; spellArmed=false;   // poisoned glaive: burst + DoT
+function shadowStrike(en){ if(!hero||!hero.alive||hero.spellCd>0||!en||!en.alive)return false; hero.spellCd=8; spellArmed=false;   // poisoned glaive: burst + DoT
   if(hero.rigged){ hero.__atkClip=pickAtkClip(hero); hero.__atkT=0.45; }
   faceTo(hero, en.px-hero.px, en.pz-hero.pz); shootFx(hero.px,hero.pz,en.px,en.pz,'shadow');
   damage(en,48,true); en.poison={t:4, dps:11}; en.__pt=0.5; addShake(0.5); return true; }
 function focusFire(en){ allies.forEach(e=>{ if(e.alive){ e.forcedTarget=en; e.target=en; e.order=null; e.following=false; } });
   rallyMarker.material.color.setHex(0xff6a5a); rallyMarker.position.set(en.px,topY(en.px,en.pz)+0.3,en.pz); rallyMarker.visible=true; clearTimeout(rallyMarker.__to); rallyMarker.__to=setTimeout(()=>rallyMarker.visible=false,900); }
 // ---------- RTS selection + context orders (Siege-Up style) ----------
-let boxMode=false, boxBtn=null, selPanelEl=null;
+let boxMode=false, boxBtn=null, selPanelEl=null, respawnEl=null; const HERO_RESPAWN=8;
 function nearestAllyTo(x,z,maxd){ let b=null,bd=maxd*maxd;
   for(const e of [hero,...allies]){ if(!e||!e.alive)continue; const dd=(e.px-x)**2+(e.pz-z)**2; if(dd<bd){bd=dd;b=e;} } return b; }
 function clearSel(){ selected.clear(); updateSelPanel(); }
@@ -1354,10 +1354,10 @@ function updateGame(dt){
     else { if(keys['w']||keys['arrowup'])iy-=1; if(keys['s']||keys['arrowdown'])iy+=1; if(keys['a']||keys['arrowleft'])ix-=1; if(keys['d']||keys['arrowright'])ix+=1; }
     const B=groundBasis(); let mvx=B.f.x*(-iy)+B.r.x*ix, mvz=B.f.z*(-iy)+B.r.z*ix; const ml=Math.hypot(mvx,mvz);
     let heroMoved=false;
-    if(camLocked && ml>0.01){ // left stick drives the hero (follow mode); stick input cancels any tap order
+    if(hero.alive && camLocked && ml>0.01){ // left stick drives the hero (follow mode); stick input cancels any tap order
       hero.order=null; mvx/=ml;mvz/=ml; const nx=hero.px+mvx*hero.spd*dt, nz=hero.pz+mvz*hero.spd*dt; if(onIsland(nx,nz))setP(hero,nx,nz);
       faceTo(hero,mvx,mvz); hero.movedThis=true; heroMoved=true; heroFwd.x+=(mvx-heroFwd.x)*Math.min(1,dt*6); heroFwd.z+=(mvz-heroFwd.z)*Math.min(1,dt*6); }
-    else if(hero.order){ // RTS: tap-ordered hero walks to the point like any selected unit
+    else if(hero.alive && hero.order){ // RTS: tap-ordered hero walks to the point like any selected unit
       const d=Math.hypot(hero.order.x-hero.px,hero.order.z-hero.pz);
       if(d<1.6){ hero.order=null; }
       else { const dx=(hero.order.x-hero.px)/d, dz=(hero.order.z-hero.pz)/d;
@@ -1368,15 +1368,16 @@ function updateGame(dt){
       // fast at full tilt), not the hero's normalized fixed-speed movement — a camera, not a character
       const m=Math.min(1,ml), nx=mvx/ml, nz=mvz/ml, sp=110*Math.max(0.6,camF.dist/66)*m*m;
       camAim.x+=nx*sp*dt; camAim.z+=nz*sp*dt; clampAim(); }
-    hero.cd-=dt; hero.aCd-=dt; hero.spellCd-=dt; hero.blinkCd-=dt;
+    if(hero.alive){ hero.cd-=dt; hero.aCd-=dt; hero.spellCd-=dt; hero.blinkCd-=dt; }
     const FO=foes();   // enemy units + attackable enemy structures (core/buildings) — the player's valid targets
-    if(autoBolt && hero.spellCd<=0 && enemies.length){ const t=nearestEnemyTo(hero.px,hero.pz,26); if(t) shadowStrike(t); }   // AUTO = auto Shadow Strike nearest visible foe
+    if(hero.alive && autoBolt && hero.spellCd<=0 && enemies.length){ const t=nearestEnemyTo(hero.px,hero.pz,26); if(t) shadowStrike(t); }   // AUTO = auto Shadow Strike nearest visible foe
     for(const e of enemies){ if(!e.alive||!e.poison)continue; e.poison.t-=dt; e.__pt-=dt;   // Shadow Strike poison DoT
       if(e.__pt<=0){ e.__pt=0.5; damage(e, e.poison.dps*0.5, false); if(isVisible(e.px,e.pz)) puff(e.px+rr(-0.6,0.6),topY(e.px,e.pz)+2+rr(0,1.4),e.pz+rr(-0.6,0.6),0x8ef07a,0.5,0.5); }
       if(e.poison.t<=0)e.poison=null; }
-    { const {t,d}=nearest(hero.px,hero.pz,FO); heroHitTarget=(t&&d<=hero.range+(t.big||0)+1)?t:null; heroCanHit=!!heroHitTarget;
+    if(hero.alive){ const {t,d}=nearest(hero.px,hero.pz,FO); heroHitTarget=(t&&d<=hero.range+(t.big||0)+1)?t:null; heroCanHit=!!heroHitTarget;
       if(heroHitTarget){ if(hero.rigged&&hero.cd<=0){ hero.__atkClip=pickAtkClip(hero); hero.__atkT=0.55; } attack(hero,heroHitTarget); } }
-    if(hero.rigged){ hero.mixer.update(dt); armRelax(hero); hero.__atkT=Math.max(0,(hero.__atkT||0)-dt);
+    else { heroHitTarget=null; heroCanHit=false; }
+    if(hero.alive && hero.rigged){ hero.mixer.update(dt); armRelax(hero); hero.__atkT=Math.max(0,(hero.__atkT||0)-dt);
       setAnim(hero, hero.__atkT>0?(hero.__atkClip||'attack'):(heroMoved?'run':'idle')); }
     const hl=Math.hypot(heroFwd.x,heroFwd.z)||1, ffx=heroFwd.x/hl, ffz=heroFwd.z/hl, rgx=ffz, rgz=-ffx;
     for(const e of allies){ if(!e.alive)continue; e.cd-=dt;
@@ -1422,7 +1423,16 @@ function updateGame(dt){
     for(const s of eStructs){ if(s.alive&&s.hp<=0){ s.alive=false; deathFx(s); scene.remove(s.g); scene.remove(s.bar);
         if(s.kind==='bld'&&s.plot){ const p=s.plot; p.cat=null; p.level=0; p.g=null; p.struct=null; eRecomputeIncome(); } } }
     eStructs=eStructs.filter(s=>s.alive);
-    if(hero.hp<=0||(coreB&&coreB.hp<=0)) endGame(false); else if(enemyCore&&enemyCore.hp<=0) endGame(true);
+    // hero is respawnable — falling starts a timer, not a defeat; only the thrones decide the match
+    if(hero.alive && hero.hp<=0){ hero.alive=false; hero.respawnT=HERO_RESPAWN; deathFx(hero); hero.g.visible=false;
+      selected.delete(hero); hero.order=null; hero.forcedTarget=null; hero.__atkT=0; updateSelPanel();
+      if(respawnEl) respawnEl.style.display='flex'; }
+    else if(!hero.alive){ hero.respawnT-=dt;
+      if(respawnEl){ const rt=respawnEl.querySelector('.rsT'); if(rt)rt.textContent='Respawning in '+Math.max(1,Math.ceil(hero.respawnT))+'s'; }
+      if(hero.respawnT<=0){ hero.alive=true; hero.hp=hero.max; hero.cd=hero.aCd=hero.spellCd=hero.blinkCd=0; hero.order=null; hero.__atkT=0;
+        const rx=coreB?coreB.x:105, rz=(coreB?coreB.z:108)+4; setP(hero,rx,rz); hero.g.visible=true; hero.animState='idle'; blinkPop(rx,rz);
+        if(camLocked){ camAim.x=rx; camAim.z=rz; } if(respawnEl) respawnEl.style.display='none'; } }
+    if(coreB&&coreB.hp<=0) endGame(false); else if(enemyCore&&enemyCore.hp<=0) endGame(true);
     if(heroHpEl) heroHpEl.style.width=(Math.max(0,hero.hp)/hero.max*100)+'%';
     if(waveEl&&enemyCore) waveEl.textContent = enemyCore.hp>0 ? ('⚔ Orc throne  '+Math.ceil(Math.max(0,enemyCore.hp))+'/'+enemyCore.max) : 'The orc throne has fallen!';
     updateOrderMarkers(); updateSpellUI();   // Stomp cooldown + Hit-in-range state handled in updateSpellUI
@@ -1497,6 +1507,10 @@ function setupHUD(){
   autoEl.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); autoBolt=!autoBolt; updateSpellUI(); }); boltEl.appendChild(autoEl);
   document.body.appendChild(hand); abilHandEl=hand;
   dmgLayer=document.createElement('div'); dmgLayer.id='dmgLayer'; document.body.appendChild(dmgLayer);   // floating combat numbers
+  respawnEl=document.createElement('div'); respawnEl.id='respawnBanner';
+  respawnEl.style.cssText='position:fixed;left:50%;top:36%;transform:translateX(-50%);z-index:8;display:none;flex-direction:column;align-items:center;gap:5px;pointer-events:none;text-align:center';
+  respawnEl.innerHTML='<div style="font:800 19px system-ui;color:#ff8a6a;text-shadow:0 2px 6px rgba(0,0,0,0.75)">The Elf Queen has fallen</div><div class="rsT" style="font:800 15px system-ui;color:#e6eef6;text-shadow:0 2px 6px rgba(0,0,0,0.75)">Respawning in 8s</div>';
+  document.body.appendChild(respawnEl);
   resultEl=document.createElement('div'); resultEl.style.cssText='position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:#0008;color:#fff;font:600 18px system-ui;gap:12px;z-index:9';
   resultEl.innerHTML='<h1 style="font-size:48px;margin:0"></h1><div>tap to play again</div>'; resultEl.addEventListener('pointerdown',()=>location.reload()); document.body.appendChild(resultEl);
   // Siege-Up top-centre resource bar: gold | wood | population (replaces the bottom-left chips)
