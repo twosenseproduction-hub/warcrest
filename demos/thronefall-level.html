@@ -631,6 +631,70 @@ function mkOrc(rig){ const map={orcgrunt:'grunt', orcarcher:'archer', orcwarrior
   const e=mkFighter(C.enemyRed,scl,'enemy',{hp:b.hp,dmg:b.dmg,range:b.range,atkEvery:b.atk,spd:ENEMY_SPD}); riggize(e,rig);
   e.kind=kind; if(kind==='archer'){e.ranged=true;} if(kind==='shaman'){e.ranged=true;e.magic=true;} if(rig==='orcwarrior')e.rad=1.8;
   return e; }
+// ================= NEUTRAL CREEPS (ash-basin bestiary) + creep camps =================
+// Creeps live in the `enemies` array (so allies/towers/hero treat them as foes and the reaper
+// handles them), but run their own dormant-until-provoked, camp-leashed AI (WC3 behaviour):
+// they idle at their den until a player unit strays near or hits them, chase within a leash of
+// home, then disengage + regen if pulled too far. Clearing a camp pays a gold bounty.
+const CREEP={
+  cinderhound: {hp:130, dmg:16, range:3.2, atk:1.0, spd:14, rad:1.5,          name:'Cinder Hound'},
+  direboar:    {hp:230, dmg:26, range:3.4, atk:1.3, spd:12, rad:1.9, big:2.0, name:'Direboar'},
+  emberspitter:{hp:95,  dmg:15, range:11,  atk:1.6, spd:9,  rad:1.5, ranged:true, magic:true, name:'Ember Spitter'},
+  ashtreant:   {hp:440, dmg:30, range:3.8, atk:1.6, spd:8,  rad:2.6, big:3.0, name:'Ash Treant'},
+  moltenwisp:  {hp:90,  dmg:18, range:10,  atk:1.5, spd:13, rad:1.4, ranged:true, magic:true, name:'Molten Wisp'},
+  wyveling:    {hp:210, dmg:22, range:5,   atk:1.1, spd:16, rad:1.8,           name:'Wyveling'},
+  revenant:    {hp:680, dmg:40, range:4.4, atk:1.4, spd:9,  rad:2.8, big:3.2, name:'Stone Revenant'},
+};
+function mkCreep(kind,camp,home){ const b=CREEP[kind]||CREEP.cinderhound;
+  const e=mkFighter(0x8a7d5a,1.0,'enemy',{hp:b.hp,dmg:b.dmg,range:b.range,atkEvery:b.atk,spd:b.spd});
+  e.kind=kind; e.creep=true; e.camp=camp; e.home={x:home.x,z:home.z}; e.aggro=false; e.returning=false;
+  e.aggroR=camp?camp.aggroR:15; e.leashR=camp?camp.leashR:26; e.rad=b.rad||1.5; if(b.big)e.big=b.big;
+  if(b.ranged)e.ranged=true; if(b.magic)e.magic=true; e.max=b.hp;
+  riggize(e,kind); return e; }
+function campAggro(camp){ if(!camp)return; camp.aggro=true; for(const c of camp.members) if(c.alive) c.aggro=true; }
+function creepTick(e,dt){ const h=e.home;
+  if(!e.aggro){ const {t,d}=nearest(e.px,e.pz,[hero,...allies].filter(u=>u&&u.alive)); if(t && d<e.aggroR) campAggro(e.camp); }
+  if(e.aggro){
+    if(e.target && !e.target.alive) e.target=null;
+    if(!e.returning && Math.hypot(e.px-h.x,e.pz-h.z)>e.leashR){ e.target=null; e.returning=true; }   // pulled past the leash
+    if(e.returning){ const d=Math.hypot(h.x-e.px,h.z-e.pz);
+      if(d>2.2){ e.state='move'; moveTo(e,h.x,h.z,dt); e.hp=Math.min(e.max,e.hp+e.max*0.25*dt); }     // regen while walking home
+      else { e.returning=false; e.aggro=false; e.hp=e.max; e.state='idle'; } }
+    else { if(!e.target){ const c=nearest(e.px,e.pz,[hero,...allies].filter(u=>u&&u.alive)); if(c.t && Math.hypot(c.t.px-h.x,c.t.pz-h.z)<e.leashR) e.target=c.t; }
+      if(e.target){ const t=e.target, reach=e.range+(t.big||0), d=Math.hypot(t.px-e.px,t.pz-e.pz);
+        if(d>reach){ e.state='move'; moveTo(e,t.px,t.pz,dt); } else { e.state='attack'; faceTo(e,t.px-e.px,t.pz-e.pz);
+          if(e.ranged && e.cd<=0) shootFx(e.px,e.pz,t.px,t.pz, e.kind==='emberspitter'?'fire':(e.magic?'magic':'arrow')); attack(e,t); } }
+      else e.state='idle'; }
+  } else e.state='idle';
+  if((e.kind==='emberspitter'||e.kind==='moltenwisp'||e.kind==='cinderhound') && isVisible(e.px,e.pz) && Math.random()<dt*1.4)
+    puff(e.px+rr(-0.6,0.6),topY(e.px,e.pz)+rr(0.8,2.4),e.pz+rr(-0.6,0.6), e.kind==='moltenwisp'?0x9dff4a:0xff7a2a, rr(0.18,0.38),0.5);
+  if(e.rigged){ e.mixer.update(dt); setAnim(e, e.state==='attack'?'attack':(e.state==='move'?'run':'idle')); } }
+// ---- creep camps (mission a1m1): dens along the ash road between the two strongholds ----
+let creepCamps=[];
+function findLand(x,z){ if(onIsland(x,z))return {x,z}; for(let r=3;r<=34;r+=3){ for(let a=0;a<6.28;a+=0.5){ const nx=x+Math.cos(a)*r, nz=z+Math.sin(a)*r; if(onIsland(nx,nz))return {x:nx,z:nz}; } } return {x,z}; }
+function spawnCreepCamps(){ creepCamps=[]; const P={x:105,z:108}, E={x:-105,z:-108};
+  const at=t=>findLand(P.x+(E.x-P.x)*t, P.z+(E.z-P.z)*t);
+  const defs=[
+    {t:0.30, name:'Cinder Pack',     bounty:60,  roster:['cinderhound','cinderhound']},
+    {t:0.45, name:'Boar Wallow',     bounty:90,  roster:['direboar','cinderhound','cinderhound']},
+    {t:0.60, name:'The Ashen Grove', bounty:130, roster:['ashtreant','emberspitter','emberspitter']},
+    {t:0.72, name:'The Revenant',    bounty:200, roster:['revenant','moltenwisp','wyveling']},
+  ];
+  defs.forEach((d,ci)=>{ const c=at(d.t);
+    const camp={x:c.x,z:c.z,name:d.name,bounty:d.bounty,members:[],discovered:false,cleared:false,aggro:false,aggroR:15,leashR:27,first:ci===0};
+    d.roster.forEach((k,i)=>{ const ang=i/Math.max(1,d.roster.length)*6.28, rad=(i===0?0:5.5);
+      const home=findLand(c.x+Math.cos(ang)*rad, c.z+Math.sin(ang)*rad); const e=mkCreep(k,camp,home);
+      setP(e,home.x,home.z); e.__vis=false; enemies.push(e); camp.members.push(e); });
+    creepCamps.push(camp); }); }
+let _toastEl=null,_toastTo=null;
+function campToast(msg){ if(!_toastEl){ _toastEl=document.createElement('div'); _toastEl.id='campToast';
+    _toastEl.style.cssText='position:fixed;left:50%;top:78px;transform:translateX(-50%);z-index:60;background:rgba(12,16,22,0.85);color:#e7edf3;border:1px solid #c79a42;border-radius:8px;padding:8px 16px;font:700 14px system-ui;letter-spacing:.4px;pointer-events:none;transition:opacity .4s;box-shadow:0 4px 18px rgba(0,0,0,.5)';
+    document.body.appendChild(_toastEl); }
+  _toastEl.textContent=msg; _toastEl.style.opacity='1'; clearTimeout(_toastTo); _toastTo=setTimeout(()=>{ if(_toastEl)_toastEl.style.opacity='0'; },2800); }
+function updateCamps(dt){ for(const camp of creepCamps){
+  if(!camp.discovered && (isVisible(camp.x,camp.z)||camp.aggro)){ camp.discovered=true; pingRing(camp.x,camp.z,0x9dff4a); campToast('◈ '+camp.name+' — creep camp discovered');
+    if(camp.first) playDialog([{who:'Crown Scout',icon:'select',text:'My lord — the ash is not empty. Beasts den along the road: hounds and boars, and worse things of stone and green fire. Clear their camps and the ironstone road is ours — and they hoard plunder.'}]); }
+  if(!camp.cleared && camp.members.length && camp.members.every(m=>!m.alive)){ camp.cleared=true; gold+=camp.bounty; campToast('✓ '+camp.name+' cleared — +'+camp.bounty+' gold'); } } }
 function eTowerTick(p,dt){ p.cd-=dt; if(p.cd>0)return; let best=null,bd=p.range*p.range;
   for(const t of [hero,...allies]){ if(!t||!t.alive)continue; const dd=(t.px-p.x)**2+(t.pz-p.z)**2; if(dd<bd){bd=dd;best=t;} }
   if(best){ shootFx(p.x,p.z,best.px,best.pz,'arrow'); damage(best,p.dmg,false); p.cd=p.rof; } }
@@ -972,7 +1036,9 @@ function faceTo(e,dx,dz){ if(dx||dz) e.face=Math.atan2(dx,dz); }
 // Each GLB packs the mesh once + all its clips; the clips are authored on the Bitgem
 // skeleton so they play with no retarget. Textures are embedded (palette atlas, UVs
 // pre-flipped) — we just force NearestFilter so swatches sample solid, not the black gaps.
-const RIGS={}, PROPS={}, TEXS={}; const CHAR_H={thoryn:4.8, queen:4.4, paladin:4.4, archer:3.6, priestess:3.8, warrior:3.9, chief:4.9, orcarcher:3.7, orcgrunt:3.7, orcwarrior:4.1, orcshaman:3.7, drake:5.4};   // world heights (chief = boss, imposing; drake = winged elite)
+const RIGS={}, PROPS={}, TEXS={}; const CHAR_H={thoryn:4.8, queen:4.4, paladin:4.4, archer:3.6, priestess:3.8, warrior:3.9, chief:4.9, orcarcher:3.7, orcgrunt:3.7, orcwarrior:4.1, orcshaman:3.7, drake:5.4,
+  cinderhound:3.0, direboar:3.4, emberspitter:3.0, ashtreant:6.5, moltenwisp:3.8, wyveling:4.2, revenant:5.6};   // neutral creeps (ash-basin bestiary)
+const CREEP_KEYS=['cinderhound','direboar','emberspitter','ashtreant','moltenwisp','wyveling','revenant'];   // Tripo/PBR rigs — flatten to the unlit look like thoryn
 // hand weapons: each char has a list of props → { prop FBX, hand bone, local transform }
 const WEAPONS={
   queen:    [{file:'glaive_elf_queen', bone:'hand_r', pos:[-6.2,-1.25,-0.1], rot:[Math.PI/2,-1.326,0], scl:1}],
@@ -987,7 +1053,8 @@ const WEAPONS={
   orcwarrior:[{file:'sword_orc_warrior',bone:'Character1_RightHand', pos:[-10,-3.6,-2.8], rot:[0,0,-1.309], scl:0.66}],
   orcshaman:[{file:'staff_orc_shaman', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
 };
-const RIG_SPECS=[['thoryn','thoryn'],['queen','elf_queen'],['paladin','human_paladin'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior'],['chief','orc_chieftain'],['orcarcher','orc_archer'],['orcgrunt','orc_grunt'],['orcwarrior','orc_warrior'],['orcshaman','orc_shaman']];   // ['drake','dragon'] shelved — becomes the Rimwalker flyer (renamed) later
+const RIG_SPECS=[['thoryn','thoryn'],['queen','elf_queen'],['paladin','human_paladin'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior'],['chief','orc_chieftain'],['orcarcher','orc_archer'],['orcgrunt','orc_grunt'],['orcwarrior','orc_warrior'],['orcshaman','orc_shaman'],
+  ['cinderhound','cinder_hound'],['direboar','direboar'],['emberspitter','ember_spitter'],['ashtreant','ash_treant'],['moltenwisp','molten_wisp'],['wyveling','wyveling'],['revenant','stone_revenant']];   // neutral creeps
 // Several FBX (the elf/orc bows AND every elf building) export as SkinnedMesh with a rigid little
 // armature. Cloned with a plain .clone(true) — not SkeletonUtils.clone — the skeleton binding
 // breaks: the renderer skins the mesh in the skeleton's own space, so it renders at ~world origin
@@ -1007,7 +1074,7 @@ function loadRig(){ return new Promise(res=>{
   let n=0, need=RIG_SPECS.length*2 + propFiles.length; const done=()=>{ if(++n>=need) res(); };   // body GLB + atlas per char, + each prop once
   RIG_SPECS.forEach(([k,f])=>{
     gl.load('/assets/models/'+f+'_anim.glb', g=>{
-      if(k==='thoryn'||k==='drake') g.scene.traverse(o=>{ if(o.isMesh&&o.material&&o.material.map){   // Tripo/PBR (metallic) renders black in our unlit look — flatten to Basic like every other unit
+      if(k==='thoryn'||k==='drake'||CREEP_KEYS.includes(k)) g.scene.traverse(o=>{ if(o.isMesh&&o.material&&o.material.map){   // Tripo/PBR (metallic) renders black in our unlit look — flatten to Basic like every other unit
         const t=o.material.map; if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; o.material=new THREE.MeshBasicMaterial({map:t,side:THREE.DoubleSide}); } });
       RIGS[k]={scene:g.scene,anims:g.animations}; done(); }, undefined, ()=>done());
     tl.load('/assets/models/'+f+'_tex.png', t=>{ t.flipY=true; t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter; t.generateMipmaps=false; if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; TEXS[k]=t; done(); }, undefined, ()=>done());
@@ -1029,6 +1096,13 @@ function makeChar(key){ const src=RIGS[key]; if(!src)return null;
   // (run ≈ 250u forward), which otherwise slides the body ahead of its game position,
   // arcs it wide on turns, and snaps it back each loop. The game drives translation.
   src.anims.forEach(a=>{ const clip=new THREE.AnimationClip(a.name,a.duration, a.tracks.filter(t=>!t.name.endsWith('.position'))); act[a.name]=mixer.clipAction(clip); });
+  // map creep/KayKit clip names (Idle/Walk/Smash/Bite/Gore/Spit/Fly/Cast/…) onto idle/run/attack/block.
+  // Non-destructive: only fills a standard slot if the rig didn't already ship it (elf/orc keep their own).
+  const _alias={ idle:[/^idle$/i,/^idle_a/i,/unarmed_idle/i,/idle/i],
+    run:[/^running_a/i,/running/i,/^run$/i,/\brun/i,/^walking_a/i,/^walk$/i,/walking/i,/walk/i,/fly/i,/glide/i,/float/i,/hover/i],
+    attack:[/1h_melee_attack_chop/i,/melee_attack/i,/^attack$/i,/smash/i,/slam/i,/throw/i,/swipe/i,/bite/i,/spit/i,/gore/i,/cast/i,/attack/i],
+    block:[/^blocking$/i,/^block$/i,/block/i] };
+  for(const std in _alias){ if(act[std])continue; let hit=null; for(const re of _alias[std]){ hit=Object.keys(act).find(n=>re.test(n)); if(hit)break; } if(hit)act[std]=act[hit]; }
   // creatures shipped with a single clip (e.g. the drake's 'Flap') — alias it to the standard
   // idle/run/attack/block names (as independent actions) so the anim state machine can drive it.
   if(!act.idle && src.anims.length){ const base=src.anims[0];
@@ -1275,6 +1349,7 @@ const CAMPAIGN=[
 function startMission(m){ if(!m||!m.playable)return; activeMission=m; gameMode='campaign';
   if(modeSelEl)modeSelEl.style.display='none'; if(missionSelEl)missionSelEl.style.display='none'; if(missionCardEl)missionCardEl.style.display='none';
   pickHero(m.hero);   // pickHero flips `started` + starts audio; campaign forces the act's hero
+  if(m.id==='a1m1' && !creepCamps.length) spawnCreepCamps();   // seed the ash road with neutral creep camps
   const tip=document.getElementById('tip'); if(tip)tip.classList.add('hide');   // campaign uses the conversation, not the skirmish tip
   const showObj=()=>{ if(objBannerEl){ objBannerEl.textContent='◈ '+m.objective; objBannerEl.style.display='block'; } };
   if(m.lines&&m.lines.length) playDialog(m.lines, showObj); else showObj(); }
@@ -1449,6 +1524,7 @@ function shockwave(x,z,col,mx){ const r=new THREE.Mesh(new THREE.RingGeometry(0.
 // single choke-point for all combat damage — every hit flashes, punches (squash), and floats a number
 function damage(d,amt,heavy){ if(!d)return; if(d===hero && (hero.__invuln||0)>0){ pingRing(hero.px,hero.pz,0xffe6a0); return; }   // Divine Shield blocks all damage
   d.hp-=amt; d.hitT=Math.max(d.hitT||0, heavy?0.3:0.14); squash(d);
+  if(d.creep && d.camp) campAggro(d.camp);   // striking any camp member wakes the whole den
   const enemy=(d.team==='enemy'||d.kind==='core'||d.kind==='bld');
   if(enemy && !isVisible(d.px,d.pz))return;                 // don't leak hidden foes through the fog
   const y=topY(d.px,d.pz)+(d.big?d.big*0.7+2:3.4); popDmg(d.px,y,d.pz, Math.round(amt), heavy?'big':''); }
@@ -1706,6 +1782,7 @@ function updateGame(dt){
       if(e.rigged){ e.mixer.update(dt); setAnim(e, e.state==='attack'?'attack':(e.state==='move'?'run':'idle')); } }
     for(const e of enemies){ if(!e.alive)continue; e.cd-=dt; if(e.rageT>0)e.rageT-=dt;
       if(e.stunT>0){ e.stunT-=dt; e.state='idle'; if(e.rigged){ e.mixer.update(dt); setAnim(e,'idle'); } continue; }   // Hammer of Justice stun: frozen
+      if(e.creep){ creepTick(e,dt); continue; }   // neutral creeps run their own dormant/leashed AI
       if(e.target && !e.target.alive) e.target=null;
       if(!e.target){ const {t}=nearest(e.px,e.pz,[hero,...allies,coreB].filter(Boolean)); e.target=t; }   // fight units, or march on the throne
       if(e.isBoss) bossTick(e,dt);
@@ -1721,7 +1798,7 @@ function updateGame(dt){
         for(const t of [hero,...allies]){ if(!t.alive||!t.max||claims.has(t))continue; if(t.hp/t.max>=0.9)continue;
           if(Math.hypot(t.px-e.px,t.pz-e.pz)>18)continue; const def=t.max-t.hp; if(def>bestDef){bestDef=def;best=t;} }
         if(best){ best.hp=Math.min(best.max,best.hp+24); claims.add(best); e.healCd=2.8; healFx(best); popDmg(best.px,topY(best.px,best.pz)+3.4,best.pz,'+24','heal'); } } }
-    separate(); loco(dt); baseTick(dt); eBaseTick(dt);
+    separate(); loco(dt); baseTick(dt); eBaseTick(dt); if(creepCamps.length) updateCamps(dt);
     const reap=l=>{ for(const e of l){ if(e.alive&&e.hp<=0){ e.alive=false; deathFx(e); scene.remove(e.g); scene.remove(e.bar); if(e.ring){scene.remove(e.ring); selected.delete(e);} if(e.team==='enemy')killed++; } } return l.filter(e=>e.alive); };
     allies=reap(allies); enemies=reap(enemies);
     for(const s of eStructs){ if(s.alive&&s.hp<=0){ s.alive=false; deathFx(s); scene.remove(s.g); scene.remove(s.bar);
