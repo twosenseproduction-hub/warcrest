@@ -19,7 +19,7 @@ canvas{display:block}
   border-radius:10px;padding:9px 13px;min-height:40px;box-sizing:border-box;backdrop-filter:blur(8px);box-shadow:none;cursor:pointer;font-weight:700}
 .hchip:active{transform:scale(0.96);filter:brightness(1.1)}
 /* radial ability hand — Wild Rift style: glossy rings fanned around a primary anchor */
-.abilHand{position:fixed;z-index:6;right:calc(12px + var(--sr));bottom:calc(12px + var(--sb));width:244px;height:214px;pointer-events:none}
+.abilHand{position:fixed;z-index:6;right:calc(8px + var(--sr));bottom:calc(8px + var(--sb));width:252px;height:262px;pointer-events:none}
 .abil{position:absolute;pointer-events:auto;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
   border-radius:50%;cursor:pointer;user-select:none;color:var(--ink);
   background:radial-gradient(circle at 38% 30%,rgba(74,96,128,0.55),rgba(13,19,29,0.74));
@@ -39,6 +39,9 @@ canvas{display:block}
 .abil.stomp{border-color:rgba(240,150,90,0.75)}
 .abil.bolt{border-color:rgba(120,170,255,0.75)}
 .abil.smite{border-color:rgba(150,210,110,0.75)}
+.abil.select{border-color:rgba(150,235,170,0.6)}
+.abil.charge{border-color:rgba(240,170,90,0.7)}
+.abil.recall{border-color:rgba(120,170,255,0.7)}
 .abil.hit{border-color:rgba(255,220,150,0.55)}
 .abil.hit.ready{border-color:#ffe08a !important;animation:hitpulse 1s ease-in-out infinite}
 @keyframes hitpulse{0%,100%{box-shadow:0 0 0 2px rgba(255,220,140,0.4),0 0 15px rgba(255,210,120,0.5),inset 0 1px 2px rgba(255,255,255,0.16)}
@@ -1282,16 +1285,24 @@ function setupHUD(){
   joyBase=document.createElement('div'); joyBase.id='joy';
   const jring=document.createElement('div'); jring.className='ring'; joyBase.appendChild(jring);
   joyKnob=document.createElement('div'); joyKnob.id='joyK'; joyBase.appendChild(joyKnob); document.body.appendChild(joyBase);
-  // radial ability hand (bottom-right): Hit is the primary anchor under the thumb; abilities fan up-left in an arc
+  // radial command hand (bottom-right): Hit is the primary anchor under the thumb; everything else fans
+  // up-left as two concentric arcs — inner ring = hero abilities, outer ring = army orders. The two rings
+  // share the same three spoke angles (14°/51°/88° off horizontal) so buttons line up radially: symmetric,
+  // and all anchored to one corner so it holds up in portrait and landscape alike.
   const hand=document.createElement('div'); hand.className='abilHand';
   const mkAbil=(cls,icon,cap,size,right,bottom,fn)=>{ const b=document.createElement('div'); b.className='abil '+cls+(size>=72?' big':'');
     b.style.cssText='width:'+size+'px;height:'+size+'px;right:'+right+'px;bottom:'+bottom+'px';
     b.innerHTML='<div class="cd"></div><div class="ic">'+icon+'</div><div class="cap">'+cap+'</div>';
     b.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); fn(); }); hand.appendChild(b); return b; };
-  hitEl  =mkAbil('hit',ic('sword'),'Hit',76,16,16,()=>{ heroHit(); });                                            // basic attack — lights up only in range
-  abilEl =mkAbil('stomp',ic('fist'),'Stomp',62,122,76,()=>{ warstomp(); });
-  boltEl =mkAbil('bolt',ic('bolt'),'Bolt',58,84,120,()=>{ if(hero.spellCd<=0){ spellArmed=!spellArmed; smiteArmed=false; } updateSpellUI(); });
-  smiteEl=mkAbil('smite',ic('smite'),'Smite',54,35,139,()=>{ if(readyClerics()>0){ smiteArmed=!smiteArmed; spellArmed=false; } updateSpellUI(); });
+  hitEl  =mkAbil('hit',ic('sword'),'Hit',76,12,12,()=>{ heroHit(); });                                            // basic attack — lights up only in range
+  // inner ring — hero abilities (spokes low→high: 14°, 51°, 88°)
+  abilEl =mkAbil('stomp',ic('fist'),'Stomp',56,121,47,()=>{ warstomp(); });
+  boltEl =mkAbil('bolt',ic('bolt'),'Bolt',56,86,101,()=>{ if(hero.spellCd<=0){ spellArmed=!spellArmed; smiteArmed=false; } updateSpellUI(); });
+  smiteEl=mkAbil('smite',ic('smite'),'Smite',56,26,124,()=>{ if(readyClerics()>0){ smiteArmed=!smiteArmed; spellArmed=false; } updateSpellUI(); });
+  // outer ring — army orders (same three spokes, one radius further out)
+  boxBtn =mkAbil('select',ic('select'),'Select',50,185,65,()=>setBoxMode(!boxMode));   // arm marquee: next drag selects troops
+  mkAbil('charge',ic('swords'),'Charge',50,129,153,()=>chargeAll());
+  mkAbil('recall',ic('recall'),'Recall',50,31,190,()=>recall());
   autoEl=document.createElement('div'); autoEl.className='pill'; autoEl.textContent='AUTO';   // rides on the Bolt button
   autoEl.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); autoBolt=!autoBolt; updateSpellUI(); }); boltEl.appendChild(autoEl);
   document.body.appendChild(hand); abilHandEl=hand;
@@ -1313,15 +1324,7 @@ function setupHUD(){
   // lasso overlay
   lcv=document.createElement('canvas'); lcv.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:4'; lcv.width=innerWidth; lcv.height=innerHeight; document.body.appendChild(lcv); lctx=lcv.getContext('2d');
   addEventListener('resize',()=>{ lcv.width=innerWidth; lcv.height=innerHeight; });
-  // right-edge command strip (Wild Rift ping column): the whole army follows the hero; these two orders drive it
-  const strip=document.createElement('div'); strip.className='cmdStrip';
-  const mkCmd=(cls,icon,label,fn)=>{ const c=document.createElement('div'); c.className='cmdBtn '+cls;
-    c.innerHTML='<div class="ci">'+icon+'</div><div class="cl">'+label+'</div>';
-    c.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); fn(); }); strip.appendChild(c); return c; };
-  boxBtn=mkCmd('selectbox',ic('select'),'Select',()=>setBoxMode(!boxMode));   // arm marquee: next drag selects troops
-  mkCmd('charge',ic('swords'),'Charge',()=>chargeAll());
-  mkCmd('recall',ic('recall'),'Recall',()=>recall());
-  document.body.appendChild(strip); cmdStripEl=strip;
+  // (army orders now live in the outer ring of the radial hand above — no separate strip)
   // selection panel (Siege-Up style): portrait, name, hp bar, stats, dismiss
   selPanelEl=document.createElement('div'); selPanelEl.id='selP';
   selPanelEl.innerHTML='<div class="spIc"></div><div class="spTx"><div class="spNm"></div><div class="spBar"><div class="spBarF"></div></div>'+
