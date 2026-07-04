@@ -20,6 +20,17 @@ canvas{display:block}
 .hchip{display:flex;align-items:center;justify-content:center;gap:6px;background:var(--panel);border:1px solid var(--brd);
   border-radius:10px;padding:9px 13px;min-height:40px;box-sizing:border-box;backdrop-filter:blur(8px);box-shadow:none;cursor:pointer;font-weight:700}
 .hchip:active{transform:scale(0.96);filter:brightness(1.1)}
+/* hero-select start screen */
+#heroSel{position:fixed;inset:0;z-index:20;display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px;background:rgba(6,10,16,0.58);backdrop-filter:blur(6px)}
+#heroSel h2{font:800 23px system-ui;color:#f4e6c4;text-shadow:0 2px 8px #000;margin:0;letter-spacing:.5px}
+#heroSel .cards{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;padding:0 14px}
+#heroSel .hc{width:198px;background:var(--tile);color:#f2ead6;border-radius:16px;padding:18px 16px;cursor:pointer;text-align:center;
+  box-shadow:var(--brassRing),0 10px 26px rgba(0,0,0,0.55),inset 0 2px 3px rgba(255,240,200,0.18);transition:transform .1s,filter .12s}
+#heroSel .hc:active{transform:scale(0.97);filter:brightness(1.1)}
+#heroSel .hc .ic{color:#ffd98a;margin-bottom:8px}
+#heroSel .hc .ic svg{width:36px;height:36px;display:inline-block}
+#heroSel .hc .nm{font:800 18px system-ui;margin-bottom:6px}
+#heroSel .hc .kit{font:600 12px/1.5 system-ui;color:#cbb98f}
 /* floating combat numbers (juice): pop up + drift + fade */
 #dmgLayer{position:fixed;inset:0;pointer-events:none;z-index:5;overflow:hidden}
 .dmgN{position:fixed;font:900 15px/1 system-ui;color:#fff;letter-spacing:.3px;pointer-events:none;
@@ -150,6 +161,13 @@ canvas{display:block}
 #selP .spX{width:30px;height:30px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;border-radius:50%;
   border:1px solid var(--brd);color:var(--dim);cursor:pointer}
 #selP .spX svg{width:14px;height:14px}
+#selP .spCard{display:flex;align-items:center;gap:11px}
+#selP .spChips{display:none;align-items:center;gap:7px;flex-wrap:wrap;max-width:70vw}
+#selP .spChip{display:flex;align-items:center;gap:5px;padding:5px 9px;border-radius:10px;cursor:pointer;color:#f2ead6;
+  background:var(--tile);box-shadow:var(--brassRing),inset 0 1px 2px rgba(255,240,200,0.15)}
+#selP .spChip:active{filter:brightness(1.15)}
+#selP .spChip svg{width:18px;height:18px}
+#selP .spChip .n{font:800 13px system-ui;color:#ffe3a0}
 /* fixed movement joystick, bottom-left */
 #joy{position:fixed;left:calc(12px + var(--sl));bottom:calc(16px + var(--sb));width:98px;height:98px;border-radius:50%;z-index:6;
   background:radial-gradient(circle at 50% 50%,rgba(30,42,60,0.30),rgba(20,27,38,0.42));border:2px solid rgba(150,190,225,0.45);
@@ -656,6 +674,11 @@ const ICON={
   blink:'<path d="M3 12h7"/><path d="M7 8l4 4-4 4"/><circle cx="17" cy="12" r="3.2" stroke-dasharray="2.4 2.2"/>',
   fan:'<path d="M12 12V3.5"/><path d="M12 12l7.4-4.3"/><path d="M12 12l7.4 4.3"/><path d="M12 12l-7.4 4.3"/><path d="M12 12l-7.4-4.3"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/>',
   shadow:'<path d="M12 3l3.2 9.2L12 15.4 8.8 12.2z"/><path d="M12 15.4V19"/><circle cx="12" cy="20.6" r="1.2" fill="currentColor" stroke="none"/>',
+  holy:'<circle cx="12" cy="12" r="3.4"/><path d="M12 2v3.2M12 18.8V22M2 12h3.2M18.8 12H22M4.9 4.9l2.3 2.3M16.8 16.8l2.3 2.3M19.1 4.9l-2.3 2.3M4.9 19.1l2.3-2.3"/>',
+  hammer:'<path d="M5 20l7-7"/><path d="M12.5 5.5l6 6"/><path d="M10 4.5l7 7 2.2-2.2a2.2 2.2 0 0 0 0-3.1l-3.9-3.9a2.2 2.2 0 0 0-3.1 0z"/>',
+  shield:'<path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M9.2 12l2 2 3.6-4"/>',
+  hold:'<rect x="6.5" y="5.5" width="3.6" height="13" rx="1.2"/><rect x="13.9" y="5.5" width="3.6" height="13" rx="1.2"/>',
+  amove:'<circle cx="12" cy="12" r="7"/><path d="M12 2.5v3.2M12 18.3v3.2M2.5 12h3.2M18.3 12h3.2"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/>',
 };
 function ic(n){ const p=ICON[n]; return p?('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+p+'</svg>'):''; }
 const catIcon={economy:'house',mine:'mine',lumber:'lumber',army:'barracks',defense:'tower'}, catName={economy:'House',mine:'Gold Mine',lumber:'Lumber Mill',army:'Barracks',defense:'Tower'};
@@ -878,7 +901,7 @@ function makeBar(fillHex){
 }
 function mkFighter(hex,scale,team,st){
   const g=makeUnit(hex,scale); scene.add(g);
-  const e=Object.assign({g,team,alive:true,cd:0,px:0,pz:0,hitT:0,rageT:0,face:0,phase:Math.random()*6.28,movedThis:false,following:false,target:null,forcedTarget:null,order:null,
+  const e=Object.assign({g,team,alive:true,cd:0,px:0,pz:0,hitT:0,rageT:0,stunT:0,face:0,phase:Math.random()*6.28,movedThis:false,following:false,target:null,forcedTarget:null,order:null,
     rad:team==='hero'?2.3:1.5, bar:makeBar(team==='enemy'?0xd23b3b:0x4ad0e0)},st);
   if(team==='ally'||team==='hero'){ e.ring=new THREE.Mesh(new THREE.RingGeometry(1.7,2.15,20),new THREE.MeshBasicMaterial({color:0x59e06c,transparent:true,opacity:0.95,side:THREE.DoubleSide})); e.ring.rotation.x=-Math.PI/2; e.ring.visible=false; scene.add(e.ring); }   // Siege-Up green selection ring
   e.max=st.hp; return e;
@@ -889,10 +912,11 @@ function faceTo(e,dx,dz){ if(dx||dz) e.face=Math.atan2(dx,dz); }
 // Each GLB packs the mesh once + all its clips; the clips are authored on the Bitgem
 // skeleton so they play with no retarget. Textures are embedded (palette atlas, UVs
 // pre-flipped) — we just force NearestFilter so swatches sample solid, not the black gaps.
-const RIGS={}, PROPS={}, TEXS={}; const CHAR_H={thoryn:4.8, queen:4.4, archer:3.6, priestess:3.8, warrior:3.9, chief:4.9, orcarcher:3.7, orcgrunt:3.7, orcwarrior:4.1, orcshaman:3.7};   // world heights (chief = boss, imposing)
+const RIGS={}, PROPS={}, TEXS={}; const CHAR_H={thoryn:4.8, queen:4.4, paladin:4.4, archer:3.6, priestess:3.8, warrior:3.9, chief:4.9, orcarcher:3.7, orcgrunt:3.7, orcwarrior:4.1, orcshaman:3.7};   // world heights (chief = boss, imposing)
 // hand weapons: each char has a list of props → { prop FBX, hand bone, local transform }
 const WEAPONS={
   queen:    [{file:'glaive_elf_queen', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
+  paladin:  [{file:'hammer_human_paladin', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
   archer:   [{file:'bow_elf_archer',   bone:'hand_l', pos:[0,0,0], rot:[0,0,Math.PI/2], scl:1}],
   priestess:[{file:'magic_ball',       bone:'hand_r', pos:[0,4,0], rot:[0,0,0],         scl:0.6}],
   warrior:  [{file:'sword_elf_warrior', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1},
@@ -903,7 +927,7 @@ const WEAPONS={
   orcwarrior:[{file:'sword_orc_warrior',bone:'Character1_RightHand', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
   orcshaman:[{file:'staff_orc_shaman', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
 };
-const RIG_SPECS=[['thoryn','thoryn'],['queen','elf_queen'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior'],['chief','orc_chieftain'],['orcarcher','orc_archer'],['orcgrunt','orc_grunt'],['orcwarrior','orc_warrior'],['orcshaman','orc_shaman']];
+const RIG_SPECS=[['thoryn','thoryn'],['queen','elf_queen'],['paladin','human_paladin'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior'],['chief','orc_chieftain'],['orcarcher','orc_archer'],['orcgrunt','orc_grunt'],['orcwarrior','orc_warrior'],['orcshaman','orc_shaman']];
 // Several FBX (the elf/orc bows AND every elf building) export as SkinnedMesh with a rigid little
 // armature. Cloned with a plain .clone(true) — not SkeletonUtils.clone — the skeleton binding
 // breaks: the renderer skins the mesh in the skeleton's own space, so it renders at ~world origin
@@ -985,7 +1009,9 @@ function riggize(e,key){ const c=makeChar(key); if(!c)return; scene.remove(e.g);
 
 function spawnGame(){
   hero=mkFighter(C.hero,1.9,'hero',{hp:260,dmg:20,range:3.6,atkEvery:0.5,spd:19,aCd:0,spellCd:0,blinkCd:0});
-  riggize(hero, RIGS.queen?'queen':'thoryn');   // the Elf Queen — a Warden-style glaive hero
+  const rk=(HERO_KIT[heroKind]&&RIGS[HERO_KIT[heroKind].rig])?HERO_KIT[heroKind].rig:(RIGS.queen?'queen':'thoryn');
+  riggize(hero, rk);   // the chosen hero (Elf Queen default, or Paladin)
+  hero.kit=heroKind; const _k=HERO_KIT[heroKind]||HERO_KIT.queen; hero.aMax=_k.a.cd; hero.spellMax=_k.spell.cd; hero.blinkMax=_k.blink.cd;
   setP(hero,105,80);                            // muster at the player base (bottom-left island)
   // skirmish start: the hero rides out with just two base units — a warrior + an archer.
   // (The rest of the army comes from Barracks the player builds; the AI grows the same way.)
@@ -1113,16 +1139,84 @@ function shadowStrike(en){ if(!hero||!hero.alive||hero.spellCd>0||!en||!en.alive
   if(hero.rigged){ hero.__atkClip=pickAtkClip(hero); hero.__atkT=0.45; }
   faceTo(hero, en.px-hero.px, en.pz-hero.pz); shootFx(hero.px,hero.pz,en.px,en.pz,'shadow');
   damage(en,48,true); en.poison={t:4, dps:11}; en.__pt=0.5; addShake(0.5); return true; }
+// ---------- Paladin kit (Human hero): Consecration · Hammer of Justice · Divine Shield ----------
+let HAMMER_PROTO=null;
+function hammerProto(){ if(HAMMER_PROTO)return HAMMER_PROTO; const g=new THREE.Group();
+  const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,2.0,7),new THREE.MeshLambertMaterial({color:0x6b4a2a,flatShading:true}));
+  const head=new THREE.Mesh(new THREE.BoxGeometry(1.0,0.7,0.7),new THREE.MeshLambertMaterial({color:0x9aa2ac,flatShading:true})); head.position.y=1.0;
+  const trim=new THREE.Mesh(new THREE.BoxGeometry(1.06,0.22,0.76),new THREE.MeshBasicMaterial({color:0xffcf6a})); trim.position.y=1.0;
+  g.add(shaft,head,trim); HAMMER_PROTO=g; return g; }
+function hammerShot(sx,sz,tx,tz,onImpact){ const m=hammerProto().clone(true); scene.add(m);
+  const y0=topY(sx,sz)+2.8,y1=topY(tx,tz)+2.0,dist=Math.hypot(tx-sx,tz-sz),dur=Math.max(0.2,Math.min(0.5,dist/40)); let t=0,tick=0, sp=rr(7,10);
+  (function an(){ t+=0.033;tick++; const k=Math.min(1,t/dur); const x=sx+(tx-sx)*k,z=sz+(tz-sz)*k,y=y0+(y1-y0)*k+Math.sin(k*Math.PI)*2.0;
+    m.position.set(x,y,z); m.rotation.set(0,0,t*sp);
+    if(tick%2===0) puff(x,y,z,0xffe08a,0.3,0.4);
+    if(k<1)requestAnimationFrame(an); else { scene.remove(m); impactFx(tx,y1,tz,0xfff0c0); for(let i=0;i<4;i++){const a=rnd()*6.28; puff(tx+Math.cos(a)*rr(0.3,1.4),y1+rr(0,1.2),tz+Math.sin(a)*rr(0.3,1.4),0xffe08a,0.6,0.55);} if(onImpact)onImpact(); } })(); }
+function stunFx(e){ const r=new THREE.Mesh(new THREE.RingGeometry(0.5,0.9,18),new THREE.MeshBasicMaterial({color:0xffe08a,transparent:true,opacity:0.9,side:THREE.DoubleSide,depthWrite:false}));
+  r.rotation.x=-Math.PI/2; scene.add(r); let a=0;(function an(){a+=0.05; if(!e.alive){scene.remove(r);return;} r.position.set(e.px,topY(e.px,e.pz)+(e.big?e.big*0.9+2:3.2),e.pz); r.rotation.z+=0.3; r.material.opacity=Math.max(0,0.9*Math.min(1,(e.stunT||0)/0.5)); if((e.stunT||0)>0)requestAnimationFrame(an); else scene.remove(r);})(); }
+function hammerOfJustice(en){ if(!hero||!hero.alive||hero.spellCd>0||!en||!en.alive)return false;
+  if(Math.hypot(en.px-hero.px,en.pz-hero.pz)>ABIL_RANGE)return false;
+  hero.spellCd=hero.spellMax||8; spellArmed=false;
+  if(hero.rigged){ hero.__atkClip='attack'; hero.__atkT=0.5; } faceTo(hero,en.px-hero.px,en.pz-hero.pz);
+  hammerShot(hero.px,hero.pz,en.px,en.pz, ()=>{ if(en.alive){ damage(en,50,true); en.stunT=1.6; stunFx(en); } }); addShake(0.5); return true; }
+function consecration(){ if(!hero||!hero.alive||hero.aCd>0||gameOver)return; hero.aCd=hero.aMax||7;
+  if(hero.rigged){ hero.__atkClip='attack'; hero.__atkT=0.55; }
+  const R=13; for(const e of enemies){ if(!e.alive)continue; if(Math.hypot(e.px-hero.px,e.pz-hero.pz)<R) damage(e,30,true); }   // holy nova
+  const ring=new THREE.Mesh(new THREE.RingGeometry(R-2.6,R,44),new THREE.MeshBasicMaterial({color:0xffdf8a,transparent:true,opacity:0.55,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending}));
+  ring.rotation.x=-Math.PI/2; ring.position.set(hero.px,topY(hero.px,hero.pz)+0.2,hero.pz); scene.add(ring);
+  holyGrounds.push({x:hero.px,z:hero.pz,r:R,t:3.5,next:0.5,ring});   // blessed ground: lingering DoT
+  shockwave(hero.px,hero.pz,0xffe6a0,14); for(let i=0;i<10;i++){ const a=rnd()*6.28; puff(hero.px+Math.cos(a)*rr(1,R),topY(hero.px,hero.pz)+rr(0.2,1.5),hero.pz+Math.sin(a)*rr(1,R),0xffe08a,rr(0.5,0.9),0.5); }
+  addShake(1.3); }
+function divineShield(){ if(!hero||!hero.alive||hero.blinkCd>0||gameOver)return; hero.blinkCd=hero.blinkMax||12;
+  hero.__invuln=3; hero.__healT=3;   // 3s invulnerable + regenerate while still able to fight
+  if(hero.rigged){ hero.__atkClip='cast'; hero.__atkT=0.6; } pingRing(hero.px,hero.pz,0xffe6a0);
+  const dome=new THREE.Mesh(new THREE.SphereGeometry(3.2,18,14),new THREE.MeshBasicMaterial({color:0xffe08a,transparent:true,opacity:0.32,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));
+  scene.add(dome); (function an(){ const iv=hero.__invuln||0; dome.position.set(hero.px,topY(hero.px,hero.pz)+2.2,hero.pz);
+    dome.material.opacity=0.12+0.22*Math.max(0,iv/3)+0.06*Math.sin(iv*10); if(iv>0&&hero.alive)requestAnimationFrame(an); else scene.remove(dome); })(); }
+function tickHolyGrounds(dt){ for(let i=holyGrounds.length-1;i>=0;i--){ const g=holyGrounds[i]; g.t-=dt; g.next-=dt;
+    if(g.next<=0){ g.next=0.5; for(const e of enemies){ if(e.alive&&Math.hypot(e.px-g.x,e.pz-g.z)<g.r) damage(e,7,false); } }
+    if(g.ring){ g.ring.material.opacity=0.14+0.24*Math.max(0,g.t/3.5)+0.08*Math.sin(g.t*8); g.ring.rotation.z+=dt*0.7; }
+    if(g.t<=0){ if(g.ring)scene.remove(g.ring); holyGrounds.splice(i,1); } } }
+// apply the active hero's kit to the three ability buttons (icon/label) + per-slot cooldown maxes
+function applyHeroKit(){ const k=HERO_KIT[heroKind]||HERO_KIT.queen; if(hero)hero.kit=heroKind;
+  if(hero){ hero.aMax=k.a.cd; hero.spellMax=k.spell.cd; hero.blinkMax=k.blink.cd; }
+  const setBtn=(el,slot,cls)=>{ if(!el)return; const i=el.querySelector('.ic'), c=el.querySelector('.cap'); if(i)i.innerHTML=ic(slot.icon); if(c)c.textContent=slot.cap; };
+  setBtn(abilEl,k.a); setBtn(boltEl,k.spell); setBtn(smiteEl,k.blink); KIND_NAME.hero=k.name; }
+function pickHero(kind){ if(!HERO_KIT[kind])kind='queen'; heroKind=kind; try{localStorage.setItem('wc_hero',kind);}catch(_){}
+  if(hero){ const rk=RIGS[HERO_KIT[kind].rig]?HERO_KIT[kind].rig:'queen'; riggize(hero,rk); hero.hp=hero.max; hero.__atkT=0; hero.__invuln=0; hero.animState='idle';
+    if(camLocked){ camAim.x=hero.px; camAim.z=hero.pz; } }
+  applyHeroKit(); if(heroSelEl)heroSelEl.style.display='none'; started=true; refreshRadial(); }
 function focusFire(en){ allies.forEach(e=>{ if(e.alive){ e.forcedTarget=en; e.target=en; e.order=null; e.following=false; } });
   rallyMarker.material.color.setHex(0xff6a5a); rallyMarker.position.set(en.px,topY(en.px,en.pz)+0.3,en.pz); rallyMarker.visible=true; clearTimeout(rallyMarker.__to); rallyMarker.__to=setTimeout(()=>rallyMarker.visible=false,900); }
 // ---------- RTS selection + context orders (Siege-Up style) ----------
-let boxMode=false, boxBtn=null, selPanelEl=null, respawnEl=null; const HERO_RESPAWN=8;
+let boxMode=false, boxBtn=null, selPanelEl=null, respawnEl=null, heroSelEl=null; const HERO_RESPAWN=8;
 const ABIL_RANGE=26;   // hard cap on targeted-ability reach — inside hero sight (30) so nothing casts/lands from the fog
+let heroKind='queen', started=false, holyGrounds=[]; try{ heroKind=localStorage.getItem('wc_hero')||'queen'; }catch(_){}
+// per-hero ability kits — icon/label/cooldown per slot (a=AoE, spell=armed-target, blink=utility). Handlers dispatch on hero.kit.
+const HERO_KIT={
+  queen:  {name:'Elf Queen', rig:'queen', a:{icon:'fan',cap:'Fan',cd:6}, spell:{icon:'shadow',cap:'Strike',cd:8}, blink:{icon:'blink',cap:'Blink',cd:7}},
+  paladin:{name:'Paladin', rig:'paladin', a:{icon:'holy',cap:'Bless',cd:7}, spell:{icon:'hammer',cap:'Hammer',cd:8}, blink:{icon:'shield',cap:'Shield',cd:12}},
+};
 function nearestAllyTo(x,z,maxd){ let b=null,bd=maxd*maxd;
   for(const e of [hero,...allies]){ if(!e||!e.alive)continue; const dd=(e.px-x)**2+(e.pz-z)**2; if(dd<bd){bd=dd;b=e;} } return b; }
-function clearSel(){ selected.clear(); updateSelPanel(); }
-function selectOne(u){ selected.clear(); if(u&&u.alive)selected.add(u); updateSelPanel(); }
-function selectMany(list){ selected.clear(); for(const u of list) if(u&&u.alive)selected.add(u); updateSelPanel(); }
+function clearSel(){ selected.clear(); updateSelPanel(); refreshRadial(); }
+function selectOne(u){ selected.clear(); if(u&&u.alive)selected.add(u); updateSelPanel(); refreshRadial(); }
+function selectMany(list){ selected.clear(); for(const u of list) if(u&&u.alive)selected.add(u); updateSelPanel(); refreshRadial(); }
+// ---- selection-driven radial: hero abilities when hero/none selected, squad commands when a unit group is selected ----
+let radialMode='hero', amArmed=false;
+function stopSel(){ for(const e of selected){ if(e===hero)continue; e.order=null; e.target=null; e.forcedTarget=null; e.following=false; } }
+function holdSel(){ for(const e of selected){ if(e===hero)continue; e.order={x:e.px,z:e.pz}; e.target=null; e.forcedTarget=null; e.following=false; } }
+function refreshRadial(){ if(!abilEl)return;
+  radialMode = (selected.size>0 && !selected.has(hero)) ? 'squad' : 'hero';
+  const setB=(el,icn,cap)=>{ if(!el)return; const i=el.querySelector('.ic'), c=el.querySelector('.cap'); if(i)i.innerHTML=ic(icn); if(c)c.textContent=cap; };
+  if(radialMode==='squad'){
+    if(hitEl)hitEl.style.display='none';                                  // basic attack is hero-only
+    setB(abilEl,'stop','Stop'); setB(boltEl,'hold','Hold'); setB(smiteEl,'amove','Atk-Move');
+    abilEl.classList.remove('cooling'); boltEl.classList.remove('cooling','armed'); smiteEl.classList.remove('cooling'); spellArmed=false;
+  } else {
+    if(hitEl)hitEl.style.display=''; amArmed=false; applyHeroKit();        // restore the hero kit icons/labels
+  }
+  updateSpellUI(); }
 // context orders operate on the current selection only
 function moveOrder(list,gx,gz){ let k=0; for(const e of list){ if(!e.alive)continue;
     const col=((k%4)-1.5)*2.8, row=Math.floor(k/4)*2.8; k++;
@@ -1136,15 +1230,28 @@ const KIND_ICON={hero:'sword', warrior:'warrior', archer:'archer', cleric:'cleri
 function updateSelPanel(){ if(!selPanelEl)return; const sel=[...selected].filter(u=>u.alive);
   if(!sel.length){ selPanelEl.style.display='none'; return; }
   selPanelEl.style.display='flex';
-  const u=sel[0], kind=(u===hero)?'hero':u.kind;
-  const nm=sel.length>1 ? (sel.length+' units') : (KIND_NAME[kind]||kind);
-  selPanelEl.querySelector('.spIc').innerHTML=ic(KIND_ICON[kind]||'warrior');
-  selPanelEl.querySelector('.spNm').textContent=nm;
-  const hp=sel.reduce((a,e)=>a+Math.max(0,e.hp),0), max=sel.reduce((a,e)=>a+e.max,0);
-  selPanelEl.querySelector('.spHp').textContent=Math.ceil(hp)+' / '+max+' hp';
-  selPanelEl.querySelector('.spSt').textContent = sel.length>1 ? ('attack '+Math.round(sel.reduce((a,e)=>a+e.dmg,0))+' total')
-    : (u.dmg+' dmg · '+(+u.range.toFixed(1))+' range · '+Math.round(u.spd)+' spd');
-  const f=Math.max(0,Math.min(1,hp/max)); selPanelEl.querySelector('.spBarF').style.width=(f*100)+'%'; }
+  const card=selPanelEl.querySelector('.spCard'), chips=selPanelEl.querySelector('.spChips');
+  // group the selection by unit type (the hero is its own group)
+  const groups={}, order=[]; for(const u of sel){ const k=(u===hero)?'hero':u.kind; if(!groups[k]){groups[k]=[];order.push(k);} groups[k].push(u); }
+  if(sel.length===1 || order.length===1){                                  // single unit or one type → portrait card
+    card.style.display='flex'; chips.style.display='none';
+    const u=sel[0], kind=(u===hero)?'hero':u.kind;
+    card.querySelector('.spIc').innerHTML=ic(KIND_ICON[kind]||'warrior');
+    card.querySelector('.spNm').textContent = sel.length>1 ? (sel.length+'× '+(KIND_NAME[kind]||kind)) : (KIND_NAME[kind]||kind);
+    const hp=sel.reduce((a,e)=>a+Math.max(0,e.hp),0), max=sel.reduce((a,e)=>a+e.max,0);
+    card.querySelector('.spHp').textContent=Math.ceil(hp)+' / '+max+' hp';
+    card.querySelector('.spSt').textContent = sel.length>1 ? ('attack '+Math.round(sel.reduce((a,e)=>a+e.dmg,0))+' total')
+      : (u.dmg+' dmg · '+(+u.range.toFixed(1))+' range · '+Math.round(u.spd)+' spd');
+    card.querySelector('.spBarF').style.width=(Math.max(0,Math.min(1,hp/max))*100)+'%';
+  } else {                                                                  // mixed group → a tappable chip per type
+    card.style.display='none'; chips.style.display='flex';
+    const sig=order.map(k=>k+groups[k].length).join(',');
+    if(chips.__sig!==sig){ chips.__sig=sig; chips.innerHTML='';
+      for(const k of order){ const list=groups[k].slice(); const c=document.createElement('div'); c.className='spChip';
+        c.innerHTML=ic(KIND_ICON[k]||'warrior')+'<span class="n">'+list.length+'</span>';
+        c.title=KIND_NAME[k]||k; c.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); selectMany(list); });   // sub-select just this type
+        chips.appendChild(c); } }
+  } }
 function selectInRect(x0,y0,x1,y1){ const lo=[Math.min(x0,x1),Math.min(y0,y1)], hi=[Math.max(x0,x1),Math.max(y0,y1)]; const got=[];
   for(const e of [hero,...allies]){ if(!e||!e.alive)continue; const [sx,sy]=screenOf(e.px,e.pz);
     if(sx>=lo[0]&&sx<=hi[0]&&sy>=lo[1]&&sy<=hi[1]) got.push(e); }
@@ -1178,7 +1285,8 @@ function pingRing(x,z,col){ const r=new THREE.Mesh(new THREE.RingGeometry(0.5,1.
 function shockwave(x,z,col,mx){ const r=new THREE.Mesh(new THREE.RingGeometry(0.6,2.1,36),new THREE.MeshBasicMaterial({color:col||0xffd08a,transparent:true,opacity:0.95,side:THREE.DoubleSide,depthWrite:false}));
   r.rotation.x=-Math.PI/2; r.position.set(x,topY(x,z)+0.4,z); scene.add(r); let a=0;(function an(){a+=0.05; r.scale.setScalar(1+a*(mx||16)); r.material.opacity=Math.max(0,0.95-a*1.05); if(a<0.9)requestAnimationFrame(an); else scene.remove(r);})(); }
 // single choke-point for all combat damage — every hit flashes, punches (squash), and floats a number
-function damage(d,amt,heavy){ if(!d)return; d.hp-=amt; d.hitT=Math.max(d.hitT||0, heavy?0.3:0.14); squash(d);
+function damage(d,amt,heavy){ if(!d)return; if(d===hero && (hero.__invuln||0)>0){ pingRing(hero.px,hero.pz,0xffe6a0); return; }   // Divine Shield blocks all damage
+  d.hp-=amt; d.hitT=Math.max(d.hitT||0, heavy?0.3:0.14); squash(d);
   const enemy=(d.team==='enemy'||d.kind==='core'||d.kind==='bld');
   if(enemy && !isVisible(d.px,d.pz))return;                 // don't leak hidden foes through the fog
   const y=topY(d.px,d.pz)+(d.big?d.big*0.7+2:3.4); popDmg(d.px,y,d.pz, Math.round(amt), heavy?'big':''); }
@@ -1344,11 +1452,15 @@ function updateOrderMarkers(){
 function updateSpellUI(){
   const ring=(el,cd,max)=>{ if(!el)return; const c=el.querySelector('.cd'); el.classList.toggle('cooling',cd>0);
     if(c){ const f=Math.max(0,Math.min(1,cd/max)); c.style.background='conic-gradient(rgba(8,12,18,0.66) '+(f*360).toFixed(0)+'deg, rgba(0,0,0,0) 0deg)'; } };
+  if(radialMode==='squad'){                                        // squad-command buttons: no cooldowns; Atk-Move shows armed
+    [abilEl,boltEl,smiteEl].forEach(el=>{ if(el)el.classList.remove('cooling'); });
+    if(boltEl)boltEl.classList.remove('armed'); if(smiteEl)smiteEl.classList.toggle('armed',amArmed); if(autoEl)autoEl.classList.toggle('on',autoBolt);
+    return; }
   if(hitEl){ hitEl.classList.toggle('off',!heroCanHit); hitEl.classList.toggle('ready',heroCanHit); }   // attack button lights up only in reach
-  if(abilEl){ ring(abilEl, hero?hero.aCd:0, 6); }                                    // Fan of Knives
-  if(boltEl){ boltEl.classList.toggle('armed',spellArmed); ring(boltEl, hero?hero.spellCd:0, 8); }   // Shadow Strike
+  if(abilEl){ ring(abilEl, hero?hero.aCd:0, hero&&hero.aMax||6); }                    // AoE slot
+  if(boltEl){ boltEl.classList.toggle('armed',spellArmed); ring(boltEl, hero?hero.spellCd:0, hero&&hero.spellMax||8); }   // armed-target slot
   if(autoEl){ autoEl.classList.toggle('on',autoBolt); }
-  if(smiteEl){ ring(smiteEl, hero?hero.blinkCd:0, 7); } }                             // Blink
+  if(smiteEl){ ring(smiteEl, hero?hero.blinkCd:0, hero&&hero.blinkMax||7); } }         // utility slot
 function drawLasso(){ if(!lctx)return; lctx.clearRect(0,0,lcv.width,lcv.height); const p=cmd.pts; if(p.length<2)return;
   lctx.beginPath(); lctx.moveTo(p[0][0],p[0][1]); for(let i=1;i<p.length;i++)lctx.lineTo(p[i][0],p[i][1]);
   lctx.strokeStyle='rgba(127,240,255,0.95)'; lctx.lineWidth=3; lctx.stroke();
@@ -1365,7 +1477,7 @@ function updBars(){ const all=[hero,...allies,...enemies];
   } }
 function updateGame(dt){
   if(!hero) return;
-  if(!gameOver){
+  if(started && !gameOver){
     // warband advances in bands of 3 — a mass, not a trickle; cap concurrent so it stays performant
     if(spawnLeft>0 && enemies.length<15){ spawnTimer-=dt; if(spawnTimer<=0){ for(let k=0;k<3&&spawnLeft>0;k++){ spawnEnemy(); spawnLeft--; } spawnTimer=2.4; } }
     // hero movement
@@ -1388,7 +1500,10 @@ function updateGame(dt){
       // fast at full tilt), not the hero's normalized fixed-speed movement — a camera, not a character
       const m=Math.min(1,ml), nx=mvx/ml, nz=mvz/ml, sp=110*Math.max(0.6,camF.dist/66)*m*m;
       camAim.x+=nx*sp*dt; camAim.z+=nz*sp*dt; clampAim(); }
-    if(hero.alive){ hero.cd-=dt; hero.aCd-=dt; hero.spellCd-=dt; hero.blinkCd-=dt; }
+    if(hero.alive){ hero.cd-=dt; hero.aCd-=dt; hero.spellCd-=dt; hero.blinkCd-=dt;
+      if(hero.__invuln>0)hero.__invuln-=dt;                                            // Divine Shield
+      if(hero.__healT>0){ hero.__healT-=dt; hero.hp=Math.min(hero.max,hero.hp+42*dt); } }
+    tickHolyGrounds(dt);                                                                // Consecration blessed ground
     const FO=foes();   // enemy units + attackable enemy structures (core/buildings) — the player's valid targets
     if(hero.alive && autoBolt && hero.spellCd<=0 && enemies.length){ const t=nearestEnemyTo(hero.px,hero.pz,26); if(t) shadowStrike(t); }   // AUTO = auto Shadow Strike nearest visible foe
     for(const e of enemies){ if(!e.alive||!e.poison)continue; e.poison.t-=dt; e.__pt-=dt;   // Shadow Strike poison DoT
@@ -1422,6 +1537,7 @@ function updateGame(dt){
              else { e.state='idle'; if(Math.hypot(hero.px-e.px,hero.pz-e.pz)>3) faceTo(e,hero.px-e.px,hero.pz-e.pz); } }   // idle guards glance toward the hero, not all locked parallel
       if(e.rigged){ e.mixer.update(dt); setAnim(e, e.state==='attack'?'attack':(e.state==='move'?'run':'idle')); } }
     for(const e of enemies){ if(!e.alive)continue; e.cd-=dt; if(e.rageT>0)e.rageT-=dt;
+      if(e.stunT>0){ e.stunT-=dt; e.state='idle'; if(e.rigged){ e.mixer.update(dt); setAnim(e,'idle'); } continue; }   // Hammer of Justice stun: frozen
       if(e.target && !e.target.alive) e.target=null;
       if(!e.target){ const {t}=nearest(e.px,e.pz,[hero,...allies,coreB].filter(Boolean)); e.target=t; }   // fight units, or march on the throne
       if(e.isBoss) bossTick(e,dt);
@@ -1445,7 +1561,7 @@ function updateGame(dt){
     eStructs=eStructs.filter(s=>s.alive);
     // hero is respawnable — falling starts a timer, not a defeat; only the thrones decide the match
     if(hero.alive && hero.hp<=0){ hero.alive=false; hero.respawnT=HERO_RESPAWN; deathFx(hero); hero.g.visible=false;
-      selected.delete(hero); hero.order=null; hero.forcedTarget=null; hero.__atkT=0; updateSelPanel();
+      selected.delete(hero); hero.order=null; hero.forcedTarget=null; hero.__atkT=0; updateSelPanel(); refreshRadial();
       if(respawnEl) respawnEl.style.display='flex'; }
     else if(!hero.alive){ hero.respawnT-=dt;
       if(respawnEl){ const rt=respawnEl.querySelector('.rsT'); if(rt)rt.textContent='Respawning in '+Math.max(1,Math.ceil(hero.respawnT))+'s'; }
@@ -1516,9 +1632,9 @@ function setupHUD(){
     b.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); fn(); }); hand.appendChild(b); return b; };
   hitEl  =mkAbil('hit',ic('sword'),'Hit',76,12,12,()=>{ heroHit(); });                                            // basic attack — lights up only in range
   // inner ring — Warden abilities (spokes low→high: 14°, 51°, 88°)
-  abilEl =mkAbil('stomp',ic('fan'),'Fan',56,121,47,()=>{ fanOfKnives(); });                                          // Fan of Knives — instant AoE
-  boltEl =mkAbil('bolt',ic('shadow'),'Strike',56,86,101,()=>{ if(hero.spellCd<=0){ spellArmed=!spellArmed; } updateSpellUI(); });   // Shadow Strike — tap a foe to hurl a poisoned glaive
-  smiteEl=mkAbil('smite',ic('blink'),'Blink',56,26,124,()=>{ blink(); });                                            // Blink — instant forward teleport
+  abilEl =mkAbil('stomp',ic('fan'),'Fan',56,121,47,()=>{ if(radialMode==='squad'){ stopSel(); return; } if(hero.kit==='paladin')consecration(); else fanOfKnives(); });   // AoE slot / squad Stop
+  boltEl =mkAbil('bolt',ic('shadow'),'Strike',56,86,101,()=>{ if(radialMode==='squad'){ holdSel(); return; } if(hero.spellCd<=0){ spellArmed=!spellArmed; } updateSpellUI(); });   // armed target / squad Hold
+  smiteEl=mkAbil('smite',ic('blink'),'Blink',56,26,124,()=>{ if(radialMode==='squad'){ amArmed=!amArmed; updateSpellUI(); return; } if(hero.kit==='paladin')divineShield(); else blink(); });   // utility / squad Attack-Move
   // outer ring — army orders (same three spokes, one radius further out)
   boxBtn =mkAbil('select',ic('select'),'Select',50,185,65,()=>setBoxMode(!boxMode));   // arm marquee: next drag selects troops
   mkAbil('charge',ic('swords'),'Charge',50,129,153,()=>chargeAll());
@@ -1529,8 +1645,19 @@ function setupHUD(){
   dmgLayer=document.createElement('div'); dmgLayer.id='dmgLayer'; document.body.appendChild(dmgLayer);   // floating combat numbers
   respawnEl=document.createElement('div'); respawnEl.id='respawnBanner';
   respawnEl.style.cssText='position:fixed;left:50%;top:36%;transform:translateX(-50%);z-index:8;display:none;flex-direction:column;align-items:center;gap:5px;pointer-events:none;text-align:center';
-  respawnEl.innerHTML='<div style="font:800 19px system-ui;color:#ff8a6a;text-shadow:0 2px 6px rgba(0,0,0,0.75)">The Elf Queen has fallen</div><div class="rsT" style="font:800 15px system-ui;color:#e6eef6;text-shadow:0 2px 6px rgba(0,0,0,0.75)">Respawning in 8s</div>';
+  respawnEl.innerHTML='<div style="font:800 19px system-ui;color:#ff8a6a;text-shadow:0 2px 6px rgba(0,0,0,0.75)">Your hero has fallen</div><div class="rsT" style="font:800 15px system-ui;color:#e6eef6;text-shadow:0 2px 6px rgba(0,0,0,0.75)">Respawning in 8s</div>';
   document.body.appendChild(respawnEl);
+  // hero-select start screen
+  heroSelEl=document.createElement('div'); heroSelEl.id='heroSel';
+  heroSelEl.innerHTML='<h2>Choose your Hero</h2><div class="cards"></div>';
+  const cards=heroSelEl.querySelector('.cards');
+  const HEROES=[['queen','sword','Elf Queen','Warden — Blink · Fan of Knives · Shadow Strike. Fast, evasive, poison burst.'],
+                ['paladin','shield','Paladin','Holy tank — Consecration · Hammer of Justice · Divine Shield. Durable, stuns, invulnerable.']];
+  for(const [k,icn,nm,blurb] of HEROES){ const c=document.createElement('div'); c.className='hc';
+    c.innerHTML='<div class="ic">'+ic(icn)+'</div><div class="nm">'+nm+'</div><div class="kit">'+blurb+'</div>';
+    c.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); pickHero(k); }); cards.appendChild(c); }
+  document.body.appendChild(heroSelEl); heroSelEl.style.display='flex';
+  refreshRadial();   // initialise the radial in hero mode
   resultEl=document.createElement('div'); resultEl.style.cssText='position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:#0008;color:#fff;font:600 18px system-ui;gap:12px;z-index:9';
   resultEl.innerHTML='<h1 style="font-size:48px;margin:0"></h1><div>tap to play again</div>'; resultEl.addEventListener('pointerdown',()=>location.reload()); document.body.appendChild(resultEl);
   // Siege-Up top-centre resource bar: gold | wood | population (replaces the bottom-left chips)
@@ -1552,8 +1679,8 @@ function setupHUD(){
   // (army orders now live in the outer ring of the radial hand above — no separate strip)
   // selection panel (Siege-Up style): portrait, name, hp bar, stats, dismiss
   selPanelEl=document.createElement('div'); selPanelEl.id='selP';
-  selPanelEl.innerHTML='<div class="spIc"></div><div class="spTx"><div class="spNm"></div><div class="spBar"><div class="spBarF"></div></div>'+
-    '<div class="spRow"><span class="spHp"></span><span class="spSt"></span></div></div><div class="spX">'+ic('close')+'</div>';
+  selPanelEl.innerHTML='<div class="spCard"><div class="spIc"></div><div class="spTx"><div class="spNm"></div><div class="spBar"><div class="spBarF"></div></div>'+
+    '<div class="spRow"><span class="spHp"></span><span class="spSt"></span></div></div></div><div class="spChips"></div><div class="spX">'+ic('close')+'</div>';
   selPanelEl.addEventListener('pointerdown',ev=>ev.stopPropagation());
   selPanelEl.querySelector('.spX').addEventListener('pointerdown',ev=>{ ev.stopPropagation(); clearSel(); });
   document.body.appendChild(selPanelEl);
@@ -1634,7 +1761,10 @@ function onUp(e){
       if(pp){ openPlotMenu(pp); }                                                                   // tapped a build plot → radial build / upgrade / train
       else if(coreB&&Math.hypot(hit.x-coreB.x,hit.z-coreB.z)<7){ openCoreMenu(); }                  // tapped the throne → expand
       else { closeBuildMenu();
-        if(spellArmed){ const en=nearestEnemyTo(hit.x,hit.z,7); if(en){ shadowStrike(en); } else spellArmed=false; updateSpellUI(); }   // Shadow Strike: tap a foe
+        if(amArmed && radialMode==='squad' && selected.size){ const en=nearestEnemyTo(hit.x,hit.z,6);   // Attack-Move: march on the point, engaging foes en route
+          if(en) attackOrder([...selected],en); else { moveOrder([...selected],hit.x,hit.z); rallyMarker.material.color.setHex(0xff6a5a); }
+          amArmed=false; updateSpellUI(); }
+        else if(spellArmed){ const en=nearestEnemyTo(hit.x,hit.z,7); if(en){ if(hero.kit==='paladin')hammerOfJustice(en); else shadowStrike(en); } else spellArmed=false; updateSpellUI(); }   // armed target-cast
         else { // context tap (Siege-Up): friendly → select · enemy → attack order · ground → move order
           const en=nearestEnemyTo(hit.x,hit.z,5), al=nearestAllyTo(hit.x,hit.z,4);
           const alD=al?Math.hypot(al.px-hit.x,al.pz-hit.z):1e9, enD=en?Math.hypot(en.px-hit.x,en.pz-hit.z):1e9;
