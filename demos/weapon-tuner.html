@@ -128,9 +128,10 @@ function loadAll(){ return new Promise(res=>{
   const gl=new THREE.GLTFLoader(), fx=new THREE.FBXLoader(), tl=new THREE.TextureLoader();
   const propFiles=[...new Set(Object.values(WEAPONS).flat().map(w=>w.file))];
   let n=0, need=RIG_SPECS.length*2+propFiles.length; const done=()=>{ status.textContent='loading… '+(++n)+'/'+need; if(n>=need)res(); };
+  const V='?v='+Date.now();  // cache-bust: always fetch the freshest model/texture (no stale glb)
   RIG_SPECS.forEach(([k,f])=>{
-    gl.load('/assets/models/'+f+'_anim.glb', g=>{ RIGS[k]={scene:g.scene,anims:g.animations}; done(); }, undefined, ()=>done());
-    tl.load('/assets/models/'+f+'_tex.png', t=>{ t.flipY=true; t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter; t.generateMipmaps=false; if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; TEXS[k]=t; done(); }, undefined, ()=>done());
+    gl.load('/assets/models/'+f+'_anim.glb'+V, g=>{ RIGS[k]={scene:g.scene,anims:g.animations}; done(); }, undefined, ()=>done());
+    tl.load('/assets/models/'+f+'_tex.png'+V, t=>{ t.flipY=true; t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter; t.generateMipmaps=false; if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; TEXS[k]=t; done(); }, undefined, ()=>done());
   });
   propFiles.forEach(f=>fx.load('/assets/models/'+f+'.fbx', o=>{ PROPS[f]=bakeStatic(o); done(); }, undefined, ()=>done()));
 }); }
