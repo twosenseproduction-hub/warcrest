@@ -554,19 +554,20 @@ function foes(){ const a=[]; for(const e of enemies) if(e.alive)a.push(e); for(c
 // enemy STRUCTURES stay as last-seen ghosts once explored (WC3 behaviour).
 const FOG_N=128, FOG_HALF=155, FOG_CELL=2*FOG_HALF/FOG_N;
 let fogExplored=new Uint8Array(FOG_N*FOG_N), fogVis=new Uint8Array(FOG_N*FOG_N);
-let fogCv=null,fogCtx=null,fogTex=null,fogMesh=null,fogMiniCv=null,fogMiniCtx=null;
+let fogCv=null,fogCtx=null,fogTex=null,fogMesh=null,fogMiniCv=null,fogMiniCtx=null,fogRawCv=null,fogRawCtx=null;
 function fogIdx(x,z){ const i=Math.floor((x+FOG_HALF)/FOG_CELL), j=Math.floor((z+FOG_HALF)/FOG_CELL);
   if(i<0||j<0||i>=FOG_N||j>=FOG_N)return -1; return j*FOG_N+i; }
 function isVisible(x,z){ const k=fogIdx(x,z); return k<0?false:fogVis[k]===1; }
 function isExplored(x,z){ const k=fogIdx(x,z); return k<0?false:fogExplored[k]===1; }
 function initFog(){
   fogCv=document.createElement('canvas'); fogCv.width=FOG_N; fogCv.height=FOG_N; fogCtx=fogCv.getContext('2d');
+  fogRawCv=document.createElement('canvas'); fogRawCv.width=FOG_N; fogRawCv.height=FOG_N; fogRawCtx=fogRawCv.getContext('2d');  // hard-edged source, feathered into fogCv
   fogMiniCv=document.createElement('canvas'); fogMiniCv.width=FOG_N; fogMiniCv.height=FOG_N; fogMiniCtx=fogMiniCv.getContext('2d');
   fogTex=new THREE.CanvasTexture(fogCv); fogTex.magFilter=THREE.LinearFilter; fogTex.minFilter=THREE.LinearFilter;
-  // terrain-conforming cloud blanket: a displaced grid that follows the ground profile (~7u above it)
-  const geo=new THREE.PlaneGeometry(2*FOG_HALF,2*FOG_HALF,78,78); geo.rotateX(-Math.PI/2);   // same UV↔world mapping as the old flat plane
+  // terrain-conforming cloud blanket: a finely displaced grid that hugs the ground profile (~4u above it)
+  const geo=new THREE.PlaneGeometry(2*FOG_HALF,2*FOG_HALF,128,128); geo.rotateX(-Math.PI/2);   // same UV↔world mapping as the old flat plane
   const pos=geo.attributes.position;
-  for(let i=0;i<pos.count;i++){ const x=pos.getX(i), z=pos.getZ(i); pos.setY(i, Math.max(topY(x,z),-1)+7); }
+  for(let i=0;i<pos.count;i++){ const x=pos.getX(i), z=pos.getZ(i); pos.setY(i, Math.max(topY(x,z),-1)+4); }
   pos.needsUpdate=true;
   const m=new THREE.Mesh(geo, new THREE.MeshBasicMaterial({map:fogTex,transparent:true,depthWrite:false}));
   m.renderOrder=50; scene.add(m); fogMesh=m; updateFog(); }
@@ -589,7 +590,13 @@ function updateFog(){
     if(fogVis[k]){ d[o+3]=0; md[o+3]=0; }
     else if(fogExplored[k]){ d[o]=26;d[o+1]=36;d[o+2]=48;d[o+3]=96;  md[o]=0;md[o+1]=0;md[o+2]=0;md[o+3]=95; }   // seen before: dim
     else { d[o]=224;d[o+1]=232;d[o+2]=238;d[o+3]=252;  md[o]=8;md[o+1]=10;md[o+2]=14;md[o+3]=225; } }            // unexplored: cloud / near-black
-  fogCtx.putImageData(im,0,0); fogMiniCtx.putImageData(mi,0,0); if(fogTex)fogTex.needsUpdate=true;
+  // Hard-edged grid → fogRawCv, then feather into fogCv so the reveal edge is a soft alpha
+  // ramp. A soft ramp magnifies cleanly across the mesh; a 1-texel-hard edge combs into
+  // horizontal streaks when linearly interpolated over triangles bigger than a texel.
+  fogRawCtx.putImageData(im,0,0);
+  fogCtx.clearRect(0,0,FOG_N,FOG_N);
+  fogCtx.filter='blur(1.6px)'; fogCtx.drawImage(fogRawCv,0,0); fogCtx.filter='none';
+  fogMiniCtx.putImageData(mi,0,0); if(fogTex)fogTex.needsUpdate=true;
   // enemy presence honours the fog: units render only in live sight, structures once explored
   for(const e of enemies){ const v=e.alive&&isVisible(e.px,e.pz); e.__vis=v; if(e.g)e.g.visible=v; if(!v&&e.bar)e.bar.visible=false; }
   for(const s of eStructs){ const v=s.alive&&isExplored(s.px,s.pz); s.__vis=v&&isVisible(s.px,s.pz); if(s.g)s.g.visible=v; if(!s.__vis&&s.bar)s.bar.visible=false; }
