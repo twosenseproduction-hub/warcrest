@@ -1166,37 +1166,49 @@ function deathFx(e){ const x=e.px,z=e.pz,y=topY(x,z)+1.4;
   const n=(e.kind==='core')?18:(e.kind==='bld'?11:7);
   for(let i=0;i<n;i++){ const a=rnd()*6.28,d=rr(0.3,e.big?e.big:2); puff(x+Math.cos(a)*d, y+rr(0,e.big?3:1.7), z+Math.sin(a)*d, col, rr(0.45,e.big?1.5:0.9), 0.55); }
   pingRing(x,z,col); if(e.kind==='core')shockwave(x,z,0xffb060,20); addShake(e.kind==='core'?2.8:(e.kind==='bld'?1.3:0.5)); }
-// ---------- stylised 3D fire: cylindrical-billboard flame layers + ember disc + flickering warm light ----------
-let FLAME_TEX=null, fires=[];
-function flameTex(){ if(FLAME_TEX)return FLAME_TEX; const c=document.createElement('canvas'); c.width=c.height=128; const g=c.getContext('2d');
-  // layered flame: cool red tongue reaches highest, hot white core sits low → natural bottom-hot/top-cool gradient
-  const blob=(cx,cy,r,stops)=>{ g.save(); g.translate(cx,cy); g.scale(0.6,1); const grd=g.createRadialGradient(0,0,1,0,0,r);
-    stops.forEach(s=>grd.addColorStop(s[0],s[1])); g.fillStyle=grd; g.beginPath(); g.arc(0,0,r,0,6.29); g.fill(); g.restore(); };
-  blob(64,74,62,[[0,'rgba(255,120,30,0.92)'],[0.55,'rgba(228,58,16,0.5)'],[1,'rgba(150,26,8,0)']]);      // red-orange outer tongue
-  blob(64,86,46,[[0,'rgba(255,178,60,0.96)'],[0.55,'rgba(255,104,28,0.6)'],[1,'rgba(200,48,10,0)']]);    // orange body
-  blob(64,96,30,[[0,'rgba(255,236,150,1)'],[0.6,'rgba(255,176,60,0.7)'],[1,'rgba(255,120,30,0)']]);      // yellow heat
-  blob(64,101,15,[[0,'rgba(255,255,238,1)'],[1,'rgba(255,228,150,0)']]);                                 // white-hot base
-  FLAME_TEX=new THREE.CanvasTexture(c); return FLAME_TEX; }
+// ---------- shader 3D fire (scrolling-noise + gradient mask + HDR colour ramp + vertex wobble) ----------
+let NOISE_TEX=null, fires=[];
+function noiseTex(){ if(NOISE_TEX)return NOISE_TEX; const N=128, G=8; const c=document.createElement('canvas'); c.width=c.height=N; const g=c.getContext('2d');
+  const gv=[]; for(let j=0;j<G;j++){ gv[j]=[]; for(let i=0;i<G;i++) gv[j][i]=rnd(); }
+  const sm=t=>t*t*(3-2*t);
+  const val=(u,v,f)=>{ const x=u*G*f, y=v*G*f;   // wrapping value noise → tiles seamlessly for scrolling
+    const X0=((Math.floor(x)%G)+G)%G, Y0=((Math.floor(y)%G)+G)%G, X1=(X0+1)%G, Y1=(Y0+1)%G, fx=sm(x-Math.floor(x)), fy=sm(y-Math.floor(y));
+    return (gv[Y0][X0]*(1-fx)+gv[Y0][X1]*fx)*(1-fy)+(gv[Y1][X0]*(1-fx)+gv[Y1][X1]*fx)*fy; };
+  const im=g.createImageData(N,N), d=im.data;
+  for(let j=0;j<N;j++)for(let i=0;i<N;i++){ const u=i/N,v=j/N; let n=val(u,v,1)*0.6+val(u,v,2)*0.3+val(u,v,4)*0.1;
+    const o=(j*N+i)*4, q=Math.max(0,Math.min(255,n*255))|0; d[o]=d[o+1]=d[o+2]=q; d[o+3]=255; }
+  g.putImageData(im,0,0); const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; NOISE_TEX=t; return t; }
+const FIRE_VERT=`uniform float uTime; uniform sampler2D uNoise; uniform float uDisp; uniform float uSeed; varying vec2 vUv;
+  void main(){ vUv=uv; float n=texture2D(uNoise, uv*vec2(1.0,0.7)+vec2(uSeed,-uTime*0.6)).r;
+    vec3 p=position + normal*(n-0.5)*uDisp*(1.0-uv.y);   // wobble sideways, more at the base
+    gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0); }`;
+const FIRE_FRAG=`uniform float uTime; uniform sampler2D uNoise; uniform vec2 uScale; uniform float uSpeed; uniform float uPower; uniform float uSeed; varying vec2 vUv;
+  vec3 ramp(float t){ vec3 hot=vec3(1.7,1.55,1.05), yel=vec3(1.5,0.95,0.25), org=vec3(1.25,0.4,0.07), red=vec3(0.45,0.06,0.02);
+    vec3 c=mix(hot,yel,smoothstep(0.0,0.32,t)); c=mix(c,org,smoothstep(0.3,0.62,t)); return mix(c,red,smoothstep(0.6,1.0,t)); }
+  void main(){ vec2 uv=vUv;
+    float n1=texture2D(uNoise, uv*uScale+vec2(uSeed,-uTime*uSpeed)).r;
+    float n2=texture2D(uNoise, uv*uScale*2.1+vec2(uSeed*1.7+0.03,-uTime*uSpeed*1.8)).r;
+    float n=n1*0.65+n2*0.35;
+    float mask=n*(1.0-uv.y)*1.9*uPower;             // hot/dense at base, thin at tip
+    mask-=smoothstep(0.45,1.0,uv.y)*0.7;            // fade out toward the top
+    mask=clamp(mask,0.0,1.0);
+    if(mask<0.03) discard;                          // wispy edges
+    gl_FragColor=vec4(ramp(1.0-mask), mask);        // hottest where densest
+  }`;
 function makeFire(x,y,z,scale){ scale=scale||1; const grp=new THREE.Group(); grp.position.set(x,y,z);
-  const glow=new THREE.Mesh(new THREE.PlaneGeometry(3.4*scale,3.8*scale), new THREE.MeshBasicMaterial({map:flameTex(),color:0xff8028,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,opacity:0.4}));
-  const body=new THREE.Mesh(new THREE.PlaneGeometry(2.0*scale,3.0*scale), new THREE.MeshBasicMaterial({map:flameTex(),transparent:true,depthWrite:false,opacity:0.98}));   // opaque flame shape reads on any bg
-  const core=new THREE.Mesh(new THREE.PlaneGeometry(1.05*scale,1.8*scale), new THREE.MeshBasicMaterial({map:flameTex(),color:0xffcf7a,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,opacity:0.55}));
-  glow.renderOrder=48; body.renderOrder=49; core.renderOrder=50;
-  glow.position.y=body.position.y=core.position.y=1.4*scale; grp.add(glow,body,core);
-  const disc=new THREE.Mesh(new THREE.CircleGeometry(1.6*scale,18), new THREE.MeshBasicMaterial({color:0xff7a2a,transparent:true,opacity:0.42,blending:THREE.AdditiveBlending,depthWrite:false}));
+  const mat=new THREE.ShaderMaterial({ uniforms:{ uTime:{value:rnd()*20}, uNoise:{value:noiseTex()}, uScale:{value:new THREE.Vector2(1.0,1.3)},
+      uSpeed:{value:0.55}, uDisp:{value:0.5*scale}, uPower:{value:1.0}, uSeed:{value:rnd()} },
+    vertexShader:FIRE_VERT, fragmentShader:FIRE_FRAG, transparent:true, depthWrite:false, side:THREE.DoubleSide });
+  const cone=new THREE.Mesh(new THREE.ConeGeometry(0.85*scale, 2.8*scale, 14, 12, true), mat);
+  cone.position.y=1.4*scale; cone.renderOrder=50; grp.add(cone);
+  const disc=new THREE.Mesh(new THREE.CircleGeometry(1.7*scale,18), new THREE.MeshBasicMaterial({color:0xff7a2a,transparent:true,opacity:0.42,blending:THREE.AdditiveBlending,depthWrite:false}));
   disc.rotation.x=-Math.PI/2; disc.position.y=0.14; disc.renderOrder=47; grp.add(disc);
-  const light=new THREE.PointLight(0xff8a3a, 1.3*scale, 16*scale, 2); light.position.y=2*scale; grp.add(light);   // warms the (lit) terrain around it
-  scene.add(grp); const f={grp,glow,body,core,disc,light,scale,phase:rnd()*6.28}; fires.push(f); return f; }
-function updateFires(dt){ if(!fires.length||!cam)return;
-  for(const f of fires){ f.phase+=dt*10; const s=f.scale;
-    const yaw=Math.atan2(cam.position.x-f.grp.position.x, cam.position.z-f.grp.position.z);   // cylindrical billboard: stays upright, yaws to camera
-    f.glow.rotation.set(0,yaw,0); f.body.rotation.set(0,yaw,0); f.core.rotation.set(0,yaw,0);
-    const bh=0.9+Math.sin(f.phase*1.6)*0.16+Math.sin(f.phase*3.1)*0.06;                        // body flicker
-    f.body.scale.set(0.86+Math.sin(f.phase*2.2)*0.1, bh, 1); f.body.position.set(Math.sin(f.phase*0.9)*0.1*s,(1.35+bh*0.15)*s,0);
-    const ch=0.8+Math.sin(f.phase*3.4+1)*0.2;                                                  // hot core: faster, taller lick
-    f.core.scale.set(0.7+Math.sin(f.phase*3.0)*0.12, ch*1.05, 1); f.core.position.set(Math.sin(f.phase*1.3+2)*0.12*s,(1.55+ch*0.25)*s,0);
-    f.glow.scale.setScalar(0.95+Math.sin(f.phase*1.1)*0.12); f.glow.position.y=1.4*s;
-    f.light.intensity=(1.1+Math.sin(f.phase*1.3)*0.4)*s; f.disc.material.opacity=0.34+Math.sin(f.phase*1.1)*0.1; } }
+  const light=new THREE.PointLight(0xff8a3a, 1.3*scale, 16*scale, 2); light.position.y=2*scale; grp.add(light);   // warms the (lit) terrain
+  scene.add(grp); const f={grp,mat,disc,light,scale,phase:rnd()*6.28}; fires.push(f); return f; }
+function updateFires(dt){ if(!fires.length)return;
+  for(const f of fires){ f.phase+=dt; f.mat.uniforms.uTime.value+=dt;
+    f.light.intensity=(1.1+Math.sin(f.phase*7)*0.35+Math.sin(f.phase*17)*0.12)*f.scale;      // flicker the warm light
+    f.disc.material.opacity=0.34+Math.sin(f.phase*6)*0.1; } }
 // thin steel glaive blade, built once & cloned (long axis = +Y); colour comes from the trail, not the blade
 let BLADE_PROTO=null;
 function bladeProto(){ if(BLADE_PROTO)return BLADE_PROTO; const g=new THREE.Group();
