@@ -68,7 +68,7 @@
 <script src="/vendor/SkeletonUtils.js"></script>
 <script>
 // ---- data mirrored from demos/thronefall-level.html (keep in sync) ----
-const CHAR_H={thoryn:4.8, queen:4.4, paladin:4.4, archer:3.6, priestess:3.8, warrior:3.9, chief:4.9, orcarcher:3.7, orcgrunt:3.7, orcwarrior:4.1, orcshaman:3.7};
+const CHAR_H={thoryn:4.8, queen:4.4, paladin:4.4, archer:3.6, priestess:3.8, warrior:3.9, chief:4.9, orcarcher:3.7, orcgrunt:3.7, orcwarrior:4.1, orcshaman:3.7, revenant:5.2};
 const WEAPONS={
   queen:    [{file:'glaive_elf_queen', bone:'hand_r', pos:[-6.2,-1.25,-0.1], rot:[Math.PI/2,-1.326,0], scl:1}],
   paladin:  [{file:'hammer_human_paladin', bone:'hand_r', pos:[-8.4,-2.6,0], rot:[Math.PI/2,1.379,0.035], scl:1}],
@@ -82,8 +82,8 @@ const WEAPONS={
   orcwarrior:[{file:'sword_orc_warrior',bone:'Character1_RightHand', pos:[-10,-3.6,-2.8], rot:[0,0,-1.309], scl:0.66}],
   orcshaman:[{file:'staff_orc_shaman', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
 };
-const RIG_SPECS=[['thoryn','thoryn'],['queen','elf_queen'],['paladin','human_paladin'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior'],['chief','orc_chieftain'],['orcarcher','orc_archer'],['orcgrunt','orc_grunt'],['orcwarrior','orc_warrior'],['orcshaman','orc_shaman']];
-const LABEL={thoryn:'Thoryn',queen:'Queen',paladin:'Paladin',archer:'Elf Archer',priestess:'Priestess',warrior:'Elf Warrior',chief:'Chieftain',orcarcher:'Orc Archer',orcgrunt:'Orc Grunt',orcwarrior:'Orc Warrior',orcshaman:'Orc Shaman'};
+const RIG_SPECS=[['thoryn','thoryn'],['queen','elf_queen'],['paladin','human_paladin'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior'],['chief','orc_chieftain'],['orcarcher','orc_archer'],['orcgrunt','orc_grunt'],['orcwarrior','orc_warrior'],['orcshaman','orc_shaman'],['revenant','stone_revenant']];
+const LABEL={thoryn:'Thoryn',queen:'Queen',paladin:'Paladin',archer:'Elf Archer',priestess:'Priestess',warrior:'Elf Warrior',chief:'Chieftain',orcarcher:'Orc Archer',orcgrunt:'Orc Grunt',orcwarrior:'Orc Warrior',orcshaman:'Orc Shaman',revenant:'Stone Revenant'};
 const R2D=180/Math.PI, D2R=Math.PI/180, fmtR=v=>{ // pretty-print radians, snapping to π fractions
   const t=[[0,'0'],[Math.PI/2,'Math.PI/2'],[-Math.PI/2,'-Math.PI/2'],[Math.PI,'Math.PI'],[-Math.PI,'-Math.PI']];
   for(const [x,s] of t) if(Math.abs(v-x)<0.02) return s; return (+v.toFixed(3)); };
@@ -149,6 +149,9 @@ function build(key){
   inner.position.y=-bb.min.y; outer.scale.setScalar((CHAR_H[key]||4)/hh);
   const mixer=new THREE.AnimationMixer(inner); const act={};
   src.anims.forEach(a=>{ const clip=new THREE.AnimationClip(a.name,a.duration,a.tracks.filter(t=>!t.name.endsWith('.position'))); act[a.name]=mixer.clipAction(clip); });
+  // map KayKit clip names (Idle / Walking_A / 1H_Melee_Attack_* / Blocking) onto our idle/run/attack/block
+  const alias={idle:[/^idle$/i,/unarmed_idle/i], run:[/^running_a$/i,/^walking_a$/i,/^run$/i], attack:[/1h_melee_attack_chop/i,/melee_attack_chop/i,/melee_attack/i,/^attack$/i], block:[/^blocking$/i,/^block$/i]};
+  for(const std in alias){ if(act[std])continue; const k=Object.keys(act).find(n=>alias[std].some(re=>re.test(n))); if(k)act[std]=act[k]; }
   const idle=act.idle||act[Object.keys(act)[0]]; if(idle)idle.play();
   mixer.update(0.3); outer.updateMatrixWorld(true);
   const b2=new THREE.Box3().setFromObject(inner); const c2=b2.getCenter(new THREE.Vector3());
