@@ -469,11 +469,26 @@ const CAT={
   mine:   { label:'Gold Mine',  model:'mine',    H:[6,7.5,9],     cost:[60,110,170], income:[4,8,13] },    // gold generation
   lumber: { label:'Lumber Mill',model:'mill',    H:[5.5,6.5,7.5], cost:[50,95,150],  woodInc:[3,6,10] },   // wood generation
   army:   { label:'Barracks',   model:'barrack', H:[6.5,7.5,8.5], cost:[90,150,220], every:[7,5.5,4], cap:[2,3,4] },
-  defense:{ label:'Tower',      model:'tower',   H:[8,9.5,11],    cost:[60,100,160], dmg:[16,30,48], range:[30,34,38], rof:[1.1,0.9,0.75] },
+  defense:{ label:'Tower',      model:'tower',   H:[8,9.5,11],    cost:[60,100,160], dmg:[18,32,52], range:[22,26,30], rof:[1.15,0.95,0.8] },
 };
 // WC3-style supply: the Throne seeds a base cap, each House raises it; units cost supply and gate training
-const BASE_SUPPLY=12, UNIT_SUP={warrior:3,archer:2,cleric:3,grunt:3,shaman:3};
+const BASE_SUPPLY=12, UNIT_SUP={warrior:3,archer:2,cleric:3,grunt:2,shaman:3};
 let supplyCap=BASE_SUPPLY, supplyUsed=0;
+// ===== Central combat balance table — every spawn path (player train, enemy AI, waves,
+// starting warband) reads its base stats from here, so tuning one number tunes the whole
+// game and player/enemy archetypes stay mirrored. dps = dmg/atk.
+//   warrior/archer are shared archetypes across factions (symmetric matchups);
+//   cleric is player-only support, grunt is enemy chaff, shaman is enemy caster.
+const UBAL={
+  warrior:{hp:130, dmg:14, range:3.5, atk:1.0},   // frontline: tanky, ~14 dps
+  archer: {hp:64,  dmg:12, range:9,   atk:1.2},   // ranged glass cannon, ~10 dps
+  cleric: {hp:62,  dmg:7,  range:7,   atk:1.3},   // support/heal, light dmg
+  grunt:  {hp:92,  dmg:11, range:3.4, atk:1.0},   // enemy cheap chaff, ~11 dps
+  shaman: {hp:60,  dmg:13, range:10,  atk:1.7},   // enemy caster, long-range magic
+};
+const HERO_STAT={hp:320, dmg:22, range:3.6, atk:0.55, spd:19};   // heroes feel powerful but killable
+const BOSS_STAT={hp:900, dmg:30, range:4.6, atk:1.2,  spd:11};   // chieftain: army-buster, abilities carry threat
+const ALLY_SPD=15, ENEMY_SPD=12;
 // per-Barracks train catalogue (min barracks level = tech gate; foundation for the tech tree)
 const TRAIN=[
   {kind:'warrior', rig:'warrior',  icon:'warrior', label:'Warrior',   gold:65, sup:3, dur:7,  minLvl:1},
@@ -515,9 +530,9 @@ function startBuild(p,cat){ if(p.cat||p.locked)return; if(p.slot==='turret'&&cat
 // queue a unit at a Barracks (WC3-style): pay gold now, reserve supply, build over time, then it musters
 function queueUnit(p,def){ if(!p||p.cat!=='army')return; if(gold<def.gold)return; if(supplyUsed+def.sup>supplyCap)return;   // no gold / no pop room
   gold-=def.gold; sfx('build'); if(!p.queue)p.queue=[]; p.queue.push({kind:def.kind, rig:def.rig, t:def.dur, dur:def.dur, sup:def.sup}); recomputeSupply(); openPlotMenu(p); }
-function spawnTrained(p,q){ const st = q.kind==='warrior'?{hp:110,dmg:16,range:3.6,col:C.teamBlueD,atk:0.9}
-    : q.kind==='cleric'?{hp:52,dmg:6,range:7,col:C.cleric,atk:1.2} : {hp:60,dmg:10,range:9,col:C.teamBlue,atk:1.1};
-  const e=mkFighter(st.col,1.0,'ally',{hp:st.hp,dmg:st.dmg,range:st.range,atkEvery:st.atk,spd:15});
+function spawnTrained(p,q){ const b=UBAL[q.kind]||UBAL.warrior;
+  const col = q.kind==='cleric'?C.cleric : q.kind==='archer'?C.teamBlue : C.teamBlueD;
+  const e=mkFighter(col,1.0,'ally',{hp:b.hp,dmg:b.dmg,range:b.range,atkEvery:b.atk,spd:ALLY_SPD});
   e.idx=allies.length; e.kind=q.kind; e.healCd=0; e.smiteCd=0; riggize(e,q.rig||q.kind); setP(e,p.x+rr(-2,2),p.z+rr(3,5)); allies.push(e); }
 function upgradePlot(p){ if(!p.cat||p.level>=3)return; const cost=CAT[p.cat].cost[p.level], wcost=UP_WOOD[p.level];   // upgrades cost gold + wood
   if(gold<cost||wood<wcost)return; gold-=cost; wood-=wcost; p.level++; buildOnPlot(p); closeBuildMenu(); }
@@ -526,7 +541,8 @@ function upgradeCore(){ if(!coreB||coreB.level>=3)return; const cost=CORE_UP[cor
   const add=CORE_HP[coreB.level-1]-coreB.max; coreB.max=CORE_HP[coreB.level-1]; coreB.hp+=add;
   scene.remove(coreB.g); const g=bldClone('throne'+coreB.level,CORE_H[coreB.level-1])||makeKeep(); g.position.set(coreB.x,topY(coreB.x,coreB.z),coreB.z); scene.add(g); coreB.g=g; revealPlots(); closeBuildMenu(); }
 function towerTick(p,dt){ p.cd-=dt; if(p.cd>0)return; let best=null,bd=p.range*p.range;
-  for(const en of enemies){ if(!en.alive)continue; const dd=(en.px-p.x)**2+(en.pz-p.z)**2; if(dd<bd){bd=dd;best=en;} }
+  // only target foes the player can actually SEE — no firing blind into the fog of war
+  for(const en of enemies){ if(!en.alive)continue; if(!isVisible(en.px,en.pz))continue; const dd=(en.px-p.x)**2+(en.pz-p.z)**2; if(dd<bd){bd=dd;best=en;} }
   if(best){ shootFx(p.x,p.z,best.px,best.pz,'arrow'); damage(best,p.dmg,false); p.cd=p.rof; } }
 function barracksTick(p,dt){
   if(p.queue&&p.queue.length){ const q=p.queue[0]; q.t-=dt; if(q.t<=0){ spawnTrained(p,q); p.queue.shift(); recomputeSupply(); } }
@@ -569,15 +585,20 @@ function eUpgradeCore(){ if(enemyCore.level>=3)return; enemyCore.level++;
   const add=CORE_HP[enemyCore.level-1]-enemyCore.max; enemyCore.max=CORE_HP[enemyCore.level-1]; enemyCore.hp+=add;
   scene.remove(enemyCore.g); const g=bldClone('orc_throne'+enemyCore.level,CORE_H[enemyCore.level-1])||makeKeep(); g.position.set(enemyCore.x,topY(enemyCore.x,enemyCore.z),enemyCore.z); g.rotation.y=2.4; scene.add(g); enemyCore.g=g;
   for(const p of ePlots){ if(p.locked && p.tier<=enemyCore.level) p.locked=false; } }
+// shared orc factory — both the AI barracks and the wave spawner build enemies here so
+// their stats come straight from UBAL (mirrored with the player archetypes).
+function mkOrc(rig){ const map={orcgrunt:'grunt', orcarcher:'archer', orcwarrior:'warrior', orcshaman:'shaman'};
+  const kind=map[rig]||'grunt', b=UBAL[kind]||UBAL.grunt;
+  const scl = rig==='orcwarrior'?1.1 : rig==='orcgrunt'?1.05 : 1.0;
+  const e=mkFighter(C.enemyRed,scl,'enemy',{hp:b.hp,dmg:b.dmg,range:b.range,atkEvery:b.atk,spd:ENEMY_SPD}); riggize(e,rig);
+  e.kind=kind; if(kind==='archer'){e.ranged=true;} if(kind==='shaman'){e.ranged=true;e.magic=true;} if(rig==='orcwarrior')e.rad=1.8;
+  return e; }
 function eTowerTick(p,dt){ p.cd-=dt; if(p.cd>0)return; let best=null,bd=p.range*p.range;
   for(const t of [hero,...allies]){ if(!t||!t.alive)continue; const dd=(t.px-p.x)**2+(t.pz-p.z)**2; if(dd<bd){bd=dd;best=t;} }
   if(best){ shootFx(p.x,p.z,best.px,best.pz,'arrow'); damage(best,p.dmg,false); p.cd=p.rof; } }
 function eBarracksTick(p,dt){ p.mine=p.mine.filter(u=>u.alive); if(eSupplyUsed>=eSupplyCap)return; if(p.mine.length>=p.cap)return; p.spawnCd-=dt; if(p.spawnCd>0)return; p.spawnCd=p.every;
-  const kind=['orcgrunt','orcarcher','orcwarrior'][p.mine.length % (p.level>=2?3:2)]; let e;
-  if(kind==='orcarcher'){ e=mkFighter(C.enemyRed,1.0,'enemy',{hp:46,dmg:7,range:9,atkEvery:1.5,spd:12}); riggize(e,'orcarcher'); e.kind='archer'; e.ranged=true; }
-  else if(kind==='orcwarrior'){ e=mkFighter(C.enemyRed,1.1,'enemy',{hp:95,dmg:12,range:3.6,atkEvery:1.1,spd:11}); riggize(e,'orcwarrior'); e.kind='warrior'; e.rad=1.8; }
-  else { e=mkFighter(C.enemyRed,1.05,'enemy',{hp:64,dmg:9,range:3.4,atkEvery:1.0,spd:12}); riggize(e,'orcgrunt'); e.kind='grunt'; }
-  setP(e,p.x+rr(-3,3),p.z+rr(3,5)); enemies.push(e); p.mine.push(e); }
+  const rig=['orcgrunt','orcarcher','orcwarrior'][p.mine.length % (p.level>=2?3:2)];
+  const e=mkOrc(rig); setP(e,p.x+rr(-3,3),p.z+rr(3,5)); enemies.push(e); p.mine.push(e); }
 function enemyAI(dt){ aiCd-=dt; if(aiCd>0)return; aiCd=4;
   const empty=ePlots.find(p=>!p.cat && !p.locked);
   const nEco=ePlots.filter(p=>p.cat==='economy').length, nMine=ePlots.filter(p=>p.cat==='mine').length, nLum=ePlots.filter(p=>p.cat==='lumber').length, nArmy=ePlots.filter(p=>p.cat==='army').length, nDef=ePlots.filter(p=>p.cat==='defense').length;
@@ -626,7 +647,7 @@ function updateFog(){
   if(hero&&hero.alive) src.push([hero.px,hero.pz,30]);
   for(const e of allies) if(e.alive) src.push([e.px,e.pz,22]);
   if(coreB) src.push([coreB.x,coreB.z,30]);
-  for(const p of plots) if(p.cat) src.push([p.x,p.z,p.cat==='defense'?32:24]);
+  for(const p of plots) if(p.cat) src.push([p.x,p.z,p.cat==='defense'?((p.range||30)+4):24]);   // a tower sees just past its own reach, so it never targets blind
   for(const [x,z,r] of src){ fogStamp(fogVis,x,z,r); fogStamp(fogExplored,x,z,r); }
   // paint both fog textures from the grids
   const im=fogCtx.createImageData(FOG_N,FOG_N), d=im.data;
@@ -1008,26 +1029,25 @@ function setAnim(e,want){ if(!e.act||e.animState===want)return; const a=e.act[wa
 function riggize(e,key){ const c=makeChar(key); if(!c)return; scene.remove(e.g); e.g=c.g; e.mixer=c.mixer; e.act=c.act; e.armL=c.armL; e.armR=c.armR; e.rigged=true; e.rigKey=key; e.animState='idle'; scene.add(e.g); }
 
 function spawnGame(){
-  hero=mkFighter(C.hero,1.9,'hero',{hp:260,dmg:20,range:3.6,atkEvery:0.5,spd:19,aCd:0,spellCd:0,blinkCd:0});
+  hero=mkFighter(C.hero,1.9,'hero',{hp:HERO_STAT.hp,dmg:HERO_STAT.dmg,range:HERO_STAT.range,atkEvery:HERO_STAT.atk,spd:HERO_STAT.spd,aCd:0,spellCd:0,blinkCd:0});
   const rk=(HERO_KIT[heroKind]&&RIGS[HERO_KIT[heroKind].rig])?HERO_KIT[heroKind].rig:(RIGS.queen?'queen':'thoryn');
   riggize(hero, rk);   // the chosen hero (Elf Queen default, or Paladin)
   hero.kit=heroKind; const _k=HERO_KIT[heroKind]||HERO_KIT.queen; hero.aMax=_k.a.cd; hero.spellMax=_k.spell.cd; hero.blinkMax=_k.blink.cd;
   setP(hero,105,80);                            // muster at the player base (bottom-left island)
   // skirmish start: the hero rides out with just two base units — a warrior + an archer.
   // (The rest of the army comes from Barracks the player builds; the AI grows the same way.)
-  const ROSTER=['warrior','archer'];
-  const STATS={ warrior:{hp:110,dmg:16,range:3.6,col:C.teamBlueD}, archer:{hp:60,dmg:10,range:9,col:C.teamBlue}, priestess:{hp:52,dmg:6,range:7,col:C.cleric} };
-  for(let i=0;i<ROSTER.length;i++){ const u=ROSTER[i], s=STATS[u];
-    const e=mkFighter(s.col,1.0,'ally',{hp:s.hp,dmg:s.dmg,range:s.range,atkEvery:u==='warrior'?0.9:1.1,spd:15});
-    e.idx=i; e.kind=(u==='priestess')?'cleric':u; e.healCd=0; e.smiteCd=0;   // 'cleric' drives the heal pass
+  const ROSTER=['warrior','archer'];   // rig name; stat kind = warrior/archer (priestess→cleric)
+  const COL={warrior:C.teamBlueD, archer:C.teamBlue, priestess:C.cleric};
+  for(let i=0;i<ROSTER.length;i++){ const u=ROSTER[i], kind=(u==='priestess')?'cleric':u, b=UBAL[kind];
+    const e=mkFighter(COL[u],1.0,'ally',{hp:b.hp,dmg:b.dmg,range:b.range,atkEvery:b.atk,spd:ALLY_SPD});
+    e.idx=i; e.kind=kind; e.healCd=0; e.smiteCd=0;   // 'cleric' drives the heal pass
     riggize(e, u);
     setP(e,105+(i-0.5)*3.2, 92); allies.push(e); }
   // Orc Chieftain — the enemy's leader — flanked by two base orcs (grunt + archer)
-  const boss=mkFighter(C.enemyRed,1.6,'enemy',{hp:640,dmg:34,range:4.6,atkEvery:1.3,spd:11});
-  boss.rad=2.8; boss.max=640; boss.isBoss=true; boss.hurlCd=4; boss.slamCd=7; boss.roarCd=10; riggize(boss,'chief'); setP(boss,enemyBase.x+8,enemyBase.z+8); enemies.push(boss);
-  for(const [k,st] of [['orcgrunt',{hp:64,dmg:9,range:3.4,atkEvery:1.0,kind:'grunt'}],['orcarcher',{hp:46,dmg:7,range:9,atkEvery:1.5,kind:'archer',ranged:true}]]){
-    const e=mkFighter(C.enemyRed,1.0,'enemy',{hp:st.hp,dmg:st.dmg,range:st.range,atkEvery:st.atkEvery,spd:12}); riggize(e,k);
-    e.kind=st.kind; if(st.ranged)e.ranged=true; setP(e,enemyBase.x+rr(2,10),enemyBase.z+rr(2,10)); enemies.push(e); }
+  const boss=mkFighter(C.enemyRed,1.6,'enemy',{hp:BOSS_STAT.hp,dmg:BOSS_STAT.dmg,range:BOSS_STAT.range,atkEvery:BOSS_STAT.atk,spd:BOSS_STAT.spd});
+  boss.rad=2.8; boss.max=BOSS_STAT.hp; boss.isBoss=true; boss.hurlCd=4; boss.slamCd=7; boss.roarCd=10; riggize(boss,'chief'); setP(boss,enemyBase.x+8,enemyBase.z+8); enemies.push(boss);
+  for(const rig of ['orcgrunt','orcarcher']){
+    const e=mkOrc(rig); setP(e,enemyBase.x+rr(2,10),enemyBase.z+rr(2,10)); enemies.push(e); }
   recomputeSupply(); recomputeIncome();   // seed cap/income from the starting warband + empty economy
   rallyMarker=new THREE.Mesh(new THREE.RingGeometry(1.6,2.3,22),new THREE.MeshBasicMaterial({color:0xffe089,transparent:true,opacity:0.9,side:THREE.DoubleSide}));
   rallyMarker.rotation.x=-Math.PI/2; rallyMarker.visible=false; scene.add(rallyMarker);
@@ -1037,13 +1057,8 @@ function spawnGame(){
 let spawnN=0;
 function spawnEnemy(){ const x=enemyBase.x+rr(-14,14), z=enemyBase.z+rr(-14,14);   // muster from the enemy stronghold (top-right)
   if(!onIsland(x,z))return;
-  const kind=['orcarcher','orcgrunt','orcwarrior','orcshaman'][spawnN++ %4];   // rotate the horde: archer, grunt, warrior, shaman
-  let e;
-  if(kind==='orcarcher'){ e=mkFighter(C.enemyRed,1.0,'enemy',{hp:46,dmg:7,range:9,atkEvery:1.5,spd:12}); riggize(e,'orcarcher'); e.kind='archer'; e.ranged=true; }
-  else if(kind==='orcwarrior'){ e=mkFighter(C.enemyRed,1.1,'enemy',{hp:95,dmg:12,range:3.6,atkEvery:1.1,spd:11}); riggize(e,'orcwarrior'); e.kind='warrior'; e.rad=1.8; }
-  else if(kind==='orcshaman'){ e=mkFighter(C.enemyRed,1.0,'enemy',{hp:50,dmg:10,range:10,atkEvery:1.8,spd:11}); riggize(e,'orcshaman'); e.kind='shaman'; e.ranged=true; e.magic=true; }
-  else { e=mkFighter(C.enemyRed,1.05,'enemy',{hp:64,dmg:9,range:3.4,atkEvery:1.0,spd:12}); riggize(e,'orcgrunt'); e.kind='grunt'; }
-  setP(e,x,z); enemies.push(e); }
+  const rig=['orcarcher','orcgrunt','orcwarrior','orcshaman'][spawnN++ %4];   // rotate the horde: archer, grunt, warrior, shaman
+  const e=mkOrc(rig); setP(e,x,z); enemies.push(e); }
 function nearest(x,z,list){ let b=null,bd=1e9; for(const t of list){ if(!t.alive)continue; const d=(t.px-x)**2+(t.pz-z)**2; if(d<bd){bd=d;b=t;} } return {t:b,d:Math.sqrt(bd)}; }
 function moveTo(e,tx,tz,dt){ let dx=tx-e.px,dz=tz-e.pz; const d=Math.hypot(dx,dz)||1; dx/=d;dz/=d;
   const sp=e.spd*(e.rageT>0?1.45:1);   // War Roar speeds the horde
