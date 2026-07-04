@@ -1169,7 +1169,10 @@ function updateGame(dt){
         const nx=hero.px+dx*hero.spd*dt, nz=hero.pz+dz*hero.spd*dt; if(onIsland(nx,nz))setP(hero,nx,nz); else hero.order=null;
         faceTo(hero,dx,dz); hero.movedThis=true; heroMoved=true;
         heroFwd.x+=(dx-heroFwd.x)*Math.min(1,dt*6); heroFwd.z+=(dz-heroFwd.z)*Math.min(1,dt*6); } }
-    if(!camLocked && ml>0.01){ const nx=mvx/ml, nz=mvz/ml, sp=PAN_SPD*Math.max(0.6,camF.dist/66); camAim.x+=nx*sp*dt; camAim.z+=nz*sp*dt; clampAim(); }   // stick/WASD pans the free camera
+    if(!camLocked && ml>0.001){ // camera stick: PROPORTIONAL pan (deflection^2 curve — fine control near centre,
+      // fast at full tilt), not the hero's normalized fixed-speed movement — a camera, not a character
+      const m=Math.min(1,ml), nx=mvx/ml, nz=mvz/ml, sp=110*Math.max(0.6,camF.dist/66)*m*m;
+      camAim.x+=nx*sp*dt; camAim.z+=nz*sp*dt; clampAim(); }
     hero.cd-=dt; hero.aCd-=dt; hero.spellCd-=dt;
     const FO=foes();   // enemy units + attackable enemy structures (core/buildings) — the player's valid targets
     if(autoBolt && hero.spellCd<=0 && enemies.length){ const {t}=nearest(hero.px,hero.pz,enemies); if(t) castBolt(t.px,t.pz); }
@@ -1231,7 +1234,7 @@ function followCam(dt){
   if(camLocked && hero){ if(!camAim.init){camAim.x=hero.px;camAim.z=hero.pz;camAim.init=true;} else { const k=Math.min(1,(dt||0.016)*4); camAim.x+=(hero.px-camAim.x)*k; camAim.z+=(hero.pz-camAim.z)*k; } }
   const p=camF.pitch*Math.PI/180,a=camF.az*Math.PI/180, hy=camF.dist*Math.sin(p),hz=camF.dist*Math.cos(p);
   const want=new THREE.Vector3(camAim.x+Math.sin(a)*hz,hy,camAim.z+Math.cos(a)*hz);
-  if(!camF.init){ camF.pos.copy(want); camF.init=true; } else camF.pos.lerp(want, camLocked?0.12:0.2);
+  if(!camF.init){ camF.pos.copy(want); camF.init=true; } else camF.pos.lerp(want, camLocked?0.12:0.38);   // free cam tracks tightly — no character-like momentum
   cam.position.copy(camF.pos); cam.lookAt(camAim.x,camF.lookY,camAim.z);
   // keep the shadow frustum centred on what the camera is looking at, so shadows stay sharp across the big map
   if(sunLight){ sunLight.target.position.set(camAim.x,0,camAim.z); sunLight.target.updateMatrixWorld();
