@@ -152,11 +152,18 @@ function radialTex(stops){ const c=document.createElement('canvas'); c.width=c.h
   const t=new THREE.CanvasTexture(c); t.needsUpdate=true; return t; }
 const TEX_SMOKE=radialTex([[0,'rgba(210,210,214,0.85)'],[0.45,'rgba(150,150,158,0.5)'],[1,'rgba(120,120,128,0)']]);
 const TEX_GLOW =radialTex([[0,'rgba(255,255,255,1)'],[0.28,'rgba(255,255,255,0.85)'],[1,'rgba(255,255,255,0)']]);
+// upward flame-tongue: bright at the base, tapering to a point (white core so sprite color tints it)
+function flameTex(){ const c=document.createElement('canvas'); c.width=c.height=64; const g=c.getContext('2d');
+  g.beginPath(); g.moveTo(32,63); g.bezierCurveTo(9,50,7,24,32,2); g.bezierCurveTo(57,24,55,50,32,63); g.closePath();
+  const lg=g.createLinearGradient(0,64,0,0);
+  lg.addColorStop(0,'rgba(255,255,255,0.95)'); lg.addColorStop(0.3,'rgba(255,255,255,0.9)'); lg.addColorStop(0.7,'rgba(255,255,255,0.45)'); lg.addColorStop(1,'rgba(255,255,255,0)');
+  g.fillStyle=lg; g.fill(); const t=new THREE.CanvasTexture(c); t.needsUpdate=true; return t; }
+const TEX_FLAME=flameTex();
 // per-unit effect config (colors + which effects); geometry anchored to the measured world box
 const VFX={
   ashtreant:  {eyes:{color:0xffb544,size:0.05,sep:0.085,up:0.11,fwd:0.13}, smoke:{color:0xc0bfb8,count:16,life:2.6,rise:0.6,anchors:[[0.42,0.5,0.05],[-0.42,0.5,0.05],[0.34,0.74,-0.1],[-0.34,0.74,-0.1],[0,0.66,-0.34]]}},
   emberspitter:{eyes:{color:0xff8a24,size:0.06,sep:0.1,up:0.06,fwd:0.16}, smoke:{color:0xb9b6ae,count:11,life:2.2,rise:0.62,anchors:[[0.3,0.55,0.0],[-0.3,0.55,0.0],[0,0.72,-0.28]]}},
-  revenant:   {eyes:{color:0x9dff4a,size:0.045,sep:0.09,up:0.13,fwd:0.13}, flame:{color:0x7dff2e,count:9,life:0.85,rise:1.35}, smoke:{color:0x8f8f96,count:9,life:2.4,rise:0.8,anchors:[[0,1.02,0.0],[0.18,0.98,-0.05],[-0.18,0.98,-0.05]]}, crystals:{color:0x8dff3a,count:2}},
+  revenant:   {eyes:{color:0x9dff4a,size:0.045,sep:0.09,up:0.13,fwd:0.13}, flame:{color:0x62ff20,core:0xe8ff96,count:14,life:0.5,rise:0.5}, smoke:{color:0x8f8f96,count:7,life:2.2,rise:0.7,anchors:[[0,1.12,0.0],[0.14,1.06,-0.05],[-0.14,1.06,-0.05]]}, crystals:{color:0x9dff4a,count:2}},
 };
 function makeVfx(key,wb,head){ const cfg=VFX[key]; if(!cfg)return null;
   const grp=new THREE.Group(); scene.add(grp);
@@ -167,16 +174,16 @@ function makeVfx(key,wb,head){ const cfg=VFX[key]; if(!cfg)return null;
   function spr(tex,color,blend){ const m=new THREE.SpriteMaterial({map:tex,color:color,transparent:true,depthWrite:false,opacity:0,blending:blend}); const s=new THREE.Sprite(m); grp.add(s); return s; }
   // smoke
   if(cfg.smoke){ for(let i=0;i<cfg.smoke.count;i++){ const s=spr(TEX_SMOKE,cfg.smoke.color,THREE.NormalBlending); smokeP.push({s,life:1e9,max:1,x:0,y:0,z:0,vx:0,vy:0,vz:0,sz0:1}); } }
-  // green flame (additive) rising off the head
-  if(cfg.flame){ for(let i=0;i<cfg.flame.count;i++){ const s=spr(TEX_GLOW,cfg.flame.color,THREE.AdditiveBlending); flameP.push({s,life:Math.random(),max:1,x:0,y:0,z:0,sz0:1}); } }
+  // green flame — upward tongues (additive), hot core sprites mixed with green ones
+  if(cfg.flame){ for(let i=0;i<cfg.flame.count;i++){ const s=spr(TEX_FLAME, i%3===0?(cfg.flame.core||cfg.flame.color):cfg.flame.color, THREE.AdditiveBlending); flameP.push({s,life:Math.random(),max:1,x:0,y:0,z:0,sz0:1}); } }
   // glowing eyes (additive) — tracked to the head bone each frame, offset to the face
   if(cfg.eyes){ const s0=cfg.eyes.size*hy, o=cfg.eyes; for(const sgn of [-1,1]){ const s=spr(TEX_GLOW,cfg.eyes.color,THREE.AdditiveBlending);
       s.scale.setScalar(s0); eyes.push({s,sgn}); } }
   // floating crystals (revenant) — angular green gems + glow halo
   if(cfg.crystals){ const geo=new THREE.OctahedronGeometry(1); for(const sgn of [-1,1]){
       const mat=new THREE.MeshBasicMaterial({color:cfg.crystals.color}); const m=new THREE.Mesh(geo,mat);
-      const r=hy*0.11; m.scale.set(r*0.55,r,r*0.55); const halo=spr(TEX_GLOW,cfg.crystals.color,THREE.AdditiveBlending); halo.scale.setScalar(r*3.2); halo.material.opacity=0.7;
-      const base=new THREE.Vector3(cx+sgn*wx*0.72, hy*0.6, cz); m.position.copy(base); halo.position.copy(base);
+      const r=hy*0.07; m.scale.set(r*0.68,r,r*0.68); const halo=spr(TEX_GLOW,cfg.crystals.color,THREE.AdditiveBlending); halo.scale.setScalar(r*2.0); halo.material.opacity=0.42;
+      const base=new THREE.Vector3(cx+sgn*wx*0.62, hy*0.72, cz); m.position.copy(base); halo.position.copy(base);
       grp.add(m); crystals.push({m,halo,base,ph:sgn>0?0:Math.PI}); } }
   function reseed(p,c){ p.life=0; p.max=c.life*(0.7+Math.random()*0.6);
     const a=c.anchors?c.anchors[(Math.random()*c.anchors.length)|0]:[0,0,0];
@@ -186,10 +193,10 @@ function makeVfx(key,wb,head){ const cfg=VFX[key]; if(!cfg)return null;
   function upd(dt,t){
     for(const p of smokeP){ p.life+=dt; if(p.life>=p.max)reseed(p,cfg.smoke); p.x+=p.vx*dt; p.y+=p.vy*dt; p.z+=p.vz*dt; p.vy*=(1-0.35*dt);
       const f=p.life/p.max; p.s.position.set(p.x,p.y,p.z); p.s.material.opacity=Math.sin(Math.min(1,f)*Math.PI)*0.6; const s=p.sz0*(0.55+f*1.2); p.s.scale.set(s,s,s); }
-    if(cfg.flame){ const fh=headY+hy*0.13; for(const p of flameP){ p.life+=dt; if(p.life>=p.max){ p.life=0; p.max=cfg.flame.life*(0.6+Math.random()*0.8);
-        p.x=cx+(Math.random()-0.5)*wx*0.28; p.y=fh; p.z=cz+(Math.random()-0.5)*dz*0.16; p.sz0=hy*0.17*(0.7+Math.random()*0.7); }
-      const f=p.life/p.max; p.s.position.set(p.x+Math.sin(t*8+p.max)*wx*0.03, p.y+f*cfg.flame.rise*hy, p.z);
-      p.s.material.opacity=(1-f)*0.9; const s=p.sz0*(1.15-f*0.7); p.s.scale.set(s,s,s); } }
+    if(cfg.flame){ const hp=headPos(), fh=hp.y+hy*0.07; for(const p of flameP){ p.life+=dt; if(p.life>=p.max){ p.life=0; p.max=cfg.flame.life*(0.6+Math.random()*0.8);
+        p.x0=hp.x+(Math.random()-0.5)*wx*0.16; p.y=fh; p.z=hp.z+hy*0.05+(Math.random()-0.5)*dz*0.1; p.sz0=hy*0.13*(0.7+Math.random()*0.6); }
+      const f=p.life/p.max; p.s.position.set(p.x0+Math.sin(t*9+p.max*10)*wx*0.02*(1-f), p.y+f*cfg.flame.rise*hy, p.z);
+      p.s.material.opacity=(1-f*f)*0.9; const s=p.sz0*(1.0-f*0.55); p.s.scale.set(s,s,s); } }
     if(eyes.length){ const hp=headPos(), o=cfg.eyes, sep=(o.sep||0.1)*hy, up=(o.up||0.12)*hy, fwd=(o.fwd||0.15)*hy;
       for(const e of eyes){ e.s.position.set(hp.x+e.sgn*sep, hp.y+up, hp.z+fwd); e.s.material.opacity=0.75+0.25*Math.sin(t*5); } }
     for(const c of crystals){ const y=c.base.y+Math.sin(t*1.6+c.ph)*hy*0.05; c.m.position.y=y; c.halo.position.y=y; c.m.rotation.y=t*0.9; c.m.rotation.x=t*0.5; c.halo.material.opacity=0.55+0.2*Math.sin(t*3+c.ph); }
