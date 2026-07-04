@@ -1,0 +1,33 @@
+<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#12161c}</style></head>
+<body><script src="/vendor/three.min.js"></script><script src="/vendor/GLTFLoader.js"></script>
+<script>
+// Quick GLB inspector for the rig pipeline. Serve the repo root and open:
+//   /tools/rig/view_unit.html?glb=assets/models/<name>_anim.glb&clip=run
+const GLB = new URLSearchParams(location.search).get('glb') || 'assets/models/elf_warrior_anim.glb';
+const W=440,H=560;
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+renderer.setSize(W,H); renderer.setClearColor(0x12161c,1); document.body.appendChild(renderer.domElement);
+const scene=new THREE.Scene();
+const cam=new THREE.PerspectiveCamera(35,W/H,0.1,2000);
+scene.add(new THREE.HemisphereLight(0xd8e4ff,0x30281f,0.9));
+const key=new THREE.DirectionalLight(0xfff2d8,1.5); key.position.set(4,7,5); scene.add(key);
+const fill=new THREE.DirectionalLight(0x88aaff,0.5); fill.position.set(-5,3,-3); scene.add(fill);
+let mixer=null, clips=[], action=null, root=null;
+const loader=new THREE.GLTFLoader();
+loader.load(GLB, g=>{
+  root=g.scene; scene.add(root); clips=g.animations||[];
+  const box=new THREE.Box3().setFromObject(root); const c=box.getCenter(new THREE.Vector3()); const s=box.getSize(new THREE.Vector3());
+  window.__bbox={min:box.min.toArray().map(n=>+n.toFixed(2)),max:box.max.toArray().map(n=>+n.toFixed(2))};
+  window.__clips=clips.map(c=>c.name);
+  const rad=Math.max(s.x,s.y,s.z);
+  window.__center=c.toArray(); window.__rad=rad;
+  cam.position.set(c.x, c.y+rad*0.15, c.z+rad*2.2); cam.lookAt(c.x,c.y,c.z);
+  const want=new URLSearchParams(location.search).get('clip')||'run';
+  if(clips.length){ mixer=new THREE.AnimationMixer(root); const cl=clips.find(x=>new RegExp(want,'i').test(x.name))||clips[0]; action=mixer.clipAction(cl); action.play(); }
+  window.__ready=true;
+}, undefined, e=>{ window.__err=String(e); });
+window.__seek=(t)=>{ if(!action)return; const d=action.getClip().duration; action.time=d*t; mixer.update(0); renderer.render(scene,cam); };
+window.__orbit=(ang,el)=>{ const c=window.__center,rad=window.__rad; cam.position.set(c[0]+Math.sin(ang)*rad*2.2, c[1]+(el||0.15)*rad, c[2]+Math.cos(ang)*rad*2.2); cam.lookAt(c[0],c[1],c[2]); renderer.render(scene,cam); };
+function loop(){ requestAnimationFrame(loop); renderer.render(scene,cam); }
+loop();
+</script></body></html>
