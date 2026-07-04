@@ -41,7 +41,8 @@ if len(barb_meshes)>1: bpy.ops.object.join()
 barb=bpy.context.view_layer.objects.active
 # --- sculpt: fit to the rig ---
 bpy.ops.import_scene.gltf(filepath=MESH)
-gol=next(o for o in bpy.data.objects if o.type=='MESH' and o is not barb)
+# the sculpt is the LARGEST non-source mesh (some rigs ship stray helper meshes, e.g. an eye icosphere)
+gol=max((o for o in bpy.data.objects if o.type=='MESH' and o is not barb), key=lambda o: len(o.data.polygons))
 gmn,gmx=bbox([gol]); gol.scale=(rig_h/(gmx.z-gmn.z),)*3; bpy.context.view_layer.update()
 gmn,gmx=bbox([gol])
 gol.location.x+=rig_cx-(gmn.x+gmx.x)/2; gol.location.y+=rig_cy-(gmn.y+gmx.y)/2; gol.location.z+=rig_footz-gmn.z
@@ -89,6 +90,17 @@ spine=gol.vertex_groups.get('spine') or gol.vertex_groups.get('chest') or gol.ve
 orphans=[v.index for v in gol.data.vertices if len(v.groups)==0]
 if orphans: spine.add(orphans,1.0,'REPLACE')
 print('weights',MODE,'; orphans',len(orphans))
+
+# --- optional: merge extra clip glbs (e.g. Rig_Large_*) onto the golem's armature ---
+ANIMS=arg('--anims','')
+if ANIMS:
+    keep=set(bpy.data.objects)
+    for ap in ANIMS.split(','):
+        bpy.ops.import_scene.gltf(filepath=ap.strip())
+        for o in list(bpy.data.objects):
+            if o not in keep and o.type in ('ARMATURE','MESH','EMPTY'):
+                bpy.data.objects.remove(o, do_unlink=True)   # keep the actions, drop the anim rig
+    print('merged clips; total actions',len(bpy.data.actions))
 
 # --- mold-anchored Idle (endpoints = identity = the exact sculpt) + subtle breathe ---
 for a in list(bpy.data.actions):
