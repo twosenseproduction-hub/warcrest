@@ -57,6 +57,15 @@ canvas{display:block}
 #missionCard .mc-go,#missionSel .mback,#modeSel .mback{margin-top:8px;background:var(--brass,#c79a42);color:#1a140a;font:800 15px system-ui;border:0;border-radius:10px;padding:11px 26px;cursor:pointer}
 .mback{background:none!important;color:#cbb98f!important;font-weight:700}
 #objBanner{position:fixed;left:50%;top:64px;transform:translateX(-50%);z-index:6;display:none;background:rgba(6,10,16,0.72);color:#ffcf87;font:700 13px system-ui;padding:7px 16px;border-radius:9px;box-shadow:0 3px 10px rgba(0,0,0,.4);pointer-events:none;text-align:center}
+/* WC3-style conversation banner (campaign cutscenes / tutorial) */
+#dialog{position:fixed;inset:0;z-index:23;display:none;align-items:flex-end;justify-content:center;padding:0 12px max(20px,env(safe-area-inset-bottom));background:rgba(4,7,11,0.30);cursor:pointer}
+#dialog .box{width:min(640px,96vw);background:linear-gradient(180deg,#1c232c,#141a21);border:2px solid var(--brass,#c79a42);border-radius:14px;padding:14px 16px 10px;box-shadow:0 12px 34px rgba(0,0,0,.55);display:flex;gap:13px;align-items:flex-start}
+#dialog .por{width:52px;height:52px;flex:0 0 auto;border-radius:10px;background:#0e1319;border:1px solid #2c343e;display:flex;align-items:center;justify-content:center;color:#ffd98a}
+#dialog .por svg{width:30px;height:30px}
+#dialog .body{flex:1;min-width:0}
+#dialog .who{font:800 14px system-ui;color:#ffd98a;margin-bottom:3px;letter-spacing:.3px}
+#dialog .txt{font:600 14px/1.5 system-ui;color:#e8eef4}
+#dialog .adv{margin-top:5px;font:700 11px system-ui;color:#8b97a4;text-align:right}
 /* floating combat numbers (juice): pop up + drift + fade */
 #dmgLayer{position:fixed;inset:0;pointer-events:none;z-index:5;overflow:hidden}
 .dmgN{position:fixed;font:900 15px/1 system-ui;color:#fff;letter-spacing:.3px;pointer-events:none;
@@ -216,11 +225,12 @@ canvas{display:block}
 <script>
 // ---------- palette (sampled to match Thronefall reference) ----------
 const C = {
-  grass:      0x8c9089, grass2: 0x76836c, grass3: 0xe9eff3,   // mature stone (dominant), frozen grass, occasional snow drift
-  snowLo:     0x6e746f, snowTan: 0x8b8a74,                     // darker weathered stone / dry frozen grass (lichen tan)
-  beach:      0x9aa0a1,                                        // frost-wet stone shore
-  path:       0xb7bbbd,                                        // packed gravel road
-  cliffLit:   0xe6edf1, cliffShade: 0x24506a, cliffMid: 0x74828b,   // snow lip / cold deep water / grey rock
+  // Verath is the ashen basin left by the Ashfall — the old "snow" terrain reskinned to warm ash-grey.
+  grass:      0x8a847a, grass2: 0x736c60, grass3: 0xd7cfc2,   // ashen ground (dominant), scorched earth, pale ash drift
+  snowLo:     0x605a52, snowTan: 0x8a8270,                     // dark cinder-stone / dry ash (lichen tan)
+  beach:      0x998f83,                                        // ash-wet stone shore
+  path:       0xb0a89c,                                        // trodden ash road
+  cliffLit:   0xd6cec1, cliffShade: 0x24506a, cliffMid: 0x79736a,   // ash lip / cold deep water / grey rock
   water:      0x2f93d6, shallow: 0x66c0ee,                     // sea / shoreline shallows
   treeY:      [0xd9d43a, 0xccc636, 0xe2dc4c, 0xc2be34],
   wood:       0xd98a3a, woodDark: 0xb56b28, cream: 0xece0c0, roof: 0xc25a34,
@@ -1248,6 +1258,12 @@ function campMarkClear(id){ const s=campCleared(); s.add(id); try{ localStorage.
 const CAMPAIGN=[
   {id:'a1m1', act:'Act I — Inevitable', title:'The Survey Road', hero:'paladin', map:'Sapphire Shores', playable:true,
    intro:'The Iron Crown crossed the western Reach two generations ago, following an abandoned survey road. On the Verath Floor they found ironstone beyond counting — and the Raider Horde, who call this ground home. Valdris the Ironwarden is sent to end the war in one campaign.',
+   lines:[
+     {who:'Marshal Valdris', icon:'shield', text:'Two generations we chased a dead survey road across the Reach. And here it is — ironstone enough to fund the Crown for a hundred years. The ground rings when you strike it.'},
+     {who:'Crown Scout',     icon:'select', text:'And the Horde, my lord. Their warcamp sits astride the Deepvein. They say this ash is their home.'},
+     {who:'Marshal Valdris', icon:'shield', text:'Then we take it before they dig in. The war ends here — one campaign, as the Crown ordered. Muster the men.'},
+     {who:'Objective',       icon:'star',   text:'Build on the glowing plots — a House for supply, a Barracks for troops, Towers to hold the line. Then march on the Raider warcamp and raze its throne.'},
+   ],
    objective:'Raze the Raider warcamp — destroy its throne.',
    outro:'The Shores are held. But beneath them the surveys have struck something that rings wrong — and the Horde is pulling back not in defeat, but in fear.'},
   {id:'a1m2', act:'Act I — Inevitable',            title:'Beachhead',            hero:'paladin', map:'Sapphire Shores', playable:false},
@@ -1259,7 +1275,19 @@ const CAMPAIGN=[
 function startMission(m){ if(!m||!m.playable)return; activeMission=m; gameMode='campaign';
   if(modeSelEl)modeSelEl.style.display='none'; if(missionSelEl)missionSelEl.style.display='none'; if(missionCardEl)missionCardEl.style.display='none';
   pickHero(m.hero);   // pickHero flips `started` + starts audio; campaign forces the act's hero
-  if(objBannerEl){ objBannerEl.textContent='◈ '+m.objective; objBannerEl.style.display='block'; } }
+  const tip=document.getElementById('tip'); if(tip)tip.classList.add('hide');   // campaign uses the conversation, not the skirmish tip
+  const showObj=()=>{ if(objBannerEl){ objBannerEl.textContent='◈ '+m.objective; objBannerEl.style.display='block'; } };
+  if(m.lines&&m.lines.length) playDialog(m.lines, showObj); else showObj(); }
+// ---- WC3-style conversation banner: a queue of {who,icon,text}; tap advances; onDone fires after the last line ----
+let dialogActive=false, _dq=[], _dqDone=null;
+function playDialog(lines, onDone){ if(!dialogEl||!lines||!lines.length){ if(onDone)onDone(); return; }
+  _dq=lines.slice(); _dqDone=onDone||null; dialogActive=true; dialogEl.style.display='flex'; showDialogLine(); }
+function showDialogLine(){ const l=_dq[0]; if(!l){ endDialog(); return; }
+  dialogEl.querySelector('.por').innerHTML=ic(l.icon||'shield');
+  dialogEl.querySelector('.who').textContent=l.who||'';
+  dialogEl.querySelector('.txt').textContent=l.text||''; }
+function advanceDialog(){ if(!dialogActive)return; _dq.shift(); if(_dq.length) showDialogLine(); else endDialog(); }
+function endDialog(){ dialogActive=false; if(dialogEl)dialogEl.style.display='none'; const cb=_dqDone; _dqDone=null; if(cb)cb(); }
 function buildMissionList(){ const list=missionSelEl.querySelector('.mlist'); list.innerHTML=''; const cleared=campCleared(); let curAct=null;
   CAMPAIGN.forEach(m=>{ if(m.act!==curAct){ curAct=m.act; const a=document.createElement('div'); a.className='act'; a.textContent=m.act; list.appendChild(a); }
     const done=cleared.has(m.id); const c=document.createElement('div'); c.className='mCard'+(m.playable?'':' lock')+(done?' done':'');
@@ -1275,7 +1303,7 @@ function focusFire(en){ allies.forEach(e=>{ if(e.alive){ e.forcedTarget=en; e.ta
   rallyMarker.material.color.setHex(0xff6a5a); rallyMarker.position.set(en.px,topY(en.px,en.pz)+0.3,en.pz); rallyMarker.visible=true; clearTimeout(rallyMarker.__to); rallyMarker.__to=setTimeout(()=>rallyMarker.visible=false,900); }
 // ---------- RTS selection + context orders (Siege-Up style) ----------
 let boxMode=false, boxBtn=null, selPanelEl=null, respawnEl=null, heroSelEl=null; const HERO_RESPAWN=8;
-let modeSelEl=null, missionSelEl=null, missionCardEl=null, objBannerEl=null;   // campaign/skirmish UI
+let modeSelEl=null, missionSelEl=null, missionCardEl=null, objBannerEl=null, dialogEl=null;   // campaign/skirmish UI
 const ABIL_RANGE=26;   // hard cap on targeted-ability reach — inside hero sight (30) so nothing casts/lands from the fog
 let heroKind='queen', started=false, holyGrounds=[]; try{ heroKind=localStorage.getItem('wc_hero')||'queen'; }catch(_){}
 // per-hero ability kits — icon/label/cooldown per slot (a=AoE, spell=armed-target, blink=utility). Handlers dispatch on hero.kit.
@@ -1617,7 +1645,7 @@ function updBars(){ const all=[hero,...allies,...enemies];
   } }
 function updateGame(dt){
   if(!hero) return;
-  if(started && !gameOver){
+  if(started && !gameOver && !dialogActive){   // freeze the sim during a conversation cutscene
     // warband advances in bands of 3 — a mass, not a trickle; cap concurrent so it stays performant
     if(spawnLeft>0 && enemies.length<15){ spawnTimer-=dt; if(spawnTimer<=0){ for(let k=0;k<3&&spawnLeft>0;k++){ spawnEnemy(); spawnLeft--; } spawnTimer=2.4; } }
     // hero movement
@@ -1805,6 +1833,11 @@ function setupHUD(){
 
   // objective banner (campaign)
   objBannerEl=document.createElement('div'); objBannerEl.id='objBanner'; document.body.appendChild(objBannerEl);
+  // conversation banner (campaign cutscenes / tutorial) — tap anywhere advances
+  dialogEl=document.createElement('div'); dialogEl.id='dialog';
+  dialogEl.innerHTML='<div class="box"><div class="por"></div><div class="body"><div class="who"></div><div class="txt"></div><div class="adv">tap to continue &rsaquo;</div></div></div>';
+  dialogEl.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); advanceDialog(); });
+  document.body.appendChild(dialogEl);
 
   // ---- mode-select: Campaign vs Skirmish (shown first) ----
   modeSelEl=document.createElement('div'); modeSelEl.id='modeSel';
