@@ -8,6 +8,8 @@
 :root{
   --panel:rgba(13,17,24,0.55); --panel2:rgba(17,23,32,0.64); --brd:rgba(198,216,236,0.16);
   --ink:#eef3f8; --dim:#9db0c3; --accent:#7fd8ff; --gold:#f2c94c; --good:#3f9e6a; --goodInk:#eafff2;
+  --brass:#c79a42; --brassDk:#6e5426; --tile:linear-gradient(180deg,#2c3547,#151b26);
+  --brassRing:0 0 0 1.5px var(--brassDk),0 0 0 3px var(--brass);
   --sb:env(safe-area-inset-bottom,0px); --sr:env(safe-area-inset-right,0px); --sl:env(safe-area-inset-left,0px); --st:env(safe-area-inset-top,0px);
   --font:600 13px/1.2 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
 }
@@ -30,7 +32,7 @@ canvas{display:block}
 .abil{position:absolute;pointer-events:auto;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
   border-radius:50%;cursor:pointer;user-select:none;color:var(--ink);
   background:radial-gradient(circle at 38% 30%,rgba(74,96,128,0.55),rgba(13,19,29,0.74));
-  border:2px solid var(--brd);box-shadow:0 2px 11px rgba(0,0,0,0.45),inset 0 1px 2px rgba(255,255,255,0.16);
+  border:2px solid var(--brd);box-shadow:0 0 0 3px rgba(199,154,66,0.5),0 2px 11px rgba(0,0,0,0.5),inset 0 1px 2px rgba(255,240,200,0.2);
   backdrop-filter:blur(8px);transition:transform .08s,opacity .15s,box-shadow .15s,border-color .15s}
 .abil:active{transform:scale(0.92)}
 .abil .ic{font-size:22px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.5))}
@@ -101,14 +103,17 @@ canvas{display:block}
 .bmRow.close{justify-content:center;background:rgba(255,255,255,0.04);min-height:40px;color:var(--dim);font:800 13px system-ui}
 /* radial build menu — options fan out around the tapped plot */
 .radial{position:fixed;z-index:8;display:none;width:0;height:0}
-.rHub{position:absolute;left:0;top:0;transform:translate(-50%,-50%);background:var(--panel2);border:1px solid var(--brd);color:var(--ink);
-  font:800 12px system-ui;padding:7px 12px;border-radius:20px;white-space:nowrap;box-shadow:0 3px 12px rgba(0,0,0,0.5);display:flex;align-items:center;gap:6px}
-.rBtn{position:absolute;transform:translate(-50%,-50%);width:62px;height:62px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;
-  background:var(--panel2);border:1px solid var(--brd);box-shadow:0 4px 14px rgba(0,0,0,0.4);backdrop-filter:blur(8px);cursor:pointer}
-.rBtn:active{filter:brightness(1.15)}
-.rBtn.buy{background:radial-gradient(circle at 40% 32%,rgba(80,200,140,0.4),var(--panel2))}
-.rBtn.sell{background:radial-gradient(circle at 40% 32%,rgba(220,120,90,0.38),var(--panel2))}
-.rBtn.no{opacity:0.38}
+.rHub{position:absolute;left:0;top:0;transform:translate(-50%,-50%);background:linear-gradient(180deg,#20283a,#12161f);color:#f4e6c4;
+  font:800 12px system-ui;padding:7px 13px;border-radius:11px;white-space:nowrap;display:flex;align-items:center;gap:6px;
+  box-shadow:var(--brassRing),0 4px 14px rgba(0,0,0,0.55),inset 0 1px 2px rgba(255,240,200,0.18)}
+/* brass command tiles (informed by the classic RTS COMMANDS panel): beveled dark stone + double brass ring */
+.rBtn{position:absolute;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1px;
+  background:var(--tile);border:none;cursor:pointer;color:#f2ead6;
+  box-shadow:var(--brassRing),0 5px 16px rgba(0,0,0,0.5),inset 0 2px 3px rgba(255,240,200,0.2),inset 0 -4px 8px rgba(0,0,0,0.45);transition:transform .08s,filter .12s}
+.rBtn:active{transform:translate(-50%,-50%) scale(0.93);filter:brightness(1.15)}
+.rBtn.buy{background:linear-gradient(180deg,#2c4335,#141f19)}   /* affordable: brass frame kept, warm-green fill tint */
+.rBtn.sell{background:linear-gradient(180deg,#45302a,#201513)}
+.rBtn.no{opacity:0.45;filter:grayscale(0.7)}
 .rBtn .ri{font-size:25px;line-height:1}
 .rBtn .ri svg{width:27px;height:27px;display:block}
 .abil .ic svg{width:24px;height:24px;display:block} .abil.big .ic svg{width:30px;height:30px}
@@ -366,15 +371,18 @@ function dirtPad(x,z,r){
   const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,0.4,14),lam(C.path));
   m.position.set(x,topY(x,z)+0.05,z); m.receiveShadow=true; return m;
 }
+// per-race plot themes — the pads a faction builds on read as theirs: elven mossy stone vs orc ash & iron
+const PLOT_THEME={ elf:{base:0x53664c, top:0x8fa588, ring:0x86ecc4, plus:0xdaffe8},
+                   orc:{base:0x3a2b24, top:0x63473a, ring:0xff8a5a, plus:0xffceb0} };
 // concept-sheet base pads: a paved top on a stone-border base. Hex for general plots, square (w/ corner posts) for turrets.
-function hexPad(x,z,r){ const g=new THREE.Group();
-  const base=new THREE.Mesh(new THREE.CylinderGeometry(r+0.5,r+0.5,0.4,6),lam(C.cliffMid)); base.position.y=0.03; base.receiveShadow=true; g.add(base);
-  const top=new THREE.Mesh(new THREE.CylinderGeometry(r*0.92,r*0.92,0.46,6),lam(C.path)); top.position.y=0.08; top.receiveShadow=true; g.add(top);
+function hexPad(x,z,r,th){ th=th||PLOT_THEME.elf; const g=new THREE.Group();
+  const base=new THREE.Mesh(new THREE.CylinderGeometry(r+0.5,r+0.5,0.4,6),lam(th.base)); base.position.y=0.03; base.receiveShadow=true; g.add(base);
+  const top=new THREE.Mesh(new THREE.CylinderGeometry(r*0.92,r*0.92,0.46,6),lam(th.top)); top.position.y=0.08; top.receiveShadow=true; g.add(top);
   g.position.set(x,topY(x,z)+0.02,z); return g; }
-function turretPad(x,z,r){ const g=new THREE.Group();
-  const base=new THREE.Mesh(new THREE.BoxGeometry(r*2+1,0.4,r*2+1),lam(C.cliffMid)); base.position.y=0.03; base.receiveShadow=true; g.add(base);
-  const top=new THREE.Mesh(new THREE.BoxGeometry(r*1.7,0.46,r*1.7),lam(C.path)); top.position.y=0.08; top.receiveShadow=true; g.add(top);
-  const post=(dx,dz)=>{ const m=new THREE.Mesh(new THREE.BoxGeometry(0.85,1.5,0.85),lam(C.cliffMid)); m.position.set(dx,0.75,dz); m.castShadow=true; g.add(m); };
+function turretPad(x,z,r,th){ th=th||PLOT_THEME.elf; const g=new THREE.Group();
+  const base=new THREE.Mesh(new THREE.BoxGeometry(r*2+1,0.4,r*2+1),lam(th.base)); base.position.y=0.03; base.receiveShadow=true; g.add(base);
+  const top=new THREE.Mesh(new THREE.BoxGeometry(r*1.7,0.46,r*1.7),lam(th.top)); top.position.y=0.08; top.receiveShadow=true; g.add(top);
+  const post=(dx,dz)=>{ const m=new THREE.Mesh(new THREE.BoxGeometry(0.85,1.5,0.85),lam(th.base)); m.position.set(dx,0.75,dz); m.castShadow=true; g.add(m); };
   const c=r+0.35; post(c,c); post(-c,c); post(c,-c); post(-c,-c);   // corner watch-posts (concept turret spot)
   g.position.set(x,topY(x,z)+0.02,z); return g; }
 function courtyard(x,z,r){ const g=new THREE.Group();
@@ -457,16 +465,16 @@ function placeCore(x,z){ scene.add(courtyard(x,z,13));
 // marker state: built → hidden; unlocked empty → bright (cyan gen / orange turret) + plus; locked → dim grey, no plus
 function styleRing(p){ if(!p.ring)return; if(p.cat){ p.ring.visible=false; if(p.plus)p.plus.visible=false; return; }
   p.ring.visible=true; if(p.plus)p.plus.visible=!p.locked;
-  p.ring.material.color.setHex(p.locked?0x5a6a74 : (p.slot==='turret'?0xffb45c:0x8fe6ff));
+  p.ring.material.color.setHex(p.locked?0x5a6a74 : (p.slot==='turret'?0xffb45c:((p.theme||PLOT_THEME.elf).ring)));
   p.ring.material.opacity=p.locked?0.26:0.55; }
-function makePlot(x,z,tier,slot){ slot=slot||'gen'; scene.add(slot==='turret'?turretPad(x,z,3.4):hexPad(x,z,5.3));
+function makePlot(x,z,tier,slot){ slot=slot||'gen'; const th=PLOT_THEME.elf; scene.add(slot==='turret'?turretPad(x,z,3.4,th):hexPad(x,z,5.3,th));
   const ri=slot==='turret'?1.9:2.4, ro=slot==='turret'?2.5:3.1;
-  const ring=new THREE.Mesh(new THREE.RingGeometry(ri,ro,26),new THREE.MeshBasicMaterial({color:0x8fe6ff,transparent:true,opacity:0.55,side:THREE.DoubleSide,depthWrite:false}));
+  const ring=new THREE.Mesh(new THREE.RingGeometry(ri,ro,26),new THREE.MeshBasicMaterial({color:th.ring,transparent:true,opacity:0.55,side:THREE.DoubleSide,depthWrite:false}));
   ring.rotation.x=-Math.PI/2; ring.position.set(x,topY(x,z)+0.4,z); scene.add(ring);
-  const plus=new THREE.Group(), pm=new THREE.MeshBasicMaterial({color:0xe6f8ff});
+  const plus=new THREE.Group(), pm=new THREE.MeshBasicMaterial({color:th.plus});
   plus.add(new THREE.Mesh(new THREE.BoxGeometry(2.0,0.35,0.55),pm), new THREE.Mesh(new THREE.BoxGeometry(0.55,0.35,2.0),pm));
   plus.position.set(x,topY(x,z)+0.9,z); scene.add(plus);
-  const p={x,z,ring,plus,cat:null,level:0,g:null,cd:0,spawnCd:3,mine:[],queue:[],tier:tier||1,slot:slot,locked:(tier||1)>1}; plots.push(p); styleRing(p); return p; }
+  const p={x,z,ring,plus,theme:th,cat:null,level:0,g:null,cd:0,spawnCd:3,mine:[],queue:[],tier:tier||1,slot:slot,locked:(tier||1)>1}; plots.push(p); styleRing(p); return p; }
 // reveal plots whose tier the throne has now reached (base expands as the throne is upgraded)
 function revealPlots(){ for(const p of plots){ if(p.locked && p.tier<=coreB.level){ p.locked=false; styleRing(p); } } }
 function buildOnPlot(p){ const c=CAT[p.cat]; if(p.g) scene.remove(p.g);
@@ -519,7 +527,7 @@ function placeEnemyCore(x,z){ scene.add(courtyard(x,z,13));
   enemyCore={x,z,px:x,pz:z,alive:true,level:1,hp:CORE_HP[0],max:CORE_HP[0],big:8,hitT:0,g:null,bar:makeBar(0xff6b5a),kind:'core'};
   const g=bldClone('orc_throne1',CORE_H[0])||makeKeep(); g.position.set(x,topY(x,z),z); g.rotation.y=2.4; scene.add(g); enemyCore.g=g;
   eStructs.push(enemyCore); }
-function makeEnemyPlot(x,z,tier,slot){ slot=slot||'gen'; scene.add(slot==='turret'?turretPad(x,z,3.4):hexPad(x,z,5.3));
+function makeEnemyPlot(x,z,tier,slot){ slot=slot||'gen'; scene.add(slot==='turret'?turretPad(x,z,3.4,PLOT_THEME.orc):hexPad(x,z,5.3,PLOT_THEME.orc));
   const p={x,z,cat:null,level:0,g:null,cd:0,spawnCd:3,mine:[],struct:null,tier:tier||1,slot:slot,locked:(tier||1)>1}; ePlots.push(p); return p; }
 function eRecomputeIncome(){ eIncome=1; eWoodRate=0; for(const p of ePlots){ if(p.cat==='mine') eIncome+=CAT.mine.income[p.level-1]; else if(p.cat==='lumber') eWoodRate+=CAT.lumber.woodInc[p.level-1]; } }
 function eRecomputeSupply(){ eSupplyCap=BASE_SUPPLY; for(const p of ePlots) if(p.cat==='economy') eSupplyCap+=CAT.economy.pop[p.level-1];
@@ -802,11 +810,11 @@ function build(){
   // Tier 1 opens an inner triangle of general plots; upgrading the Throne reveals the hexagon + turret ring,
   // then an outer ring. slot 'gen' = build anything, 'turret' = tower-only.
   const BASE_PLOTS=[
-    {r:22,a:90,t:1,s:'gen'},{r:22,a:210,t:1,s:'gen'},{r:22,a:330,t:1,s:'gen'},              // Tier 1 — inner triangle
-    {r:24,a:30,t:2,s:'gen'},{r:24,a:150,t:2,s:'gen'},{r:24,a:270,t:2,s:'gen'},              // Tier 2 — complete the hexagon
-    {r:37,a:0,t:2,s:'turret'},{r:37,a:90,t:2,s:'turret'},{r:37,a:180,t:2,s:'turret'},{r:37,a:270,t:2,s:'turret'},   // Tier 2 — 4 turret spots
-    {r:44,a:30,t:3,s:'gen'},{r:44,a:150,t:3,s:'gen'},{r:44,a:270,t:3,s:'gen'},              // Tier 3 — outer general
-    {r:44,a:90,t:3,s:'turret'},{r:44,a:210,t:3,s:'turret'},{r:44,a:330,t:3,s:'turret'},     // Tier 3 — outer turrets
+    {r:19,a:90,t:1,s:'gen'},{r:19,a:210,t:1,s:'gen'},{r:19,a:330,t:1,s:'gen'},              // Tier 1 — inner triangle
+    {r:21,a:30,t:2,s:'gen'},{r:21,a:150,t:2,s:'gen'},{r:21,a:270,t:2,s:'gen'},              // Tier 2 — complete the hexagon
+    {r:31,a:0,t:2,s:'turret'},{r:31,a:90,t:2,s:'turret'},{r:31,a:180,t:2,s:'turret'},{r:31,a:270,t:2,s:'turret'},   // Tier 2 — 4 turret spots
+    {r:37,a:30,t:3,s:'gen'},{r:37,a:150,t:3,s:'gen'},{r:37,a:270,t:3,s:'gen'},              // Tier 3 — outer general
+    {r:37,a:90,t:3,s:'turret'},{r:37,a:210,t:3,s:'turret'},{r:37,a:330,t:3,s:'turret'},     // Tier 3 — outer turrets
   ];
   // PLAYER base (bottom-left island)
   const KX=105,KZ=108; placeCore(KX,KZ); camAim.x=KX; camAim.z=KZ; camAim.init=true;   // open the RTS camera on the player base
