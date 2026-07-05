@@ -276,7 +276,9 @@ let SEAS=[
 const sun=new THREE.Vector3(-0.55,0.75,0.38).normalize();
 
 // land field: >0 = land (value ~ height above sea), <=0 = water. One big landmass minus the seas.
-let MAPSHAPE='island', ROAD_W=32;   // per-level terrain silhouette (set by applyLevel)
+let MAPSHAPE='island', ROAD_W=32, ARENA_R=72;   // per-level terrain silhouette (set by applyLevel)
+// 'arena' shape: a round island centered at origin — a defensible ground for hold-the-line missions.
+function arenaField(x,z){ let m=1 - Math.hypot(x,z)/ARENA_R; m+=0.12*(fbm(x*0.03+4,z*0.03+8)-0.5)*2; return m; }
 // 'road' shape: land is a winding corridor hugging the level's PATH (+ round pads at the bases),
 // water everywhere else — a survey road over a frozen sea. Reads nothing like the skirmish square.
 function roadField(x,z){ let m=1 - pathDist(x,z)/ROAD_W;
@@ -285,6 +287,7 @@ function roadField(x,z){ let m=1 - pathDist(x,z)/ROAD_W;
   return m; }
 function landField(x,z){
   if(MAPSHAPE==='road') return roadField(x,z);
+  if(MAPSHAPE==='arena') return arenaField(x,z);
   const sq=Math.max(Math.abs(x),Math.abs(z))/WORLD;                 // 0 centre → 1 at square rim
   let m=(1-sq) + 0.11*(fbm(x*0.012+3,z*0.012+7)-0.5)*2;             // rounded square, wavy coast
   for(const s of SEAS){ const d=Math.hypot(x-s.cx,z-s.cz);
@@ -762,6 +765,28 @@ function updateCamps(dt){ for(const camp of creepCamps){
   if(!camp.discovered && (isVisible(camp.x,camp.z)||camp.aggro)){ camp.discovered=true; pingRing(camp.x,camp.z,0x9dff4a); campToast('◈ '+camp.name+' — creep camp discovered');
     if(camp.first && typeof TUT!=='undefined' && !TUT) playDialog([{who:'Crown Scout',icon:'select',text:'My lord — the ash is not empty. Beasts den along the road: hounds and boars, and worse things of stone and green fire. Clear their camps and the ironstone road is ours — and they hoard plunder.'}]); }
   if(!camp.cleared && camp.members.length && camp.members.every(m=>!m.alive)){ camp.cleared=true; gold+=camp.bounty; campToast('✓ '+camp.name+' cleared — +'+camp.bounty+' gold'); } } }
+// ================= RITUAL / CHANNEL-DEFENSE MISSION (hold while the mystics seal the Unveiled) =================
+function setupRitual(){ ritualT=0; ritualDone=false; ritualCasters=[]; _ritWaves=RITUAL.waves.map(w=>({at:w.at,s:w.s,fired:false}));
+  const sx=coreB?coreB.x:0, sz=coreB?coreB.z:0;
+  for(let i=0;i<(RITUAL.casters||2);i++){ const b=UBAL.cleric, a=i/Math.max(1,RITUAL.casters)*6.28;
+    const p=findLand(sx+Math.cos(a)*4.5, sz+Math.sin(a)*4.5);
+    const e=mkFighter(C.cleric,1.0,'ally',{hp:Math.round(b.hp*1.6),dmg:b.dmg,range:b.range,atkEvery:b.atk,spd:ALLY_SPD});
+    e.kind='cleric'; e.idx=allies.length; e.healCd=0; e.smiteCd=0; e.__caster=true; e.order={x:p.x,z:p.z};
+    riggize(e, URIG.cleric||'priestess'); setP(e,p.x,p.z); allies.push(e); ritualCasters.push(e); }
+  const ring=new THREE.Mesh(new THREE.RingGeometry(6,7.4,44), new THREE.MeshBasicMaterial({color:0x9dff4a,transparent:true,opacity:0.7,side:THREE.DoubleSide,depthWrite:false}));
+  ring.rotation.x=-Math.PI/2; ring.position.set(sx,topY(sx,sz)+0.3,sz); scene.add(ring); _ritRing=ring; }
+function spawnRitualWave(spawns){ const R=RITUAL.spawnR||70, sx=coreB?coreB.x:0, sz=coreB?coreB.z:0;
+  for(const [kind,n] of spawns){ for(let i=0;i<n;i++){ const a=rnd()*6.28, p=findLand(sx+Math.cos(a)*R, sz+Math.sin(a)*R);
+    const e=mkCreep(kind,null,{x:p.x,z:p.z}); e.creep=false;   // aggressive Unveiled wave: default enemy AI marches on the altar/mystics
+    setP(e,p.x,p.z); enemies.push(e); } }
+  if(isVisible(sx,sz)){ addShake(0.5); sfx('roar'); } }
+function ritualTick(dt){ if(!RITUAL||ritualDone)return; ritualT+=dt;
+  for(const w of _ritWaves){ if(!w.fired && ritualT>=w.at){ w.fired=true; spawnRitualWave(w.s); } }
+  const f=Math.min(1,ritualT/RITUAL.duration), rem=Math.max(0,Math.ceil(RITUAL.duration-ritualT));
+  if(waveEl) waveEl.textContent='◈ Sealing the Rite — '+Math.floor(f*100)+'%   ·   '+rem+'s';
+  if(_ritRing){ const s=1+Math.sin(ritualT*2)*0.05; _ritRing.scale.set(s,1,s); _ritRing.material.opacity=0.45+0.3*Math.abs(Math.sin(ritualT*2.5)); }
+  if((RITUAL.casters||0)>0 && ritualCasters.filter(c=>c.alive).length===0){ ritualDone=true; endGame(false); return; }   // mystics slain
+  if(ritualT>=RITUAL.duration){ ritualDone=true; endGame(true); } }   // seal complete
 function eTowerTick(p,dt){ p.cd-=dt; if(p.cd>0)return; let best=null,bd=p.range*p.range;
   for(const t of [hero,...allies]){ if(!t||!t.alive)continue; const dd=(t.px-p.x)**2+(t.pz-p.z)**2; if(dd<bd){bd=dd;best=t;} }
   if(best){ shootFx(p.x,p.z,best.px,best.pz,'arrow'); damage(best,p.dmg,false); p.cd=p.rof; } }
@@ -1025,6 +1050,7 @@ const PLOTDEF_DEFAULT=[
 ];
 let PBASE={x:105,z:108}, PLOTDEF=PLOTDEF_DEFAULT, RAIDERS={type:'base'}, LVSTART=['warrior','archer'], LVCREEPS=[], LVID='skirmish', LVGOLD=180, ALLOWED_BUILD=null, LVIRONROOTS=0, LVVEIN=null, _vein=null, _veinFound=false;
 let BLDPFX='', URIG={warrior:'warrior',archer:'archer',cleric:'priestess'};   // player faction: building-key prefix + archetype->rig model
+let RITUAL=null, ritualT=0, ritualDone=false, ritualCasters=[], _ritWaves=[], _ritRing=null;   // channel-defense mission state
 const LEVELS={
   skirmish:{ seas:[{cx:80,cz:-82,r:60},{cx:-80,cz:82,r:60},{cx:22,cz:-30,r:24},{cx:-22,cz:30,r:24}],
     paths:[[[105,108],[60,60],[6,6],[-52,-52],[-105,-108]]], flats:[{x:105,z:108,r:50,y:0.4},{x:-105,z:-108,r:50,y:0.4}],
@@ -1056,16 +1082,31 @@ const LEVELS={
     start:['warrior','archer'], gold:220,
     creeps:[{name:'Cinder Pack', bounty:70, at:[54,-46], roster:['cinderhound','cinderhound']},
             {name:'Boar Wallow', bounty:120, at:[0,6], roster:['direboar','cinderhound']}] },
+  // ---- Act II: The Sealing Rite — defend the channel while the Unveiled (undead) assail it ----
+  a2m1:{ shape:'arena', arenaR:74, seas:[], paths:[[[0,0],[0,-2]]], flats:[{x:0,z:0,r:64,y:0.4}],
+    pbase:{x:0,z:0}, ebase:{x:0,z:70},
+    plots:[{r:20,a:0,t:1,s:'turret'},{r:20,a:72,t:1,s:'turret'},{r:20,a:144,t:1,s:'turret'},{r:20,a:216,t:1,s:'turret'},{r:20,a:288,t:1,s:'turret'}],
+    raiders:{type:'none'}, build:['defense'],   // no raider base; hold the altar, raise towers to defend
+    pbld:'human_', units:{warrior:'hfootman',archer:'harcher',cleric:'hmage'},
+    start:['warrior','warrior','archer'], gold:340,
+    ritual:{ duration:150, casters:2, spawnR:70,
+      waves:[ {at:6,  s:[['cinderhound',3]]},
+              {at:28, s:[['cinderhound',3],['emberspitter',1]]},
+              {at:52, s:[['cinderhound',3],['moltenwisp',2]]},
+              {at:78, s:[['direboar',1],['cinderhound',3]]},
+              {at:104,s:[['revenant',1],['cinderhound',2],['moltenwisp',2]]},
+              {at:130,s:[['cinderhound',4],['emberspitter',2],['direboar',1]]} ] } },
 };
 function applyLevel(id){ const L=LEVELS[id]||LEVELS.skirmish; LVID=id in LEVELS?id:'skirmish';
-  MAPSHAPE=L.shape||'island'; ROAD_W=L.roadW||32;
+  MAPSHAPE=L.shape||'island'; ROAD_W=L.roadW||32; ARENA_R=L.arenaR||72; RITUAL=L.ritual||null;
   SEAS=(L.seas||[]).map(s=>({...s})); PATHS=L.paths.map(p=>p.map(pt=>pt.slice())); FLATS=L.flats.map(f=>({...f}));
   PBASE={...L.pbase}; enemyBase={...L.ebase}; PLOTDEF=L.plots; RAIDERS=L.raiders; LVSTART=L.start.slice(); LVCREEPS=(L.creeps||[]).map(c=>({...c})); LVGOLD=L.gold||180; ALLOWED_BUILD=L.build||null; LVIRONROOTS=L.ironroots||0; LVVEIN=L.vein?{x:L.vein[0],z:L.vein[1]}:null;
   BLDPFX=L.pbld||''; URIG=L.units||{warrior:'warrior',archer:'archer',cleric:'priestess'}; }
 function resetWorld(){ allies=[]; enemies=[]; eStructs=[]; ePlots=[]; plots=[]; creepCamps=[]; fires=[];
   coreB=null; enemyCore=null; gold=LVGOLD; wood=0; incomeRate=1; woodRate=0; eGold=130; eWood=0; eIncome=1; eWoodRate=0;
   spawnLeft=0; spawnN=0; killed=0; gameOver=0; if(typeof selected!=='undefined')selected.clear(); camAim.init=false; hero=null;
-  if(typeof orderMarkers!=='undefined')orderMarkers.length=0; if(typeof holyGrounds!=='undefined')holyGrounds.length=0; }
+  if(typeof orderMarkers!=='undefined')orderMarkers.length=0; if(typeof holyGrounds!=='undefined')holyGrounds.length=0;
+  ritualT=0; ritualDone=false; ritualCasters=[]; _ritWaves=[]; _ritRing=null; }
 function build(){
   scene=new THREE.Scene();
   scene.background=new THREE.Color(0x3f9fd6);
@@ -1111,7 +1152,8 @@ function build(){
   // RAIDER stronghold — full mirrored AI base (skirmish) OR a small static camp (tutorials)
   if(RAIDERS.type==='base'){ placeEnemyCore(enemyBase.x,enemyBase.z);
     for(const s of BASE_PLOTS){ const a=(s.a+180)*Math.PI/180, x=enemyBase.x+Math.cos(a)*s.r, z=enemyBase.z+Math.sin(a)*s.r; if(onIsland(x,z)) makeEnemyPlot(x,z,s.t,s.s); } }
-  else { placeEnemyCore(enemyBase.x,enemyBase.z); enemyCore.max=enemyCore.hp=(RAIDERS.hp||900); }   // camp: a lone weak throne, no economy
+  else if(RAIDERS.type==='camp'){ placeEnemyCore(enemyBase.x,enemyBase.z); enemyCore.max=enemyCore.hp=(RAIDERS.hp||900); }   // camp: a lone weak throne, no economy
+  // type==='none' (ritual/defense): no enemy structure at all
 
   // rocks scattered across the land
   for(let i=0;i<50;i++){ const x=rr(-WORLD,WORLD), z=rr(-WORLD,WORLD);
@@ -1318,9 +1360,10 @@ function spawnGame(){
     const boss=mkFighter(C.enemyRed,1.6,'enemy',{hp:BOSS_STAT.hp,dmg:BOSS_STAT.dmg,range:BOSS_STAT.range,atkEvery:BOSS_STAT.atk,spd:BOSS_STAT.spd});
     boss.rad=2.8; boss.max=BOSS_STAT.hp; boss.isBoss=true; boss.hurlCd=4; boss.slamCd=7; boss.roarCd=10; riggize(boss,'chief'); setP(boss,enemyBase.x+8,enemyBase.z+8); enemies.push(boss);
     for(const rig of ['orcgrunt','orcarcher']){ const e=mkOrc(rig); setP(e,enemyBase.x+rr(2,10),enemyBase.z+rr(2,10)); enemies.push(e); }
-  } else {   // tutorial raider camp: static guards defending a lone throne (razing it wins)
+  } else if(RAIDERS.type==='camp'){   // tutorial raider camp: static guards defending a lone throne (razing it wins)
     (RAIDERS.guards||['orcgrunt','orcgrunt']).forEach((rig,i)=>{ const e=mkOrc(rig); const a=i/Math.max(1,(RAIDERS.guards||[]).length)*6.28;
       const gx=enemyBase.x+Math.cos(a)*9, gz=enemyBase.z+Math.sin(a)*9; const h=findLand(gx,gz); setP(e,h.x,h.z); e.__campGuard=true; e.__home={x:h.x,z:h.z}; enemies.push(e); }); }
+  if(RITUAL) setupRitual();
   recomputeSupply(); recomputeIncome();   // seed cap/income from the starting warband + empty economy
   rallyMarker=new THREE.Mesh(new THREE.RingGeometry(1.6,2.3,22),new THREE.MeshBasicMaterial({color:0xffe089,transparent:true,opacity:0.9,side:THREE.DoubleSide}));
   rallyMarker.rotation.x=-Math.PI/2; rallyMarker.visible=false; scene.add(rallyMarker);
@@ -1502,7 +1545,14 @@ const CAMPAIGN=[
    objective:'Build an economy, train a warband, and raze the raider camp at the fords.',
    outro:'The fords are held. Beyond them the ash deepens — and something older stirs.'},
   {id:'a1m3', act:'Act I — Inevitable',            title:'Ring the Ironstone',   hero:'paladin', map:'Sapphire Shores', playable:false},
-  {id:'a2m1', act:'Act II — Cornered',             title:'The Long Retreat',     hero:'paladin', map:'Verath Floor',    playable:false},
+  {id:'a2m1', act:'Act II — Cornered', title:'The Sealing Rite', hero:'paladin', map:'The Deepvein Verge', playable:true,
+   intro:'The ironstone runs deeper than any survey knew — down to the Deepvein, where the Unveiled stir. The Crown’s mystics can seal them again, but the rite demands long minutes of unbroken channeling. Valdris must hold the ground while they chant.',
+   lines:[
+     {who:'Crown Mystic',    icon:'cleric', text:'The old seal is failing, Marshal. Hold the ring while we close it — a few minutes of channel, unbroken. If the Unveiled break our chant, they pour out for good.'},
+     {who:'Marshal Valdris', icon:'shield', text:'Then nothing reaches the altar. Raise towers, form the line — hold until the seal takes. Begin the rite.'},
+   ],
+   objective:'Defend the altar until the Sealing Rite completes — keep the mystics alive.',
+   outro:'The seal holds; the Unveiled are driven back into the deep. But something answered the rite from below — and it remembers the name Valdris.'},
   {id:'a3m1', act:'Act III — The Silent Council',  title:'Parley at the High Rim',hero:'queen',  map:'Rimwall Pass',    playable:false},
   {id:'a4m1', act:'Act IV — The Deepvein',         title:'The Ashfall Remembered',hero:'queen',  map:'The Deepvein',    playable:false},
 ];
@@ -1988,6 +2038,7 @@ function updateGame(dt){
       setAnim(hero, hero.__atkT>0?(hero.__atkClip||'attack'):(heroMoved?'run':'idle')); }
     const hl=Math.hypot(heroFwd.x,heroFwd.z)||1, ffx=heroFwd.x/hl, ffz=heroFwd.z/hl, rgx=ffz, rgz=-ffx;
     for(const e of allies){ if(!e.alive)continue; e.cd-=dt;
+      if(e.__caster){ e.state='idle'; faceTo(e,(coreB?coreB.x:0)-e.px,(coreB?coreB.z:0)-e.pz); if(e.rigged){ e.mixer.update(dt); setAnim(e,'attack'); } continue; }   // channel in place
       const heroDist=Math.hypot(hero.px-e.px,hero.pz-e.pz);
       if(e.forcedTarget && !e.forcedTarget.alive) e.forcedTarget=null;
       if(e.target && !e.target.alive) e.target=null;
@@ -2028,12 +2079,12 @@ function updateGame(dt){
       if(e.rigged){ e.mixer.update(dt); setAnim(e, e.state==='attack'?'attack':(e.state==='move'?'run':'idle')); } }
     // caster pass: auto-Heal with de-dup — no two clerics heal the same target, no overkill
     { const claims=new Set();
-      for(const e of allies){ if(!e.alive||e.kind!=='cleric')continue; e.smiteCd-=dt; e.healCd-=dt;
+      for(const e of allies){ if(!e.alive||e.kind!=='cleric'||e.__caster)continue; e.smiteCd-=dt; e.healCd-=dt;   // channeling mystics don't heal (they must be defended)
         if(e.healCd>0)continue; let best=null,bestDef=1;
         for(const t of [hero,...allies]){ if(!t.alive||!t.max||claims.has(t))continue; if(t.hp/t.max>=0.9)continue;
           if(Math.hypot(t.px-e.px,t.pz-e.pz)>18)continue; const def=t.max-t.hp; if(def>bestDef){bestDef=def;best=t;} }
         if(best){ best.hp=Math.min(best.max,best.hp+24); claims.add(best); e.healCd=2.8; healFx(best); popDmg(best.px,topY(best.px,best.pz)+3.4,best.pz,'+24','heal'); } } }
-    separate(); loco(dt); baseTick(dt); eBaseTick(dt); if(creepCamps.length) updateCamps(dt); tutTick();
+    separate(); loco(dt); baseTick(dt); eBaseTick(dt); if(creepCamps.length) updateCamps(dt); if(RITUAL) ritualTick(dt); tutTick();
     const reap=l=>{ for(const e of l){ if(e.alive&&e.hp<=0){ e.alive=false; deathFx(e); if(e.vfx)e.vfx.dispose(); scene.remove(e.g); scene.remove(e.bar); if(e.ring){scene.remove(e.ring); selected.delete(e);} if(e.team==='enemy')killed++; } } return l.filter(e=>e.alive); };
     allies=reap(allies); enemies=reap(enemies);
     for(const s of eStructs){ if(s.alive&&s.hp<=0){ s.alive=false; deathFx(s); scene.remove(s.g); scene.remove(s.bar);
