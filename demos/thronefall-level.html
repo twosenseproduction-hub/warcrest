@@ -485,6 +485,14 @@ const BLD_GROUPS=[
       tower1:'elf_tower_Lv1',   tower2:'elf_tower_Lv2',   tower3:'elf_tower_Lv3',
       mine1:'elf_mine_Lv1',     mine2:'elf_mine_Lv2',     mine3:'elf_mine_Lv3',
       barrack1:'elf_barrack_Lv1', barrack2:'elf_barrack_Lv2', barrack3:'elf_barrack_Lv3' } },
+  { tex:'/assets/models/human_building_tex.png', files:{   // Iron Crown (human) — campaign player set
+      human_keep:'human_throne_Lv3', human_house:'human_house_Lv2', human_tower:'human_tower_Lv2', human_mill:'human_wood_cutter_Lv2',
+      human_throne1:'human_throne_Lv1', human_throne2:'human_throne_Lv2', human_throne3:'human_throne_Lv3',
+      human_house1:'human_house_Lv1',   human_house2:'human_house_Lv2',   human_house3:'human_house_Lv3',
+      human_tower1:'human_tower_Lv1',   human_tower2:'human_tower_Lv2',   human_tower3:'human_tower_Lv3',
+      human_mine1:'human_mine_Lv1',     human_mine2:'human_mine_Lv2',     human_mine3:'human_mine_Lv3',
+      human_mill1:'human_wood_cutter_Lv1', human_mill2:'human_wood_cutter_Lv2', human_mill3:'human_wood_cutter_Lv3',
+      human_barrack1:'human_barrack_Lv1', human_barrack2:'human_barrack_Lv2', human_barrack3:'human_barrack_Lv3' } },
   { tex:'/assets/models/orc_building_tex.png', files:{
       orc_throne1:'orc_throne_Lv1', orc_throne2:'orc_throne_Lv2', orc_throne3:'orc_throne_Lv3',
       orc_house1:'orc_house_Lv1',   orc_house2:'orc_house_Lv2',   orc_house3:'orc_house_Lv3',
@@ -552,7 +560,7 @@ function recomputeSupply(){ supplyCap=BASE_SUPPLY; for(const p of plots) if(p.ca
   for(const p of plots) if(p.cat==='army'&&p.queue) for(const q of p.queue) supplyUsed+=(UNIT_SUP[q.kind]||2); }   // queued units reserve supply
 function placeCore(x,z){ scene.add(courtyard(x,z,13));
   coreB={x,z,px:x,pz:z,alive:true,level:1,hp:CORE_HP[0],max:CORE_HP[0],big:8,hitT:0,g:null,bar:makeBar(0x6fd0ff)};
-  const g=bldClone('throne1',CORE_H[0])||makeKeep(); g.position.set(x,topY(x,z),z); scene.add(g); coreB.g=g; }
+  const g=bldClone(BLDPFX+'throne1',CORE_H[0])||makeKeep(); g.position.set(x,topY(x,z),z); scene.add(g); coreB.g=g; }
 // marker state: built → hidden; unlocked empty → bright (cyan gen / orange turret) + plus; locked → dim grey, no plus
 function styleRing(p){ if(!p.ring)return; if(p.cat){ p.ring.visible=false; if(p.plus)p.plus.visible=false; return; }
   p.ring.visible=true; if(p.plus)p.plus.visible=!p.locked;
@@ -569,7 +577,7 @@ function makePlot(x,z,tier,slot){ slot=slot||'gen'; const th=PLOT_THEME.elf; sce
 // reveal plots whose tier the throne has now reached (base expands as the throne is upgraded)
 function revealPlots(){ for(const p of plots){ if(p.locked && p.tier<=coreB.level){ p.locked=false; styleRing(p); } } }
 function buildOnPlot(p){ const c=CAT[p.cat]; sfx('build'); if(p.g) scene.remove(p.g);
-  const g=bldClone(c.model+p.level, c.H[p.level-1]); if(g){ g.position.set(p.x,topY(p.x,p.z),p.z); g.rotation.y=rr(0,6.28); scene.add(g); p.g=g; }
+  const g=bldClone(BLDPFX+c.model+p.level, c.H[p.level-1]); if(g){ g.position.set(p.x,topY(p.x,p.z),p.z); g.rotation.y=rr(0,6.28); scene.add(g); p.g=g; }
   p.ring.visible=false; p.plus.visible=false;
   if(p.cat==='defense'){ p.dmg=c.dmg[p.level-1]; p.range=c.range[p.level-1]; p.rof=c.rof[p.level-1]; }
   if(p.cat==='army'){ p.every=c.every[p.level-1]; p.cap=c.cap[p.level-1]; if(!p.queue)p.queue=[]; if(!p.pbar)p.pbar=makeBar(0xffd24a); }
@@ -582,13 +590,13 @@ function queueUnit(p,def){ if(!p||p.cat!=='army')return; if(gold<def.gold)return
 function spawnTrained(p,q){ const b=UBAL[q.kind]||UBAL.warrior;
   const col = q.kind==='cleric'?C.cleric : q.kind==='archer'?C.teamBlue : q.kind==='drake'?0x9b6bd6 : C.teamBlueD;
   const e=mkFighter(col,1.0,'ally',{hp:b.hp,dmg:b.dmg,range:b.range,atkEvery:b.atk,spd:ALLY_SPD});
-  e.idx=allies.length; e.kind=q.kind; e.healCd=0; e.smiteCd=0; riggize(e,q.rig||q.kind); setP(e,p.x+rr(-2,2),p.z+rr(3,5)); allies.push(e); }
+  e.idx=allies.length; e.kind=q.kind; e.healCd=0; e.smiteCd=0; riggize(e, URIG[q.kind]||q.rig||q.kind); setP(e,p.x+rr(-2,2),p.z+rr(3,5)); allies.push(e); }
 function upgradePlot(p){ if(!p.cat||p.level>=3)return; const cost=CAT[p.cat].cost[p.level], wcost=UP_WOOD[p.level];   // upgrades cost gold + wood
   if(gold<cost||wood<wcost)return; gold-=cost; wood-=wcost; p.level++; buildOnPlot(p); closeBuildMenu(); }
 function upgradeCore(){ if(!coreB||coreB.level>=3)return; const cost=CORE_UP[coreB.level], wcost=CORE_WOOD[coreB.level];
   if(gold<cost||wood<wcost)return; gold-=cost; wood-=wcost; coreB.level++;
   const add=CORE_HP[coreB.level-1]-coreB.max; coreB.max=CORE_HP[coreB.level-1]; coreB.hp+=add;
-  scene.remove(coreB.g); const g=bldClone('throne'+coreB.level,CORE_H[coreB.level-1])||makeKeep(); g.position.set(coreB.x,topY(coreB.x,coreB.z),coreB.z); scene.add(g); coreB.g=g; revealPlots(); closeBuildMenu(); }
+  scene.remove(coreB.g); const g=bldClone(BLDPFX+'throne'+coreB.level,CORE_H[coreB.level-1])||makeKeep(); g.position.set(coreB.x,topY(coreB.x,coreB.z),coreB.z); scene.add(g); coreB.g=g; revealPlots(); closeBuildMenu(); }
 function towerTick(p,dt){ p.cd-=dt; if(p.cd>0)return; let best=null,bd=p.range*p.range;
   // only target foes the player can actually SEE — no firing blind into the fog of war
   for(const en of enemies){ if(!en.alive)continue; if(!isVisible(en.px,en.pz))continue; const dd=(en.px-p.x)**2+(en.pz-p.z)**2; if(dd<bd){bd=dd;best=en;} }
@@ -1016,6 +1024,7 @@ const PLOTDEF_DEFAULT=[
   {r:37,a:90,t:3,s:'turret'},{r:37,a:210,t:3,s:'turret'},{r:37,a:330,t:3,s:'turret'},
 ];
 let PBASE={x:105,z:108}, PLOTDEF=PLOTDEF_DEFAULT, RAIDERS={type:'base'}, LVSTART=['warrior','archer'], LVCREEPS=[], LVID='skirmish', LVGOLD=180, ALLOWED_BUILD=null, LVIRONROOTS=0, LVVEIN=null, _vein=null, _veinFound=false;
+let BLDPFX='', URIG={warrior:'warrior',archer:'archer',cleric:'priestess'};   // player faction: building-key prefix + archetype->rig model
 const LEVELS={
   skirmish:{ seas:[{cx:80,cz:-82,r:60},{cx:-80,cz:82,r:60},{cx:22,cz:-30,r:24},{cx:-22,cz:30,r:24}],
     paths:[[[105,108],[60,60],[6,6],[-52,-52],[-105,-108]]], flats:[{x:105,z:108,r:50,y:0.4},{x:-105,z:-108,r:50,y:0.4}],
@@ -1030,6 +1039,7 @@ const LEVELS={
     raiders:{type:'camp', hp:900, guards:['orcgrunt','orcgrunt','orcarcher']},
     build:['army','defense'],   // early level: only Barracks + Tower
     ironroots:16, vein:[66,-22],   // a great ironroot vein down a side inlet — scouted mid-mission
+    pbld:'human_', units:{warrior:'hfootman',archer:'harcher',cleric:'hmage'},   // Iron Crown faction
     start:['warrior','warrior','archer'], gold:260,
     creeps:[{name:'Road Hounds', bounty:60, at:[72,50], roster:['cinderhound','cinderhound']},
             {name:'Ash Pack', bounty:110, at:[28,14], roster:['cinderhound','cinderhound','emberspitter']}] },
@@ -1042,6 +1052,7 @@ const LEVELS={
     raiders:{type:'camp', hp:1500, guards:['orcgrunt','orcgrunt','orcwarrior','orcarcher']},
     build:['economy','army','defense'],   // adds the House (supply) this level
     ironroots:14,
+    pbld:'human_', units:{warrior:'hfootman',archer:'harcher',cleric:'hmage'},   // Iron Crown faction
     start:['warrior','archer'], gold:220,
     creeps:[{name:'Cinder Pack', bounty:70, at:[54,-46], roster:['cinderhound','cinderhound']},
             {name:'Boar Wallow', bounty:120, at:[0,6], roster:['direboar','cinderhound']}] },
@@ -1049,7 +1060,8 @@ const LEVELS={
 function applyLevel(id){ const L=LEVELS[id]||LEVELS.skirmish; LVID=id in LEVELS?id:'skirmish';
   MAPSHAPE=L.shape||'island'; ROAD_W=L.roadW||32;
   SEAS=(L.seas||[]).map(s=>({...s})); PATHS=L.paths.map(p=>p.map(pt=>pt.slice())); FLATS=L.flats.map(f=>({...f}));
-  PBASE={...L.pbase}; enemyBase={...L.ebase}; PLOTDEF=L.plots; RAIDERS=L.raiders; LVSTART=L.start.slice(); LVCREEPS=(L.creeps||[]).map(c=>({...c})); LVGOLD=L.gold||180; ALLOWED_BUILD=L.build||null; LVIRONROOTS=L.ironroots||0; LVVEIN=L.vein?{x:L.vein[0],z:L.vein[1]}:null; }
+  PBASE={...L.pbase}; enemyBase={...L.ebase}; PLOTDEF=L.plots; RAIDERS=L.raiders; LVSTART=L.start.slice(); LVCREEPS=(L.creeps||[]).map(c=>({...c})); LVGOLD=L.gold||180; ALLOWED_BUILD=L.build||null; LVIRONROOTS=L.ironroots||0; LVVEIN=L.vein?{x:L.vein[0],z:L.vein[1]}:null;
+  BLDPFX=L.pbld||''; URIG=L.units||{warrior:'warrior',archer:'archer',cleric:'priestess'}; }
 function resetWorld(){ allies=[]; enemies=[]; eStructs=[]; ePlots=[]; plots=[]; creepCamps=[]; fires=[];
   coreB=null; enemyCore=null; gold=LVGOLD; wood=0; incomeRate=1; woodRate=0; eGold=130; eWood=0; eIncome=1; eWoodRate=0;
   spawnLeft=0; spawnN=0; killed=0; gameOver=0; if(typeof selected!=='undefined')selected.clear(); camAim.init=false; hero=null;
@@ -1171,7 +1183,8 @@ function faceTo(e,dx,dz){ if(dx||dz) e.face=Math.atan2(dx,dz); }
 // skeleton so they play with no retarget. Textures are embedded (palette atlas, UVs
 // pre-flipped) — we just force NearestFilter so swatches sample solid, not the black gaps.
 const RIGS={}, PROPS={}, TEXS={}; const CHAR_H={thoryn:4.8, queen:4.4, paladin:4.4, archer:3.6, priestess:3.8, warrior:3.9, chief:4.9, orcarcher:3.7, orcgrunt:3.7, orcwarrior:4.1, orcshaman:3.7, drake:5.4,
-  cinderhound:3.0, direboar:3.4, emberspitter:3.0, ashtreant:6.5, moltenwisp:3.8, wyveling:4.2, revenant:5.6};   // neutral creeps (ash-basin bestiary)
+  cinderhound:3.0, direboar:3.4, emberspitter:3.0, ashtreant:6.5, moltenwisp:3.8, wyveling:4.2, revenant:5.6,
+  hfootman:4.0, harcher:3.9, hknight:4.2, hmage:3.9};   // neutral creeps (ash-basin bestiary)
 const CREEP_KEYS=['cinderhound','direboar','emberspitter','ashtreant','moltenwisp','wyveling','revenant'];   // Tripo/PBR rigs — flatten to the unlit look like thoryn
 // hand weapons: each char has a list of props → { prop FBX, hand bone, local transform }
 const WEAPONS={
@@ -1186,9 +1199,15 @@ const WEAPONS={
   orcgrunt: [{file:'axe_orc_grunt',     bone:'Character1_RightHand', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],   // this rig has no hand_r — the right hand is a Character-Studio bone
   orcwarrior:[{file:'sword_orc_warrior',bone:'Character1_RightHand', pos:[-10,-3.6,-2.8], rot:[0,0,-1.309], scl:0.66}],
   orcshaman:[{file:'staff_orc_shaman', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
+  hfootman: [{file:'sword_human_footman', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1},
+             {file:'shield_human_footman',bone:'hand_l', pos:[0,0,0], rot:[0,0,0], scl:1}],
+  harcher:  [{file:'bow_human_archer', bone:'hand_l', pos:[0,0,0], rot:[0,0,0], scl:1}],
+  hknight:  [{file:'sword_human_knight', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
+  hmage:    [{file:'staff_human_mage', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
 };
 const RIG_SPECS=[['thoryn','thoryn'],['queen','elf_queen'],['paladin','human_paladin'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior'],['chief','orc_chieftain'],['orcarcher','orc_archer'],['orcgrunt','orc_grunt'],['orcwarrior','orc_warrior'],['orcshaman','orc_shaman'],
-  ['cinderhound','cinder_hound'],['direboar','direboar'],['emberspitter','ember_spitter'],['ashtreant','ash_treant'],['moltenwisp','molten_wisp'],['wyveling','wyveling'],['revenant','stone_revenant']];   // neutral creeps
+  ['cinderhound','cinder_hound'],['direboar','direboar'],['emberspitter','ember_spitter'],['ashtreant','ash_treant'],['moltenwisp','molten_wisp'],['wyveling','wyveling'],['revenant','stone_revenant'],   // neutral creeps
+  ['hfootman','human_footman'],['harcher','human_archer'],['hknight','human_knight'],['hmage','human_mage']];   // Iron Crown units
 // Several FBX (the elf/orc bows AND every elf building) export as SkinnedMesh with a rigid little
 // armature. Cloned with a plain .clone(true) — not SkeletonUtils.clone — the skeleton binding
 // breaks: the renderer skins the mesh in the skeleton's own space, so it renders at ~world origin
@@ -1290,10 +1309,10 @@ function spawnGame(){
   const outAng=Math.atan2(enemyBase.x-PBASE.x, enemyBase.z-PBASE.z);
   setP(hero, PBASE.x+Math.sin(outAng)*14, PBASE.z+Math.cos(outAng)*14);
   // starting warband (per level)
-  const COL={warrior:C.teamBlueD, archer:C.teamBlue, priestess:C.cleric};
+  const COL={warrior:C.teamBlueD, archer:C.teamBlue, cleric:C.cleric};
   LVSTART.forEach((u,i)=>{ const kind=(u==='priestess')?'cleric':u, b=UBAL[kind]||UBAL.warrior;
-    const e=mkFighter(COL[u]||C.teamBlueD,1.0,'ally',{hp:b.hp,dmg:b.dmg,range:b.range,atkEvery:b.atk,spd:ALLY_SPD});
-    e.idx=i; e.kind=kind; e.healCd=0; e.smiteCd=0; riggize(e,u);
+    const e=mkFighter(COL[kind]||C.teamBlueD,1.0,'ally',{hp:b.hp,dmg:b.dmg,range:b.range,atkEvery:b.atk,spd:ALLY_SPD});
+    e.idx=i; e.kind=kind; e.healCd=0; e.smiteCd=0; riggize(e, URIG[kind]||u);
     setP(e, hero.px+((i%3)-1)*3.2, hero.pz-2-Math.floor(i/3)*3); allies.push(e); });
   if(RAIDERS.type==='base'){
     const boss=mkFighter(C.enemyRed,1.6,'enemy',{hp:BOSS_STAT.hp,dmg:BOSS_STAT.dmg,range:BOSS_STAT.range,atkEvery:BOSS_STAT.atk,spd:BOSS_STAT.spd});
