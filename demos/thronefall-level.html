@@ -1114,7 +1114,8 @@ try{ const sv=parseFloat(localStorage.getItem('wc_view_az')); if(!isNaN(sv)) cam
 // zoom — wheel + two-finger pinch, clamped
 const ZMIN=34, ZMAX=170;   // allow pulling back to survey the larger map
 addEventListener('wheel', e=>{ camF.dist=Math.max(ZMIN,Math.min(ZMAX, camF.dist + e.deltaY*0.05)); }, {passive:true});
-let camLocked=false, camEl, PAN_SPD=70; const camAim={x:0,z:0,init:false};   // RTS: free camera by default (Cam button re-locks to the hero)
+let camLocked=false, camEl, viewEl=null, chargeEl=null, recallEl=null, PAN_SPD=70; const camAim={x:0,z:0,init:false};   // RTS: free camera by default (Cam button re-locks to the hero)
+let _tutBtn=null;   // last radial/HUD button the player pressed (drives the button-by-button tutorial gates)
 // multi-touch camera gestures (pointer-based): 1 finger drag = pan world, 2 fingers = pinch-zoom + rotate
 const ptrs=new Map(); let gesture=null;   // gesture: {mode:'pan'|'pinch', ...}
 function clampAim(){ const dx=camAim.x-60, r=Math.hypot(dx,camAim.z); if(r>230){ camAim.x=60+dx*230/r; camAim.z*=230/r; } }
@@ -1463,6 +1464,7 @@ function startMission(m){ if(!m||!m.playable)return; activeMission=m; gameMode='
   // rebuild the world for this mission's map (build() spins up a fresh scene)
   applyLevel(m.id); resetWorld(); heroKind=m.hero; build(); spawnGame(); initFog(); if(typeof bakeMiniLand==='function')bakeMiniLand();
   pickHero(m.hero);   // sets kit + started=true + audio; re-riggizes the freshly-spawned hero
+  camLocked=true; applyCamMode(); if(hero){ camAim.x=hero.px; camAim.z=hero.pz; camAim.init=true; selectOne(hero); }   // campaign opens in Hero view with the hero selected
   const tip=document.getElementById('tip'); if(tip)tip.classList.add('hide');
   const showObj=()=>{ if(objBannerEl) objBannerEl.textContent='◈ '+m.objective; _objShown=true; applyHudVis(); startTutorial(m); };
   if(m.lines&&m.lines.length) playDialog(m.lines, showObj); else showObj(); }
@@ -1483,13 +1485,23 @@ function coachEl(){ let el=document.getElementById('coach'); if(!el){
 function tutReturnToBase(){ if(!coreB||typeof moveOrder!=='function')return; const list=[hero,...allies].filter(u=>u&&u.alive);
   for(const u of list){ u.forcedTarget=null; u.target=null; } moveOrder(list, coreB.x, coreB.z-8); }
 function tutHighlight(hi){ document.querySelectorAll('.tutHi').forEach(e=>e.classList.remove('tutHi'));
-  const el = hi==='joystick'?joyBase : hi==='hit'?hitEl : hi==='cam'?camEl : null; if(el)el.classList.add('tutHi'); }
+  const map={ joystick:joyBase, hit:hitEl, cam:camEl, view:viewEl, mini:document.getElementById('mini'),
+    bless:abilEl, hammer:boltEl, shield:smiteEl, select:boxBtn, charge:chargeEl, recall:recallEl };
+  const el=map[hi]||null; if(el)el.classList.add('tutHi'); }
 const TUT_SCRIPTS={
   a1m1:[
-    {text:'Drag the left stick (bottom-left) to march Valdris up the road.', hi:'joystick', gate:()=>hero&&_tutStart&&Math.hypot(hero.px-_tutStart.x,hero.pz-_tutStart.z)>12},
-    {text:'Tap “Cam” (top-right) to toggle <b>Hero view</b> (camera follows Valdris) and <b>Free view</b> (drag anywhere, or tap the minimap, to look around the field).', hi:'cam', gate:()=>_camTouched},
-    {text:'Bottom-right is your <b>command radial</b>: Valdris’s abilities when he’s selected, or squad orders — Stop · Hold · Attack-Move — when you box-select units.', hi:null, info:true},
-    {text:'Ash-beasts prowl the road ahead! Lead your warband into them — tap HIT when a beast is in reach.', hi:'hit', gate:()=>!creepCamps.length||creepCamps.every(c=>c.cleared)},
+    {text:'Valdris is selected and the camera follows him (Hero view). Drag the left stick to march him up the road.', hi:'joystick', gate:()=>hero&&_tutStart&&Math.hypot(hero.px-_tutStart.x,hero.pz-_tutStart.z)>12},
+    {text:'Tap <b>“Cam”</b> (top-right) to switch between Hero view (follows Valdris) and Free view (drag to look around).', hi:'cam', gate:()=>_camTouched},
+    {text:'Tap <b>“View”</b> to rotate the battlefield to a new angle.', hi:'view', gate:()=>_tutBtn==='view'},
+    {text:'Top-left is your <b>minimap</b> — dark areas are unexplored fog. In Free view you can tap it to jump the camera. Tap to continue.', hi:'mini', info:true},
+    {text:'<b>“HIT”</b> is Valdris’s basic attack — it lights up when an enemy is in reach. Tap to continue.', hi:'hit', info:true},
+    {text:'<b>“Bless”</b> — Consecration: hallow the ground to heal your troops. Tap it to cast.', hi:'bless', gate:()=>_tutBtn==='stomp'},
+    {text:'<b>“Hammer”</b> — Hammer of Justice: arm it, then tap a foe to stun. Tap it now.', hi:'hammer', gate:()=>_tutBtn==='bolt'},
+    {text:'<b>“Shield”</b> — Divine Shield makes Valdris briefly invulnerable. Tap it.', hi:'shield', gate:()=>_tutBtn==='smite'},
+    {text:'<b>“Select”</b> — tap it, then drag a box over your troops to command them as a squad. Tap Select now.', hi:'select', gate:()=>_tutBtn==='select'},
+    {text:'<b>“Charge”</b> — order your whole army to advance and attack. Tap it.', hi:'charge', gate:()=>_tutBtn==='charge'},
+    {text:'<b>“Recall”</b> — call your army back to Valdris. Tap it.', hi:'recall', gate:()=>_tutBtn==='recall'},
+    {text:'You have the controls, Marshal. Now — ash-beasts prowl the road ahead! March in and use <b>HIT</b> to destroy them.', hi:'hit', gate:()=>!creepCamps.length||creepCamps.every(c=>c.cleared)},
     {text:'Road’s clear. Fall back to the outpost — your men are marching back with you.', onEnter:()=>tutReturnToBase(), gate:()=>hero&&coreB&&Math.hypot(hero.px-coreB.x,hero.pz-coreB.z)<18},
     {text:'At the outpost, tap a glowing plot and build a <b>Barracks</b> to raise troops.', gate:()=>plots.some(p=>p.cat==='army')},
     {text:'Now raise an <b>Arrow Tower</b> on the turret plot — it faces the raiders and guards the road.', gate:()=>plots.some(p=>p.cat==='defense')},
@@ -1515,7 +1527,7 @@ function showCoach(){ const el=coachEl(); if(!TUT||TUT.i>=TUT.steps.length){ el.
   applyHudVis(); }
 function tutTick(){ if(!TUT)return; const s=TUT.steps[TUT.i]; if(!s)return;
   const done = s.info ? _coachAck : (s.gate&&s.gate());
-  if(done){ _coachAck=false; TUT.i++;
+  if(done){ _coachAck=false; _tutBtn=null; TUT.i++;
     if(TUT.i<TUT.steps.length){ if(typeof sfx==='function')sfx('build'); showCoach(); } else { coachEl().style.display='none'; coachEl().style.pointerEvents='none'; tutHighlight(null); TUT=null; applyHudVis(); } } }
 // ---- WC3-style conversation banner: a queue of {who,icon,text}; tap advances; onDone fires after the last line ----
 let dialogActive=false, _dq=[], _dqDone=null;
@@ -2024,9 +2036,9 @@ function setupHUD(){
   camEl.style.cssText+=';right:calc(14px + var(--sr));top:calc(14px + var(--st))';
   camEl.addEventListener('pointerdown',ev=>{ev.stopPropagation(); toggleCam();}); document.body.appendChild(camEl);
   // perspective picker: 4 views 90 degrees apart; the choice applies immediately and becomes the default
-  const viewEl=document.createElement('div'); viewEl.className='hud hchip'; viewEl.textContent='⤺ View';
+  viewEl=document.createElement('div'); viewEl.className='hud hchip'; viewEl.textContent='⤺ View';
   viewEl.style.cssText+=';right:calc(14px + var(--sr));top:calc(62px + var(--st));padding:8px 12px;min-height:0;font:700 12px system-ui';
-  viewEl.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); toggleViewPop(); }); document.body.appendChild(viewEl);
+  viewEl.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); _tutBtn='view'; toggleViewPop(); }); document.body.appendChild(viewEl);
   // audio mute toggle
   const audEl=document.createElement('div'); audEl.className='hud hchip'; audEl.textContent='🔊';
   audEl.style.cssText+=';right:calc(14px + var(--sr));top:calc(104px + var(--st));padding:8px 12px;min-height:0;font:700 15px system-ui';
@@ -2050,7 +2062,7 @@ function setupHUD(){
   const mkAbil=(cls,icon,cap,size,right,bottom,fn)=>{ const b=document.createElement('div'); b.className='abil '+cls+(size>=72?' big':'');
     b.style.cssText='width:'+size+'px;height:'+size+'px;right:'+right+'px;bottom:'+bottom+'px';
     b.innerHTML='<div class="cd"></div><div class="ic">'+icon+'</div><div class="cap">'+cap+'</div>';
-    b.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); sfx('ui'); fn(); }); hand.appendChild(b); return b; };
+    b.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); _tutBtn=cls; sfx('ui'); fn(); }); hand.appendChild(b); return b; };
   hitEl  =mkAbil('hit',ic('sword'),'Hit',76,12,12,()=>{ heroHit(); });                                            // basic attack — lights up only in range
   // inner ring — Warden abilities (spokes low→high: 14°, 51°, 88°)
   abilEl =mkAbil('stomp',ic('fan'),'Fan',56,121,47,()=>{ if(radialMode==='squad'){ stopSel(); return; } if(hero.kit==='paladin')consecration(); else fanOfKnives(); });   // AoE slot / squad Stop
@@ -2058,8 +2070,8 @@ function setupHUD(){
   smiteEl=mkAbil('smite',ic('blink'),'Blink',56,26,124,()=>{ if(radialMode==='squad'){ amArmed=!amArmed; updateSpellUI(); return; } if(hero.kit==='paladin')divineShield(); else blink(); });   // utility / squad Attack-Move
   // outer ring — army orders (same three spokes, one radius further out)
   boxBtn =mkAbil('select',ic('select'),'Select',50,185,65,()=>setBoxMode(!boxMode));   // arm marquee: next drag selects troops
-  mkAbil('charge',ic('swords'),'Charge',50,129,153,()=>chargeAll());
-  mkAbil('recall',ic('recall'),'Recall',50,31,190,()=>recall());
+  chargeEl=mkAbil('charge',ic('swords'),'Charge',50,129,153,()=>chargeAll());
+  recallEl=mkAbil('recall',ic('recall'),'Recall',50,31,190,()=>recall());
   autoEl=document.createElement('div'); autoEl.className='pill'; autoEl.textContent='AUTO';   // rides on the Bolt button
   autoEl.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); autoBolt=!autoBolt; updateSpellUI(); }); boltEl.appendChild(autoEl);
   document.body.appendChild(hand); abilHandEl=hand;
