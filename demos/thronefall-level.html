@@ -275,7 +275,15 @@ let SEAS=[
 const sun=new THREE.Vector3(-0.55,0.75,0.38).normalize();
 
 // land field: >0 = land (value ~ height above sea), <=0 = water. One big landmass minus the seas.
+let MAPSHAPE='island', ROAD_W=32;   // per-level terrain silhouette (set by applyLevel)
+// 'road' shape: land is a winding corridor hugging the level's PATH (+ round pads at the bases),
+// water everywhere else — a survey road over a frozen sea. Reads nothing like the skirmish square.
+function roadField(x,z){ let m=1 - pathDist(x,z)/ROAD_W;
+  for(const f of FLATS){ const dd=Math.hypot(x-f.x,z-f.z); m=Math.max(m, 1 - dd/(f.r*0.95)); }   // widen into base plateaus
+  m += 0.13*(fbm(x*0.03+2,z*0.03+5)-0.5)*2;                                                       // ragged banks
+  return m; }
 function landField(x,z){
+  if(MAPSHAPE==='road') return roadField(x,z);
   const sq=Math.max(Math.abs(x),Math.abs(z))/WORLD;                 // 0 centre → 1 at square rim
   let m=(1-sq) + 0.11*(fbm(x*0.012+3,z*0.012+7)-0.5)*2;             // rounded square, wavy coast
   for(const s of SEAS){ const d=Math.hypot(x-s.cx,z-s.cz);
@@ -995,26 +1003,29 @@ const LEVELS={
   skirmish:{ seas:[{cx:80,cz:-82,r:60},{cx:-80,cz:82,r:60},{cx:22,cz:-30,r:24},{cx:-22,cz:30,r:24}],
     paths:[[[105,108],[60,60],[6,6],[-52,-52],[-105,-108]]], flats:[{x:105,z:108,r:50,y:0.4},{x:-105,z:-108,r:50,y:0.4}],
     pbase:{x:105,z:108}, ebase:{x:-105,z:-108}, plots:PLOTDEF_DEFAULT, raiders:{type:'base'}, start:['warrior','archer'], creeps:[], gold:180 },
-  // ---- Tutorial 1: The Survey Road — move, camera, fight, build ----
-  a1m1:{ seas:[{cx:92,cz:-70,r:70},{cx:-92,cz:70,r:70},{cx:-40,cz:-96,r:44},{cx:64,cz:70,r:40}],
-    paths:[[[96,96],[40,40],[-20,-16],[-84,-84]]], flats:[{x:96,z:96,r:34,y:0.4},{x:-84,z:-84,r:30,y:0.4}],
-    pbase:{x:96,z:96}, ebase:{x:-84,z:-84},
-    plots:[{r:16,a:100,t:1,s:'gen'},{r:16,a:250,t:1,s:'gen'},{r:22,a:0,t:1,s:'turret'}],
+  // ---- Tutorial 1: The Survey Road — a winding land corridor over the frozen sea ----
+  a1m1:{ shape:'road', roadW:28, seas:[],
+    paths:[[[108,96],[70,48],[24,10],[-30,-34],[-78,-84],[-112,-112]]],
+    flats:[{x:108,z:96,r:26,y:0.4},{x:-112,z:-112,r:24,y:0.4},{x:24,z:10,r:20,y:0.4}],   // outpost end · raider end · a wider arena mid-road
+    pbase:{x:108,z:96}, ebase:{x:-112,z:-112},
+    plots:[{r:15,a:110,t:1,s:'gen'},{r:15,a:250,t:1,s:'gen'},{r:20,a:20,t:1,s:'turret'}],
     raiders:{type:'camp', hp:900, guards:['orcgrunt','orcgrunt','orcarcher']},
     start:['warrior','warrior','archer'], gold:260,
-    creeps:[{name:'Ash Hounds', bounty:70, at:[38,40], roster:['cinderhound','cinderhound']}] },
-  // ---- Tutorial 2: Beachhead — economy, training, upgrade, assault ----
-  a1m2:{ seas:[{cx:-96,cz:-60,r:66},{cx:96,cz:60,r:66},{cx:30,cz:-70,r:38},{cx:-46,cz:64,r:34}],
-    paths:[[[100,-92],[40,-40],[-16,20],[-92,88]]], flats:[{x:100,z:-92,r:40,y:0.4},{x:-92,z:88,r:34,y:0.4}],
-    pbase:{x:100,z:-92}, ebase:{x:-92,z:88},
-    plots:[{r:17,a:90,t:1,s:'gen'},{r:17,a:210,t:1,s:'gen'},{r:17,a:330,t:1,s:'gen'},{r:24,a:30,t:2,s:'turret'},{r:24,a:270,t:2,s:'turret'}],
+    creeps:[{name:'Ash Hounds', bounty:70, at:[24,10], roster:['cinderhound','cinderhound']}] },
+  // ---- Tutorial 2: Beachhead — a wider ford-road with two creep camps ----
+  a1m2:{ shape:'road', roadW:34, seas:[],
+    paths:[[[104,-96],[54,-46],[0,6],[-52,58],[-100,100]]],
+    flats:[{x:104,z:-96,r:30,y:0.4},{x:-100,z:100,r:26,y:0.4},{x:0,z:6,r:22,y:0.4}],
+    pbase:{x:104,z:-96}, ebase:{x:-100,z:100},
+    plots:[{r:16,a:90,t:1,s:'gen'},{r:16,a:210,t:1,s:'gen'},{r:16,a:330,t:1,s:'gen'},{r:23,a:30,t:2,s:'turret'},{r:23,a:270,t:2,s:'turret'}],
     raiders:{type:'camp', hp:1500, guards:['orcgrunt','orcgrunt','orcwarrior','orcarcher']},
     start:['warrior','archer'], gold:220,
-    creeps:[{name:'Cinder Pack', bounty:70, at:[46,-40], roster:['cinderhound','cinderhound']},
-            {name:'Boar Wallow', bounty:120, at:[-14,18], roster:['direboar','cinderhound']}] },
+    creeps:[{name:'Cinder Pack', bounty:70, at:[54,-46], roster:['cinderhound','cinderhound']},
+            {name:'Boar Wallow', bounty:120, at:[0,6], roster:['direboar','cinderhound']}] },
 };
 function applyLevel(id){ const L=LEVELS[id]||LEVELS.skirmish; LVID=id in LEVELS?id:'skirmish';
-  SEAS=L.seas.map(s=>({...s})); PATHS=L.paths.map(p=>p.map(pt=>pt.slice())); FLATS=L.flats.map(f=>({...f}));
+  MAPSHAPE=L.shape||'island'; ROAD_W=L.roadW||32;
+  SEAS=(L.seas||[]).map(s=>({...s})); PATHS=L.paths.map(p=>p.map(pt=>pt.slice())); FLATS=L.flats.map(f=>({...f}));
   PBASE={...L.pbase}; enemyBase={...L.ebase}; PLOTDEF=L.plots; RAIDERS=L.raiders; LVSTART=L.start.slice(); LVCREEPS=(L.creeps||[]).map(c=>({...c})); LVGOLD=L.gold||180; }
 function resetWorld(){ allies=[]; enemies=[]; eStructs=[]; ePlots=[]; plots=[]; creepCamps=[]; fires=[];
   coreB=null; enemyCore=null; gold=LVGOLD; wood=0; incomeRate=1; woodRate=0; eGold=130; eWood=0; eIncome=1; eWoodRate=0;
