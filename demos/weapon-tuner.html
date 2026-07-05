@@ -105,6 +105,16 @@ const R2D=180/Math.PI, D2R=Math.PI/180, fmtR=v=>{ // pretty-print radians, snapp
 const RIGS={}, PROPS={}, TEXS={};
 // every building in the repo (elf = player/human, orc = enemy) — loaded for viewing
 const BUILDINGS=[
+  ['human_throne_Lv1','human'],['human_throne_Lv2','human'],['human_throne_Lv3','human'],
+  ['human_house_Lv1','human'],['human_house_Lv2','human'],['human_house_Lv3','human'],
+  ['human_barrack_Lv1','human'],['human_barrack_Lv2','human'],['human_barrack_Lv3','human'],
+  ['human_tower_Lv1','human'],['human_tower_Lv2','human'],['human_tower_Lv3','human'],
+  ['human_mine_Lv1','human'],['human_mine_Lv2','human'],['human_mine_Lv3','human'],
+  ['human_wood_cutter_Lv1','human'],['human_wood_cutter_Lv2','human'],['human_wood_cutter_Lv3','human'],
+  ['human_smithy_Lv1','human'],['human_smithy_Lv2','human'],['human_smithy_Lv3','human'],
+  ['human_factory_Lv1','human'],['human_factory_Lv2','human'],['human_factory_Lv3','human'],
+  ['human_oracle_Lv1','human'],['human_oracle_Lv2','human'],['human_oracle_Lv3','human'],
+  ['human_cauldron_Lv1','human'],['human_cauldron_Lv2','human'],['human_cauldron_Lv3','human'],
   ['elf_throne_Lv1','elf'],['elf_throne_Lv2','elf'],['elf_throne_Lv3','elf'],
   ['elf_house_Lv1','elf'],['elf_house_Lv2','elf'],['elf_house_Lv3','elf'],
   ['elf_barrack_Lv1','elf'],['elf_barrack_Lv2','elf'],['elf_barrack_Lv3','elf'],
@@ -151,9 +161,10 @@ const status=document.getElementById('status');
 function loadAll(){ return new Promise(res=>{
   const gl=new THREE.GLTFLoader(), fx=new THREE.FBXLoader(), tl=new THREE.TextureLoader();
   const propFiles=[...new Set(Object.values(WEAPONS).flat().map(w=>w.file))];
-  let n=0, need=RIG_SPECS.length*2+propFiles.length+BUILDINGS.length+2; const done=()=>{ status.textContent='loading… '+(++n)+'/'+need; if(n>=need)res(); };
+  let n=0, need=RIG_SPECS.length*2+propFiles.length+BUILDINGS.length+new Set(BUILDINGS.map(b=>b[1])).size; const done=()=>{ status.textContent='loading… '+(++n)+'/'+need; if(n>=need)res(); };
   const V='?v='+Date.now();  // cache-bust: always fetch the freshest model/texture (no stale glb)
-  ['elf','orc'].forEach(s=>tl.load('/assets/models/'+s+'_building_tex.png'+V, t=>{ t.flipY=true;t.magFilter=THREE.NearestFilter;t.minFilter=THREE.NearestFilter;t.generateMipmaps=false; if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; BTEX[s]=t; done(); }, undefined, ()=>done()));
+  const SIDES=[...new Set(BUILDINGS.map(b=>b[1]))];
+  SIDES.forEach(s=>tl.load('/assets/models/'+s+'_building_tex.png'+V, t=>{ t.flipY=true;t.magFilter=THREE.NearestFilter;t.minFilter=THREE.NearestFilter;t.generateMipmaps=false; if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; BTEX[s]=t; done(); }, undefined, ()=>done()));
   BUILDINGS.forEach(([f])=>fx.load('/assets/buildings/'+f+'.fbx', o=>{ try{ BLDS[f]=bakeStatic(o); }catch(_){} done(); }, undefined, ()=>done()));
   RIG_SPECS.forEach(([k,f])=>{
     gl.load('/assets/models/'+f+'_anim.glb'+V, g=>{ RIGS[k]={scene:g.scene,anims:g.animations}; done(); }, undefined, ()=>done());
