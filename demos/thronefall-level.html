@@ -650,8 +650,62 @@ function mkCreep(kind,camp,home){ const b=CREEP[kind]||CREEP.cinderhound;
   e.kind=kind; e.creep=true; e.camp=camp; e.home={x:home.x,z:home.z}; e.aggro=false; e.returning=false;
   e.aggroR=camp?camp.aggroR:15; e.leashR=camp?camp.leashR:26; e.rad=b.rad||1.5; if(b.big)e.big=b.big;
   if(b.ranged)e.ranged=true; if(b.magic)e.magic=true; e.max=b.hp;
-  riggize(e,kind); return e; }
+  riggize(e,kind); if(CREEP_VFX[kind]) e.vfx=makeCreepVfx(e,kind); return e; }
 function campAggro(camp){ if(!camp)return; camp.aggro=true; for(const c of camp.members) if(c.alive) c.aggro=true; }
+// ---- creep particle VFX (ported from the weapon tuner): smoke, glowing eyes, green flame,
+// floating crystals, molten-wisp base glow + ash trail — each follows its moving creep, hidden in fog ----
+function cvRadial(stops){ const c=document.createElement('canvas'); c.width=c.height=64; const g=c.getContext('2d');
+  const rg=g.createRadialGradient(32,32,0,32,32,32); stops.forEach(s=>rg.addColorStop(s[0],s[1])); g.fillStyle=rg; g.fillRect(0,0,64,64);
+  const t=new THREE.CanvasTexture(c); t.needsUpdate=true; return t; }
+let CV_SMOKE=null,CV_GLOW=null,CV_FLAME=null;
+function cvTex(){ if(CV_GLOW)return; CV_SMOKE=cvRadial([[0,'rgba(210,210,214,0.85)'],[0.45,'rgba(150,150,158,0.5)'],[1,'rgba(120,120,128,0)']]);
+  CV_GLOW=cvRadial([[0,'rgba(255,255,255,1)'],[0.28,'rgba(255,255,255,0.85)'],[1,'rgba(255,255,255,0)']]);
+  const c=document.createElement('canvas'); c.width=c.height=64; const g=c.getContext('2d');
+  g.beginPath(); g.moveTo(32,63); g.bezierCurveTo(9,50,7,24,32,2); g.bezierCurveTo(57,24,55,50,32,63); g.closePath();
+  const lg=g.createLinearGradient(0,64,0,0); lg.addColorStop(0,'rgba(255,255,255,0.95)'); lg.addColorStop(0.3,'rgba(255,255,255,0.9)'); lg.addColorStop(0.7,'rgba(255,255,255,0.45)'); lg.addColorStop(1,'rgba(255,255,255,0)');
+  g.fillStyle=lg; g.fill(); CV_FLAME=new THREE.CanvasTexture(c); CV_FLAME.needsUpdate=true; }
+const CREEP_VFX={
+  ashtreant:  {eyes:{color:0xffb544,size:0.05,sep:0.085,up:0.11,fwd:0.13}, smoke:{color:0xc0bfb8,count:9,life:2.4,rise:0.55,anchors:[[0.4,0.55,0.05],[-0.4,0.55,0.05],[0,0.68,-0.3]]}},
+  emberspitter:{eyes:{color:0xff8a24,size:0.06,sep:0.1,up:0.06,fwd:0.16}, smoke:{color:0xb9b6ae,count:6,life:2.0,rise:0.6,anchors:[[0.28,0.55,0],[-0.28,0.55,0]]}},
+  cinderhound:{eyes:{color:0x9dff4a,size:0.05,sep:0.11,up:0.06,fwd:0.5}},
+  wyveling:   {eyes:{color:0xff5a1e,size:0.05,sep:0.1,up:0.1,fwd:0.36}},
+  moltenwisp: {baseglow:{color:0x9dff4a,size:0.4}, ash:{count:14,color:0x8f8f92,ember:0x9dff4a,life:1.7,fall:0.55,spread:0.16}},
+  revenant:   {eyes:{color:0x9dff4a,size:0.045,sep:0.09,up:0.13,fwd:0.13}, flame:{color:0x62ff20,core:0xe8ff96,count:12,life:0.5,rise:0.5}, smoke:{color:0x8f8f96,count:6,life:2.0,rise:0.7,anchors:[[0,1.08,0],[0.14,1.03,-0.05],[-0.14,1.03,-0.05]]}, crystals:{color:0x9dff4a,count:2}},
+};
+function makeCreepVfx(e,key){ const cfg=CREEP_VFX[key]; if(!cfg)return null; cvTex();
+  const H=CHAR_H[key]||4, hw=H*0.3, dz=H*0.28, parts=[];
+  let headBone=null; e.g.traverse(o=>{ if(o.isBone && /head/i.test(o.name) && !headBone) headBone=o; });
+  function spr(tex,color,blend){ const m=new THREE.SpriteMaterial({map:tex,color:color,transparent:true,depthWrite:false,opacity:0,blending:blend}); const s=new THREE.Sprite(m); s.frustumCulled=false; scene.add(s); parts.push(s); return s; }
+  const smokeP=[],flameP=[],eyes=[],crystals=[],ashP=[]; let baseGlow=null;
+  if(cfg.smoke) for(let i=0;i<cfg.smoke.count;i++){ smokeP.push({s:spr(CV_SMOKE,cfg.smoke.color,THREE.NormalBlending),life:1e9,max:1,x:0,y:0,z:0,vx:0,vy:0,vz:0,sz:1}); }
+  if(cfg.flame) for(let i=0;i<cfg.flame.count;i++){ flameP.push({s:spr(CV_FLAME,i%3===0?(cfg.flame.core||cfg.flame.color):cfg.flame.color,THREE.AdditiveBlending),life:Math.random(),max:1,x:0,y:0,z:0,sz:1}); }
+  if(cfg.eyes){ const s0=cfg.eyes.size*H; for(const sgn of [-1,1]){ const s=spr(CV_GLOW,cfg.eyes.color,THREE.AdditiveBlending); s.scale.setScalar(s0); eyes.push({s,sgn}); } }
+  if(cfg.crystals){ const geo=new THREE.OctahedronGeometry(1); for(const sgn of [-1,1]){ const m=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:cfg.crystals.color})); const r=H*0.07; m.scale.set(r*0.68,r,r*0.68); m.frustumCulled=false; scene.add(m); parts.push(m); const halo=spr(CV_GLOW,cfg.crystals.color,THREE.AdditiveBlending); halo.scale.setScalar(r*2.0); crystals.push({m,halo,sgn}); } }
+  if(cfg.baseglow){ baseGlow=spr(CV_GLOW,cfg.baseglow.color,THREE.AdditiveBlending); baseGlow.scale.setScalar((cfg.baseglow.size||0.4)*H); }
+  if(cfg.ash) for(let i=0;i<cfg.ash.count;i++){ const em=(i%3===0); ashP.push({s:spr(em?CV_GLOW:CV_SMOKE,em?(cfg.ash.ember||0x9dff4a):(cfg.ash.color||0x9a9a9a),em?THREE.AdditiveBlending:THREE.NormalBlending),em,life:1e9,max:1,x:0,y:0,z:0,vx:0,vy:0,vz:0,sz:1}); }
+  const _hp=new THREE.Vector3();
+  function base(){ return {x:e.px, y:topY(e.px,e.pz), z:e.pz}; }
+  function headPos(){ if(headBone){ headBone.getWorldPosition(_hp); return _hp; } const b=base(); _hp.set(b.x,b.y+H*0.8,b.z); return _hp; }
+  function reseed(p,c,b){ p.life=0; p.max=c.life*(0.7+Math.random()*0.6); const a=c.anchors?c.anchors[(Math.random()*c.anchors.length)|0]:[0,0,0];
+    p.x=b.x+a[0]*hw+(Math.random()-0.5)*0.2*hw; p.y=b.y+a[1]*H; p.z=b.z+a[2]*dz+(Math.random()-0.5)*0.2*dz;
+    p.vx=(Math.random()-0.5)*0.1*hw; p.vy=c.rise*H*(0.7+Math.random()*0.6); p.vz=(Math.random()-0.5)*0.1*hw; p.sz=H*0.16*(0.7+Math.random()*0.6); }
+  function reseedAsh(p,b){ const c=cfg.ash; p.life=0; p.max=c.life*(0.6+Math.random()*0.8);
+    p.x=b.x+(Math.random()-0.5)*c.spread*hw*2; p.y=b.y+H*0.12; p.z=b.z+(Math.random()-0.5)*c.spread*dz*2;
+    const ang=Math.random()*6.28, rd=Math.random()*0.05*hw; p.vx=Math.cos(ang)*rd; p.vz=Math.sin(ang)*rd; p.vy=-(c.fall||0.5)*H*(0.6+Math.random()*0.7); p.sz=(p.em?H*0.028:H*0.13)*(0.7+Math.random()*0.6); }
+  function update(dt,t){ const vis=e.alive && e.__vis!==false; for(const p of parts) p.visible=vis; if(!vis)return; const b=base();
+    for(const p of smokeP){ p.life+=dt; if(p.life>=p.max)reseed(p,cfg.smoke,b); p.x+=p.vx*dt;p.y+=p.vy*dt;p.z+=p.vz*dt;p.vy*=(1-0.35*dt);
+      const f=p.life/p.max; p.s.position.set(p.x,p.y,p.z); p.s.material.opacity=Math.sin(Math.min(1,f)*Math.PI)*0.55; const s=p.sz*(0.55+f*1.2); p.s.scale.set(s,s,s); }
+    if(cfg.flame){ const hp=headPos(), fh=hp.y+H*0.07; for(const p of flameP){ p.life+=dt; if(p.life>=p.max){ p.life=0; p.max=cfg.flame.life*(0.6+Math.random()*0.8);
+        p.x=hp.x+(Math.random()-0.5)*hw*0.5; p.y=fh; p.z=hp.z+(Math.random()-0.5)*dz*0.3; p.sz=H*0.13*(0.7+Math.random()*0.6); }
+      const f=p.life/p.max; p.s.position.set(p.x+Math.sin(t*9+p.max*10)*hw*0.06*(1-f), p.y+f*cfg.flame.rise*H, p.z); p.s.material.opacity=(1-f*f)*0.9; const s=p.sz*(1-f*0.55); p.s.scale.set(s,s,s); } }
+    if(eyes.length){ const hp=headPos(), o=cfg.eyes, sep=(o.sep||0.1)*H, up=(o.up||0.12)*H, fwd=(o.fwd||0.15)*H, fx=Math.sin(e.face||0), fz=Math.cos(e.face||0), rx=Math.cos(e.face||0), rz=-Math.sin(e.face||0);
+      for(const ey of eyes){ ey.s.position.set(hp.x+fx*fwd+rx*ey.sgn*sep, hp.y+up, hp.z+fz*fwd+rz*ey.sgn*sep); ey.s.material.opacity=0.75+0.25*Math.sin(t*5); } }
+    for(const c of crystals){ const y=b.y+H*0.6+Math.sin(t*1.6+(c.sgn>0?0:Math.PI))*H*0.05, x=b.x+c.sgn*hw*2.2, z=b.z; c.m.position.set(x,y,z); c.halo.position.set(x,y,z); c.m.rotation.y=t*0.9; c.m.rotation.x=t*0.5; c.halo.material.opacity=0.5+0.2*Math.sin(t*3); }
+    if(baseGlow){ baseGlow.position.set(b.x,b.y+H*0.15,b.z); baseGlow.material.opacity=0.6+0.28*Math.sin(t*4.5); }
+    for(const p of ashP){ p.life+=dt; if(p.life>=p.max)reseedAsh(p,b); p.vy-=(p.em?0.25:0.55)*H*dt; p.x+=p.vx*dt;p.y+=p.vy*dt;p.z+=p.vz*dt; const f=p.life/p.max; p.s.position.set(p.x,p.y,p.z);
+      if(p.em){ p.s.material.opacity=(1-f)*0.9; const s=p.sz*(1-f*0.4); p.s.scale.set(s,s,s); } else { p.s.material.opacity=Math.sin(Math.min(1,f)*Math.PI)*0.4; const s=p.sz*(0.6+f*1.15); p.s.scale.set(s,s,s); } } }
+  function dispose(){ for(const p of parts){ scene.remove(p); if(p.material){ if(p.material.map&&p.material.map!==CV_GLOW&&p.material.map!==CV_SMOKE&&p.material.map!==CV_FLAME)p.material.map.dispose(); p.material.dispose(); } if(p.geometry)p.geometry.dispose(); } }
+  return {update,dispose}; }
 function creepTick(e,dt){ const h=e.home;
   if(!e.aggro){ const {t,d}=nearest(e.px,e.pz,[hero,...allies].filter(u=>u&&u.alive)); if(t && d<e.aggroR) campAggro(e.camp); }
   if(e.aggro){
@@ -668,7 +722,8 @@ function creepTick(e,dt){ const h=e.home;
   } else e.state='idle';
   if((e.kind==='emberspitter'||e.kind==='moltenwisp'||e.kind==='cinderhound') && isVisible(e.px,e.pz) && Math.random()<dt*1.4)
     puff(e.px+rr(-0.6,0.6),topY(e.px,e.pz)+rr(0.8,2.4),e.pz+rr(-0.6,0.6), e.kind==='moltenwisp'?0x9dff4a:0xff7a2a, rr(0.18,0.38),0.5);
-  if(e.rigged){ e.mixer.update(dt); setAnim(e, e.state==='attack'?'attack':(e.state==='move'?'run':'idle')); } }
+  if(e.rigged){ e.mixer.update(dt); setAnim(e, e.state==='attack'?'attack':(e.state==='move'?'run':'idle')); }
+  if(e.vfx){ e.__vt=(e.__vt||0)+dt; e.vfx.update(dt, e.__vt); } }
 // ---- creep camps (mission a1m1): dens along the ash road between the two strongholds ----
 let creepCamps=[];
 function findLand(x,z){ if(onIsland(x,z))return {x,z}; for(let r=3;r<=34;r+=3){ for(let a=0;a<6.28;a+=0.5){ const nx=x+Math.cos(a)*r, nz=z+Math.sin(a)*r; if(onIsland(nx,nz))return {x:nx,z:nz}; } } return {x,z}; }
@@ -1799,7 +1854,7 @@ function updateGame(dt){
           if(Math.hypot(t.px-e.px,t.pz-e.pz)>18)continue; const def=t.max-t.hp; if(def>bestDef){bestDef=def;best=t;} }
         if(best){ best.hp=Math.min(best.max,best.hp+24); claims.add(best); e.healCd=2.8; healFx(best); popDmg(best.px,topY(best.px,best.pz)+3.4,best.pz,'+24','heal'); } } }
     separate(); loco(dt); baseTick(dt); eBaseTick(dt); if(creepCamps.length) updateCamps(dt);
-    const reap=l=>{ for(const e of l){ if(e.alive&&e.hp<=0){ e.alive=false; deathFx(e); scene.remove(e.g); scene.remove(e.bar); if(e.ring){scene.remove(e.ring); selected.delete(e);} if(e.team==='enemy')killed++; } } return l.filter(e=>e.alive); };
+    const reap=l=>{ for(const e of l){ if(e.alive&&e.hp<=0){ e.alive=false; deathFx(e); if(e.vfx)e.vfx.dispose(); scene.remove(e.g); scene.remove(e.bar); if(e.ring){scene.remove(e.ring); selected.delete(e);} if(e.team==='enemy')killed++; } } return l.filter(e=>e.alive); };
     allies=reap(allies); enemies=reap(enemies);
     for(const s of eStructs){ if(s.alive&&s.hp<=0){ s.alive=false; deathFx(s); scene.remove(s.g); scene.remove(s.bar);
         if(s.kind==='bld'&&s.plot){ const p=s.plot; p.cat=null; p.level=0; p.g=null; p.struct=null; eRecomputeIncome(); } } }
