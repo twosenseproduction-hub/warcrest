@@ -986,6 +986,21 @@ function makeUnit(bodyHex,scale){
   g.scale.setScalar(scale);
   return outlined(g);
 }
+// Ironroot: a cluster of dark iron root-spikes clawing out of the ash, veined with molten ore-glow.
+// The signature of the Verath Floor — "ironstone beyond counting." Decorative map dressing.
+function makeIronroot(scale){ scale=scale||1; const solid=new THREE.Group();
+  const base=new THREE.Mesh(new THREE.IcosahedronGeometry(1.05,0), lam(0x2f353b,true)); base.scale.set(1.3,0.55,1.3); base.position.y=0.25; base.castShadow=true; base.receiveShadow=true; solid.add(base);
+  const n=3+Math.floor(rnd()*3);
+  for(let i=0;i<n;i++){ const a=rnd()*6.28, r=0.2+rnd()*0.8, h=1.5+rnd()*1.9;
+    const spike=new THREE.Mesh(new THREE.ConeGeometry(0.2+rnd()*0.14, h, 5), lam(0x434b53,true));
+    spike.position.set(Math.cos(a)*r, h*0.4, Math.sin(a)*r);
+    spike.rotation.set((rnd()*0.5-0.25)+Math.sin(a)*0.28, rnd()*6.28, (rnd()*0.5-0.25)-Math.cos(a)*0.28);   // lean outward
+    spike.castShadow=true; solid.add(spike); }
+  const g=new THREE.Group(); g.add(outlined(solid));
+  for(let i=0;i<4;i++){ const a=rnd()*6.28,r=rnd()*0.95; const e=new THREE.Mesh(new THREE.SphereGeometry(0.15+rnd()*0.13,8,6),
+      new THREE.MeshBasicMaterial({color:0xff7a2a,transparent:true,opacity:0.85,blending:THREE.AdditiveBlending,depthWrite:false}));
+    e.position.set(Math.cos(a)*r, 0.22+rnd()*0.55, Math.sin(a)*r); g.add(e); }
+  g.scale.setScalar(scale); return g; }
 function place(obj,x,z,ry){ obj.position.set(x,topY(x,z),z); if(ry!=null)obj.rotation.y=ry; scene.add(obj); return obj; }
 
 // ---------- assemble ----------
@@ -1000,19 +1015,21 @@ const PLOTDEF_DEFAULT=[
   {r:37,a:30,t:3,s:'gen'},{r:37,a:150,t:3,s:'gen'},{r:37,a:270,t:3,s:'gen'},
   {r:37,a:90,t:3,s:'turret'},{r:37,a:210,t:3,s:'turret'},{r:37,a:330,t:3,s:'turret'},
 ];
-let PBASE={x:105,z:108}, PLOTDEF=PLOTDEF_DEFAULT, RAIDERS={type:'base'}, LVSTART=['warrior','archer'], LVCREEPS=[], LVID='skirmish', LVGOLD=180, ALLOWED_BUILD=null;
+let PBASE={x:105,z:108}, PLOTDEF=PLOTDEF_DEFAULT, RAIDERS={type:'base'}, LVSTART=['warrior','archer'], LVCREEPS=[], LVID='skirmish', LVGOLD=180, ALLOWED_BUILD=null, LVIRONROOTS=0, LVVEIN=null, _vein=null, _veinFound=false;
 const LEVELS={
   skirmish:{ seas:[{cx:80,cz:-82,r:60},{cx:-80,cz:82,r:60},{cx:22,cz:-30,r:24},{cx:-22,cz:30,r:24}],
     paths:[[[105,108],[60,60],[6,6],[-52,-52],[-105,-108]]], flats:[{x:105,z:108,r:50,y:0.4},{x:-105,z:-108,r:50,y:0.4}],
     pbase:{x:105,z:108}, ebase:{x:-105,z:-108}, plots:PLOTDEF_DEFAULT, raiders:{type:'base'}, start:['warrior','archer'], creeps:[], gold:180 },
   // ---- Tutorial 1: The Survey Road — a winding land corridor over the frozen sea ----
   a1m1:{ shape:'road', roadW:28, seas:[],
-    paths:[[[108,96],[70,48],[24,10],[-30,-34],[-78,-84],[-112,-112]]],
-    flats:[{x:108,z:96,r:26,y:0.4},{x:-112,z:-112,r:24,y:0.4},{x:24,z:10,r:20,y:0.4}],   // outpost end · raider end · a wider arena mid-road
+    paths:[[[108,96],[70,48],[24,10],[-30,-34],[-78,-84],[-112,-112]],
+           [[24,10],[48,-6],[66,-22]]],   // + a side inlet branching off the mid-arena to the ironroot vein
+    flats:[{x:108,z:96,r:26,y:0.4},{x:-112,z:-112,r:24,y:0.4},{x:24,z:10,r:20,y:0.4},{x:66,z:-22,r:16,y:0.4}],   // outpost · raider · mid arena · inlet pocket
     pbase:{x:108,z:96}, ebase:{x:-112,z:-112},
     plots:[{r:15,a:60,t:1,s:'gen'},{r:15,a:300,t:1,s:'gen'},{r:20,a:223,t:1,s:'turret'}],   // turret faces the raider camp (SW)
     raiders:{type:'camp', hp:900, guards:['orcgrunt','orcgrunt','orcarcher']},
     build:['army','defense'],   // early level: only Barracks + Tower
+    ironroots:16, vein:[66,-22],   // a great ironroot vein down a side inlet — scouted mid-mission
     start:['warrior','warrior','archer'], gold:260,
     creeps:[{name:'Road Hounds', bounty:60, at:[72,50], roster:['cinderhound','cinderhound']},
             {name:'Ash Pack', bounty:110, at:[28,14], roster:['cinderhound','cinderhound','emberspitter']}] },
@@ -1024,6 +1041,7 @@ const LEVELS={
     plots:[{r:16,a:300,t:1,s:'gen'},{r:16,a:340,t:1,s:'gen'},{r:16,a:20,t:1,s:'gen'},{r:23,a:120,t:2,s:'turret'},{r:23,a:156,t:2,s:'turret'}],   // turrets face the raider camp (NW)
     raiders:{type:'camp', hp:1500, guards:['orcgrunt','orcgrunt','orcwarrior','orcarcher']},
     build:['economy','army','defense'],   // adds the House (supply) this level
+    ironroots:14,
     start:['warrior','archer'], gold:220,
     creeps:[{name:'Cinder Pack', bounty:70, at:[54,-46], roster:['cinderhound','cinderhound']},
             {name:'Boar Wallow', bounty:120, at:[0,6], roster:['direboar','cinderhound']}] },
@@ -1031,7 +1049,7 @@ const LEVELS={
 function applyLevel(id){ const L=LEVELS[id]||LEVELS.skirmish; LVID=id in LEVELS?id:'skirmish';
   MAPSHAPE=L.shape||'island'; ROAD_W=L.roadW||32;
   SEAS=(L.seas||[]).map(s=>({...s})); PATHS=L.paths.map(p=>p.map(pt=>pt.slice())); FLATS=L.flats.map(f=>({...f}));
-  PBASE={...L.pbase}; enemyBase={...L.ebase}; PLOTDEF=L.plots; RAIDERS=L.raiders; LVSTART=L.start.slice(); LVCREEPS=(L.creeps||[]).map(c=>({...c})); LVGOLD=L.gold||180; ALLOWED_BUILD=L.build||null; }
+  PBASE={...L.pbase}; enemyBase={...L.ebase}; PLOTDEF=L.plots; RAIDERS=L.raiders; LVSTART=L.start.slice(); LVCREEPS=(L.creeps||[]).map(c=>({...c})); LVGOLD=L.gold||180; ALLOWED_BUILD=L.build||null; LVIRONROOTS=L.ironroots||0; LVVEIN=L.vein?{x:L.vein[0],z:L.vein[1]}:null; }
 function resetWorld(){ allies=[]; enemies=[]; eStructs=[]; ePlots=[]; plots=[]; creepCamps=[]; fires=[];
   coreB=null; enemyCore=null; gold=LVGOLD; wood=0; incomeRate=1; woodRate=0; eGold=130; eWood=0; eIncome=1; eWoodRate=0;
   spawnLeft=0; spawnN=0; killed=0; gameOver=0; if(typeof selected!=='undefined')selected.clear(); camAim.init=false; hero=null;
@@ -1086,6 +1104,17 @@ function build(){
   // rocks scattered across the land
   for(let i=0;i<50;i++){ const x=rr(-WORLD,WORLD), z=rr(-WORLD,WORLD);
     if(onIsland(x,z)&&pathDist(x,z)>6&&Math.hypot(x-KX,z-KZ)>16&&Math.hypot(x-enemyBase.x,z-enemyBase.z)>16) place(makeRock(),x,z); }
+  // Ironroots dressing the road (glowing ore formations) — per-level count
+  if(LVIRONROOTS){ let placed=0,tries=0;
+    while(placed<LVIRONROOTS && tries<800){ tries++; const x=rr(-WORLD,WORLD), z=rr(-WORLD,WORLD);
+      if(!onIsland(x,z))continue; const pd=pathDist(x,z); if(pd<3.5||pd>ROAD_W*0.82)continue;
+      if(Math.hypot(x-KX,z-KZ)<20||Math.hypot(x-enemyBase.x,z-enemyBase.z)<18)continue;
+      place(makeIronroot(0.8+rnd()*0.7), x, z, rr(0,6.28)); placed++; } }
+  // the great ironroot vein at the inlet — the discovery landmark
+  _vein=null; _veinFound=false;
+  if(LVVEIN){ const c=findLand(LVVEIN.x,LVVEIN.z); _vein={x:c.x,z:c.z};
+    place(makeIronroot(2.4), c.x, c.z, rr(0,6.28));
+    for(let i=0;i<3;i++){ const a=rnd()*6.28,r=rr(2,5); place(makeIronroot(1.0+rnd()*0.6), c.x+Math.cos(a)*r, c.z+Math.sin(a)*r, rr(0,6.28)); } }   // a cluster around it
 
   // live fighters (hero + squad + enemies) are spawned by the gameplay module
 }
@@ -1502,7 +1531,10 @@ const TUT_SCRIPTS={
     {text:'<b>“Charge”</b> — order your whole army to advance and attack. Tap it.', hi:'charge', gate:()=>_tutBtn==='charge'},
     {text:'<b>“Recall”</b> — call your army back to Valdris. Tap it.', hi:'recall', gate:()=>_tutBtn==='recall'},
     {text:'You have the controls, Marshal. Now — ash-beasts prowl the road ahead! March in and use <b>HIT</b> to destroy them.', hi:'hit', gate:()=>!creepCamps.length||creepCamps.every(c=>c.cleared)},
-    {text:'Road’s clear. Fall back to the outpost — your men are marching back with you.', onEnter:()=>tutReturnToBase(), gate:()=>hero&&coreB&&Math.hypot(hero.px-coreB.x,hero.pz-coreB.z)<18},
+    {text:'A molten glow bleeds from an inlet just south of the road. Scout it — see what the ash is hiding.', hi:'mini', onEnter:()=>{ if(_vein)pingRing(_vein.x,_vein.z,0xff8a2a); }, gate:()=>hero&&_vein&&Math.hypot(hero.px-_vein.x,hero.pz-_vein.z)<15},
+    {text:'<b>Crown Scout:</b> Ironroot, my lord — ore-veins that drink the ash-fire and grow like roots through the Floor. This is the ironstone the surveys promised. <i>Tap to continue.</i>', info:true, onEnter:()=>{ _veinFound=true; }},
+    {text:'<b>Marshal Valdris:</b> Then the dead road led true. This is why the Crown crossed a continent — and why the Horde will die before they yield it. Mark the vein; we hold this ground. <i>Tap to continue.</i>', info:true},
+    {text:'Road’s clear and the vein is ours. Fall back to the outpost — your men are marching back with you.', onEnter:()=>tutReturnToBase(), gate:()=>hero&&coreB&&Math.hypot(hero.px-coreB.x,hero.pz-coreB.z)<18},
     {text:'At the outpost, tap a glowing plot and build a <b>Barracks</b> to raise troops.', gate:()=>plots.some(p=>p.cat==='army')},
     {text:'Now raise an <b>Arrow Tower</b> on the turret plot — it faces the raiders and guards the road.', gate:()=>plots.some(p=>p.cat==='defense')},
     {text:'Forward, Marshal — march on the raider outpost and raze its throne!', hi:null, gate:()=>false},
@@ -2186,7 +2218,9 @@ function drawMini(){ if(!mctx)return; mctx.clearRect(0,0,MSZ,MSZ); mctx.drawImag
   for(const e of enemies){ if(e.alive&&e.__vis) dot(e.px,e.pz,'#ff7a5a',1.7); }
   if(hero&&hero.alive){ const [px,py]=w2m(hero.px,hero.pz); mctx.fillStyle='#ffffff'; mctx.strokeStyle='#123'; mctx.lineWidth=1;
     mctx.beginPath(); mctx.arc(px,py,2.6,0,6.283); mctx.fill(); mctx.stroke(); }
-  if(fogMiniCv) mctx.drawImage(fogMiniCv,0,0,MSZ,MSZ); }
+  if(fogMiniCv) mctx.drawImage(fogMiniCv,0,0,MSZ,MSZ);
+  if(_vein && !_veinFound){ const [px,py]=w2m(_vein.x,_vein.z); mctx.fillStyle='#ff9a3a'; mctx.strokeStyle='#3a1e08'; mctx.lineWidth=1;   // ironroot quest marker (shows through fog)
+    mctx.save(); mctx.translate(px,py); mctx.rotate(Math.PI/4); mctx.fillRect(-3,-3,6,6); mctx.strokeRect(-3,-3,6,6); mctx.restore(); } }
 function onDown(e){ if(gameOver)return;
   initAudio(); resumeAudio();   // first touch unlocks the audio context (mobile requirement)
   ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
