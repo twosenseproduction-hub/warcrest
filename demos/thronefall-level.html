@@ -264,7 +264,9 @@ const WORLD=180;                    // half-extent of the square landmass
 const SEA_Y=-16, COAST_Y=-1.0;      // sea level / coastline lip
 // interior seas gouged out of the land — placed off the BL↔TR diagonal so the diagonal stays a
 // continuous land isthmus (units path straight, so the bases must connect over land).
-const SEAS=[
+// map layout is data-driven per level (see LEVELS / applyLevel). These `let`s hold the ACTIVE map;
+// the skirmish default below is also LEVELS.skirmish. Changing them + re-running build() swaps maps.
+let SEAS=[
   {cx:80, cz:-82, r:60},   // large sea in the upper flank
   {cx:-80,cz:82,  r:60},   // large sea in the lower flank
   {cx:22, cz:-30, r:24},   // small central inlet biting toward the middle
@@ -284,7 +286,7 @@ function landField(x,z){
 function onIsland(x,z){ return landField(x,z)>0.02; }
 const smooth=t=>{ t=Math.max(0,Math.min(1,t)); return t*t*(3-2*t); };
 // level building plateaus under each base so structures + plots sit flat (playable footing)
-const FLATS=[{x:105,z:108,r:50,y:0.4},{x:-105,z:-108,r:50,y:0.4}];   // base plateaus sized for the full tier-3 expansion footprint
+let FLATS=[{x:105,z:108,r:50,y:0.4},{x:-105,z:-108,r:50,y:0.4}];   // base plateaus sized for the full tier-3 expansion footprint
 function landH(x,z){
   let h=2.0*(fbm(x*0.02+5,z*0.02+9)-0.5) + 1.0*(fbm(x*0.06,z*0.06)-0.5);   // rolling snow
   for(const f of FLATS){ const t=smooth(Math.hypot(x-f.x,z-f.z)/f.r); h=f.y*(1-t)+h*t; }   // flatten base plateaus
@@ -294,7 +296,7 @@ function landH(x,z){
 }
 
 // paths (packed snow) as polylines — the diagonal road linking the two bases
-const PATHS=[
+let PATHS=[
   [[105,108],[60,60],[6,6],[-52,-52],[-105,-108]],   // BL base → across the isthmus → TR base
 ];
 function pathDist(x,z){
@@ -727,17 +729,10 @@ function creepTick(e,dt){ const h=e.home;
 // ---- creep camps (mission a1m1): dens along the ash road between the two strongholds ----
 let creepCamps=[];
 function findLand(x,z){ if(onIsland(x,z))return {x,z}; for(let r=3;r<=34;r+=3){ for(let a=0;a<6.28;a+=0.5){ const nx=x+Math.cos(a)*r, nz=z+Math.sin(a)*r; if(onIsland(nx,nz))return {x:nx,z:nz}; } } return {x,z}; }
-function spawnCreepCamps(){ creepCamps=[]; const P={x:105,z:108}, E={x:-105,z:-108};
-  const at=t=>findLand(P.x+(E.x-P.x)*t, P.z+(E.z-P.z)*t);
-  const defs=[
-    {t:0.30, name:'Cinder Pack',     bounty:60,  roster:['cinderhound','cinderhound']},
-    {t:0.45, name:'Boar Wallow',     bounty:90,  roster:['direboar','cinderhound','cinderhound']},
-    {t:0.60, name:'The Ashen Grove', bounty:130, roster:['ashtreant','emberspitter','emberspitter']},
-    {t:0.72, name:'The Revenant',    bounty:200, roster:['revenant','moltenwisp','wyveling']},
-  ];
-  defs.forEach((d,ci)=>{ const c=at(d.t);
-    const camp={x:c.x,z:c.z,name:d.name,bounty:d.bounty,members:[],discovered:false,cleared:false,aggro:false,aggroR:15,leashR:27,first:ci===0};
-    d.roster.forEach((k,i)=>{ const ang=i/Math.max(1,d.roster.length)*6.28, rad=(i===0?0:5.5);
+function spawnCreepCamps(){ creepCamps=[];
+  LVCREEPS.forEach((d,ci)=>{ const c=findLand(d.at[0],d.at[1]);
+    const camp={x:c.x,z:c.z,name:d.name,bounty:d.bounty||80,members:[],discovered:false,cleared:false,aggro:false,aggroR:15,leashR:27,first:ci===0};
+    d.roster.forEach((k,i)=>{ const ang=i/Math.max(1,d.roster.length)*6.28, rad=(i===0?0:5.0);
       const home=findLand(c.x+Math.cos(ang)*rad, c.z+Math.sin(ang)*rad); const e=mkCreep(k,camp,home);
       setP(e,home.x,home.z); e.__vis=false; enemies.push(e); camp.members.push(e); });
     creepCamps.push(camp); }); }
@@ -765,7 +760,9 @@ function enemyAI(dt){ aiCd-=dt; if(aiCd>0)return; aiCd=4;
   // all reachable plots are full → expand the base (upgrade the throne) before polishing plot levels
   if(enemyCore.level<3){ const cost=CORE_UP[enemyCore.level], wc=CORE_WOOD[enemyCore.level]; if(eGold>=cost&&eWood>=wc){ eGold-=cost; eWood-=wc; eUpgradeCore(); } return; }   // save gold + wood
   const upg=ePlots.filter(p=>p.cat&&p.level<3); if(upg.length){ const p=upg[Math.floor(rnd()*upg.length)], cost=CAT[p.cat].cost[p.level], wc=UP_WOOD[p.level]; if(eGold>=cost&&eWood>=wc){ eGold-=cost; eWood-=wc; p.level++; eBuildOnPlot(p); } } }
-function eBaseTick(dt){ if(!enemyCore)return; eGold+=eIncome*dt; eWood+=eWoodRate*dt; eRecomputeSupply();
+function eBaseTick(dt){ if(!enemyCore)return;
+  if(RAIDERS.type!=='base'){ updateStructBar(enemyCore, CORE_H[enemyCore.level-1]); return; }   // camp: lone throne, no economy/AI
+  eGold+=eIncome*dt; eWood+=eWoodRate*dt; eRecomputeSupply();
   for(const p of ePlots){ if(p.cat==='defense') eTowerTick(p,dt); else if(p.cat==='army') eBarracksTick(p,dt); }
   enemyAI(dt);
   updateStructBar(enemyCore, CORE_H[enemyCore.level-1]);
@@ -982,6 +979,47 @@ function makeUnit(bodyHex,scale){
 function place(obj,x,z,ry){ obj.position.set(x,topY(x,z),z); if(ry!=null)obj.rotation.y=ry; scene.add(obj); return obj; }
 
 // ---------- assemble ----------
+// ===== DATA-DRIVEN LEVELS =====
+// build() spins up a fresh scene each call, so switching maps = set the active map vars (SEAS/PATHS/
+// FLATS/PBASE/EBASE/PLOTDEF + RAIDERS/LVCREEPS/LVSTART) then re-run build()+spawnGame(). The skirmish
+// map is the default; tutorial levels supply their own compact layouts + a gated coach script.
+const PLOTDEF_DEFAULT=[
+  {r:19,a:90,t:1,s:'gen'},{r:19,a:210,t:1,s:'gen'},{r:19,a:330,t:1,s:'gen'},
+  {r:21,a:30,t:2,s:'gen'},{r:21,a:150,t:2,s:'gen'},{r:21,a:270,t:2,s:'gen'},
+  {r:31,a:0,t:2,s:'turret'},{r:31,a:90,t:2,s:'turret'},{r:31,a:180,t:2,s:'turret'},{r:31,a:270,t:2,s:'turret'},
+  {r:37,a:30,t:3,s:'gen'},{r:37,a:150,t:3,s:'gen'},{r:37,a:270,t:3,s:'gen'},
+  {r:37,a:90,t:3,s:'turret'},{r:37,a:210,t:3,s:'turret'},{r:37,a:330,t:3,s:'turret'},
+];
+let PBASE={x:105,z:108}, PLOTDEF=PLOTDEF_DEFAULT, RAIDERS={type:'base'}, LVSTART=['warrior','archer'], LVCREEPS=[], LVID='skirmish', LVGOLD=180;
+const LEVELS={
+  skirmish:{ seas:[{cx:80,cz:-82,r:60},{cx:-80,cz:82,r:60},{cx:22,cz:-30,r:24},{cx:-22,cz:30,r:24}],
+    paths:[[[105,108],[60,60],[6,6],[-52,-52],[-105,-108]]], flats:[{x:105,z:108,r:50,y:0.4},{x:-105,z:-108,r:50,y:0.4}],
+    pbase:{x:105,z:108}, ebase:{x:-105,z:-108}, plots:PLOTDEF_DEFAULT, raiders:{type:'base'}, start:['warrior','archer'], creeps:[], gold:180 },
+  // ---- Tutorial 1: The Survey Road — move, camera, fight, build ----
+  a1m1:{ seas:[{cx:92,cz:-70,r:70},{cx:-92,cz:70,r:70},{cx:-40,cz:-96,r:44},{cx:64,cz:70,r:40}],
+    paths:[[[96,96],[40,40],[-20,-16],[-84,-84]]], flats:[{x:96,z:96,r:34,y:0.4},{x:-84,z:-84,r:30,y:0.4}],
+    pbase:{x:96,z:96}, ebase:{x:-84,z:-84},
+    plots:[{r:16,a:100,t:1,s:'gen'},{r:16,a:250,t:1,s:'gen'},{r:22,a:0,t:1,s:'turret'}],
+    raiders:{type:'camp', hp:900, guards:['orcgrunt','orcgrunt','orcarcher']},
+    start:['warrior','warrior','archer'], gold:260,
+    creeps:[{name:'Ash Hounds', bounty:70, at:[38,40], roster:['cinderhound','cinderhound']}] },
+  // ---- Tutorial 2: Beachhead — economy, training, upgrade, assault ----
+  a1m2:{ seas:[{cx:-96,cz:-60,r:66},{cx:96,cz:60,r:66},{cx:30,cz:-70,r:38},{cx:-46,cz:64,r:34}],
+    paths:[[[100,-92],[40,-40],[-16,20],[-92,88]]], flats:[{x:100,z:-92,r:40,y:0.4},{x:-92,z:88,r:34,y:0.4}],
+    pbase:{x:100,z:-92}, ebase:{x:-92,z:88},
+    plots:[{r:17,a:90,t:1,s:'gen'},{r:17,a:210,t:1,s:'gen'},{r:17,a:330,t:1,s:'gen'},{r:24,a:30,t:2,s:'turret'},{r:24,a:270,t:2,s:'turret'}],
+    raiders:{type:'camp', hp:1500, guards:['orcgrunt','orcgrunt','orcwarrior','orcarcher']},
+    start:['warrior','archer'], gold:220,
+    creeps:[{name:'Cinder Pack', bounty:70, at:[46,-40], roster:['cinderhound','cinderhound']},
+            {name:'Boar Wallow', bounty:120, at:[-14,18], roster:['direboar','cinderhound']}] },
+};
+function applyLevel(id){ const L=LEVELS[id]||LEVELS.skirmish; LVID=id in LEVELS?id:'skirmish';
+  SEAS=L.seas.map(s=>({...s})); PATHS=L.paths.map(p=>p.map(pt=>pt.slice())); FLATS=L.flats.map(f=>({...f}));
+  PBASE={...L.pbase}; enemyBase={...L.ebase}; PLOTDEF=L.plots; RAIDERS=L.raiders; LVSTART=L.start.slice(); LVCREEPS=(L.creeps||[]).map(c=>({...c})); LVGOLD=L.gold||180; }
+function resetWorld(){ allies=[]; enemies=[]; eStructs=[]; ePlots=[]; plots=[]; creepCamps=[]; fires=[];
+  coreB=null; enemyCore=null; gold=LVGOLD; wood=0; incomeRate=1; woodRate=0; eGold=130; eWood=0; eIncome=1; eWoodRate=0;
+  spawnLeft=0; spawnN=0; killed=0; gameOver=0; if(typeof selected!=='undefined')selected.clear(); camAim.init=false; hero=null;
+  if(typeof orderMarkers!=='undefined')orderMarkers.length=0; if(typeof holyGrounds!=='undefined')holyGrounds.length=0; }
 function build(){
   scene=new THREE.Scene();
   scene.background=new THREE.Color(0x3f9fd6);
@@ -1020,19 +1058,14 @@ function build(){
   // Base-expansion layout (per the concept sheet): plots gated by Throne tier + dedicated turret spots.
   // Tier 1 opens an inner triangle of general plots; upgrading the Throne reveals the hexagon + turret ring,
   // then an outer ring. slot 'gen' = build anything, 'turret' = tower-only.
-  const BASE_PLOTS=[
-    {r:19,a:90,t:1,s:'gen'},{r:19,a:210,t:1,s:'gen'},{r:19,a:330,t:1,s:'gen'},              // Tier 1 — inner triangle
-    {r:21,a:30,t:2,s:'gen'},{r:21,a:150,t:2,s:'gen'},{r:21,a:270,t:2,s:'gen'},              // Tier 2 — complete the hexagon
-    {r:31,a:0,t:2,s:'turret'},{r:31,a:90,t:2,s:'turret'},{r:31,a:180,t:2,s:'turret'},{r:31,a:270,t:2,s:'turret'},   // Tier 2 — 4 turret spots
-    {r:37,a:30,t:3,s:'gen'},{r:37,a:150,t:3,s:'gen'},{r:37,a:270,t:3,s:'gen'},              // Tier 3 — outer general
-    {r:37,a:90,t:3,s:'turret'},{r:37,a:210,t:3,s:'turret'},{r:37,a:330,t:3,s:'turret'},     // Tier 3 — outer turrets
-  ];
-  // PLAYER base (bottom-left island)
-  const KX=105,KZ=108; placeCore(KX,KZ); camAim.x=KX; camAim.z=KZ; camAim.init=true;   // open the RTS camera on the player base
+  const BASE_PLOTS=PLOTDEF;
+  // PLAYER base (per active level)
+  const KX=PBASE.x,KZ=PBASE.z; placeCore(KX,KZ); camAim.x=KX; camAim.z=KZ; camAim.init=true;   // open the RTS camera on the player base
   for(const s of BASE_PLOTS){ const a=s.a*Math.PI/180, x=KX+Math.cos(a)*s.r, z=KZ+Math.sin(a)*s.r; if(onIsland(x,z)) makePlot(x,z,s.t,s.s); }
-  // ENEMY stronghold (top-right island) — same layout, AI fills + expands it
-  enemyBase={x:-105,z:-108}; placeEnemyCore(enemyBase.x,enemyBase.z);
-  for(const s of BASE_PLOTS){ const a=(s.a+180)*Math.PI/180, x=enemyBase.x+Math.cos(a)*s.r, z=enemyBase.z+Math.sin(a)*s.r; if(onIsland(x,z)) makeEnemyPlot(x,z,s.t,s.s); }
+  // RAIDER stronghold — full mirrored AI base (skirmish) OR a small static camp (tutorials)
+  if(RAIDERS.type==='base'){ placeEnemyCore(enemyBase.x,enemyBase.z);
+    for(const s of BASE_PLOTS){ const a=(s.a+180)*Math.PI/180, x=enemyBase.x+Math.cos(a)*s.r, z=enemyBase.z+Math.sin(a)*s.r; if(onIsland(x,z)) makeEnemyPlot(x,z,s.t,s.s); } }
+  else { placeEnemyCore(enemyBase.x,enemyBase.z); enemyCore.max=enemyCore.hp=(RAIDERS.hp||900); }   // camp: a lone weak throne, no economy
 
   // rocks scattered across the land
   for(let i=0;i<50;i++){ const x=rr(-WORLD,WORLD), z=rr(-WORLD,WORLD);
@@ -1207,26 +1240,28 @@ function spawnGame(){
   const rk=(HERO_KIT[heroKind]&&RIGS[HERO_KIT[heroKind].rig])?HERO_KIT[heroKind].rig:(RIGS.queen?'queen':'thoryn');
   riggize(hero, rk);   // the chosen hero (Elf Queen default, or Paladin)
   hero.kit=heroKind; const _k=HERO_KIT[heroKind]||HERO_KIT.queen; hero.aMax=_k.a.cd; hero.spellMax=_k.spell.cd; hero.blinkMax=_k.blink.cd;
-  setP(hero,105,80);                            // muster at the player base (bottom-left island)
-  // skirmish start: the hero rides out with just two base units — a warrior + an archer.
-  // (The rest of the army comes from Barracks the player builds; the AI grows the same way.)
-  const ROSTER=['warrior','archer'];   // rig name; stat kind = warrior/archer (priestess→cleric)
+  // muster just outside the base, facing into the map (toward the raider camp)
+  const outAng=Math.atan2(enemyBase.x-PBASE.x, enemyBase.z-PBASE.z);
+  setP(hero, PBASE.x+Math.sin(outAng)*14, PBASE.z+Math.cos(outAng)*14);
+  // starting warband (per level)
   const COL={warrior:C.teamBlueD, archer:C.teamBlue, priestess:C.cleric};
-  for(let i=0;i<ROSTER.length;i++){ const u=ROSTER[i], kind=(u==='priestess')?'cleric':u, b=UBAL[kind];
-    const e=mkFighter(COL[u],1.0,'ally',{hp:b.hp,dmg:b.dmg,range:b.range,atkEvery:b.atk,spd:ALLY_SPD});
-    e.idx=i; e.kind=kind; e.healCd=0; e.smiteCd=0;   // 'cleric' drives the heal pass
-    riggize(e, u);
-    setP(e,105+(i-0.5)*3.2, 92); allies.push(e); }
-  // Orc Chieftain — the enemy's leader — flanked by two base orcs (grunt + archer)
-  const boss=mkFighter(C.enemyRed,1.6,'enemy',{hp:BOSS_STAT.hp,dmg:BOSS_STAT.dmg,range:BOSS_STAT.range,atkEvery:BOSS_STAT.atk,spd:BOSS_STAT.spd});
-  boss.rad=2.8; boss.max=BOSS_STAT.hp; boss.isBoss=true; boss.hurlCd=4; boss.slamCd=7; boss.roarCd=10; riggize(boss,'chief'); setP(boss,enemyBase.x+8,enemyBase.z+8); enemies.push(boss);
-  for(const rig of ['orcgrunt','orcarcher']){
-    const e=mkOrc(rig); setP(e,enemyBase.x+rr(2,10),enemyBase.z+rr(2,10)); enemies.push(e); }
+  LVSTART.forEach((u,i)=>{ const kind=(u==='priestess')?'cleric':u, b=UBAL[kind]||UBAL.warrior;
+    const e=mkFighter(COL[u]||C.teamBlueD,1.0,'ally',{hp:b.hp,dmg:b.dmg,range:b.range,atkEvery:b.atk,spd:ALLY_SPD});
+    e.idx=i; e.kind=kind; e.healCd=0; e.smiteCd=0; riggize(e,u);
+    setP(e, hero.px+((i%3)-1)*3.2, hero.pz-2-Math.floor(i/3)*3); allies.push(e); });
+  if(RAIDERS.type==='base'){
+    const boss=mkFighter(C.enemyRed,1.6,'enemy',{hp:BOSS_STAT.hp,dmg:BOSS_STAT.dmg,range:BOSS_STAT.range,atkEvery:BOSS_STAT.atk,spd:BOSS_STAT.spd});
+    boss.rad=2.8; boss.max=BOSS_STAT.hp; boss.isBoss=true; boss.hurlCd=4; boss.slamCd=7; boss.roarCd=10; riggize(boss,'chief'); setP(boss,enemyBase.x+8,enemyBase.z+8); enemies.push(boss);
+    for(const rig of ['orcgrunt','orcarcher']){ const e=mkOrc(rig); setP(e,enemyBase.x+rr(2,10),enemyBase.z+rr(2,10)); enemies.push(e); }
+  } else {   // tutorial raider camp: static guards defending a lone throne (razing it wins)
+    (RAIDERS.guards||['orcgrunt','orcgrunt']).forEach((rig,i)=>{ const e=mkOrc(rig); const a=i/Math.max(1,(RAIDERS.guards||[]).length)*6.28;
+      const gx=enemyBase.x+Math.cos(a)*9, gz=enemyBase.z+Math.sin(a)*9; const h=findLand(gx,gz); setP(e,h.x,h.z); e.__campGuard=true; e.__home={x:h.x,z:h.z}; enemies.push(e); }); }
   recomputeSupply(); recomputeIncome();   // seed cap/income from the starting warband + empty economy
   rallyMarker=new THREE.Mesh(new THREE.RingGeometry(1.6,2.3,22),new THREE.MeshBasicMaterial({color:0xffe089,transparent:true,opacity:0.9,side:THREE.DoubleSide}));
   rallyMarker.rotation.x=-Math.PI/2; rallyMarker.visible=false; scene.add(rallyMarker);
   // brazier torches flanking each throne — showcases the 3D fire
   for(const c of [coreB, enemyCore]){ if(!c)continue; for(const dx of [-7,7]){ const fx=c.x+dx, fz=c.z+6; makeFire(fx, topY(fx,fz)+0.3, fz, 1.15); } }
+  if(LVCREEPS.length) spawnCreepCamps();   // neutral creep camps along this level's road
 }
 let spawnN=0;
 function spawnEnemy(){ const x=enemyBase.x+rr(-14,14), z=enemyBase.z+rr(-14,14);   // muster from the enemy stronghold (top-right)
@@ -1385,17 +1420,22 @@ const CAMP_KEY='verath_campaign';
 function campCleared(){ try{ return new Set(JSON.parse(localStorage.getItem(CAMP_KEY))||[]); }catch(_){ return new Set(); } }
 function campMarkClear(id){ const s=campCleared(); s.add(id); try{ localStorage.setItem(CAMP_KEY,JSON.stringify([...s])); }catch(_){ } }
 const CAMPAIGN=[
-  {id:'a1m1', act:'Act I — Inevitable', title:'The Survey Road', hero:'paladin', map:'Sapphire Shores', playable:true,
-   intro:'The Iron Crown crossed the western Reach two generations ago, following an abandoned survey road. On the Verath Floor they found ironstone beyond counting — and the Raider Horde, who call this ground home. Valdris the Ironwarden is sent to end the war in one campaign.',
+  {id:'a1m1', act:'Act I — Inevitable', title:'The Survey Road', hero:'paladin', map:'The Ash Road', playable:true,
+   intro:'Marshal Valdris leads the vanguard up the old survey road onto the Verath Floor. A small warband — but the Crown is watching. Learn to lead them: march, fight, and fortify.',
    lines:[
-     {who:'Marshal Valdris', icon:'shield', text:'Two generations we chased a dead survey road across the Reach. And here it is — ironstone enough to fund the Crown for a hundred years. The ground rings when you strike it.'},
-     {who:'Crown Scout',     icon:'select', text:'And the Horde, my lord. Their warcamp sits astride the Deepvein. They say this ash is their home.'},
-     {who:'Marshal Valdris', icon:'shield', text:'Then we take it before they dig in. The war ends here — one campaign, as the Crown ordered. Muster the men.'},
-     {who:'Objective',       icon:'star',   text:'Build on the glowing plots — a House for supply, a Barracks for troops, Towers to hold the line. Then march on the Raider warcamp and raze its throne.'},
+     {who:'Marshal Valdris', icon:'shield', text:'The road onto the Floor. Ironstone underfoot and beasts in the ash. We move light and we move now.'},
+     {who:'Crown Scout',     icon:'select', text:'A raider outpost sits at the end of the road, my lord. Clear the beasts, raise a foothold, and it is ours.'},
    ],
-   objective:'Raze the Raider warcamp — destroy its throne.',
-   outro:'The Shores are held. But beneath them the surveys have struck something that rings wrong — and the Horde is pulling back not in defeat, but in fear.'},
-  {id:'a1m2', act:'Act I — Inevitable',            title:'Beachhead',            hero:'paladin', map:'Sapphire Shores', playable:false},
+   objective:'Follow the coach: move, fight, build — then raze the raider outpost.',
+   outro:'The road is open and the outpost burns. The vanguard has its foothold on the Verath Floor.'},
+  {id:'a1m2', act:'Act I — Inevitable', title:'Beachhead', hero:'paladin', map:'Twin Fords', playable:true,
+   intro:'With a foothold won, the vanguard pushes to the fords. Now Valdris must run a proper camp — feed his supply, train troops, and break a dug-in raider warband.',
+   lines:[
+     {who:'Marshal Valdris', icon:'shield', text:'A wider crossing, a stronger foe. This time we build before we bleed — supply, then swords.'},
+     {who:'Crown Scout',     icon:'select', text:'Beasts range the fords between us and the raiders. Mind your economy, my lord, and the Floor is yours.'},
+   ],
+   objective:'Build an economy, train a warband, and raze the raider camp at the fords.',
+   outro:'The fords are held. Beyond them the ash deepens — and something older stirs.'},
   {id:'a1m3', act:'Act I — Inevitable',            title:'Ring the Ironstone',   hero:'paladin', map:'Sapphire Shores', playable:false},
   {id:'a2m1', act:'Act II — Cornered',             title:'The Long Retreat',     hero:'paladin', map:'Verath Floor',    playable:false},
   {id:'a3m1', act:'Act III — The Silent Council',  title:'Parley at the High Rim',hero:'queen',  map:'Rimwall Pass',    playable:false},
@@ -1403,11 +1443,47 @@ const CAMPAIGN=[
 ];
 function startMission(m){ if(!m||!m.playable)return; activeMission=m; gameMode='campaign';
   if(modeSelEl)modeSelEl.style.display='none'; if(missionSelEl)missionSelEl.style.display='none'; if(missionCardEl)missionCardEl.style.display='none';
-  pickHero(m.hero);   // pickHero flips `started` + starts audio; campaign forces the act's hero
-  if(m.id==='a1m1' && !creepCamps.length) spawnCreepCamps();   // seed the ash road with neutral creep camps
-  const tip=document.getElementById('tip'); if(tip)tip.classList.add('hide');   // campaign uses the conversation, not the skirmish tip
-  const showObj=()=>{ if(objBannerEl){ objBannerEl.textContent='◈ '+m.objective; objBannerEl.style.display='block'; } };
+  if(resultEl)resultEl.style.display='none';
+  // rebuild the world for this mission's map (build() spins up a fresh scene)
+  applyLevel(m.id); resetWorld(); heroKind=m.hero; build(); spawnGame(); initFog();
+  pickHero(m.hero);   // sets kit + started=true + audio; re-riggizes the freshly-spawned hero
+  const tip=document.getElementById('tip'); if(tip)tip.classList.add('hide');
+  const showObj=()=>{ if(objBannerEl){ objBannerEl.textContent='◈ '+m.objective; objBannerEl.style.display='block'; } startTutorial(m); };
   if(m.lines&&m.lines.length) playDialog(m.lines, showObj); else showObj(); }
+// ---- hard-gated tutorial coach: sequential steps, each waits for its gate; highlights the control ----
+let TUT=null, _tutStart=null, _camTouched=false;
+function coachEl(){ let el=document.getElementById('coach'); if(!el){
+    const st=document.createElement('style'); st.textContent='.tutHi{outline:3px solid #ffd24a!important;border-radius:14px;animation:tutpulse 1.1s ease-in-out infinite} @keyframes tutpulse{0%,100%{box-shadow:0 0 0 0 rgba(255,210,74,.55)}50%{box-shadow:0 0 0 12px rgba(255,210,74,0)}}'; document.head.appendChild(st);
+    el=document.createElement('div'); el.id='coach';
+    el.style.cssText='position:fixed;left:50%;top:118px;transform:translateX(-50%);z-index:58;max-width:min(90vw,560px);background:rgba(12,16,22,0.9);color:#e7edf3;border:1px solid #c79a42;border-radius:10px;padding:10px 16px;font:600 14px/1.4 system-ui;text-align:center;box-shadow:0 6px 22px rgba(0,0,0,.55);transition:opacity .3s;display:none';
+    document.body.appendChild(el); }
+  return el; }
+function tutHighlight(hi){ document.querySelectorAll('.tutHi').forEach(e=>e.classList.remove('tutHi'));
+  const el = hi==='joystick'?joyBase : hi==='hit'?hitEl : hi==='cam'?camEl : null; if(el)el.classList.add('tutHi'); }
+const TUT_SCRIPTS={
+  a1m1:[
+    {text:'Drag the left stick (bottom-left) to march Valdris up the road.', hi:'joystick', gate:()=>hero&&_tutStart&&Math.hypot(hero.px-_tutStart.x,hero.pz-_tutStart.z)>12},
+    {text:'Tap “Cam” (top-right) to free the camera, then drag anywhere to look around.', hi:'cam', gate:()=>_camTouched},
+    {text:'Ash-hounds block the road! Lead your warband into them — tap HIT when a beast is in reach.', hi:'hit', gate:()=>!creepCamps.length||creepCamps.every(c=>c.cleared)},
+    {text:'Your outpost stands here. Tap a glowing plot and build a Barracks to raise troops.', gate:()=>plots.some(p=>p.cat==='army')},
+    {text:'Well built. Now raise an Arrow Tower on a turret plot to guard the road.', gate:()=>plots.some(p=>p.cat==='defense')},
+    {text:'Forward, Marshal — march on the raider outpost and raze its throne!', hi:null, gate:()=>false},
+  ],
+  a1m2:[
+    {text:'March out with your warband — drag the left stick to move.', hi:'joystick', gate:()=>hero&&_tutStart&&Math.hypot(hero.px-_tutStart.x,hero.pz-_tutStart.z)>12},
+    {text:'Beasts range the fords. Clear the creep camps blocking the crossing.', hi:'hit', gate:()=>!creepCamps.length||creepCamps.every(c=>c.cleared)},
+    {text:'Build a House (economy plot) to raise your supply cap.', gate:()=>plots.some(p=>p.cat==='economy')},
+    {text:'Now a Barracks — then train a warband from it.', gate:()=>plots.some(p=>p.cat==='army')},
+    {text:'Raise a Tower to hold the fords, then break the raider camp!', gate:()=>plots.some(p=>p.cat==='defense')},
+    {text:'Assault the raider camp and raze its throne!', hi:null, gate:()=>false},
+  ],
+};
+function startTutorial(m){ const steps=TUT_SCRIPTS[m.id]; if(!steps){ TUT=null; coachEl().style.display='none'; return; }
+  TUT={steps,i:0}; _tutStart=hero?{x:hero.px,z:hero.pz}:null; _camTouched=false; coachEl().style.display='block'; showCoach(); }
+function showCoach(){ const el=coachEl(); if(!TUT||TUT.i>=TUT.steps.length){ el.style.display='none'; tutHighlight(null); return; }
+  const s=TUT.steps[TUT.i]; el.textContent='◈ '+s.text; el.style.opacity='1'; tutHighlight(s.hi); }
+function tutTick(){ if(!TUT)return; const s=TUT.steps[TUT.i]; if(!s)return; if(s.gate&&s.gate()){ TUT.i++;
+    if(TUT.i<TUT.steps.length){ if(typeof sfx==='function')sfx('build'); showCoach(); } else { coachEl().style.display='none'; tutHighlight(null); TUT=null; } } }
 // ---- WC3-style conversation banner: a queue of {who,icon,text}; tap advances; onDone fires after the last line ----
 let dialogActive=false, _dq=[], _dqDone=null;
 function playDialog(lines, onDone){ if(!dialogEl||!lines||!lines.length){ if(onDone)onDone(); return; }
@@ -1762,6 +1838,7 @@ function drawLasso(){ if(!lctx)return; lctx.clearRect(0,0,lcv.width,lcv.height);
 
 function endGame(win){ gameOver=win?1:2; sfx(win?'win':'lose'); resultEl.style.display='flex';
   if(objBannerEl)objBannerEl.style.display='none';
+  if(TUT){ TUT=null; const ce=document.getElementById('coach'); if(ce)ce.style.display='none'; tutHighlight(null); }
   const h=resultEl.querySelector('h1'); h.textContent=win?'Victory!':'Defeated'; h.style.color=win?'#8be04a':'#e05a5a';
   const sub=resultEl.querySelector('.sub');
   if(gameMode==='campaign' && activeMission){ if(win)campMarkClear(activeMission.id);
@@ -1795,7 +1872,7 @@ function updateGame(dt){
         const nx=hero.px+dx*hero.spd*dt, nz=hero.pz+dz*hero.spd*dt; if(onIsland(nx,nz))setP(hero,nx,nz); else hero.order=null;
         faceTo(hero,dx,dz); hero.movedThis=true; heroMoved=true;
         heroFwd.x+=(dx-heroFwd.x)*Math.min(1,dt*6); heroFwd.z+=(dz-heroFwd.z)*Math.min(1,dt*6); } }
-    if(!camLocked && ml>0.001){ // camera stick: PROPORTIONAL pan (deflection^2 curve — fine control near centre,
+    if(!camLocked && ml>0.001){ _camTouched=true; // camera stick: PROPORTIONAL pan (deflection^2 curve — fine control near centre,
       // fast at full tilt), not the hero's normalized fixed-speed movement — a camera, not a character
       const m=Math.min(1,ml), nx=mvx/ml, nz=mvz/ml, sp=110*Math.max(0.6,camF.dist/66)*m*m;
       camAim.x+=nx*sp*dt; camAim.z+=nz*sp*dt; clampAim(); }
@@ -1838,6 +1915,13 @@ function updateGame(dt){
     for(const e of enemies){ if(!e.alive)continue; e.cd-=dt; if(e.rageT>0)e.rageT-=dt;
       if(e.stunT>0){ e.stunT-=dt; e.state='idle'; if(e.rigged){ e.mixer.update(dt); setAnim(e,'idle'); } continue; }   // Hammer of Justice stun: frozen
       if(e.creep){ creepTick(e,dt); continue; }   // neutral creeps run their own dormant/leashed AI
+      if(e.__campGuard){ const h=e.__home; if(e.target&&!e.target.alive)e.target=null;   // raider-camp defender: leashed to the camp
+        if(Math.hypot(e.px-h.x,e.pz-h.z)>30){ e.target=null; if(Math.hypot(e.px-h.x,e.pz-h.z)>4){e.state='move';moveTo(e,h.x,h.z,dt);}else e.state='idle'; }
+        else { if(!e.target){ const {t}=nearest(e.px,e.pz,[hero,...allies].filter(u=>u&&u.alive)); if(t&&Math.hypot(t.px-h.x,t.pz-h.z)<28)e.target=t; }
+          if(e.target){ const t=e.target, reach=e.range+(t.big||0), d=Math.hypot(t.px-e.px,t.pz-e.pz);
+            if(d>reach){e.state='move';moveTo(e,t.px,t.pz,dt);}else{e.state='attack';faceTo(e,t.px-e.px,t.pz-e.pz); if(e.ranged&&e.cd<=0)shootFx(e.px,e.pz,t.px,t.pz,e.kind==='shaman'?'fire':(e.magic?'magic':'arrow')); attack(e,t);} }
+          else { const d=Math.hypot(e.px-h.x,e.pz-h.z); if(d>3){e.state='move';moveTo(e,h.x,h.z,dt);}else e.state='idle'; } }
+        if(e.rigged){ e.mixer.update(dt); setAnim(e,e.state==='attack'?'attack':(e.state==='move'?'run':'idle')); } continue; }
       if(e.target && !e.target.alive) e.target=null;
       if(!e.target){ const {t}=nearest(e.px,e.pz,[hero,...allies,coreB].filter(Boolean)); e.target=t; }   // fight units, or march on the throne
       if(e.isBoss) bossTick(e,dt);
@@ -1853,7 +1937,7 @@ function updateGame(dt){
         for(const t of [hero,...allies]){ if(!t.alive||!t.max||claims.has(t))continue; if(t.hp/t.max>=0.9)continue;
           if(Math.hypot(t.px-e.px,t.pz-e.pz)>18)continue; const def=t.max-t.hp; if(def>bestDef){bestDef=def;best=t;} }
         if(best){ best.hp=Math.min(best.max,best.hp+24); claims.add(best); e.healCd=2.8; healFx(best); popDmg(best.px,topY(best.px,best.pz)+3.4,best.pz,'+24','heal'); } } }
-    separate(); loco(dt); baseTick(dt); eBaseTick(dt); if(creepCamps.length) updateCamps(dt);
+    separate(); loco(dt); baseTick(dt); eBaseTick(dt); if(creepCamps.length) updateCamps(dt); tutTick();
     const reap=l=>{ for(const e of l){ if(e.alive&&e.hp<=0){ e.alive=false; deathFx(e); if(e.vfx)e.vfx.dispose(); scene.remove(e.g); scene.remove(e.bar); if(e.ring){scene.remove(e.ring); selected.delete(e);} if(e.team==='enemy')killed++; } } return l.filter(e=>e.alive); };
     allies=reap(allies); enemies=reap(enemies);
     for(const s of eStructs){ if(s.alive&&s.hp<=0){ s.alive=false; deathFx(s); scene.remove(s.g); scene.remove(s.bar);
@@ -1885,7 +1969,7 @@ function followCam(dt){
   // keep the shadow frustum centred on what the camera is looking at, so shadows stay sharp across the big map
   if(sunLight){ sunLight.target.position.set(camAim.x,0,camAim.z); sunLight.target.updateMatrixWorld();
     sunLight.position.set(camAim.x+sun.x*130, sun.y*130, camAim.z+sun.z*130); } }
-function toggleCam(){ camLocked=!camLocked; applyCamMode(); if(camLocked&&hero){ camAim.x=hero.px; camAim.z=hero.pz; } }
+function toggleCam(){ camLocked=!camLocked; _camTouched=true; applyCamMode(); if(camLocked&&hero){ camAim.x=hero.px; camAim.z=hero.pz; } }
 function toggleViewPop(){ if(!viewPop)return;
   if(viewPop.style.display==='flex'){ viewPop.style.display='none'; return; }
   viewPop.innerHTML=''; const arrows=['\u2196','\u2197','\u2198','\u2199'];
@@ -1959,7 +2043,9 @@ function setupHUD(){
                 ['paladin','shield','Paladin','Holy tank — Consecration · Hammer of Justice · Divine Shield. Durable, stuns, invulnerable.']];
   for(const [k,icn,nm,blurb] of HEROES){ const c=document.createElement('div'); c.className='hc';
     c.innerHTML='<div class="ic">'+ic(icn)+'</div><div class="nm">'+nm+'</div><div class="kit">'+blurb+'</div>';
-    c.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); gameMode='skirmish'; pickHero(k); }); cards.appendChild(c); }
+    c.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); gameMode='skirmish'; activeMission=null;
+      if(LVID!=='skirmish'){ applyLevel('skirmish'); resetWorld(); heroKind=k; build(); spawnGame(); initFog(); }   // came from a campaign map → rebuild skirmish
+      pickHero(k); }); cards.appendChild(c); }
   document.body.appendChild(heroSelEl);   // hidden until the player picks Skirmish (mode-select gates it)
   refreshRadial();   // initialise the radial in hero mode
 
