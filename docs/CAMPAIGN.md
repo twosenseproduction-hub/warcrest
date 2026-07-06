@@ -39,7 +39,7 @@ army — and that it raises the war's own fallen — lands as the Act III/IV rev
 |---|---|---|---|
 | **Iron Crown** (`aurex`) | *hold the line* | **Muster** — units near Towers/Throne gain armor/damage | **Valdris the Ironwarden** (vanguard), **Seraphine** (channeler) |
 | **Raider Horde** (`cinder`) | *reclaim* | **Bloodfury** — kills snowball nearby damage/speed | **Skrix** (saboteur), **Grollusk** (hex shaman) |
-| **Rimwalkers** (`rimwalker`) — *future* | *outlast* | **Grove Bond** — buildings/units regrow in grove tiles | **Aelindra Ashveil** (tendkeeper) |
+| **Rimwalkers** (`rimwalker`) — *future* | *outlast* | **Grove Bond** — buildings/units regrow in grove tiles | **Aelindra Ashveil** (moonfire warden) |
 
 Hero kits are specified in `LORE.md` (passive + Lv1/Lv3/Lv5). The current build's
 **Paladin** maps to **Valdris** (Iron Crown tank); the **Elf-Queen/Warden** kit is

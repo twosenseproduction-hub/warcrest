@@ -2186,7 +2186,7 @@ function setupHUD(){
   const cards=heroSelEl.querySelector('.cards');
   const HEROES=[['queen','sword','Elf Queen','Warden — Blink · Fan of Knives · Shadow Strike. Fast, evasive, poison burst.'],
                 ['paladin','shield','Paladin','Holy tank — Consecration · Hammer of Justice · Divine Shield. Durable, stuns, invulnerable.'],
-                ['aelindra','archer','Aelindra Ashveil','Wild Rider — Windstep · Volley · Moonfire. Fast, evasive moonfire archer who kites the field.']];
+                ['aelindra','archer','Aelindra Ashveil','Moonfire Warden — Windstep · Volley · Moonfire. The oldest Rimwalker: a fast, evasive archer who kites the field with moonfire arrows.']];
   for(const [k,icn,nm,blurb] of HEROES){ const c=document.createElement('div'); c.className='hc';
     c.innerHTML='<div class="ic">'+ic(icn)+'</div><div class="nm">'+nm+'</div><div class="kit">'+blurb+'</div>';
     c.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); gameMode='skirmish'; activeMission=null;

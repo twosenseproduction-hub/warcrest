@@ -92,7 +92,7 @@ They know the Deepvein secret. They have been containing it for three centuries.
 #### Key Rimwalker Figures
 | Name | Role |
 |---|---|
-| **Aelindra Ashveil** | Tendkeeper of the High Rim Hold — oldest living Rimwalker, remembers the Ashfall |
+| **Aelindra Ashveil** | Moonfire Warden of the High Rim Hold — oldest living Rimwalker, remembers the Ashfall |
 | **Toryn Greywarden** | Scout and emissary — most willing to engage with both factions |
 | **The Silent Council** | Collective of all Tendkeepers — governs nothing, observes everything |
 
@@ -162,15 +162,15 @@ Ancient gnoll shaman. Speaks to every Horde member who died fighting the Iron Cr
 
 ### Rimwalkers (Future Expansion)
 
-#### Aelindra Ashveil — Tendkeeper
-*"I watched the Spine fall. I have been patient ever since."*
+#### Aelindra Ashveil — Moonfire Warden
+*"I watched the Spine fall. Every arrow since has been an answer."*
 
-Oldest living Rimwalker. Was a young Sylhen during the Ashfall. Does not enter wars. Until now.
+Oldest living Rimwalker. Was a young Sylhen during the Ashfall. Does not enter wars. Until now — and when she does, she walks the ash on foot and light, loosing moonfire arrows from the treeline, never still long enough to be answered.
 
-- **Passive — Ancient Root:** Cannot be knocked back. +4 tile vision radius.
-- **Lv1 — Thornwall:** Roots block movement in a line for 8s.
-- **Lv3 — Verdant Pulse:** 300px — heals friendlies 45hp, damages enemies 45.
-- **Lv5 — The Ashfall:** 240px AoE, 3s cast, 300 damage + 5s silence. Named after the catastrophe.
+- **Passive — Never Still:** Cannot be knocked back. Sees 3 tiles farther. Arrows from beyond 120px hit +25% (hit-and-run kiting).
+- **Lv1 — Arrowfall Line:** A raked line of moonfire shafts blocks movement for 8s.
+- **Lv3 — Moonwell Shot:** 300px — a moon-blessed arrow heals friendlies 45hp, sears enemies 45.
+- **Lv5 — The Ashfall:** 240px moonfire arrow-storm, 3s draw, 300 damage + 5s silence. Named after the catastrophe.
 
 ---
 

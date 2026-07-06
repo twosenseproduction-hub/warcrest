@@ -377,20 +377,20 @@
       faction: 'rimwalker',
       name: 'Aelindra Ashveil',
       shortName: 'Aelindra',
-      class: 'Wild Rider',
+      class: 'Moonfire Warden',
       role: 'hero',
-      quote: 'I watched the Spine fall. Now I ride its memory into them.',
+      quote: 'I watched the Spine fall. Every arrow since has been an answer.',
       lore: 'The oldest living Rimwalker. She was a young Sylhen during the Ashfall and ' +
             'carries the memory of the Verdant Spine like a wound. She does not enter wars — ' +
-            'until now. She rides to this one on a great Rimcat, loosing moonfire arrows ' +
-            'from the saddle, never still long enough to be answered.',
+            'until now. She walks the ash on foot and light, loosing moonfire arrows from ' +
+            'the treeline, never still long enough to be answered.',
       playable: true,
       portraitFile: 'Aelindra_Idle.png',
 
       hp: 340,
-      speed: 158,        // mounted — fast
+      speed: 158,        // light-footed — fast
       dmg: 24,
-      range: 190,        // longbow from the saddle
+      range: 190,        // moonfire longbow
       rof: 0.8,
       ranged: true,
       supply: 0,
@@ -398,11 +398,11 @@
       trainTime: 28,
 
       passive: {
-        id: 'wind_rider',
-        name: 'Wind Rider',
-        desc: 'Aelindra rides a great Rimcat: she cannot be knocked back, sees 3 tiles ' +
-              'farther, and arrows loosed from beyond 120px strike for +25% — reward for ' +
-              'hit-and-run kiting.',
+        id: 'never_still',
+        name: 'Never Still',
+        desc: 'Aelindra reads a blow before it lands and gives ground: she cannot be ' +
+              'knocked back, sees 3 tiles farther, and arrows loosed from beyond 120px ' +
+              'strike for +25% — reward for hit-and-run kiting.',
         knockbackImmune: true,
         visionBonus: 3,
         longshotPx: 120,
@@ -412,19 +412,20 @@
       abilities: [
         {
           id: 'thornwall',
-          name: 'Thornwall',
+          name: 'Arrowfall Line',
           unlockLevel: 1,
           cooldown: 14,
-          desc: 'Grows a line of roots blocking unit movement for 8s.',
+          desc: 'Rakes a line of moonfire shafts into the ground, blocking unit movement for 8s.',
           wallLength: 240,
           duration: 8,
         },
         {
           id: 'verdant_pulse',
-          name: 'Verdant Pulse',
+          name: 'Moonwell Shot',
           unlockLevel: 3,
           cooldown: 20,
-          desc: 'Heals all friendly units in 300px for 45hp. Damages enemies for 45.',
+          desc: 'Looses a moon-blessed arrow skyward; its falling light heals allies in 300px ' +
+                'for 45hp and sears enemies for 45.',
           radius: 300,
           healAmt: 45,
           dmgAmt: 45,
@@ -434,7 +435,7 @@
           name: 'The Ashfall',
           unlockLevel: 5,
           cooldown: 55,
-          desc: 'Massive AoE silence and damage across 240px. 3s cast time. ' +
+          desc: 'Calls down a sky-blackening moonfire arrow-storm across 240px. 3s to draw. ' +
                 'Named after the catastrophe that made Aelindra what she is.',
           radius: 240,
           castTime: 3.0,
