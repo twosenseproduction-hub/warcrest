@@ -1262,16 +1262,17 @@ function bakeStatic(o){ o.updateMatrixWorld(true); const parts=[]; let hadSkin=f
 const bakeProp=bakeStatic;   // back-compat alias for the weapon-prop loader
 function loadRig(){ return new Promise(res=>{
   const gl=new THREE.GLTFLoader(), fx=new THREE.FBXLoader(), tl=new THREE.TextureLoader();
+  const MDLV='?v=3';   // asset cache-buster — bump on any model/texture change so /assets max-age=86400 doesn't pin a stale rig (index.html revalidates, so a new ?v reaches clients at once)
   const propFiles=[...new Set(Object.values(WEAPONS).flat().map(w=>w.file))];
   let n=0, need=RIG_SPECS.length*2 + propFiles.length; const done=()=>{ if(++n>=need) res(); };   // body GLB + atlas per char, + each prop once
   RIG_SPECS.forEach(([k,f])=>{
-    gl.load('/assets/models/'+f+'_anim.glb', g=>{
+    gl.load('/assets/models/'+f+'_anim.glb'+MDLV, g=>{
       if(k==='thoryn'||k==='drake'||k==='aelindra'||CREEP_KEYS.includes(k)) g.scene.traverse(o=>{ if(o.isMesh&&o.material&&o.material.map){   // Tripo/PBR (metallic) renders black in our unlit look — flatten to Basic like every other unit
         const t=o.material.map; if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; o.material=new THREE.MeshBasicMaterial({map:t,side:THREE.DoubleSide}); } });
       RIGS[k]={scene:g.scene,anims:g.animations}; done(); }, undefined, ()=>done());
-    tl.load('/assets/models/'+f+'_tex.png', t=>{ t.flipY=true; t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter; t.generateMipmaps=false; if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; TEXS[k]=t; done(); }, undefined, ()=>done());
+    tl.load('/assets/models/'+f+'_tex.png'+MDLV, t=>{ t.flipY=true; t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter; t.generateMipmaps=false; if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; TEXS[k]=t; done(); }, undefined, ()=>done());
   });
-  propFiles.forEach(f=>fx.load('/assets/models/'+f+'.fbx', o=>{ PROPS[f]=bakeProp(o); done(); }, undefined, ()=>done()));
+  propFiles.forEach(f=>fx.load('/assets/models/'+f+'.fbx'+MDLV, o=>{ PROPS[f]=bakeProp(o); done(); }, undefined, ()=>done()));
 }); }
 // clone a rig (independent per unit), crisp texture, scale to target height, plant feet, wire clips
 function makeChar(key){ const src=RIGS[key]; if(!src)return null;
