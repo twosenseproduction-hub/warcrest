@@ -1224,7 +1224,7 @@ function faceTo(e,dx,dz){ if(dx||dz) e.face=Math.atan2(dx,dz); }
 // Each GLB packs the mesh once + all its clips; the clips are authored on the Bitgem
 // skeleton so they play with no retarget. Textures are embedded (palette atlas, UVs
 // pre-flipped) — we just force NearestFilter so swatches sample solid, not the black gaps.
-const RIGS={}, PROPS={}, TEXS={}; const CHAR_H={thoryn:4.8, queen:4.4, paladin:4.4, archer:3.6, priestess:3.8, warrior:3.9, chief:4.9, orcarcher:3.7, orcgrunt:3.7, orcwarrior:4.1, orcshaman:3.7, drake:5.4,
+const RIGS={}, PROPS={}, TEXS={}; const CHAR_H={thoryn:4.8, queen:4.4, paladin:4.4, aelindra:4.4, archer:3.6, priestess:3.8, warrior:3.9, chief:4.9, orcarcher:3.7, orcgrunt:3.7, orcwarrior:4.1, orcshaman:3.7, drake:5.4,
   cinderhound:3.0, direboar:3.4, emberspitter:3.0, ashtreant:6.5, moltenwisp:3.8, wyveling:4.2, revenant:5.6,
   hfootman:4.0, harcher:3.9, hknight:4.2, hmage:3.9};   // neutral creeps (ash-basin bestiary)
 const CREEP_KEYS=['cinderhound','direboar','emberspitter','ashtreant','moltenwisp','wyveling','revenant'];   // Tripo/PBR rigs — flatten to the unlit look like thoryn
@@ -1244,7 +1244,7 @@ const WEAPONS={
   hknight:  [{file:'sword_human_knight', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
   hmage:    [{file:'staff_human_mage', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
 };
-const RIG_SPECS=[['thoryn','thoryn'],['queen','elf_queen'],['paladin','human_paladin'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior'],['chief','orc_chieftain'],['orcarcher','orc_archer'],['orcgrunt','orc_grunt'],['orcwarrior','orc_warrior'],['orcshaman','orc_shaman'],
+const RIG_SPECS=[['thoryn','thoryn'],['queen','elf_queen'],['paladin','human_paladin'],['aelindra','aelindra'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior'],['chief','orc_chieftain'],['orcarcher','orc_archer'],['orcgrunt','orc_grunt'],['orcwarrior','orc_warrior'],['orcshaman','orc_shaman'],
   ['cinderhound','cinder_hound'],['direboar','direboar'],['emberspitter','ember_spitter'],['ashtreant','ash_treant'],['moltenwisp','molten_wisp'],['wyveling','wyveling'],['revenant','stone_revenant'],   // neutral creeps
   ['hfootman','human_footman'],['harcher','human_archer'],['hknight','human_knight'],['hmage','human_mage']];   // Iron Crown units
 // Several FBX (the elf/orc bows AND every elf building) export as SkinnedMesh with a rigid little
@@ -1266,7 +1266,7 @@ function loadRig(){ return new Promise(res=>{
   let n=0, need=RIG_SPECS.length*2 + propFiles.length; const done=()=>{ if(++n>=need) res(); };   // body GLB + atlas per char, + each prop once
   RIG_SPECS.forEach(([k,f])=>{
     gl.load('/assets/models/'+f+'_anim.glb', g=>{
-      if(k==='thoryn'||k==='drake'||CREEP_KEYS.includes(k)) g.scene.traverse(o=>{ if(o.isMesh&&o.material&&o.material.map){   // Tripo/PBR (metallic) renders black in our unlit look — flatten to Basic like every other unit
+      if(k==='thoryn'||k==='drake'||k==='aelindra'||CREEP_KEYS.includes(k)) g.scene.traverse(o=>{ if(o.isMesh&&o.material&&o.material.map){   // Tripo/PBR (metallic) renders black in our unlit look — flatten to Basic like every other unit
         const t=o.material.map; if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; o.material=new THREE.MeshBasicMaterial({map:t,side:THREE.DoubleSide}); } });
       RIGS[k]={scene:g.scene,anims:g.animations}; done(); }, undefined, ()=>done());
     tl.load('/assets/models/'+f+'_tex.png', t=>{ t.flipY=true; t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter; t.generateMipmaps=false; if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; TEXS[k]=t; done(); }, undefined, ()=>done());
@@ -1659,6 +1659,7 @@ let heroKind='queen', started=false, holyGrounds=[]; try{ heroKind=localStorage.
 const HERO_KIT={
   queen:  {name:'Elf Queen', rig:'queen', a:{icon:'fan',cap:'Fan',cd:6}, spell:{icon:'shadow',cap:'Strike',cd:8}, blink:{icon:'blink',cap:'Blink',cd:7}},
   paladin:{name:'Paladin', rig:'paladin', a:{icon:'holy',cap:'Bless',cd:7}, spell:{icon:'hammer',cap:'Hammer',cd:8}, blink:{icon:'shield',cap:'Shield',cd:12}},
+  aelindra:{name:'Aelindra', rig:'aelindra', a:{icon:'fan',cap:'Volley',cd:7}, spell:{icon:'archer',cap:'Moonfire',cd:7}, blink:{icon:'blink',cap:'Windstep',cd:6}},
 };
 function nearestAllyTo(x,z,maxd){ let b=null,bd=maxd*maxd;
   for(const e of [hero,...allies]){ if(!e||!e.alive)continue; const dd=(e.px-x)**2+(e.pz-z)**2; if(dd<bd){bd=dd;b=e;} } return b; }
@@ -2184,7 +2185,8 @@ function setupHUD(){
   heroSelEl.innerHTML='<h2>Choose your Hero</h2><div class="cards"></div>';
   const cards=heroSelEl.querySelector('.cards');
   const HEROES=[['queen','sword','Elf Queen','Warden — Blink · Fan of Knives · Shadow Strike. Fast, evasive, poison burst.'],
-                ['paladin','shield','Paladin','Holy tank — Consecration · Hammer of Justice · Divine Shield. Durable, stuns, invulnerable.']];
+                ['paladin','shield','Paladin','Holy tank — Consecration · Hammer of Justice · Divine Shield. Durable, stuns, invulnerable.'],
+                ['aelindra','archer','Aelindra Ashveil','Wild Rider — Windstep · Volley · Moonfire. Fast, evasive moonfire archer who kites the field.']];
   for(const [k,icn,nm,blurb] of HEROES){ const c=document.createElement('div'); c.className='hc';
     c.innerHTML='<div class="ic">'+ic(icn)+'</div><div class="nm">'+nm+'</div><div class="kit">'+blurb+'</div>';
     c.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); gameMode='skirmish'; activeMission=null;
