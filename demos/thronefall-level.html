@@ -1232,6 +1232,7 @@ const CREEP_KEYS=['cinderhound','direboar','emberspitter','ashtreant','moltenwis
 const WEAPONS={
   queen:    [{file:'glaive_elf_queen', bone:'hand_r', pos:[-6.2,-1.25,-0.1], rot:[Math.PI/2,-1.326,0], scl:1}],
   paladin:  [{file:'hammer_human_paladin', bone:'hand_r', pos:[-8.4,-2.6,0], rot:[Math.PI/2,1.379,0.035], scl:1}],
+  aelindra: [{file:'bow_elf_archer',   bone:'LeftHand', pos:[0,0,0], rot:[0,0,0], scl:0.0075}],
   archer:   [{file:'bow_elf_archer',   bone:'hand_l', pos:[10,-3.55,0], rot:[-2.845,Math.PI/2,-1.518], scl:0.86}],
   priestess:[{file:'magic_ball',       bone:'hand_r', pos:[-10,-10,6.9], rot:[0,0,0], scl:0.52}],
   warrior:  [{file:'sword_elf_warrior', bone:'hand_r', pos:[-10,-2.55,0.3], rot:[Math.PI/2,2.705,Math.PI], scl:0.66},
@@ -1262,7 +1263,7 @@ function bakeStatic(o){ o.updateMatrixWorld(true); const parts=[]; let hadSkin=f
 const bakeProp=bakeStatic;   // back-compat alias for the weapon-prop loader
 function loadRig(){ return new Promise(res=>{
   const gl=new THREE.GLTFLoader(), fx=new THREE.FBXLoader(), tl=new THREE.TextureLoader();
-  const MDLV='?v=3';   // asset cache-buster — bump on any model/texture change so /assets max-age=86400 doesn't pin a stale rig (index.html revalidates, so a new ?v reaches clients at once)
+  const MDLV='?v=4';   // asset cache-buster — bump on any model/texture change so /assets max-age=86400 doesn't pin a stale rig (index.html revalidates, so a new ?v reaches clients at once)
   const propFiles=[...new Set(Object.values(WEAPONS).flat().map(w=>w.file))];
   let n=0, need=RIG_SPECS.length*2 + propFiles.length; const done=()=>{ if(++n>=need) res(); };   // body GLB + atlas per char, + each prop once
   RIG_SPECS.forEach(([k,f])=>{
