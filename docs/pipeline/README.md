@@ -7,16 +7,24 @@ Philosophy modeled after high-throughput 3D pipelines (Meshy-style generate → 
 and Mixamo-style guided auto-rigging and motion reuse — but re-engineered around
 *determinism and stylistic consistency* rather than one-off creativity.
 
+> **We are building our own product in this category — not a wrapper around Meshy/Tripo/Mixamo.**
+> Those are benchmarks for UX and scope, and at most temporary MVP accelerants behind an
+> adapter seam. The deterministic governor, DNA, rigging, retargeting, and consistency engine
+> are proprietary IP we own from day one. See **[`OWNERSHIP.md`](./OWNERSHIP.md)** for the
+> core-vs-rent-vs-benchmark map and the progressive rent→own replacement roadmap.
+
 ---
 
 ## 0. First principles
 
 1. **Every AI output is a candidate, never a final asset.** Nothing enters the game
    library until it passes style, topology, rig, deformation, and export validation.
-2. **Blender is the governor, not a participant.** Generation tools (Meshy, text-to-3D,
-   text-to-motion) are treated as *untrusted upstream vendors*. Blender in `--background`
-   mode normalizes, validates, rigs, tests, and exports. If Blender rejects it, it does
-   not ship.
+2. **Blender is the governor, not a participant.** Generation tools (our own models, or —
+   temporarily — Meshy/Tripo behind an adapter) are treated as *untrusted, swappable upstream
+   sources*. Blender in `--background` mode normalizes, validates, rigs, tests, and exports.
+   If Blender rejects it, it does not ship. Because the governor is source-agnostic, we can
+   swap a rented generator for our own model with zero downstream change (see
+   [`OWNERSHIP.md`](./OWNERSHIP.md) §2).
 3. **Consistency beats novelty.** We constrain the generative space aggressively:
    template meshes, canonical skeletons, locked palettes, fixed export presets.
 4. **Determinism where possible, templating where not, humans only where necessary.**
@@ -298,7 +306,9 @@ human**; MVP prefers *template-constrained* meshes that already satisfy topology
 - Landmark source, in priority order: (a) template inheritance — if built from an approved
   template, landmarks are already parameterized on it (fully deterministic); (b) automatic
   landmark detection from mesh geometry (curvature/extremity heuristics + proportion prior
-  from DNA); (c) human placement in a lightweight web viewer that writes a `landmarks.json`.
+  from DNA); (c) human placement in our own web tool
+  [`tools/rig-landmark-calibrator.html`](../../tools/rig-landmark-calibrator.html), which
+  writes the `landmarks.json` this stage consumes.
 - Skeleton is **generated from the canonical skeleton by fitting**, not created fresh:
   we load `skeletons/<canon_id>.blend`, snap its joints to the landmarks, scale-fit
   segment lengths, and select the hand sub-rig by `finger_schema`. This guarantees the
@@ -614,7 +624,9 @@ gate hard. Repeatability is achieved by (a) constraining generation heavily and
 ### MVP — "Deterministic governor + template-constrained assets"
 Prove consistency with the least generative risk.
 - **Generation:** reference-guided + **template-constrained variation** only (vary an
-  approved template within DNA ranges). No free text-to-3D in the critical path.
+  approved template within DNA ranges) — this is *our* IP. No free text-to-3D in the critical
+  path. A rented generator (Meshy/Tripo) may sit behind the `MeshSource` adapter for net-new
+  bases only, isolated and measured, per [`OWNERSHIP.md`](./OWNERSHIP.md).
 - **Blender governor:** S2–S6, S8 (landmark from template + human fallback), S9–S11,
   S13–S15. S7 retopo mostly avoided because templates are already clean.
 - **Rig:** `canon_biped_v2` + one hand preset to start; landmark placement web tool.
@@ -654,6 +666,8 @@ get stricter and better instrumented.
 
 | File | Purpose |
 |------|---------|
+| [`OWNERSHIP.md`](./OWNERSHIP.md) | Core-vs-rent-vs-benchmark IP map + rent→own replacement roadmap |
+| [`../../tools/rig-landmark-calibrator.html`](../../tools/rig-landmark-calibrator.html) | Working guided landmark-placement tool → exports `landmarks.json` |
 | [`character-dna.schema.json`](./character-dna.schema.json) | JSON Schema for Character DNA |
 | [`qa-thresholds.json`](./qa-thresholds.json) | Locked validation thresholds |
 | [`qa-report.schema.json`](./qa-report.schema.json) | Schema for the machine-readable QA report |
