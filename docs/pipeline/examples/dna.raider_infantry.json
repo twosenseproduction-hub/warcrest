@@ -1,0 +1,95 @@
+{
+  "dna_id": "raider_infantry",
+  "version": "1.0.0",
+  "inherits": "raider_faction",
+  "style_pack_id": "raider_v1",
+
+  "silhouette_class": "bulky_bruiser",
+
+  "body_proportions": {
+    "head_height_units":    { "min": 5.5, "max": 6.0, "target": 5.75 },
+    "shoulder_width_heads": { "min": 2.6, "max": 2.9, "target": 2.75 },
+    "hip_width_heads":      { "min": 1.6, "max": 1.9, "target": 1.75 },
+    "arm_to_height":        { "min": 0.42, "max": 0.46, "target": 0.44 },
+    "leg_to_height":        { "min": 0.46, "max": 0.50, "target": 0.48 }
+  },
+
+  "scale_m": {
+    "height_m": { "min": 1.9, "max": 2.1, "target": 2.0 },
+    "origin": "floor_center",
+    "origin_tolerance_mm": 1.0,
+    "up_axis": "Z"
+  },
+
+  "poly_budget": {
+    "lods": [
+      { "lod": 0, "tris": { "min": 8000, "max": 14000 } },
+      { "lod": 1, "tris": { "min": 4000, "max": 7000 } },
+      { "lod": 2, "tris": { "min": 1500, "max": 3000 } }
+    ]
+  },
+
+  "topology_rules": {
+    "quad_pct_min": 90.0,
+    "min_loops_at_deform_joints": 3,
+    "max_pole_valence": 5,
+    "poles_banned_on_deform_bands": true,
+    "ngons_allowed": false
+  },
+
+  "material_slots": {
+    "names": ["body", "armor", "cloth", "metal_trim"],
+    "max_count": 4
+  },
+
+  "uv_rules": {
+    "layout": "single_atlas",
+    "min_texel_density_px_per_m": 512,
+    "overlaps_allowed": "mirrored_only",
+    "seam_zones": ["inner_arm", "inner_leg", "under_armpit", "scalp_hairline"]
+  },
+
+  "texture_res_policy": {
+    "per_lod": [
+      { "lod": 0, "albedo_px": 2048, "normal_px": 2048, "orm_px": 2048 },
+      { "lod": 1, "albedo_px": 1024, "normal_px": 1024, "orm_px": 1024 },
+      { "lod": 2, "albedo_px": 512,  "normal_px": 512,  "orm_px": 512 }
+    ],
+    "channel_packing": "ORM"
+  },
+
+  "color_palette": {
+    "body":       { "hue_deg": { "min": 15, "max": 35 }, "sat": { "min": 0.25, "max": 0.55 }, "val": { "min": 0.35, "max": 0.70 }, "swatch_ref": "swatches/raider_skin.png", "delta_e_max": 5.0, "max_out_of_gamut_pct": 2 },
+    "armor":      { "hue_deg": { "min": 200, "max": 230 }, "sat": { "min": 0.20, "max": 0.50 }, "val": { "min": 0.25, "max": 0.60 }, "swatch_ref": "swatches/raider_steel.png", "delta_e_max": 5.0, "max_out_of_gamut_pct": 2 },
+    "cloth":      { "hue_deg": { "min": 0, "max": 20 }, "sat": { "min": 0.30, "max": 0.65 }, "val": { "min": 0.20, "max": 0.50 }, "swatch_ref": "swatches/raider_cloth.png", "delta_e_max": 6.0, "max_out_of_gamut_pct": 3 },
+    "metal_trim": { "hue_deg": { "min": 40, "max": 55 }, "sat": { "min": 0.30, "max": 0.70 }, "val": { "min": 0.45, "max": 0.85 }, "swatch_ref": "swatches/raider_brass.png", "delta_e_max": 5.0, "max_out_of_gamut_pct": 2 }
+  },
+
+  "accessory_points": [
+    { "name": "socket_hand_r", "parent_bone": "Hand_Wrist.R", "local_transform": { "loc": [0.0, 0.02, 0.0], "rot_euler_deg": [0, 0, 0] } },
+    { "name": "socket_hand_l", "parent_bone": "Hand_Wrist.L", "local_transform": { "loc": [0.0, 0.02, 0.0], "rot_euler_deg": [0, 0, 0] } },
+    { "name": "socket_back",   "parent_bone": "Spine_Chest",  "local_transform": { "loc": [0.0, -0.12, 0.05], "rot_euler_deg": [0, 0, 0] } },
+    { "name": "socket_head",   "parent_bone": "Neck_Head",    "local_transform": { "loc": [0.0, 0.0, 0.12], "rot_euler_deg": [0, 0, 0] } }
+  ],
+
+  "skeleton_hierarchy": "canon_biped_v2",
+
+  "joint_naming": {
+    "pattern": "<Region>_<Joint>[_<Index>].<Side>",
+    "regex": "^(Root|Hips|Spine_\\d{2}|Neck_(Head|Chin)|Clavicle|Arm_(Shoulder|Elbow|Wrist)|Leg_(Hip|Knee|Ankle|Ball|Toe)|Hand_[A-Za-z]+_\\d{2})(\\.(L|R))?$",
+    "side_suffixes": [".L", ".R"]
+  },
+
+  "finger_schema": {
+    "preset": "preset_3finger",
+    "thumb": true,
+    "digits": 2,
+    "bones_per_digit": 3
+  },
+
+  "export_schema": {
+    "engines": ["unity", "unreal", "godot", "blender"],
+    "preset_ref": "biped_gameready_v1",
+    "lod_count": 3
+  }
+}

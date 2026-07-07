@@ -1,0 +1,77 @@
+{
+  "skeleton_id": "canon_biped_v2",
+  "version": "2.0.0",
+  "description": "Canonical humanoid skeleton. Rigs are FITTED from this template (landmark solve), never authored fresh. Fixed rolls and rest transforms make fitting the only per-asset variable. Hand sub-rigs are swappable modules parented at Hand_Wrist.<Side>.",
+  "up_axis": "Z",
+  "rest_pose": "T",
+
+  "hierarchy": {
+    "Root": {
+      "Hips": {
+        "Spine_01": {
+          "Spine_02": {
+            "Spine_Chest": {
+              "Neck_Head": {
+                "Neck_Chin": {}
+              },
+              "Clavicle.L": { "Arm_Shoulder.L": { "Arm_Elbow.L": { "Arm_Wrist.L": { "__hand_module__": ".L" } } } },
+              "Clavicle.R": { "Arm_Shoulder.R": { "Arm_Elbow.R": { "Arm_Wrist.R": { "__hand_module__": ".R" } } } }
+            }
+          }
+        },
+        "Leg_Hip.L": { "Leg_Knee.L": { "Leg_Ankle.L": { "Leg_Ball.L": { "Leg_Toe.L": {} } } } },
+        "Leg_Hip.R": { "Leg_Knee.R": { "Leg_Ankle.R": { "Leg_Ball.R": { "Leg_Toe.R": {} } } } }
+      }
+    }
+  },
+
+  "landmarks": {
+    "note": "Landmarks map to the joints the fitting step solves. chin anchors the head/facial region.",
+    "chin":       "Neck_Chin",
+    "shoulder.L": "Arm_Shoulder.L", "shoulder.R": "Arm_Shoulder.R",
+    "elbow.L":    "Arm_Elbow.L",    "elbow.R":    "Arm_Elbow.R",
+    "wrist.L":    "Arm_Wrist.L",    "wrist.R":    "Arm_Wrist.R",
+    "hips":       "Hips",
+    "knee.L":     "Leg_Knee.L",     "knee.R":     "Leg_Knee.R",
+    "ankle.L":    "Leg_Ankle.L",    "ankle.R":    "Leg_Ankle.R"
+  },
+
+  "hand_modules": {
+    "preset_2finger": {
+      "description": "Thumb + 1 opposed digit, 2 bones each. Creatures / claws.",
+      "digits": {
+        "Hand_Thumb":  ["Hand_Thumb_01", "Hand_Thumb_02"],
+        "Hand_Digit1": ["Hand_Digit1_01", "Hand_Digit1_02"]
+      }
+    },
+    "preset_3finger": {
+      "description": "Thumb + 2 digits, 3 bones each. Stylized units.",
+      "digits": {
+        "Hand_Thumb":  ["Hand_Thumb_01", "Hand_Thumb_02", "Hand_Thumb_03"],
+        "Hand_Index":  ["Hand_Index_01", "Hand_Index_02", "Hand_Index_03"],
+        "Hand_Middle": ["Hand_Middle_01", "Hand_Middle_02", "Hand_Middle_03"]
+      }
+    },
+    "preset_5finger": {
+      "description": "Full human hand. Thumb 3 bones, four fingers 3 bones each.",
+      "digits": {
+        "Hand_Thumb":  ["Hand_Thumb_01", "Hand_Thumb_02", "Hand_Thumb_03"],
+        "Hand_Index":  ["Hand_Index_01", "Hand_Index_02", "Hand_Index_03"],
+        "Hand_Middle": ["Hand_Middle_01", "Hand_Middle_02", "Hand_Middle_03"],
+        "Hand_Ring":   ["Hand_Ring_01", "Hand_Ring_02", "Hand_Ring_03"],
+        "Hand_Pinky":  ["Hand_Pinky_01", "Hand_Pinky_02", "Hand_Pinky_03"]
+      }
+    }
+  },
+
+  "cross_preset_finger_map": {
+    "note": "Deterministic down-mapping used by retargeting (7.1). thumb->thumb always; primary fingers by index; extras dropped.",
+    "5_to_3": { "Hand_Thumb": "Hand_Thumb", "Hand_Index": "Hand_Index", "Hand_Middle": "Hand_Middle", "Hand_Ring": "drop", "Hand_Pinky": "drop" },
+    "3_to_2": { "Hand_Thumb": "Hand_Thumb", "Hand_Index": "Hand_Digit1", "Hand_Middle": "drop" },
+    "5_to_2": { "Hand_Thumb": "Hand_Thumb", "Hand_Index": "Hand_Digit1", "Hand_Middle": "drop", "Hand_Ring": "drop", "Hand_Pinky": "drop" }
+  },
+
+  "roll_policy": "Bone rolls are fixed per bone in the source .blend and are NOT recomputed during fitting; only bone head/tail positions and lengths are solved from landmarks.",
+  "deform_bands": ["Arm_Elbow.L", "Arm_Elbow.R", "Leg_Knee.L", "Leg_Knee.R", "Arm_Shoulder.L", "Arm_Shoulder.R", "Leg_Hip.L", "Leg_Hip.R"],
+  "corrective_bones": ["Arm_Shoulder_Twist.L", "Arm_Shoulder_Twist.R", "Leg_Hip_Twist.L", "Leg_Hip_Twist.R"]
+}

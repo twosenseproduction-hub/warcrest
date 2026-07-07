@@ -1,0 +1,59 @@
+{
+  "$schema_note": "Fixed, version-controlled per-engine export presets. Export stage (S13) is parameter-free at the call site; it reads a preset by key. Changing a preset is a reviewed commit. Every export is round-trip verified against qa-thresholds.export.",
+  "version": "1.0.0",
+
+  "biped_gameready_v1": {
+    "description": "Standard game-ready biped, multi-LOD, skeletal + baked animation clips.",
+    "common": {
+      "unit_scale_m": 1.0,
+      "apply_transforms": true,
+      "triangulate": true,
+      "tangent_space": true,
+      "smoothing": "face",
+      "include_lods": true,
+      "bake_animation": true,
+      "sample_rate_fps": 30,
+      "socket_export": "as_nodes"
+    },
+    "unity": {
+      "format": "fbx",
+      "up_axis": "Y",
+      "forward_axis": "Z",
+      "scale_factor": 1.0,
+      "fbx_version": "FBX202000",
+      "bone_axis_primary": "Y",
+      "bone_axis_secondary": "X",
+      "leaf_bones": false,
+      "humanoid_ready": true,
+      "notes": "Unity imports meters at scale 1 when up=Y, forward=Z. leaf_bones off to match Unity avatar mapping."
+    },
+    "unreal": {
+      "format": "fbx",
+      "up_axis": "Z",
+      "forward_axis": "X",
+      "scale_factor": 1.0,
+      "fbx_version": "FBX202000",
+      "bone_axis_primary": "X",
+      "bone_axis_secondary": "Y",
+      "leaf_bones": false,
+      "root_bone_required": true,
+      "notes": "UE5 skeletal mesh expects a single root; Z-up X-forward avoids the 90deg import rotation."
+    },
+    "godot": {
+      "format": "gltf",
+      "up_axis": "Y",
+      "scale_factor": 1.0,
+      "gltf_variant": "glb",
+      "embed_textures": true,
+      "orm_packing": true,
+      "notes": "glTF is Godot-native; glb embeds textures for a single-file import."
+    },
+    "blender": {
+      "format": "blend",
+      "up_axis": "Z",
+      "scale_factor": 1.0,
+      "keep_source_collections": true,
+      "notes": "Authoring format; retains full data for re-processing."
+    }
+  }
+}

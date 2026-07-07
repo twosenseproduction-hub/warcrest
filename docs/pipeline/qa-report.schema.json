@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://warcrest/pipeline/qa-report.schema.json",
+  "title": "QA Report",
+  "description": "Machine-readable QA report aggregated from all stage receipts. This JSON is the source of truth for the gate decision; the human-readable render is generated from it.",
+  "type": "object",
+  "required": ["run_id", "dna_id", "style_pack_id", "seed", "blender_version", "stages", "checks", "scores", "decision"],
+  "additionalProperties": false,
+  "properties": {
+    "run_id":          { "type": "string" },
+    "dna_id":          { "type": "string" },
+    "dna_version":     { "type": "string" },
+    "style_pack_id":   { "type": "string" },
+    "seed":            { "type": "integer" },
+    "blender_version": { "type": "string" },
+    "toolchain_image": { "type": "string", "description": "Pinned container image digest for reproducibility." },
+    "created_utc":     { "type": "string", "description": "Stamped by the orchestrator after the run (Blender scripts cannot read wall clock)." },
+
+    "stages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["stage", "status", "input_hash", "output_hash", "config_hash"],
+        "properties": {
+          "stage":       { "type": "string", "description": "e.g. S06_cleanup" },
+          "status":      { "type": "string", "enum": ["ok", "fallback_used", "hard_fail", "skipped"] },
+          "input_hash":  { "type": "string" },
+          "output_hash": { "type": "string" },
+          "config_hash": { "type": "string" },
+          "duration_s":  { "type": "number" },
+          "cache_hit":   { "type": "boolean" },
+          "messages":    { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+
+    "checks": {
+      "type": "array",
+      "description": "Every individual validation check with its measured value and threshold.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["category", "name", "value", "threshold", "pass", "hard_fail"],
+        "properties": {
+          "category":  { "type": "string", "enum": ["geometry", "topology", "symmetry", "style", "rig", "deformation", "motion", "export"] },
+          "name":      { "type": "string" },
+          "value":     {},
+          "threshold": {},
+          "pass":      { "type": "boolean" },
+          "hard_fail": { "type": "boolean" }
+        }
+      }
+    },
+
+    "scores": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "style_composite": { "type": "number" },
+        "style_breakdown": { "type": "object", "additionalProperties": { "type": "number" } },
+        "deformation":     { "type": "number" },
+        "motion":          { "type": "number" }
+      }
+    },
+
+    "thumbnails": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Paths: front/side/three-quarter, turntable, wireframe, weight overlay, asymmetry heatmap."
+    },
+
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["result", "reasons"],
+      "properties": {
+        "result":  { "type": "string", "enum": ["approve", "reject", "needs_review"] },
+        "reasons": { "type": "array", "items": { "type": "string" }, "description": "Specific failing/gray-band check names." },
+        "review_checkpoint": { "type": "string", "enum": ["pose_ambiguity", "retopo_silhouette", "weighting_collapse", "landmark_confidence", "gray_band_gate", "none"] }
+      }
+    }
+  }
+}
