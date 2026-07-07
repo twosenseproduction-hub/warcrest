@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rig Landmark Calibrator 3D — Warcrest character pipeline</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: system-ui, sans-serif; background: #14141f; color: #e8e8f0;
+    display: grid; grid-template-columns: 1fr 340px; grid-template-rows: auto 1fr;
+    grid-template-areas: "head head" "stage side";
+  }
+  header { grid-area: head; padding: 12px 18px; border-bottom: 1px solid #2a2a3a; }
+  header h1 { font-size: 1.1rem; margin: 0; }
+  header p { margin: 4px 0 0; color: #9aa; font-size: 12px; max-width: 900px; line-height: 1.45; }
+  header code { background: #0a0a12; padding: 1px 4px; border-radius: 4px; color: #cbd5e1; }
+  #stage { grid-area: stage; position: relative; min-width: 0; min-height: 0; }
+  #canvas-wrap { position: absolute; inset: 0; }
+  canvas { display: block; width: 100%; height: 100%; }
+  #drop-hint {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: #6b7280; font-size: 15px; pointer-events: none; text-align: center; padding: 20px;
+  }
+  .viewbar {
+    position: absolute; top: 10px; left: 10px; display: flex; gap: 6px; flex-wrap: wrap;
+  }
+  .mode-pill {
+    position: absolute; top: 10px; right: 10px; background: #1e2748; color: #93c5fd;
+    border-radius: 999px; padding: 4px 12px; font-size: 12px;
+  }
+  aside { grid-area: side; border-left: 1px solid #2a2a3a; padding: 12px; overflow-y: auto; }
+  button {
+    background: #3b5bdb; color: #fff; border: 0; border-radius: 7px;
+    padding: 7px 11px; font-size: 12px; cursor: pointer;
+  }
+  button.secondary { background: #2a2a3a; }
+  button.warn { background: #a03030; }
+  button.active { background: #4ade80; color: #06210f; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .btns { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 8px; }
+  label { display: block; font-size: 12px; color: #9aa; margin: 12px 0 3px; }
+  input[type=number] {
+    width: 100%; background: #0a0a12; color: #e8e8f0; border: 1px solid #333349;
+    border-radius: 6px; padding: 7px 9px; font-size: 13px;
+  }
+  .lm-list { margin-top: 6px; }
+  .lm {
+    display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px;
+    font-size: 13px; cursor: pointer; border: 1px solid transparent;
+  }
+  .lm:hover { background: #1a1a28; }
+  .lm.active { background: #1e2748; border-color: #3b5bdb; }
+  .lm .dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid #000; }
+  .lm .name { flex: 1; }
+  .lm .status { font-size: 11px; color: #7a869a; }
+  .lm.done .status { color: #4ade80; }
+  .metrics { font-size: 12px; line-height: 1.7; }
+  .metrics .k { color: #9aa; }
+  .metrics .ok { color: #4ade80; }
+  .metrics .bad { color: #f87171; }
+  #status { min-height: 1.3em; color: #93c5fd; font-size: 12px; margin: 6px 0; }
+  details { margin-top: 10px; }
+  summary { cursor: pointer; color: #aeb6c9; font-size: 12px; }
+  .hint { font-size: 11px; color: #6b7280; line-height: 1.5; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Rig Landmark Calibrator 3D</h1>
+    <p>
+      Load the actual <code>.glb</code>/<code>.gltf</code>, orbit the camera, and click the twelve
+      required landmarks <b>directly on the mesh surface</b>. Exports the same
+      <code>landmarks.json</code> (world metres, Z-up, floor-center origin) that stage S8
+      consumes — no 2-view guesswork. Own IP; three.js is vendored locally (no CDN, matches the
+      same-origin game host). Benchmarks: Mixamo guided rig UX, Meshy in-browser flow.
+    </p>
+  </header>
+
+  <div id="stage">
+    <div id="canvas-wrap"></div>
+    <div id="drop-hint">Drop a .glb / .gltf here, or use “Load model”.</div>
+    <div class="viewbar">
+      <button class="secondary" id="btn-load">Load model</button>
+      <button class="secondary" id="btn-orbit">Orbit</button>
+      <button id="btn-place">Place</button>
+      <button class="secondary" id="btn-front">Front</button>
+      <button class="secondary" id="btn-side">Side</button>
+      <button class="secondary" id="btn-wire">Wireframe</button>
+    </div>
+    <div class="mode-pill" id="mode-pill">load a model</div>
+  </div>
+
+  <aside>
+    <div id="status">three.js ready — load a model to begin.</div>
+
+    <label>Export height (m) — rescale model to DNA <code>scale_m.height_m.target</code></label>
+    <input type="number" id="height" value="2.0" step="0.01" min="0.1" />
+    <div class="hint" id="model-dims">model: —</div>
+
+    <label>Active landmark — in Place mode, click the mesh to set it</label>
+    <div class="lm-list" id="lm-list"></div>
+
+    <div class="btns">
+      <button id="btn-mirror" class="secondary">Mirror L → R</button>
+      <button id="btn-mirror-rl" class="secondary">Mirror R → L</button>
+      <button id="btn-clear" class="warn">Clear active</button>
+    </div>
+
+    <details open>
+      <summary>QA readout</summary>
+      <div class="metrics" id="metrics"></div>
+    </details>
+
+    <div class="btns" style="margin-top:14px">
+      <button id="btn-export" disabled>Export landmarks.json</button>
+      <button id="btn-import" class="secondary">Import…</button>
+    </div>
+
+    <details>
+      <summary>Axis &amp; origin convention</summary>
+      <p class="hint">
+        glTF is Y-up; the pipeline is Z-up (Blender). Export maps three.js (x, y, z) →
+        pipeline (X = x, Y = −z, Z = y): X right, Y forward, Z up. Origin is floor-center —
+        the model's bounding-box centre in X/Z at its lowest point (Z = 0). Positions are then
+        rescaled so model height matches the export height above. Coords round to the millimetre.
+      </p>
+    </details>
+  </aside>
+
+  <input type="file" id="file-in" accept=".glb,.gltf,model/gltf-binary,model/gltf+json" style="display:none" />
+  <input type="file" id="json-in" accept="application/json,.json" style="display:none" />
+
+  <script src="vendor/three-r128/three.min.js"></script>
+  <script src="vendor/three-r128/OrbitControls.js"></script>
+  <script src="vendor/three-r128/GLTFLoader.js"></script>
+  <script>
+  "use strict";
+
+  const LANDMARKS = [
+    { id: "chin",       color: "#f59e0b" },
+    { id: "shoulder.L", color: "#60a5fa" }, { id: "shoulder.R", color: "#60a5fa" },
+    { id: "elbow.L",    color: "#34d399" }, { id: "elbow.R",    color: "#34d399" },
+    { id: "wrist.L",    color: "#a78bfa" }, { id: "wrist.R",    color: "#a78bfa" },
+    { id: "hips",       color: "#f472b6" },
+    { id: "knee.L",     color: "#fbbf24" }, { id: "knee.R",     color: "#fbbf24" },
+    { id: "ankle.L",    color: "#f87171" }, { id: "ankle.R",    color: "#f87171" },
+  ];
+  const LR_SYMMETRY_MM_MAX = 5.0;   // qa-thresholds.json rig.landmark_lr_symmetry_mm_max
+
+  let scene, camera, renderer, controls, raycaster, mouse;
+  let modelRoot = null, meshes = [];
+  let bbox = null, floorCenter = new THREE.Vector3(), modelHeight = 1;
+  const markers = {};            // id -> { world: THREE.Vector3 (three-space), sphere: Mesh }
+  let activeId = LANDMARKS[0].id;
+  let mode = "orbit";            // "orbit" | "place"
+  let markerRadius = 0.02;
+
+  function initThree() {
+    const wrap = document.getElementById("canvas-wrap");
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0a0a12);
+
+    camera = new THREE.PerspectiveCamera(45, wrap.clientWidth / wrap.clientHeight, 0.01, 100);
+    camera.position.set(0, 1.2, 3);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(window.devicePixelRatio || 1);
+    renderer.setSize(wrap.clientWidth, wrap.clientHeight);
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    wrap.appendChild(renderer.domElement);
+
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 1, 0);
+    controls.enableDamping = true; controls.dampingFactor = 0.08;
+
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x223344, 1.0));
+    const key = new THREE.DirectionalLight(0xffffff, 1.1); key.position.set(2, 4, 3); scene.add(key);
+    const rim = new THREE.DirectionalLight(0x88aaff, 0.5); rim.position.set(-3, 2, -2); scene.add(rim);
+
+    const grid = new THREE.GridHelper(4, 16, 0x334155, 0x1e293b); scene.add(grid);
+
+    raycaster = new THREE.Raycaster(); mouse = new THREE.Vector2();
+
+    renderer.domElement.addEventListener("pointerdown", onPointerDown);
+    renderer.domElement.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("resize", onResize);
+
+    animate();
+  }
+
+  function onResize() {
+    const wrap = document.getElementById("canvas-wrap");
+    camera.aspect = wrap.clientWidth / wrap.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(wrap.clientWidth, wrap.clientHeight);
+  }
+  function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); }
+
+  // Model loading ----------------------------------------------------------
+  function loadModelFile(file) {
+    const url = URL.createObjectURL(file);
+    const loader = new THREE.GLTFLoader();
+    loader.load(url, (gltf) => {
+      if (modelRoot) scene.remove(modelRoot);
+      clearAllMarkers();
+      modelRoot = gltf.scene;
+      scene.add(modelRoot);
+
+      meshes = [];
+      modelRoot.traverse(o => { if (o.isMesh) { o.material.side = THREE.DoubleSide; meshes.push(o); } });
+
+      bbox = new THREE.Box3().setFromObject(modelRoot);
+      const size = new THREE.Vector3(); bbox.getSize(size);
+      const center = new THREE.Vector3(); bbox.getCenter(center);
+      modelHeight = size.y || 1;
+      floorCenter.set(center.x, bbox.min.y, center.z);   // floor-center in three-space
+      markerRadius = Math.max(0.008, modelHeight * 0.012);
+
+      controls.target.copy(center);
+      camera.position.set(center.x, center.y, center.z + size.length() * 0.9);
+      controls.update();
+
+      document.getElementById("drop-hint").style.display = "none";
+      document.getElementById("model-dims").textContent =
+        `model: ${size.x.toFixed(2)} × ${size.y.toFixed(2)} × ${size.z.toFixed(2)} (h=${modelHeight.toFixed(3)} model units)`;
+      setStatus(`Loaded ${file.name}. ${meshes.length} mesh(es). Switch to Place and click landmarks.`);
+      setMode("place");
+      updateMetrics(); refreshExportBtn();
+    }, undefined, (err) => setStatus("Load failed: " + err.message));
+  }
+
+  // Interaction ------------------------------------------------------------
+  let downXY = null;
+  function onPointerDown(e) { downXY = { x: e.clientX, y: e.clientY }; }
+  function onPointerUp(e) {
+    if (!downXY) return;
+    const moved = Math.hypot(e.clientX - downXY.x, e.clientY - downXY.y);
+    downXY = null;
+    if (mode !== "place" || moved > 4 || !meshes.length) return;   // treat as orbit, not a click
+    const rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+    const hits = raycaster.intersectObjects(meshes, true);
+    if (!hits.length) return;
+    placeMarker(activeId, hits[0].point.clone());
+  }
+
+  function placeMarker(id, worldPoint) {
+    const lm = LANDMARKS.find(l => l.id === id);
+    if (markers[id]) scene.remove(markers[id].sphere);
+    const geo = new THREE.SphereGeometry(markerRadius, 16, 12);
+    const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(lm.color) });
+    const sphere = new THREE.Mesh(geo, mat);
+    sphere.position.copy(worldPoint);
+    scene.add(sphere);
+    markers[id] = { world: worldPoint, sphere };
+    buildLmList(); updateMetrics(); refreshExportBtn();
+    setStatus(`Placed ${id}.`);
+  }
+  function clearActive() {
+    if (markers[activeId]) { scene.remove(markers[activeId].sphere); delete markers[activeId]; }
+    buildLmList(); updateMetrics(); refreshExportBtn(); setStatus(`Cleared ${activeId}.`);
+  }
+  function clearAllMarkers() { for (const id in markers) scene.remove(markers[id].sphere); for (const id in markers) delete markers[id]; }
+
+  function setMode(m) {
+    mode = m;
+    controls.enableRotate = (m === "orbit");
+    document.getElementById("btn-orbit").classList.toggle("active", m === "orbit");
+    document.getElementById("btn-place").classList.toggle("active", m === "place");
+    document.getElementById("mode-pill").textContent = m === "place" ? "PLACE — click the mesh" : "ORBIT — drag to rotate";
+  }
+
+  // Coordinate conversion: three-space -> pipeline meters ------------------
+  // pipeline (X,Y,Z) = (x - fc.x, -(z - fc.z), y - fc.y) * scaleToHeight
+  function toPipeline(worldVec) {
+    const h = parseFloat(document.getElementById("height").value) || 2.0;
+    const s = modelHeight > 1e-6 ? (h / modelHeight) : 1;
+    return {
+      X: (worldVec.x - floorCenter.x) * s,
+      Y: -(worldVec.z - floorCenter.z) * s,
+      Z: (worldVec.y - floorCenter.y) * s,
+    };
+  }
+  function fromPipeline(P) {
+    const h = parseFloat(document.getElementById("height").value) || 2.0;
+    const s = modelHeight > 1e-6 ? (h / modelHeight) : 1;
+    return new THREE.Vector3(
+      P.X / s + floorCenter.x,
+      P.Z / s + floorCenter.y,
+      -P.Y / s + floorCenter.z,
+    );
+  }
+  function round3(n) { return Math.round(n * 1000) / 1000; }
+
+  // Mirror -----------------------------------------------------------------
+  function mirror(from, to) {
+    let n = 0;
+    for (const lm of LANDMARKS) {
+      if (!lm.id.endsWith("." + from)) continue;
+      const base = lm.id.slice(0, -2);
+      const src = markers[base + "." + from]; if (!src) continue;
+      const P = toPipeline(src.world); P.X = -P.X;            // reflect across X=0
+      placeMarker(base + "." + to, fromPipeline(P)); n++;
+    }
+    setStatus(`Mirrored ${n} landmark(s) ${from} → ${to}.`);
+  }
+
+  // Landmark list ----------------------------------------------------------
+  function buildLmList() {
+    const el = document.getElementById("lm-list"); el.innerHTML = "";
+    for (const lm of LANDMARKS) {
+      const done = !!markers[lm.id];
+      const div = document.createElement("div");
+      div.className = "lm" + (lm.id === activeId ? " active" : "") + (done ? " done" : "");
+      div.innerHTML = `<span class="dot" style="background:${lm.color}"></span>` +
+        `<span class="name">${lm.id}</span><span class="status">${done ? "✓" : "·"}</span>`;
+      div.addEventListener("click", () => { activeId = lm.id; buildLmList(); setStatus(`Active: ${lm.id}`); });
+      el.appendChild(div);
+    }
+  }
+
+  // Metrics ----------------------------------------------------------------
+  function updateMetrics() {
+    const m = document.getElementById("metrics");
+    const placed = Object.keys(markers).length;
+    let worst = 0, worstPair = "—";
+    for (const base of ["shoulder", "elbow", "wrist", "knee", "ankle"]) {
+      const L = markers[base + ".L"], R = markers[base + ".R"];
+      if (!L || !R) continue;
+      const pL = toPipeline(L.world), pR = toPipeline(R.world);
+      const d = Math.sqrt((pL.X + pR.X) ** 2 + (pL.Y - pR.Y) ** 2 + (pL.Z - pR.Z) ** 2) * 1000;
+      if (d > worst) { worst = d; worstPair = base; }
+    }
+    const symOk = worst <= LR_SYMMETRY_MM_MAX;
+    m.innerHTML =
+      `<div><span class="k">landmarks placed:</span> <b>${placed} / ${LANDMARKS.length}</b></div>` +
+      `<div><span class="k">L/R symmetry (worst):</span> <span class="${symOk ? "ok" : "bad"}">${worst.toFixed(1)} mm</span> ` +
+      `<span class="k">(≤ ${LR_SYMMETRY_MM_MAX}, ${worstPair})</span></div>` +
+      `<div class="hint">Mirror L→R to guarantee symmetry, then nudge if needed.</div>`;
+  }
+  function refreshExportBtn() {
+    document.getElementById("btn-export").disabled = !(modelRoot && LANDMARKS.every(l => markers[l.id]));
+  }
+
+  // Export / import --------------------------------------------------------
+  function exportJson() {
+    const out = {
+      _generator: "rig-landmark-calibrator-3d", _units: "meters", _up_axis: "Z",
+      _origin: "floor_center", _model_height_m: parseFloat(document.getElementById("height").value) || 2.0,
+    };
+    for (const lm of LANDMARKS) {
+      const mk = markers[lm.id]; if (!mk) continue;
+      const P = toPipeline(mk.world);
+      out[lm.id] = [round3(P.X), round3(P.Y), round3(P.Z)];
+    }
+    const blob = new Blob([JSON.stringify(out, null, 2)], { type: "application/json" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+    a.download = "landmarks.json"; a.click();
+    setStatus("Exported landmarks.json.");
+  }
+  function onJsonFile(e) {
+    const f = e.target.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      try {
+        const data = JSON.parse(r.result);
+        if (data._model_height_m) document.getElementById("height").value = data._model_height_m;
+        if (!modelRoot) { setStatus("Load a model first, then import to reposition markers."); return; }
+        for (const lm of LANDMARKS) {
+          const v = data[lm.id]; if (!Array.isArray(v)) continue;
+          placeMarker(lm.id, fromPipeline({ X: v[0], Y: v[1], Z: v[2] }));
+        }
+        setStatus("Imported landmarks.json.");
+      } catch (err) { setStatus("Import failed: " + err.message); }
+    };
+    r.readAsText(f); e.target.value = "";
+  }
+
+  function setStatus(s) { document.getElementById("status").textContent = s; }
+
+  // Wire up ----------------------------------------------------------------
+  function init() {
+    initThree();
+    buildLmList(); updateMetrics();
+    document.getElementById("btn-load").addEventListener("click", () => document.getElementById("file-in").click());
+    document.getElementById("file-in").addEventListener("change", e => { if (e.target.files[0]) loadModelFile(e.target.files[0]); e.target.value = ""; });
+    document.getElementById("json-in").addEventListener("change", onJsonFile);
+    document.getElementById("btn-import").addEventListener("click", () => document.getElementById("json-in").click());
+    document.getElementById("btn-export").addEventListener("click", exportJson);
+    document.getElementById("btn-orbit").addEventListener("click", () => setMode("orbit"));
+    document.getElementById("btn-place").addEventListener("click", () => setMode("place"));
+    document.getElementById("btn-mirror").addEventListener("click", () => mirror("L", "R"));
+    document.getElementById("btn-mirror-rl").addEventListener("click", () => mirror("R", "L"));
+    document.getElementById("btn-clear").addEventListener("click", clearActive);
+    document.getElementById("btn-front").addEventListener("click", () => setCam("front"));
+    document.getElementById("btn-side").addEventListener("click", () => setCam("side"));
+    document.getElementById("btn-wire").addEventListener("click", toggleWire);
+    document.getElementById("height").addEventListener("input", () => { updateMetrics(); });
+
+    // Drag-drop model onto the stage.
+    const stage = document.getElementById("stage");
+    stage.addEventListener("dragover", e => e.preventDefault());
+    stage.addEventListener("drop", e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) loadModelFile(f); });
+
+    setMode("orbit");
+  }
+  function setCam(which) {
+    if (!bbox) return;
+    const c = new THREE.Vector3(); bbox.getCenter(c);
+    const size = new THREE.Vector3(); bbox.getSize(size);
+    const d = size.length();
+    if (which === "front") camera.position.set(c.x, c.y, c.z + d);
+    else camera.position.set(c.x + d, c.y, c.z);
+    controls.target.copy(c); controls.update();
+  }
+  let wire = false;
+  function toggleWire() { wire = !wire; meshes.forEach(m => { m.material.wireframe = wire; }); document.getElementById("btn-wire").classList.toggle("active", wire); }
+
+  init();
+  </script>
+</body>
+</html>

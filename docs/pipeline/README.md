@@ -667,7 +667,8 @@ get stricter and better instrumented.
 | File | Purpose |
 |------|---------|
 | [`OWNERSHIP.md`](./OWNERSHIP.md) | Core-vs-rent-vs-benchmark IP map + rent→own replacement roadmap |
-| [`../../tools/rig-landmark-calibrator.html`](../../tools/rig-landmark-calibrator.html) | Working guided landmark-placement tool → exports `landmarks.json` |
+| [`../../tools/rig-landmark-calibrator.html`](../../tools/rig-landmark-calibrator.html) | Working guided landmark tool (2-view ortho) → exports `landmarks.json` |
+| [`../../tools/rig-landmark-calibrator-3d.html`](../../tools/rig-landmark-calibrator-3d.html) | 3D version — click landmarks on the actual GLB in a three.js viewport → `landmarks.json` |
 | [`character-dna.schema.json`](./character-dna.schema.json) | JSON Schema for Character DNA |
 | [`qa-thresholds.json`](./qa-thresholds.json) | Locked validation thresholds |
 | [`qa-report.schema.json`](./qa-report.schema.json) | Schema for the machine-readable QA report |
