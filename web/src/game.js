@@ -357,7 +357,7 @@ function loadBuildings(){ return new Promise(res=>{
 function bldClone(k,H){ const e=BLD[k]; if(!e)return null; const g=e.scene.clone(true); g.scale.setScalar(H/e.h); return g; }
 
 // ================= BASE: Thronefall-style fixed build plots + passive economy =================
-let gold=180, wood=0, incomeRate=1, woodRate=0, plots=[], coreB=null, buildMenuEl=null, bmBack=null, goldNumEl=null, menuPlot=null, menuAnchor=null, enemyBase={x:-105,z:-108};
+let gold=180, wood=0, incomeRate=1, woodRate=0, plots=[], coreB=null, buildMenuEl=null, bmBack=null, buildBtnEl=null, goldNumEl=null, menuPlot=null, menuAnchor=null, enemyBase={x:-105,z:-108};
 // category → model prefix + per-level stats (index 0 = Lv1). cost[0]=build, cost[1]=→Lv2, cost[2]=→Lv3.
 const CAT={
   economy:{ label:'House',      model:'house',   H:[5.5,6.5,7.5], cost:[40,65,100],  pop:[8,13,18] },      // population/supply cap
@@ -735,6 +735,8 @@ const ICON={
   hold:'<rect x="6.5" y="5.5" width="3.6" height="13" rx="1.2"/><rect x="13.9" y="5.5" width="3.6" height="13" rx="1.2"/>',
   amove:'<circle cx="12" cy="12" r="7"/><path d="M12 2.5v3.2M12 18.3v3.2M2.5 12h3.2M18.3 12h3.2"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/>',
   drake:'<path d="M12 4c1.6 1.4 1.6 3.6 0 5-1.6-1.4-1.6-3.6 0-5z"/><path d="M12 9c-2.5 0-4.5 1.5-4.5 4 0 2 1.2 4 4.5 6 3.3-2 4.5-4 4.5-6 0-2.5-2-4-4.5-4z"/><path d="M7.5 11L3 8l1.5 5 3 1M16.5 11L21 8l-1.5 5-3 1"/>',
+  heart:'<path d="M12 20s-7-4.5-9.2-9C1.3 8 2.8 4.5 6 4.5c2 0 3.2 1.2 4 2.4.8-1.2 2-2.4 4-2.4 3.2 0 4.7 3.5 3.2 6.5C19 15.5 12 20 12 20z" fill="currentColor" stroke="none"/>',
+  roster:'<path d="M8 6h13M8 12h13M8 18h13"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
 };
 function ic(n){ const p=ICON[n]; return p?('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+p+'</svg>'):''; }
 const catIcon={economy:'house',mine:'mine',lumber:'lumber',army:'barracks',defense:'tower'}, catName={economy:'House',mine:'Gold Mine',lumber:'Lumber Mill',army:'Barracks',defense:'Tower'};
@@ -783,7 +785,17 @@ function openCoreMenu(){ if(!buildMenuEl||!coreB)return; menuPlot=null; menuAnch
 function sellPlot(p){ if(!p.cat)return; gold+=sellValue(p); if(p.g)scene.remove(p.g); p.g=null;
   p.cat=null; p.level=0; p.dmg=p.range=p.rof=p.every=p.cap=undefined; p.mine=[]; p.queue=[]; if(p.pbar)p.pbar.visible=false;
   styleRing(p); recomputeIncome(); recomputeSupply(); closeBuildMenu(); }
-function closeBuildMenu(){ if(buildMenuEl) buildMenuEl.style.display='none'; if(bmBack)bmBack.style.display='none'; menuPlot=null; menuAnchor=null; }
+function closeBuildMenu(){ if(buildMenuEl) buildMenuEl.style.display='none'; if(bmBack)bmBack.style.display='none'; menuPlot=null; menuAnchor=null; setBuildBtn(false); }
+// ---- one-tap build entry: a hammer button that expands the nearest buildable plot's radial (and collapses it) ----
+function setBuildBtn(on){ if(buildBtnEl) buildBtnEl.classList.toggle('on',!!on); }
+function nearestBuildPlot(){ let best=null,bd=1e9; const ax=hero?hero.px:camAim.x, az=hero?hero.pz:camAim.z;
+  for(const p of plots){ if(p.cat||p.locked)continue; const d=Math.hypot(p.x-ax,p.z-az); if(d<bd){bd=d;best=p;} }
+  return best; }
+function toggleBuildMenu(){ if(!buildMenuEl)return;
+  if(buildMenuEl.style.display==='block'){ closeBuildMenu(); return; }   // collapse if already open
+  const p=nearestBuildPlot();
+  if(p) openPlotMenu(p); else if(coreB) openCoreMenu();                  // expand: empty plot → build; else the throne (expand base)
+  setBuildBtn(true); }
 // keep the open radial glued to its plot as the camera pans/follows the hero
 function repositionRadial(){ if(!buildMenuEl||!menuAnchor||buildMenuEl.style.display!=='block')return;
   let [cx,cy]=screenOf(menuAnchor.x,menuAnchor.z);
@@ -1575,7 +1587,8 @@ const KIND_NAME={hero:'Elf Queen', warrior:'Warrior', archer:'Archer', cleric:'P
 const KIND_ICON={hero:'sword', warrior:'warrior', archer:'archer', cleric:'cleric', drake:'drake'};
 let hubGroup=[];   // remembered multi-type squad so the "All" button can restore the full selection after a chip sub-select
 function updateSelPanel(){ if(!selPanelEl)return;
-  // the hub frame stays docked once a mission is live; hidden only on menus/pre-game
+  // the hub frame + build button stay docked once a mission is live; hidden only on menus/pre-game
+  if(buildBtnEl) buildBtnEl.style.display = started?'flex':'none';
   if(!started){ selPanelEl.style.display='none'; return; }
   selPanelEl.style.display='flex';
   const icEl=selPanelEl.querySelector('.spIc'), nmEl=selPanelEl.querySelector('.spNm'),
@@ -2139,6 +2152,10 @@ function setupHUD(){
   bmBack=document.createElement('div'); bmBack.id='bmBack'; bmBack.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); closeBuildMenu(); }); document.body.appendChild(bmBack);
   buildMenuEl=document.createElement('div'); buildMenuEl.className='bmPanel';
   buildMenuEl.addEventListener('pointerdown',ev=>ev.stopPropagation()); document.body.appendChild(buildMenuEl);
+  // discoverable build entry: a hammer toggle that expands/collapses the build radial
+  buildBtnEl=document.createElement('button'); buildBtnEl.id='buildBtn'; buildBtnEl.setAttribute('aria-label','Build');
+  buildBtnEl.innerHTML=ic('hammer'); buildBtnEl.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); toggleBuildMenu(); });
+  document.body.appendChild(buildBtnEl);
   // lasso overlay
   lcv=document.createElement('canvas'); lcv.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:4'; lcv.width=innerWidth; lcv.height=innerHeight; document.body.appendChild(lcv); lctx=lcv.getContext('2d');
   addEventListener('resize',()=>{ lcv.width=innerWidth; lcv.height=innerHeight; });
@@ -2146,9 +2163,11 @@ function setupHUD(){
   // selection panel (Siege-Up style): portrait, name, hp bar, stats, dismiss
   selPanelEl=document.createElement('div'); selPanelEl.id='selP';
   selPanelEl.innerHTML='<div class="spPortrait"><div class="spIc"></div></div>'+
-    '<div class="spInfo"><div class="spNm"></div><div class="spBar"><div class="spBarF"></div><span class="spBarT"></span></div><div class="spSt"></div></div>'+
+    '<div class="spInfo"><div class="spNm"></div>'+
+      '<div class="spHpRow"><span class="spHeart">'+ic('heart')+'</span><div class="spBar"><div class="spBarF"></div><span class="spBarT"></span></div></div>'+
+      '<div class="spSt"></div></div>'+
     '<div class="spGrid"></div>'+
-    '<div class="spActs"><div class="spAll">All</div><div class="spX">'+ic('close')+'</div></div>';
+    '<div class="spActs"><div class="spAll" title="Select all">'+ic('roster')+'</div><div class="spX">'+ic('close')+'</div></div>';
   selPanelEl.addEventListener('pointerdown',ev=>ev.stopPropagation());
   selPanelEl.querySelector('.spX').addEventListener('pointerdown',ev=>{ ev.stopPropagation(); clearSel(); });
   document.body.appendChild(selPanelEl);
@@ -2273,22 +2292,18 @@ function initPost(){
     vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
     fragmentShader:[
       'uniform sampler2D tDiffuse;uniform float uAmt;uniform vec2 uRes;varying vec2 vUv;',
-      'const float EXPOSURE=1.00, CONTRAST=1.10, SAT=1.20;',
+      'const float EXPOSURE=1.00, CONTRAST=1.08, SAT=1.16;',
       'void main(){',
       '  vec2 d=vUv-0.5; float r2=dot(d,d);',
-      '  vec2 off=d*(uAmt/uRes)*(1.0+r2*3.0);',
-      '  float cr=texture2D(tDiffuse,vUv+off).r;',
-      '  float cg=texture2D(tDiffuse,vUv).g;',
-      '  float cb=texture2D(tDiffuse,vUv-off).b;',
-      '  vec3 col=vec3(cr,cg,cb);',
+      '  vec3 col=texture2D(tDiffuse,vUv).rgb;',   // straight sample — no chromatic aberration (that RGB channel-split read as an old-VHS fringe)
       '  col*=EXPOSURE;',
       '  float l=dot(col,vec3(0.299,0.587,0.114));',
       '  col=mix(vec3(l),col,SAT);',
       '  col=(col-0.5)*CONTRAST+0.5;',
-      '  vec3 warm=vec3(1.05,1.0,0.9), cool=vec3(0.92,0.98,1.08);',
+      '  vec3 warm=vec3(1.04,1.0,0.92), cool=vec3(0.94,0.98,1.06);',
       '  col*=mix(cool,warm,smoothstep(0.25,0.85,l));',
       '  col=clamp(col,0.0,1.0);',
-      '  col*=1.0-r2*0.30;',
+      '  col*=1.0-r2*0.16;',                        // gentle vignette (was 0.30 — lighter, less "lo-fi")
       '  gl_FragColor=vec4(col,1.0);',
       '}'].join('\n')
   });

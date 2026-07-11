@@ -190,19 +190,24 @@ canvas{display:block}
   border-radius:13px;box-shadow:var(--brassRing),inset 0 1px 0 rgba(255,224,170,0.16),0 6px 20px rgba(0,0,0,0.5);
   backdrop-filter:blur(8px);pointer-events:auto}
 #selP.empty{opacity:0.7}
-/* portrait window */
-#selP .spPortrait{flex:0 0 auto;width:56px;height:56px;border-radius:9px;display:flex;align-items:center;justify-content:center;
-  background:radial-gradient(circle at 40% 30%,rgba(120,150,110,0.32),rgba(15,20,14,0.85));
-  box-shadow:var(--brassRing),inset 0 0 12px rgba(0,0,0,0.65);color:#ffe6a8;overflow:hidden}
-#selP .spPortrait svg{width:30px;height:30px}
+/* portrait window — ornate double-brass frame with a warm inset (reference-style hero bezel) */
+#selP .spPortrait{flex:0 0 auto;width:64px;height:64px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 42% 30%,rgba(150,175,135,0.4),rgba(15,20,14,0.9));
+  box-shadow:0 0 0 2px var(--brassDk),0 0 0 4px var(--brass),0 0 0 5.5px #3a2c14,inset 0 2px 5px rgba(255,235,190,0.28),inset 0 -6px 12px rgba(0,0,0,0.7);
+  color:#ffe6a8;overflow:hidden}
+#selP .spPortrait svg{width:34px;height:34px;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6))}
 #selP.empty .spPortrait{color:rgba(255,230,168,0.28)}
 /* info column */
-#selP .spInfo{display:flex;flex-direction:column;gap:4px;flex:0 1 186px;min-width:92px}
-#selP .spNm{font:700 14px Georgia,'Times New Roman',serif;color:#f6e7c6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px rgba(0,0,0,0.65)}
+#selP .spInfo{display:flex;flex-direction:column;gap:5px;flex:0 1 196px;min-width:96px}
+#selP .spNm{font:700 15px Georgia,'Times New Roman',serif;color:#f6e7c6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px rgba(0,0,0,0.65)}
 #selP.empty .spNm{color:var(--dim);font-style:italic}
-#selP .spBar{position:relative;height:13px;border-radius:7px;background:rgba(8,10,14,0.72);overflow:hidden;box-shadow:inset 0 0 0 1px rgba(0,0,0,0.55)}
+#selP .spHpRow{display:flex;align-items:center;gap:6px}
+#selP .spHeart{flex:0 0 auto;width:15px;height:15px;color:#e8564a;display:flex;filter:drop-shadow(0 1px 1px rgba(0,0,0,0.5))}
+#selP .spHeart svg{width:15px;height:15px}
+#selP.empty .spHeart{opacity:0.35}
+#selP .spBar{position:relative;flex:1 1 auto;height:14px;border-radius:7px;background:rgba(8,10,14,0.75);overflow:hidden;box-shadow:inset 0 0 0 1px rgba(0,0,0,0.6),inset 0 1px 2px rgba(0,0,0,0.5)}
 #selP .spBarF{height:100%;width:100%;background:linear-gradient(#8ee063,#4f9e34);transition:width 0.18s}
-#selP .spBarT{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:800 9.5px system-ui;color:#eafff0;text-shadow:0 1px 2px rgba(0,0,0,0.85)}
+#selP .spBarT{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:800 10px system-ui;color:#eafff0;text-shadow:0 1px 2px rgba(0,0,0,0.9)}
 #selP .spSt{font:700 10px system-ui;color:#c9b58a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* squad grid */
 #selP .spGrid{display:none;align-items:center;gap:6px;flex:1 1 auto;flex-wrap:wrap;max-height:56px;overflow:hidden}
@@ -213,14 +218,25 @@ canvas{display:block}
 #selP .spCell:active{filter:brightness(1.16)}
 #selP .spCell .n{position:absolute;right:-3px;bottom:-4px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;
   background:#1a130a;box-shadow:0 0 0 1.5px var(--brass);font:800 10px system-ui;color:#ffe3a0;display:flex;align-items:center;justify-content:center}
-/* actions */
-#selP .spActs{flex:0 0 auto;display:none;align-items:center;gap:7px;margin-left:auto}
-#selP .spAll{padding:6px 12px;border-radius:9px;font:800 11px Georgia,serif;color:#2a1e0a;cursor:pointer;
-  background:linear-gradient(180deg,#f0cf8a,#c79a42);box-shadow:inset 0 1px 0 rgba(255,255,255,0.4),0 1px 3px rgba(0,0,0,0.5)}
+/* actions — round brass "All" (reselect the squad) + close */
+#selP .spActs{flex:0 0 auto;display:none;align-items:center;gap:8px;margin-left:auto}
+#selP .spAll{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#2a1e0a;cursor:pointer;
+  background:radial-gradient(circle at 40% 32%,#ffe7ad,#c79a42 72%,#8a6a2c);
+  box-shadow:var(--brassRing),inset 0 1px 2px rgba(255,255,255,0.45),0 2px 5px rgba(0,0,0,0.5)}
+#selP .spAll svg{width:20px;height:20px}
 #selP .spAll:active{filter:brightness(1.1)}
 #selP .spX{width:28px;height:28px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;border-radius:7px;
   background:rgba(0,0,0,0.35);box-shadow:inset 0 0 0 1px var(--brassDk);color:#c9b58a;cursor:pointer}
 #selP .spX svg{width:14px;height:14px}
+/* build toggle — hammer button that expands/collapses the build radial, sits above the ability radial */
+#buildBtn{position:fixed;z-index:7;right:calc(118px + var(--sr));bottom:calc(282px + var(--sb));width:60px;height:60px;border-radius:50%;
+  display:none;align-items:center;justify-content:center;cursor:pointer;color:#2a1e0a;padding:0;border:0;
+  background:radial-gradient(circle at 40% 32%,#ffe7ad,#c79a42 70%,#8a6a2c);
+  box-shadow:var(--brassRing),inset 0 2px 3px rgba(255,255,255,0.5),inset 0 -3px 6px rgba(0,0,0,0.35),0 4px 12px rgba(0,0,0,0.5)}
+#buildBtn svg{width:28px;height:28px}
+#buildBtn:active{filter:brightness(1.08)}
+#buildBtn.on{background:radial-gradient(circle at 40% 32%,#c3ecc4,#5aa85f 70%,#2f6a34);color:#0e1a0e;
+  box-shadow:0 0 0 1.5px #2f6a34,0 0 0 3px #8fe0a0,0 0 16px rgba(120,230,140,0.6),inset 0 2px 3px rgba(255,255,255,0.4)}
 /* fixed movement joystick, bottom-left */
 #joy{position:fixed;left:calc(12px + var(--sl));bottom:calc(16px + var(--sb));width:98px;height:98px;border-radius:50%;z-index:6;
   background:radial-gradient(circle at 50% 50%,rgba(30,42,60,0.30),rgba(20,27,38,0.42));border:2px solid rgba(150,190,225,0.45);
