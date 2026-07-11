@@ -183,27 +183,44 @@ canvas{display:block}
 #resbar .rs+.rs{border-left:1px solid var(--brd)}
 #resbar .rs svg{width:15px;height:15px}
 #resbar .rs.g{color:#ffd76a} #resbar .rs.w{color:#d8b48a} #resbar .rs.p{color:#a8c8e8}
-/* selection panel — Siege-Up style unit card, bottom-centre */
-#selP{position:fixed;z-index:6;left:50%;transform:translateX(-50%);bottom:calc(14px + var(--sb));display:none;align-items:center;gap:11px;
-  background:var(--panel2);border:1px solid var(--brd);border-radius:13px;padding:9px 12px;min-width:225px;backdrop-filter:blur(9px)}
-#selP .spIc{width:42px;height:42px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;
-  background:radial-gradient(circle at 38% 30%,rgba(110,200,130,0.4),rgba(13,19,29,0.7));border:1.5px solid rgba(120,225,140,0.6);color:#a9f0b4}
-#selP .spIc svg{width:22px;height:22px}
-#selP .spTx{display:flex;flex-direction:column;gap:3px;flex:1 1 auto;min-width:0}
-#selP .spNm{font:800 13px system-ui;color:var(--ink);white-space:nowrap}
-#selP .spBar{height:6px;border-radius:3px;background:rgba(10,14,20,0.6);overflow:hidden}
-#selP .spBarF{height:100%;width:100%;background:linear-gradient(#a6ec5e,#5cb43a)}
-#selP .spRow{display:flex;gap:9px;font:700 10.5px system-ui;color:var(--dim);white-space:nowrap}
-#selP .spX{width:30px;height:30px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;border-radius:50%;
-  border:1px solid var(--brd);color:var(--dim);cursor:pointer}
+/* selection hub — medieval console frame, always docked bottom-centre between joystick & radial */
+#selP{position:fixed;z-index:6;left:calc(122px + var(--sl));right:calc(272px + var(--sr));bottom:calc(10px + var(--sb));
+  display:none;align-items:center;gap:12px;min-height:66px;padding:8px 11px;
+  background:linear-gradient(180deg,rgba(48,37,24,0.90),rgba(26,20,13,0.95));
+  border-radius:13px;box-shadow:var(--brassRing),inset 0 1px 0 rgba(255,224,170,0.16),0 6px 20px rgba(0,0,0,0.5);
+  backdrop-filter:blur(8px);pointer-events:auto}
+#selP.empty{opacity:0.7}
+/* portrait window */
+#selP .spPortrait{flex:0 0 auto;width:56px;height:56px;border-radius:9px;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 40% 30%,rgba(120,150,110,0.32),rgba(15,20,14,0.85));
+  box-shadow:var(--brassRing),inset 0 0 12px rgba(0,0,0,0.65);color:#ffe6a8;overflow:hidden}
+#selP .spPortrait svg{width:30px;height:30px}
+#selP.empty .spPortrait{color:rgba(255,230,168,0.28)}
+/* info column */
+#selP .spInfo{display:flex;flex-direction:column;gap:4px;flex:0 1 186px;min-width:92px}
+#selP .spNm{font:700 14px Georgia,'Times New Roman',serif;color:#f6e7c6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px rgba(0,0,0,0.65)}
+#selP.empty .spNm{color:var(--dim);font-style:italic}
+#selP .spBar{position:relative;height:13px;border-radius:7px;background:rgba(8,10,14,0.72);overflow:hidden;box-shadow:inset 0 0 0 1px rgba(0,0,0,0.55)}
+#selP .spBarF{height:100%;width:100%;background:linear-gradient(#8ee063,#4f9e34);transition:width 0.18s}
+#selP .spBarT{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:800 9.5px system-ui;color:#eafff0;text-shadow:0 1px 2px rgba(0,0,0,0.85)}
+#selP .spSt{font:700 10px system-ui;color:#c9b58a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* squad grid */
+#selP .spGrid{display:none;align-items:center;gap:6px;flex:1 1 auto;flex-wrap:wrap;max-height:56px;overflow:hidden}
+#selP .spCell{position:relative;width:42px;height:42px;border-radius:8px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;cursor:pointer;
+  background:var(--tile);box-shadow:var(--brassRing),inset 0 1px 2px rgba(255,240,200,0.12);color:#cfe4d0}
+#selP .spCell svg{width:22px;height:22px}
+#selP .spCell.on{box-shadow:0 0 0 1.5px var(--brassDk),0 0 0 3px #ffcf6a,0 0 10px rgba(255,207,106,0.5);color:#fff2cf}
+#selP .spCell:active{filter:brightness(1.16)}
+#selP .spCell .n{position:absolute;right:-3px;bottom:-4px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;
+  background:#1a130a;box-shadow:0 0 0 1.5px var(--brass);font:800 10px system-ui;color:#ffe3a0;display:flex;align-items:center;justify-content:center}
+/* actions */
+#selP .spActs{flex:0 0 auto;display:none;align-items:center;gap:7px;margin-left:auto}
+#selP .spAll{padding:6px 12px;border-radius:9px;font:800 11px Georgia,serif;color:#2a1e0a;cursor:pointer;
+  background:linear-gradient(180deg,#f0cf8a,#c79a42);box-shadow:inset 0 1px 0 rgba(255,255,255,0.4),0 1px 3px rgba(0,0,0,0.5)}
+#selP .spAll:active{filter:brightness(1.1)}
+#selP .spX{width:28px;height:28px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;border-radius:7px;
+  background:rgba(0,0,0,0.35);box-shadow:inset 0 0 0 1px var(--brassDk);color:#c9b58a;cursor:pointer}
 #selP .spX svg{width:14px;height:14px}
-#selP .spCard{display:flex;align-items:center;gap:11px}
-#selP .spChips{display:none;align-items:center;gap:7px;flex-wrap:wrap;max-width:70vw}
-#selP .spChip{display:flex;align-items:center;gap:5px;padding:5px 9px;border-radius:10px;cursor:pointer;color:#f2ead6;
-  background:var(--tile);box-shadow:var(--brassRing),inset 0 1px 2px rgba(255,240,200,0.15)}
-#selP .spChip:active{filter:brightness(1.15)}
-#selP .spChip svg{width:18px;height:18px}
-#selP .spChip .n{font:800 13px system-ui;color:#ffe3a0}
 /* fixed movement joystick, bottom-left */
 #joy{position:fixed;left:calc(12px + var(--sl));bottom:calc(16px + var(--sb));width:98px;height:98px;border-radius:50%;z-index:6;
   background:radial-gradient(circle at 50% 50%,rgba(30,42,60,0.30),rgba(20,27,38,0.42));border:2px solid rgba(150,190,225,0.45);

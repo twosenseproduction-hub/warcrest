@@ -1573,31 +1573,48 @@ function attackOrder(list,en){ for(const e of list){ if(!e.alive)continue;
   rallyMarker.material.color.setHex(0xff6a5a); rallyMarker.position.set(en.px,topY(en.px,en.pz)+0.3,en.pz); rallyMarker.visible=true; clearTimeout(rallyMarker.__to); rallyMarker.__to=setTimeout(()=>rallyMarker.visible=false,900); }
 const KIND_NAME={hero:'Elf Queen', warrior:'Warrior', archer:'Archer', cleric:'Priestess', drake:'Drake'};
 const KIND_ICON={hero:'sword', warrior:'warrior', archer:'archer', cleric:'cleric', drake:'drake'};
-function updateSelPanel(){ if(!selPanelEl)return; const sel=[...selected].filter(u=>u.alive);
-  if(!sel.length){ selPanelEl.style.display='none'; return; }
+let hubGroup=[];   // remembered multi-type squad so the "All" button can restore the full selection after a chip sub-select
+function updateSelPanel(){ if(!selPanelEl)return;
+  // the hub frame stays docked once a mission is live; hidden only on menus/pre-game
+  if(!started){ selPanelEl.style.display='none'; return; }
   selPanelEl.style.display='flex';
-  const card=selPanelEl.querySelector('.spCard'), chips=selPanelEl.querySelector('.spChips');
+  const icEl=selPanelEl.querySelector('.spIc'), nmEl=selPanelEl.querySelector('.spNm'),
+        barF=selPanelEl.querySelector('.spBarF'), barT=selPanelEl.querySelector('.spBarT'), stEl=selPanelEl.querySelector('.spSt'),
+        grid=selPanelEl.querySelector('.spGrid'), acts=selPanelEl.querySelector('.spActs'), allBtn=selPanelEl.querySelector('.spAll');
+  const sel=[...selected].filter(u=>u.alive);
+  if(!sel.length){                                                         // idle state: frame present, empty crest
+    selPanelEl.classList.add('empty');
+    icEl.innerHTML=ic('shield'); nmEl.textContent='No selection'; barF.style.width='0%'; barT.textContent='';
+    stEl.textContent='Tap or drag to select'; grid.style.display='none'; acts.style.display='none'; grid.__sig=null; return;
+  }
+  selPanelEl.classList.remove('empty');
   // group the selection by unit type (the hero is its own group)
   const groups={}, order=[]; for(const u of sel){ const k=(u===hero)?'hero':u.kind; if(!groups[k]){groups[k]=[];order.push(k);} groups[k].push(u); }
-  if(sel.length===1 || order.length===1){                                  // single unit or one type → portrait card
-    card.style.display='flex'; chips.style.display='none';
-    const u=sel[0], kind=(u===hero)?'hero':u.kind;
-    card.querySelector('.spIc').innerHTML=ic(KIND_ICON[kind]||'warrior');
-    card.querySelector('.spNm').textContent = sel.length>1 ? (sel.length+'× '+(KIND_NAME[kind]||kind)) : (KIND_NAME[kind]||kind);
-    const hp=sel.reduce((a,e)=>a+Math.max(0,e.hp),0), max=sel.reduce((a,e)=>a+e.max,0);
-    card.querySelector('.spHp').textContent=Math.ceil(hp)+' / '+max+' hp';
-    card.querySelector('.spSt').textContent = sel.length>1 ? ('attack '+Math.round(sel.reduce((a,e)=>a+e.dmg,0))+' total')
-      : (u.dmg+' dmg · '+(+u.range.toFixed(1))+' range · '+Math.round(u.spd)+' spd');
-    card.querySelector('.spBarF').style.width=(Math.max(0,Math.min(1,hp/max))*100)+'%';
-  } else {                                                                  // mixed group → a tappable chip per type
-    card.style.display='none'; chips.style.display='flex';
-    const sig=order.map(k=>k+groups[k].length).join(',');
-    if(chips.__sig!==sig){ chips.__sig=sig; chips.innerHTML='';
-      for(const k of order){ const list=groups[k].slice(); const c=document.createElement('div'); c.className='spChip';
-        c.innerHTML=ic(KIND_ICON[k]||'warrior')+'<span class="n">'+list.length+'</span>';
-        c.title=KIND_NAME[k]||k; c.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); selectMany(list); });   // sub-select just this type
-        chips.appendChild(c); } }
-  } }
+  if(order.length>1) hubGroup=sel.slice();   // remember genuine mixed squads for "All"
+  // primary = the hero if selected, else the lead type's first unit — its portrait fills the window
+  const primary = (selected.has(hero)&&hero&&hero.alive) ? hero : sel[0];
+  const pk=(primary===hero)?'hero':primary.kind, sameType=(order.length===1);
+  icEl.innerHTML=ic(KIND_ICON[pk]||'warrior');
+  nmEl.textContent = (sameType&&sel.length>1) ? (sel.length+'× '+(KIND_NAME[pk]||pk)) : (KIND_NAME[pk]||pk);
+  let hp,max;   // homogeneous group → combined bar; mixed → the focused unit's own bar
+  if(sameType){ hp=sel.reduce((a,e)=>a+Math.max(0,e.hp),0); max=sel.reduce((a,e)=>a+e.max,0); }
+  else { hp=Math.max(0,primary.hp); max=primary.max; }
+  barF.style.width=(max?Math.max(0,Math.min(1,hp/max))*100:0)+'%'; barT.textContent=Math.ceil(hp)+' / '+max;
+  stEl.textContent = (primary.dmg!=null) ? (primary.dmg+' dmg · '+(+(primary.range||0).toFixed(1))+' rng · '+Math.round(primary.spd||0)+' spd') : '';
+  // squad grid: one tappable cell per type (WC3-style), sub-selects that type
+  grid.style.display='flex';
+  const sig=order.map(k=>k+groups[k].length).join(',')+'|'+pk;
+  if(grid.__sig!==sig){ grid.__sig=sig; grid.innerHTML='';
+    for(const k of order){ const list=groups[k].slice(); const c=document.createElement('div'); c.className='spCell'+(k===pk?' on':'');
+      c.innerHTML=ic(KIND_ICON[k]||'warrior')+(list.length>1?'<span class="n">'+list.length+'</span>':'');
+      c.title=KIND_NAME[k]||k; c.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); selectMany(list); });
+      grid.appendChild(c); } }
+  // actions: "All" restores the remembered squad when the current selection is a strict subset of it
+  const restore=hubGroup.filter(u=>u&&u.alive);
+  const showAll = restore.length>sel.length && sel.every(u=>restore.includes(u));
+  acts.style.display='flex'; allBtn.style.display=showAll?'flex':'none';
+  allBtn.onpointerdown=ev=>{ ev.stopPropagation(); if(restore.length) selectMany(restore); };
+}
 function selectInRect(x0,y0,x1,y1){ const lo=[Math.min(x0,x1),Math.min(y0,y1)], hi=[Math.max(x0,x1),Math.max(y0,y1)]; const got=[];
   for(const e of [hero,...allies]){ if(!e||!e.alive)continue; const [sx,sy]=screenOf(e.px,e.pz);
     if(sx>=lo[0]&&sx<=hi[0]&&sy>=lo[1]&&sy<=hi[1]) got.push(e); }
@@ -2128,8 +2145,10 @@ function setupHUD(){
   // (army orders now live in the outer ring of the radial hand above — no separate strip)
   // selection panel (Siege-Up style): portrait, name, hp bar, stats, dismiss
   selPanelEl=document.createElement('div'); selPanelEl.id='selP';
-  selPanelEl.innerHTML='<div class="spCard"><div class="spIc"></div><div class="spTx"><div class="spNm"></div><div class="spBar"><div class="spBarF"></div></div>'+
-    '<div class="spRow"><span class="spHp"></span><span class="spSt"></span></div></div></div><div class="spChips"></div><div class="spX">'+ic('close')+'</div>';
+  selPanelEl.innerHTML='<div class="spPortrait"><div class="spIc"></div></div>'+
+    '<div class="spInfo"><div class="spNm"></div><div class="spBar"><div class="spBarF"></div><span class="spBarT"></span></div><div class="spSt"></div></div>'+
+    '<div class="spGrid"></div>'+
+    '<div class="spActs"><div class="spAll">All</div><div class="spX">'+ic('close')+'</div></div>';
   selPanelEl.addEventListener('pointerdown',ev=>ev.stopPropagation());
   selPanelEl.querySelector('.spX').addEventListener('pointerdown',ev=>{ ev.stopPropagation(); clearSel(); });
   document.body.appendChild(selPanelEl);
@@ -2308,6 +2327,7 @@ window.__dbg={
   followCam:(...a)=>followCam(...a), riggize:(...a)=>riggize(...a), makeChar:(...a)=>makeChar(...a), setAnim:(...a)=>setAnim(...a),
   mkFighter:(...a)=>mkFighter(...a), pickHero:(...a)=>pickHero(...a), updateFog:(...a)=>updateFog(...a),
   mission:(id)=>{ const m=CAMPAIGN.find(x=>x.id===id); if(m)startMission(m); return !!m; },
+  selectOne:(u)=>selectOne(u), selectMany:(l)=>selectMany(l), clearSel:()=>clearSel(), updateSelPanel:()=>updateSelPanel(),
   topY:(x,z)=>topY(x,z), landField:(x,z)=>landField(x,z), shape:()=>MAPSHAPE, arenaR:()=>ARENA_R,
   start(){ started=true; }
 };
