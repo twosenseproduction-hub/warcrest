@@ -151,7 +151,7 @@ function buildTerrain(){
     if(region==='grass'){ if(nrm.y<0) nrm.negate(); } else { if(nrm.y>0.4){/*keep*/} }
     let hex, mul=1;
     if(region==='water'){
-      hex=C.shallow;                                                       // shallow shore shelf
+      hex=0x4f8fac;                                                        // cold steel-blue shallow shore shelf (ashen sea, not tropical cyan)
     } else if(region==='grass'){
       const mx=(va[0]+vb[0]+vc[0])/3, mz=(va[2]+vb[2]+vc[2])/3, avgY=(va[1]+vb[1]+vc[1])/3;
       if(pathDist(mx,mz)<6.5) hex=C.path;                                  // packed gravel road
