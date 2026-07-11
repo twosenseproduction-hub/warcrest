@@ -322,9 +322,41 @@ function pathDist(x,z){
 }
 function topY(x,z){ return landH(x,z) - (pathDist(x,z)<7?0.5:0); }
 
+// ---------- procedural terrain detail: a tileable ash/rock grain albedo + normal map ----------
+// Generated once at load (nothing ships). The per-vertex palette (ash flats / grey rock / snow) stays
+// as the colour; this layers surface grain + relief so the sun catches cracks and pebbles — the big
+// "textured, painted" jump toward a Reforged look while keeping the ashen Verath palette.
+let _terraTex=null;
+function makeTerrainTex(){ if(_terraTex) return _terraTex;
+  const S=512, per=8;
+  const hash=(x,y)=>{ const n=Math.sin(x*127.1+y*311.7)*43758.5453; return n-Math.floor(n); };
+  const sm=t=>t*t*(3-2*t), lerp=(a,b,t)=>a+(b-a)*t;
+  function vnoise(x,y,p){ const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi,u=sm(xf),v=sm(yf);
+    const R=(ix,iy)=>hash(((ix%p)+p)%p,((iy%p)+p)%p);
+    return lerp(lerp(R(xi,yi),R(xi+1,yi),u), lerp(R(xi,yi+1),R(xi+1,yi+1),u), v); }
+  function fbm(x,y){ let a=0,amp=0.5,f=1; for(let o=0;o<4;o++){ a+=amp*vnoise(x*f,y*f,per*f); amp*=0.5; f*=2; } return a; }
+  const hgt=new Float32Array(S*S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){ const u=x/S*per, v=y/S*per;
+    let h=fbm(u,v)*0.85; let c=Math.abs(fbm(u*1.8+5,v*1.8+9)-0.5); c=1-Math.min(1,c*3.4);   // ridged → carved grooves/cracks
+    hgt[y*S+x]=h - c*0.28; }
+  const mk=()=>{ const c=document.createElement('canvas'); c.width=c.height=S; return c; };
+  const ac=mk(),nc=mk(), actx=ac.getContext('2d'), nctx=nc.getContext('2d');
+  const aim=actx.createImageData(S,S), nim=nctx.createImageData(S,S);
+  const H=(x,y)=>hgt[(((y%S)+S)%S)*S+(((x%S)+S)%S)], STR=2.6;
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){ const i=(y*S+x)*4, h=hgt[y*S+x];
+    let g=0.74+h*0.34; const sp=hash(x*3.1,y*2.7); if(sp>0.87)g*=1.12; else if(sp<0.07)g*=0.78;
+    g=Math.max(0.28,Math.min(1,g));
+    aim.data[i]=255*Math.min(1,g*1.03); aim.data[i+1]=255*g; aim.data[i+2]=255*g*0.94; aim.data[i+3]=255;   // faint warm-grey tint
+    let nx=-(H(x+1,y)-H(x-1,y))*STR, ny=-(H(x,y+1)-H(x,y-1))*STR, nz=1; const inv=1/Math.hypot(nx,ny,nz);
+    nim.data[i]=255*(nx*inv*0.5+0.5); nim.data[i+1]=255*(ny*inv*0.5+0.5); nim.data[i+2]=255*(nz*inv*0.5+0.5); nim.data[i+3]=255; }
+  actx.putImageData(aim,0,0); nctx.putImageData(nim,0,0);
+  const alb=new THREE.CanvasTexture(ac), nrm=new THREE.CanvasTexture(nc);
+  for(const t of [alb,nrm]){ t.wrapS=t.wrapT=THREE.RepeatWrapping; t.anisotropy=4; }
+  if('colorSpace'in alb) alb.colorSpace=THREE.SRGBColorSpace;
+  _terraTex={albedo:alb, normal:nrm}; return _terraTex; }
 // ---------- terrain builder: grid over the land field, coastal cliffs where land meets sea ----------
 function buildTerrain(){
-  const pos=[],col=[];
+  const pos=[],col=[],uv=[]; const TILE=9;   // world units per texture repeat
   const nrm=new THREE.Vector3(),ab=new THREE.Vector3(),ac=new THREE.Vector3();
   const tmp=new THREE.Color();
   const bottomY=-40, edgeTopY=COAST_Y;
@@ -349,7 +381,9 @@ function buildTerrain(){
       else hex = lit>0.12 ? C.cliffMid : C.cliffShade;
     }
     tmp.setHex(hex);
-    for(const P of [va,vb,vc]){ pos.push(P[0],P[1],P[2]); col.push(tmp.r,tmp.g,tmp.b); }
+    for(const P of [va,vb,vc]){ pos.push(P[0],P[1],P[2]); col.push(tmp.r,tmp.g,tmp.b);
+      if(region==='grass') uv.push(P[0]/TILE, P[2]/TILE);          // flats: top-down world UV
+      else uv.push((P[0]+P[2])/TILE, P[1]/TILE); }                 // cliffs: run horizontally, striate vertically
   }
   const STEP=5, M=WORLD+20, N=Math.ceil(2*M/STEP);
   const cellLand=(i,j)=>onIsland(-M+(i+0.5)*STEP, -M+(j+0.5)*STEP);
@@ -369,8 +403,11 @@ function buildTerrain(){
   const g=new THREE.BufferGeometry();
   g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
   g.setAttribute('color',new THREE.Float32BufferAttribute(col,3));
-  g.computeVertexNormals();
-  const m=new THREE.MeshLambertMaterial({vertexColors:true,flatShading:true,side:THREE.DoubleSide});
+  g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+  g.computeVertexNormals();   // non-indexed → per-face normals (keeps the low-poly facet base); the normalMap adds surface relief on top
+  const tx=makeTerrainTex();
+  const m=new THREE.MeshStandardMaterial({vertexColors:true, map:tx.albedo, normalMap:tx.normal, roughness:0.97, metalness:0.0, side:THREE.DoubleSide});
+  m.normalScale.set(1.15,1.15);
   const mesh=new THREE.Mesh(g,m); mesh.receiveShadow=true; mesh.castShadow=false;
   return mesh;
 }
