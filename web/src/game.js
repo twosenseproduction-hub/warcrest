@@ -682,6 +682,7 @@ function updateFog(){
   if(coreB) src.push([coreB.x,coreB.z,30]);
   for(const p of plots) if(p.cat) src.push([p.x,p.z,p.cat==='defense'?((p.range||30)+4):24]);   // a tower sees just past its own reach, so it never targets blind
   for(const [x,z,r] of src){ fogStamp(fogVis,x,z,r); fogStamp(fogExplored,x,z,r); }
+  if(RITUAL||MAPSHAPE==='arena'){ fogVis.fill(1); fogExplored.fill(1); }   // fixed last-stand arena → fully revealed battlefield (no exploration fog)
   // paint both fog textures from the grids
   const im=fogCtx.createImageData(FOG_N,FOG_N), d=im.data;
   const mi=fogMiniCtx.createImageData(FOG_N,FOG_N), md=mi.data;
@@ -946,6 +947,7 @@ function resetWorld(){ allies=[]; enemies=[]; eStructs=[]; ePlots=[]; plots=[]; 
   ritualT=0; ritualDone=false; ritualCasters=[]; _ritWaves=[]; _ritRing=null; }
 function build(){
   scene=new THREE.Scene();
+  if(renderPass) renderPass.scene=scene;   // build() makes a fresh scene each mission — repoint the composer's render pass at it (else it keeps drawing the stale boot scene: black, fog-smothered)
   scene.background=new THREE.Color(0x3f9fd6);
   scene.fog=new THREE.Fog(0x3f9fd6, 520, 1050);   // pushed out for the bigger map
 
@@ -2237,12 +2239,12 @@ function setCam(pitchDeg,dist,fov,az,lookY){
 window.__cam=setCam;
 
 // ---------- chromatic-offset "screenprint" post pass ----------
-let composer,bloomPass,postMat;
+let composer,bloomPass,postMat,renderPass;
 function pr(){return Math.min(devicePixelRatio,2);}
 function initPost(){
   composer=new THREE.EffectComposer(rnd3d);
   composer.setSize(innerWidth,innerHeight); composer.setPixelRatio(pr());
-  composer.addPass(new THREE.RenderPass(scene,cam));
+  renderPass=new THREE.RenderPass(scene,cam); composer.addPass(renderPass);
   // selective bloom: high threshold so only fires / magic / sun-glints glow (Reforged-style)
   bloomPass=new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight), 0.42, 0.5, 0.92);
   composer.addPass(bloomPass);
@@ -2305,6 +2307,8 @@ window.__dbg={
   get modeSelEl(){return modeSelEl}, get missionSelEl(){return missionSelEl}, get missionCardEl(){return missionCardEl}, get heroSelEl(){return heroSelEl},
   followCam:(...a)=>followCam(...a), riggize:(...a)=>riggize(...a), makeChar:(...a)=>makeChar(...a), setAnim:(...a)=>setAnim(...a),
   mkFighter:(...a)=>mkFighter(...a), pickHero:(...a)=>pickHero(...a), updateFog:(...a)=>updateFog(...a),
+  mission:(id)=>{ const m=CAMPAIGN.find(x=>x.id===id); if(m)startMission(m); return !!m; },
+  topY:(x,z)=>topY(x,z), landField:(x,z)=>landField(x,z), shape:()=>MAPSHAPE, arenaR:()=>ARENA_R,
   start(){ started=true; }
 };
 boot();
