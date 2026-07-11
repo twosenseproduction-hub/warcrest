@@ -33,6 +33,16 @@ function rr(a,b){return a+(b-a)*rnd();}
 
 // ---------- scene ----------
 let scene,cam,rnd3d,sunLight=null;
+let waterMat=null, motes=null, waterT=0;   // animated sea + drifting ash motes (atmosphere)
+function updateAtmos(dt){
+  if(waterMat){ waterT+=dt; waterMat.uniforms.uTime.value=waterT; }
+  if(motes){ const a=motes.geometry.attributes.position, cx=(typeof camAim!=='undefined'?camAim.x:0), cz=(typeof camAim!=='undefined'?camAim.z:0);
+    for(let i=0;i<a.count;i++){ let x=a.getX(i)+dt*2.4, y=a.getY(i)-dt*1.5, z=a.getZ(i)+dt*0.7;
+      if(y<1.5) y=60;
+      if(x-cx>210)x-=420; else if(x-cx<-210)x+=420;
+      if(z-cz>210)z-=420; else if(z-cz<-210)z+=420;
+      a.setXYZ(i,x,y,z); }
+    a.needsUpdate=true; } }
 // Terraformed single landmass (snow): one big rounded-square landform with interior seas
 // CARVED out of it. Screen mapping: -x is right, -z is up, so world (+,+) reads bottom-left and
 // (-,-) reads top-right — the two bases sit on the main diagonal, land bridged between them.
@@ -935,10 +945,49 @@ function build(){
   const rim=new THREE.DirectionalLight(0x7c93cf,0.4);            // cool back-fill so silhouettes pop against the ground
   rim.position.set(-sun.x*120, 70, -sun.z*120); scene.add(rim);
 
-  // water (big flat plane below rim, the sea the archipelago sits in)
-  const water=new THREE.Mesh(new THREE.CircleGeometry(620,64),
-    new THREE.MeshLambertMaterial({color:C.water}));
-  water.rotation.x=-Math.PI/2; water.position.set(0,-18,0); scene.add(water);
+  // water — animated shader sea (cold ashen palette): undulating surface, scrolling ripple normals,
+  // sun glint + fresnel edge brightening, semi-transparent. The archipelago sits in it.
+  waterMat=new THREE.ShaderMaterial({
+    transparent:true, fog:true, depthWrite:false,
+    uniforms:Object.assign({
+      uTime:{value:0}, uSun:{value:sun.clone()},
+      uDeep:{value:new THREE.Color(0x28536e)}, uShallow:{value:new THREE.Color(0x4f95bd)}
+    }, THREE.UniformsLib.fog),
+    vertexShader:[
+      '#include <fog_pars_vertex>',
+      'uniform float uTime; varying vec3 vW;',
+      'void main(){ vec3 p=position;',
+      '  float w=sin(p.x*0.045+uTime*0.9)*0.55 + sin(p.y*0.05-uTime*0.7)*0.55; p.z+=w;',
+      '  vec4 wp=modelMatrix*vec4(p,1.0); vW=wp.xyz;',
+      '  vec4 mvPosition=modelViewMatrix*vec4(p,1.0); gl_Position=projectionMatrix*mvPosition;',
+      '  #include <fog_vertex>',
+      '}'
+    ].join('\n'),
+    fragmentShader:[
+      '#include <fog_pars_fragment>',
+      'uniform float uTime; uniform vec3 uSun,uDeep,uShallow; varying vec3 vW;',
+      'void main(){',
+      '  vec2 q=vW.xz*0.09; float t=uTime;',
+      '  vec3 n=normalize(vec3(sin(q.x*3.0+t*1.2)*0.28 + sin((q.x+q.y)*1.7+t*1.5)*0.18, 1.0, sin(q.y*2.3-t*0.9)*0.28));',
+      '  vec3 V=normalize(cameraPosition-vW); vec3 L=normalize(uSun); vec3 H=normalize(L+V);',
+      '  float spec=pow(max(dot(n,H),0.0),64.0);',
+      '  float fres=pow(1.0-max(dot(V,vec3(0.0,1.0,0.0)),0.0),3.0);',
+      '  vec3 col=mix(uDeep,uShallow,clamp(fres*1.3+0.22,0.0,1.0));',
+      '  col+=vec3(0.05,0.09,0.13);',                          // cool sky-fill so it never reads black from above',
+      '  col+=vec3(1.0,0.97,0.88)*spec*0.9;',                  // warm sun sparkle
+      '  gl_FragColor=vec4(col,0.92);',
+      '  #include <fog_fragment>',
+      '}'
+    ].join('\n')
+  });
+  const water=new THREE.Mesh(new THREE.CircleGeometry(620,72), waterMat);
+  water.rotation.x=-Math.PI/2; water.position.set(0,-15,0); water.renderOrder=-1; scene.add(water);
+  // drifting ash motes — cheap atmosphere that suits the ashen basin
+  { const N=240, mp=new Float32Array(N*3);
+    for(let i=0;i<N;i++){ mp[i*3]=rr(-210,210); mp[i*3+1]=rr(2,62); mp[i*3+2]=rr(-210,210); }
+    const mg=new THREE.BufferGeometry(); mg.setAttribute('position',new THREE.BufferAttribute(mp,3));
+    motes=new THREE.Points(mg,new THREE.PointsMaterial({color:0xcfc6b6,size:0.7,transparent:true,opacity:0.32,depthWrite:false,fog:true,sizeAttenuation:true}));
+    motes.frustumCulled=false; scene.add(motes); }
 
   scene.add(buildTerrain());
 
@@ -2221,7 +2270,7 @@ async function boot(){
   let last=performance.now();
   (function loop(){ requestAnimationFrame(loop);
     const now=performance.now(); let dt=(now-last)/1000; last=now; if(dt>0.05)dt=0.05;
-    updateGame(dt); followCam(dt); repositionRadial(); updateFires(dt);
+    updateGame(dt); followCam(dt); repositionRadial(); updateFires(dt); updateAtmos(dt);
     if(++miniAcc%4===0){ drawMini(); updateSelPanel(); }   // ~15fps minimap + selection-card refresh
     if(miniAcc%6===0) updateFog();   // ~10fps fog recompute
     rnd3d.setRenderTarget(rt); rnd3d.render(scene,cam);
@@ -2229,4 +2278,14 @@ async function boot(){
   })();
   window.__ready=true;
 }
+// dev/debug bridge — the game body is module-scoped under Vite, so expose the internals
+// headless verification + the weapon tuner poke. Harmless in prod; gate behind a flag later.
+window.__dbg={
+  get hero(){return hero}, get camAim(){return camAim}, get camF(){return camF}, get scene(){return scene},
+  get enemies(){return enemies}, get allies(){return allies}, get waterMat(){return waterMat}, get motes(){return motes},
+  get modeSelEl(){return modeSelEl}, get missionSelEl(){return missionSelEl}, get missionCardEl(){return missionCardEl}, get heroSelEl(){return heroSelEl},
+  followCam:(...a)=>followCam(...a), riggize:(...a)=>riggize(...a), makeChar:(...a)=>makeChar(...a), setAnim:(...a)=>setAnim(...a),
+  mkFighter:(...a)=>mkFighter(...a), pickHero:(...a)=>pickHero(...a), updateFog:(...a)=>updateFog(...a),
+  start(){ started=true; }
+};
 boot();
