@@ -103,6 +103,10 @@
     <div class="lm-list" id="lm-list"></div>
 
     <div class="btns">
+      <button id="btn-automirror" class="active">Auto-mirror: on</button>
+      <button id="btn-snapmid" class="active">Snap midline: on</button>
+    </div>
+    <div class="btns">
       <button id="btn-mirror" class="secondary">Mirror L → R</button>
       <button id="btn-mirror-rl" class="secondary">Mirror R → L</button>
       <button id="btn-clear" class="warn">Clear active</button>
@@ -148,6 +152,9 @@
     { id: "ankle.L",    color: "#f87171" }, { id: "ankle.R",    color: "#f87171" },
   ];
   const LR_SYMMETRY_MM_MAX = 5.0;   // qa-thresholds.json rig.landmark_lr_symmetry_mm_max
+  const MIDLINE = new Set(["chin", "hips"]);
+  const isPaired = (id) => id.endsWith(".L") || id.endsWith(".R");
+  const oppositeId = (id) => id.endsWith(".L") ? id.slice(0, -2) + ".R" : id.slice(0, -2) + ".L";
 
   let scene, camera, renderer, controls, raycaster, mouse;
   let modelRoot = null, meshes = [];
@@ -156,6 +163,8 @@
   let activeId = LANDMARKS[0].id;
   let mode = "orbit";            // "orbit" | "place"
   let markerRadius = 0.02;
+  let autoMirror = true;         // placing one side auto-places the surface-snapped mirror
+  let snapMidline = true;        // midline landmarks snap to the sagittal (X=0) plane
 
   function initThree() {
     const wrap = document.getElementById("canvas-wrap");
@@ -245,7 +254,36 @@
     raycaster.setFromCamera(mouse, camera);
     const hits = raycaster.intersectObjects(meshes, true);
     if (!hits.length) return;
-    placeMarker(activeId, hits[0].point.clone());
+    onPlaceLandmark(activeId, hits[0].point.clone());
+  }
+
+  // Symmetry-aware placement: snap midline to the sagittal plane, and (if enabled)
+  // auto-place the opposite side by reflecting across X=0 and re-snapping onto the mesh.
+  function onPlaceLandmark(id, worldPoint) {
+    if (MIDLINE.has(id) && snapMidline) worldPoint.x = floorCenter.x;   // sagittal plane
+    placeMarker(id, worldPoint);
+    if (autoMirror && isPaired(id)) {
+      const mirrored = new THREE.Vector3(2 * floorCenter.x - worldPoint.x, worldPoint.y, worldPoint.z);
+      const snapped = snapMirrorToSurface(mirrored, worldPoint.x);
+      placeMarker(oppositeId(id), snapped);
+      setStatus(`Placed ${id} + auto-mirrored ${oppositeId(id)}.`);
+    }
+  }
+
+  // Project a reflected point back onto the mesh: cast a horizontal (X-axis) ray through it,
+  // from just outside the model toward centre, and take the nearest hit. Falls back to the
+  // raw reflected point when the geometry has no surface there (asymmetric mesh).
+  function snapMirrorToSurface(point, sourceX) {
+    if (!meshes.length || !bbox) return point;
+    const size = new THREE.Vector3(); bbox.getSize(size);
+    const reach = size.length();
+    const outwardSign = Math.sign(point.x - floorCenter.x) || 1;        // away from centre
+    const origin = new THREE.Vector3(point.x + outwardSign * reach, point.y, point.z);
+    const dir = new THREE.Vector3(-outwardSign, 0, 0);
+    const ray = new THREE.Raycaster(origin, dir, 0, reach * 2.2);
+    const hits = ray.intersectObjects(meshes, true)
+      .filter(h => Math.sign(h.point.x - floorCenter.x) === outwardSign);  // same side as mirror
+    return hits.length ? hits[0].point.clone() : point;
   }
 
   function placeMarker(id, worldPoint) {
@@ -396,6 +434,16 @@
     document.getElementById("btn-mirror").addEventListener("click", () => mirror("L", "R"));
     document.getElementById("btn-mirror-rl").addEventListener("click", () => mirror("R", "L"));
     document.getElementById("btn-clear").addEventListener("click", clearActive);
+    document.getElementById("btn-automirror").addEventListener("click", (e) => {
+      autoMirror = !autoMirror;
+      e.target.textContent = "Auto-mirror: " + (autoMirror ? "on" : "off");
+      e.target.classList.toggle("active", autoMirror); e.target.classList.toggle("secondary", !autoMirror);
+    });
+    document.getElementById("btn-snapmid").addEventListener("click", (e) => {
+      snapMidline = !snapMidline;
+      e.target.textContent = "Snap midline: " + (snapMidline ? "on" : "off");
+      e.target.classList.toggle("active", snapMidline); e.target.classList.toggle("secondary", !snapMidline);
+    });
     document.getElementById("btn-front").addEventListener("click", () => setCam("front"));
     document.getElementById("btn-side").addEventListener("click", () => setCam("side"));
     document.getElementById("btn-wire").addEventListener("click", toggleWire);
