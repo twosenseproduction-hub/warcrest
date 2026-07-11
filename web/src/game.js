@@ -1168,7 +1168,7 @@ function loadRig(){ return new Promise(res=>{
   propFiles.forEach(f=>fx.load('/assets/models/'+f+'.fbx'+MDLV, o=>{ PROPS[f]=bakeProp(o); done(); }, undefined, ()=>done()));
 }); }
 // clone a rig (independent per unit), crisp texture, scale to target height, plant feet, wire clips
-function makeChar(key){ const src=RIGS[key]; if(!src)return null;
+function makeChar(key,opts){ opts=opts||{}; const src=RIGS[key]; if(!src)return null;
   const inner=THREE.SkeletonUtils.clone(src.scene), outer=new THREE.Group();
   // models natively face +Z; face() sets outer.rotation.y=atan2(dx,dz) so +Z aligns with travel — no extra spin (was Math.PI → moonwalk)
   inner.rotation.y=0;
@@ -1211,7 +1211,7 @@ function makeChar(key){ const src=RIGS[key]; if(!src)return null;
   const findBone=name=>{ if(bodySkel){ const b=pickFrom(bodySkel.bones,name); if(b)return b; }
     const cands=[]; inner.traverse(o=>{ if(o.isBone&&(o.name===name||o.name.indexOf(name)===0)) cands.push(o); });
     return pickFrom(cands,name); };
-  (WEAPONS[key]||[]).forEach(w=>{ if(!PROPS[w.file])return; const bone=findBone(w.bone);
+  if(!opts.noWeapons) (WEAPONS[key]||[]).forEach(w=>{ if(!PROPS[w.file])return; const bone=findBone(w.bone);
     if(bone){ const prop=PROPS[w.file].clone(true), tx=TEXS[key];
       prop.traverse(o=>{ if(o.isMesh){ o.material=new THREE.MeshBasicMaterial({map:tx,side:THREE.DoubleSide}); o.frustumCulled=false; } });
       prop.position.fromArray(w.pos); prop.rotation.set(w.rot[0],w.rot[1],w.rot[2]); prop.scale.setScalar(w.scl); bone.add(prop); } });
@@ -1230,7 +1230,7 @@ function bakePortraits(){
   const key=new THREE.DirectionalLight(0xfff2dc,1.5); key.position.set(0.6,1.1,1.4); sc.add(key);
   const cam=new THREE.PerspectiveCamera(30,1,0.05,200);
   for(const rk of Object.keys(RIGS)){
-    let ch; try{ ch=makeChar(rk); }catch(_){ ch=null; } if(!ch)continue;
+    let ch; try{ ch=makeChar(rk,{noWeapons:true}); }catch(_){ ch=null; } if(!ch)continue;   // bare pose — no weapon in front of the face
     const g=ch.g; sc.add(g); g.updateMatrixWorld(true);
     // frame off the target height (feet planted at y=0), NOT the bounding box — a raised weapon/arm
     // inflates the bbox and throws the aim above the head into a top-down scalp shot.
