@@ -1218,6 +1218,29 @@ function makeChar(key){ const src=RIGS[key]; if(!src)return null;
   const out={g:outer,mixer,act};
   if(key==='thoryn'){ out.armL=findBone('upperarm_l'); out.armR=findBone('upperarm_r'); }   // long arms need a post-anim relax
   return out; }
+// ---- unit portraits: bake a head-and-shoulders headshot of every rig once at load, keyed by rig ----
+// Rendered from the real in-game model (idle pose, facing +Z toward the lens) so the hub shows each
+// unit's actual face. Cheap: one offscreen render per rig at startup; stored as data-URLs.
+let PORTRAITS={};
+function bakePortraits(){
+  let R; try{ R=new THREE.WebGLRenderer({antialias:true, alpha:true, preserveDrawingBuffer:true}); }catch(_){ return; }
+  R.setSize(192,192); R.setPixelRatio(1); R.setClearColor(0x000000,0); if('outputColorSpace'in R)R.outputColorSpace=THREE.SRGBColorSpace;
+  const sc=new THREE.Scene();
+  sc.add(new THREE.HemisphereLight(0xffffff,0x556070,1.15));
+  const key=new THREE.DirectionalLight(0xfff2dc,1.5); key.position.set(0.6,1.1,1.4); sc.add(key);
+  const cam=new THREE.PerspectiveCamera(30,1,0.05,200);
+  for(const rk of Object.keys(RIGS)){
+    let ch; try{ ch=makeChar(rk); }catch(_){ ch=null; } if(!ch)continue;
+    const g=ch.g; sc.add(g); g.updateMatrixWorld(true);
+    // frame off the target height (feet planted at y=0), NOT the bounding box — a raised weapon/arm
+    // inflates the bbox and throws the aim above the head into a top-down scalp shot.
+    const H=CHAR_H[rk]||4, focusY=H*0.80, dist=H*0.82;   // level bust: head/helm + shoulders + chest armor (robust across poses/weapons)
+    cam.position.set(0, focusY, dist); cam.lookAt(0, focusY, 0);   // camera on +Z — rigs face +Z
+    try{ R.render(sc,cam); PORTRAITS[rk]=R.domElement.toDataURL('image/png'); }catch(_){}
+    sc.remove(g);   // geometry/materials are shared with RIGS — never dispose them here
+  }
+  R.dispose();
+}
 // Thoryn's arms are ~2.5x the queen's: her clip angles read as 'airplane arms' on his longer
 // limbs, so after the mixer poses him each frame we relax the upper arms toward the body.
 let ARM_TUNE={x:0,y:1,z:0,ang:0};   // his own unarmed clip set fits his proportions; tuner kept for fine-tuning (window.__armTune)
@@ -1585,6 +1608,9 @@ function attackOrder(list,en){ for(const e of list){ if(!e.alive)continue;
   rallyMarker.material.color.setHex(0xff6a5a); rallyMarker.position.set(en.px,topY(en.px,en.pz)+0.3,en.pz); rallyMarker.visible=true; clearTimeout(rallyMarker.__to); rallyMarker.__to=setTimeout(()=>rallyMarker.visible=false,900); }
 const KIND_NAME={hero:'Elf Queen', warrior:'Warrior', archer:'Archer', cleric:'Priestess', drake:'Drake'};
 const KIND_ICON={hero:'sword', warrior:'warrior', archer:'archer', cleric:'cleric', drake:'drake'};
+// prefer the unit's baked face portrait; fall back to the line icon if a portrait wasn't rendered
+function unitFace(u,fallbackKind){ const rk=u&&u.rigKey, src=rk&&PORTRAITS[rk];
+  return src ? '<img class="spFace" src="'+src+'" alt="">' : ic(KIND_ICON[fallbackKind]||'warrior'); }
 let hubGroup=[];   // remembered multi-type squad so the "All" button can restore the full selection after a chip sub-select
 function updateSelPanel(){ if(!selPanelEl)return;
   // the hub frame + build button stay docked once a mission is live; hidden only on menus/pre-game
@@ -1607,7 +1633,7 @@ function updateSelPanel(){ if(!selPanelEl)return;
   // primary = the hero if selected, else the lead type's first unit — its portrait fills the window
   const primary = (selected.has(hero)&&hero&&hero.alive) ? hero : sel[0];
   const pk=(primary===hero)?'hero':primary.kind, sameType=(order.length===1);
-  icEl.innerHTML=ic(KIND_ICON[pk]||'warrior');
+  icEl.innerHTML=unitFace(primary,pk);
   nmEl.textContent = (sameType&&sel.length>1) ? (sel.length+'× '+(KIND_NAME[pk]||pk)) : (KIND_NAME[pk]||pk);
   let hp,max;   // homogeneous group → combined bar; mixed → the focused unit's own bar
   if(sameType){ hp=sel.reduce((a,e)=>a+Math.max(0,e.hp),0); max=sel.reduce((a,e)=>a+e.max,0); }
@@ -1619,7 +1645,7 @@ function updateSelPanel(){ if(!selPanelEl)return;
   const sig=order.map(k=>k+groups[k].length).join(',')+'|'+pk;
   if(grid.__sig!==sig){ grid.__sig=sig; grid.innerHTML='';
     for(const k of order){ const list=groups[k].slice(); const c=document.createElement('div'); c.className='spCell'+(k===pk?' on':'');
-      c.innerHTML=ic(KIND_ICON[k]||'warrior')+(list.length>1?'<span class="n">'+list.length+'</span>':'');
+      c.innerHTML=unitFace(list[0],k)+(list.length>1?'<span class="n">'+list.length+'</span>':'');
       c.title=KIND_NAME[k]||k; c.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); selectMany(list); });
       grid.appendChild(c); } }
   // actions: "All" restores the remembered squad when the current selection is a strict subset of it
@@ -2318,7 +2344,7 @@ async function boot(){
   if('outputColorSpace' in rnd3d) rnd3d.outputColorSpace=THREE.SRGBColorSpace;
   document.body.appendChild(rnd3d.domElement);
   cam=new THREE.PerspectiveCamera(30,innerWidth/innerHeight,1,600);
-  await Promise.all([loadNature(), loadBuildings()]); build(); initPost(); await loadRig(); spawnGame(); initFog(); setupHUD(); followCam();
+  await Promise.all([loadNature(), loadBuildings()]); build(); initPost(); await loadRig(); bakePortraits(); spawnGame(); initFog(); setupHUD(); followCam();
   addEventListener('resize',()=>{
     rnd3d.setSize(innerWidth,innerHeight); cam.aspect=innerWidth/innerHeight; cam.updateProjectionMatrix();
     composer.setSize(innerWidth,innerHeight); bloomPass.setSize(innerWidth,innerHeight); postMat.uniforms.uRes.value.set(innerWidth,innerHeight);

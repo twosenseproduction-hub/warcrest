@@ -196,6 +196,7 @@ canvas{display:block}
   box-shadow:0 0 0 2px var(--brassDk),0 0 0 4px var(--brass),0 0 0 5.5px #3a2c14,inset 0 2px 5px rgba(255,235,190,0.28),inset 0 -6px 12px rgba(0,0,0,0.7);
   color:#ffe6a8;overflow:hidden}
 #selP .spPortrait svg{width:34px;height:34px;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6))}
+#selP .spPortrait .spFace{width:100%;height:100%;object-fit:cover;object-position:50% 20%;border-radius:8px;image-rendering:auto}
 #selP.empty .spPortrait{color:rgba(255,230,168,0.28)}
 /* info column */
 #selP .spInfo{display:flex;flex-direction:column;gap:5px;flex:0 1 196px;min-width:96px}
@@ -214,6 +215,7 @@ canvas{display:block}
 #selP .spCell{position:relative;width:42px;height:42px;border-radius:8px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;cursor:pointer;
   background:var(--tile);box-shadow:var(--brassRing),inset 0 1px 2px rgba(255,240,200,0.12);color:#cfe4d0}
 #selP .spCell svg{width:22px;height:22px}
+#selP .spCell .spFace{width:100%;height:100%;object-fit:cover;object-position:50% 20%;border-radius:6px}
 #selP .spCell.on{box-shadow:0 0 0 1.5px var(--brassDk),0 0 0 3px #ffcf6a,0 0 10px rgba(255,207,106,0.5);color:#fff2cf}
 #selP .spCell:active{filter:brightness(1.16)}
 #selP .spCell .n{position:absolute;right:-3px;bottom:-4px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;
