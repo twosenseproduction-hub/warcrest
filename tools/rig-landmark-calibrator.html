@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rig Landmark Calibrator — Warcrest character pipeline</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 20px;
+    font-family: system-ui, sans-serif;
+    background: #14141f; color: #e8e8f0;
+  }
+  h1 { font-size: 1.2rem; margin: 0 0 4px; }
+  p.lead { color: #9aa; max-width: 900px; line-height: 1.5; margin: 0 0 14px; }
+  .row { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+  .panel {
+    background: #0f0f18; border: 1px solid #2a2a3a; border-radius: 10px; padding: 12px;
+  }
+  .views { display: flex; gap: 18px; flex-wrap: wrap; }
+  .view h2 { font-size: 12px; margin: 0 0 6px; color: #aeb6c9; text-transform: uppercase; letter-spacing: .05em; }
+  canvas.stage {
+    display: block; width: 380px; height: 560px;
+    background: #0a0a12 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><path d="M0 0H20V20H0Z" fill="none" stroke="%23191926" stroke-width="1"/></svg>');
+    border: 1px solid #2a2a3a; border-radius: 6px; cursor: crosshair;
+  }
+  .sidebar { width: 340px; }
+  label { display: block; font-size: 12px; color: #9aa; margin: 10px 0 3px; }
+  input[type=number], input[type=text] {
+    width: 100%; background: #0a0a12; color: #e8e8f0; border: 1px solid #333349;
+    border-radius: 6px; padding: 7px 9px; font-size: 13px;
+  }
+  button {
+    background: #3b5bdb; color: #fff; border: 0; border-radius: 7px;
+    padding: 8px 12px; font-size: 13px; cursor: pointer;
+  }
+  button.secondary { background: #2a2a3a; }
+  button.warn { background: #a03030; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .lm-list { margin-top: 6px; max-height: 340px; overflow-y: auto; }
+  .lm {
+    display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px;
+    font-size: 13px; cursor: pointer; border: 1px solid transparent;
+  }
+  .lm:hover { background: #1a1a28; }
+  .lm.active { background: #1e2748; border-color: #3b5bdb; }
+  .lm .dot { width: 12px; height: 12px; border-radius: 50%; flex: 0 0 auto; border: 1px solid #000; }
+  .lm .name { flex: 1; }
+  .lm .status { font-size: 11px; color: #7a869a; font-variant-numeric: tabular-nums; }
+  .lm.done .status { color: #4ade80; }
+  .metrics { font-size: 12px; line-height: 1.7; }
+  .metrics .k { color: #9aa; }
+  .metrics .ok { color: #4ade80; }
+  .metrics .bad { color: #f87171; }
+  #status { min-height: 1.3em; color: #93c5fd; font-size: 12px; margin: 6px 0; }
+  .hint { font-size: 11px; color: #6b7280; line-height: 1.5; }
+  .mode-pill { display: inline-block; background: #1e2748; color: #93c5fd; border-radius: 999px; padding: 2px 10px; font-size: 11px; margin-left: 6px; }
+  details { margin-top: 10px; }
+  summary { cursor: pointer; color: #aeb6c9; font-size: 12px; }
+  code { background: #0a0a12; padding: 1px 4px; border-radius: 4px; color: #cbd5e1; }
+</style>
+</head>
+<body>
+  <h1>Rig Landmark Calibrator <span class="mode-pill" id="mode-pill">place landmarks</span></h1>
+  <p class="lead">
+    Guided marker placement for the headless rigger (pipeline stage S8). Load an orthographic
+    <b>front</b> and <b>side</b> reference of the character, calibrate scale, click the twelve
+    required landmarks, and export a <code>landmarks.json</code> in world meters (Z-up,
+    floor-center origin) that <code>docs/pipeline/blender/s08_landmark_rig.py</code> consumes.
+    Mixamo-style UX as the benchmark; the format, symmetry checks, and QA logic are ours.
+    Zero build — a single self-contained file, like the map export tool.
+  </p>
+
+  <div class="row">
+    <div class="views panel">
+      <div class="view">
+        <h2>Front view — sets X (left↔right) &amp; Z (up)</h2>
+        <canvas id="cv-front" class="stage" width="380" height="560"></canvas>
+        <div class="btns">
+          <button class="secondary" data-load="front">Load front image</button>
+          <button class="secondary" data-cal="front">Calibrate front ▸</button>
+        </div>
+      </div>
+      <div class="view">
+        <h2>Side view — sets Y (depth) &amp; Z (up)</h2>
+        <canvas id="cv-side" class="stage" width="380" height="560"></canvas>
+        <div class="btns">
+          <button class="secondary" data-load="side">Load side image</button>
+          <button class="secondary" data-cal="side">Calibrate side ▸</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar panel">
+      <div id="status">Load front &amp; side references, then calibrate each view.</div>
+
+      <label>Model height (m) — from DNA <code>scale_m.height_m.target</code></label>
+      <input type="number" id="height" value="2.0" step="0.01" min="0.1" />
+
+      <label>Active landmark — click on the views to place it</label>
+      <div class="lm-list" id="lm-list"></div>
+
+      <div class="btns">
+        <button id="btn-mirror" class="secondary">Mirror L → R</button>
+        <button id="btn-mirror-rl" class="secondary">Mirror R → L</button>
+        <button id="btn-clear" class="warn">Clear active</button>
+      </div>
+
+      <details open>
+        <summary>QA readout</summary>
+        <div class="metrics" id="metrics"></div>
+      </details>
+
+      <div class="btns" style="margin-top:14px">
+        <button id="btn-export" disabled>Export landmarks.json</button>
+        <button id="btn-import" class="secondary">Import…</button>
+      </div>
+
+      <details>
+        <summary>How calibration works</summary>
+        <p class="hint">
+          Per view: click <b>floor</b> (Z=0), then <b>top of head</b> (Z=model height) to fix
+          the vertical scale, then click the <b>center axis</b> to fix the horizontal origin
+          (X=0 in front, Y=0 in side). Front horizontal → +X to the right; side horizontal →
+          +Y forward. Final Z averages the front and side reads (delta shown). A landmark
+          placed only in front gets X,Z with Y=0 (fine for mid-line joints like chin/hips).
+          Values export rounded to the millimetre for determinism.
+        </p>
+      </details>
+    </div>
+  </div>
+
+  <input type="file" id="file-in" accept="image/*" style="display:none" />
+  <input type="file" id="json-in" accept="application/json,.json" style="display:none" />
+
+<script>
+"use strict";
+
+// Required landmarks — mirrors qa-thresholds.json rig.required_landmarks.
+const LANDMARKS = [
+  { id: "chin",       mid: true,  color: "#f59e0b" },
+  { id: "shoulder.L", mid: false, color: "#60a5fa" },
+  { id: "shoulder.R", mid: false, color: "#60a5fa" },
+  { id: "elbow.L",    mid: false, color: "#34d399" },
+  { id: "elbow.R",    mid: false, color: "#34d399" },
+  { id: "wrist.L",    mid: false, color: "#a78bfa" },
+  { id: "wrist.R",    mid: false, color: "#a78bfa" },
+  { id: "hips",       mid: true,  color: "#f472b6" },
+  { id: "knee.L",     mid: false, color: "#fbbf24" },
+  { id: "knee.R",     mid: false, color: "#fbbf24" },
+  { id: "ankle.L",    mid: false, color: "#f87171" },
+  { id: "ankle.R",    mid: false, color: "#f87171" },
+];
+const LR_SYMMETRY_MM_MAX = 5.0;   // qa-thresholds.json rig.landmark_lr_symmetry_mm_max
+
+// State ---------------------------------------------------------------------
+const views = {
+  front: { canvas: null, ctx: null, img: null, cal: { floorY: null, topY: null, centerX: null }, calStep: null },
+  side:  { canvas: null, ctx: null, img: null, cal: { floorY: null, topY: null, centerX: null }, calStep: null },
+};
+// Per-landmark stored click points in *canvas* pixels: pts[id] = { front:{x,y}, side:{x,y} }
+const pts = {};
+let activeId = LANDMARKS[0].id;
+let mode = "place";           // "place" | "calibrate"
+let calView = null;
+let loadTargetView = null;
+
+// Init ----------------------------------------------------------------------
+function init() {
+  for (const v of ["front", "side"]) {
+    const c = document.getElementById("cv-" + v);
+    views[v].canvas = c;
+    views[v].ctx = c.getContext("2d");
+    c.addEventListener("click", (e) => onCanvasClick(v, e));
+    setupDrop(v);
+  }
+  document.querySelectorAll("[data-load]").forEach(b =>
+    b.addEventListener("click", () => { loadTargetView = b.dataset.load; document.getElementById("file-in").click(); }));
+  document.querySelectorAll("[data-cal]").forEach(b =>
+    b.addEventListener("click", () => startCalibration(b.dataset.cal)));
+
+  document.getElementById("file-in").addEventListener("change", onImageFile);
+  document.getElementById("json-in").addEventListener("change", onJsonFile);
+  document.getElementById("btn-import").addEventListener("click", () => document.getElementById("json-in").click());
+  document.getElementById("btn-export").addEventListener("click", exportJson);
+  document.getElementById("btn-mirror").addEventListener("click", () => mirror("L", "R"));
+  document.getElementById("btn-mirror-rl").addEventListener("click", () => mirror("R", "L"));
+  document.getElementById("btn-clear").addEventListener("click", clearActive);
+  document.getElementById("height").addEventListener("input", () => { redrawAll(); updateMetrics(); });
+
+  buildLmList();
+  redrawAll();
+  updateMetrics();
+}
+
+function setupDrop(v) {
+  const c = views[v].canvas;
+  c.addEventListener("dragover", e => { e.preventDefault(); });
+  c.addEventListener("drop", e => {
+    e.preventDefault();
+    const f = e.dataTransfer.files[0];
+    if (f && f.type.startsWith("image/")) loadImage(v, f);
+  });
+}
+
+// Image loading -------------------------------------------------------------
+function onImageFile(e) {
+  const f = e.target.files[0];
+  if (f && loadTargetView) loadImage(loadTargetView, f);
+  e.target.value = "";
+}
+function loadImage(v, file) {
+  const img = new Image();
+  img.onload = () => { views[v].img = img; redraw(v); setStatus(`Loaded ${v} reference (${img.naturalWidth}×${img.naturalHeight}).`); };
+  img.src = URL.createObjectURL(file);
+}
+
+// Calibration ---------------------------------------------------------------
+function startCalibration(v) {
+  mode = "calibrate"; calView = v; views[v].calStep = "floor";
+  views[v].cal = { floorY: null, topY: null, centerX: null };
+  document.getElementById("mode-pill").textContent = `calibrate ${v}: click FLOOR`;
+  setStatus(`Calibrating ${v}: click the FLOOR line (Z = 0).`);
+  redraw(v);
+}
+function calClick(v, x, y) {
+  const cal = views[v].cal;
+  const step = views[v].calStep;
+  if (step === "floor")      { cal.floorY = y; views[v].calStep = "top";    setPill(`calibrate ${v}: click TOP of head`); setStatus(`${v}: now click the TOP of head (Z = height).`); }
+  else if (step === "top")   { cal.topY = y;   views[v].calStep = "center"; setPill(`calibrate ${v}: click CENTER axis`); setStatus(`${v}: now click the vertical CENTER axis.`); }
+  else if (step === "center"){ cal.centerX = x; views[v].calStep = null; mode = "place"; calView = null; setPill("place landmarks"); setStatus(`${v} calibrated. Place landmarks.`); }
+  redraw(v); updateMetrics(); refreshExportBtn();
+}
+function isCalibrated(v) {
+  const c = views[v].cal;
+  return c.floorY != null && c.topY != null && c.centerX != null && c.floorY !== c.topY;
+}
+
+// Click routing -------------------------------------------------------------
+function onCanvasClick(v, e) {
+  const rect = views[v].canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) * (views[v].canvas.width / rect.width);
+  const y = (e.clientY - rect.top) * (views[v].canvas.height / rect.height);
+  if (mode === "calibrate" && calView === v) { calClick(v, x, y); return; }
+  if (!activeId) return;
+  pts[activeId] = pts[activeId] || {};
+  pts[activeId][v] = { x, y };
+  // Auto-advance to next unplaced landmark once both views have a point.
+  redraw(v); buildLmList(); updateMetrics(); refreshExportBtn();
+}
+
+// Coordinate conversion: canvas px -> world meters (Z up, floor-center origin)
+function worldOf(id) {
+  const p = pts[id]; if (!p) return null;
+  const h = parseFloat(document.getElementById("height").value) || 2.0;
+  let X = null, Y = null, zFront = null, zSide = null;
+
+  if (p.front && isCalibrated("front")) {
+    const c = views.front.cal;
+    const ppm = (c.floorY - c.topY) / h;                 // px per metre (vertical)
+    zFront = (c.floorY - p.front.y) / ppm;
+    X = (p.front.x - c.centerX) / ppm;                   // +X to the right
+  }
+  if (p.side && isCalibrated("side")) {
+    const c = views.side.cal;
+    const ppm = (c.floorY - c.topY) / h;
+    zSide = (c.floorY - p.side.y) / ppm;
+    Y = (p.side.x - c.centerX) / ppm;                    // +Y forward
+  }
+  let Z = null;
+  if (zFront != null && zSide != null) Z = (zFront + zSide) / 2;
+  else Z = (zFront != null) ? zFront : zSide;
+  const zDelta = (zFront != null && zSide != null) ? Math.abs(zFront - zSide) : null;
+  return {
+    X: X != null ? X : 0, Y: Y != null ? Y : 0, Z: Z != null ? Z : 0,
+    hasX: X != null, hasY: Y != null, hasZ: Z != null, zDelta,
+  };
+}
+function round3(n) { return Math.round(n * 1000) / 1000; }
+
+// Mirror --------------------------------------------------------------------
+function mirror(fromSide, toSide) {
+  let n = 0;
+  for (const lm of LANDMARKS) {
+    if (!lm.id.endsWith("." + fromSide)) continue;
+    const base = lm.id.slice(0, -2);
+    const src = pts[base + "." + fromSide];
+    if (!src) continue;
+    const dst = {};
+    // Mirror across each view's center axis horizontally; copy vertical.
+    if (src.front && isCalibrated("front")) { const cx = views.front.cal.centerX; dst.front = { x: 2 * cx - src.front.x, y: src.front.y }; }
+    if (src.side)  { dst.side = { x: src.side.x, y: src.side.y }; }   // depth same on both sides
+    pts[base + "." + toSide] = dst; n++;
+  }
+  setStatus(`Mirrored ${n} landmark(s) ${fromSide} → ${toSide}.`);
+  redrawAll(); buildLmList(); updateMetrics(); refreshExportBtn();
+}
+function clearActive() {
+  delete pts[activeId];
+  redrawAll(); buildLmList(); updateMetrics(); refreshExportBtn();
+  setStatus(`Cleared ${activeId}.`);
+}
+
+// Rendering -----------------------------------------------------------------
+function redrawAll() { redraw("front"); redraw("side"); }
+function redraw(v) {
+  const { ctx, canvas, img, cal } = views[v];
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (img) {
+    // Fit image within canvas preserving aspect.
+    const s = Math.min(canvas.width / img.naturalWidth, canvas.height / img.naturalHeight);
+    const w = img.naturalWidth * s, h = img.naturalHeight * s;
+    ctx.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+  }
+  // Calibration guides.
+  ctx.lineWidth = 1;
+  if (cal.floorY != null) guideLine(ctx, 0, cal.floorY, canvas.width, cal.floorY, "#4ade80", "floor Z=0");
+  if (cal.topY != null)   guideLine(ctx, 0, cal.topY, canvas.width, cal.topY, "#38bdf8", "top");
+  if (cal.centerX != null) guideLine(ctx, cal.centerX, 0, cal.centerX, canvas.height, "#f59e0b", "axis");
+  // Landmarks.
+  for (const lm of LANDMARKS) {
+    const p = pts[lm.id]; if (!p || !p[v]) continue;
+    marker(ctx, p[v].x, p[v].y, lm.color, lm.id === activeId, lm.id);
+  }
+}
+function guideLine(ctx, x1, y1, x2, y2, color, label) {
+  ctx.save(); ctx.strokeStyle = color; ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  ctx.setLineDash([]); ctx.fillStyle = color; ctx.font = "10px system-ui";
+  ctx.fillText(label, x1 + 4, y1 - 3 < 10 ? y1 + 12 : y1 - 3); ctx.restore();
+}
+function marker(ctx, x, y, color, active, label) {
+  ctx.save();
+  ctx.beginPath(); ctx.arc(x, y, active ? 7 : 5, 0, Math.PI * 2);
+  ctx.fillStyle = color; ctx.fill();
+  ctx.lineWidth = active ? 2.5 : 1.2; ctx.strokeStyle = active ? "#fff" : "#000"; ctx.stroke();
+  if (active) { ctx.fillStyle = "#fff"; ctx.font = "10px system-ui"; ctx.fillText(label, x + 9, y + 3); }
+  ctx.restore();
+}
+
+// Landmark list UI ----------------------------------------------------------
+function buildLmList() {
+  const el = document.getElementById("lm-list"); el.innerHTML = "";
+  for (const lm of LANDMARKS) {
+    const p = pts[lm.id] || {};
+    const nF = !!p.front, nS = !!p.side;
+    const done = nF || nS;
+    const div = document.createElement("div");
+    div.className = "lm" + (lm.id === activeId ? " active" : "") + (done ? " done" : "");
+    div.innerHTML =
+      `<span class="dot" style="background:${lm.color}"></span>` +
+      `<span class="name">${lm.id}</span>` +
+      `<span class="status">${nF ? "F" : "·"}${nS ? "S" : "·"}</span>`;
+    div.addEventListener("click", () => { activeId = lm.id; buildLmList(); redrawAll(); setStatus(`Active: ${lm.id}`); });
+    el.appendChild(div);
+  }
+}
+
+// Metrics / QA --------------------------------------------------------------
+function updateMetrics() {
+  const m = document.getElementById("metrics");
+  const placed = LANDMARKS.filter(l => pts[l.id] && (pts[l.id].front || pts[l.id].side)).length;
+  const calF = isCalibrated("front"), calS = isCalibrated("side");
+
+  // L/R symmetry worst-case in mm (compare L vs mirrored R in world space).
+  let worst = 0, worstPair = "—";
+  for (const base of ["shoulder", "elbow", "wrist", "knee", "ankle"]) {
+    const L = worldOf(base + ".L"), R = worldOf(base + ".R");
+    if (!L || !R) continue;
+    const d = Math.sqrt((L.X + R.X) ** 2 + (L.Y - R.Y) ** 2 + (L.Z - R.Z) ** 2) * 1000; // mirror X
+    if (d > worst) { worst = d; worstPair = base; }
+  }
+  // Max Z disagreement between views.
+  let zWorst = 0;
+  for (const l of LANDMARKS) { const w = worldOf(l.id); if (w && w.zDelta != null) zWorst = Math.max(zWorst, w.zDelta * 1000); }
+
+  const symOk = worst <= LR_SYMMETRY_MM_MAX;
+  m.innerHTML =
+    `<div><span class="k">landmarks placed:</span> <b>${placed} / ${LANDMARKS.length}</b></div>` +
+    `<div><span class="k">front calibrated:</span> <span class="${calF ? "ok" : "bad"}">${calF ? "yes" : "no"}</span> &nbsp; ` +
+    `<span class="k">side calibrated:</span> <span class="${calS ? "ok" : "bad"}">${calS ? "yes" : "no"}</span></div>` +
+    `<div><span class="k">L/R symmetry (worst):</span> <span class="${symOk ? "ok" : "bad"}">${worst.toFixed(1)} mm</span> ` +
+    `<span class="k">(≤ ${LR_SYMMETRY_MM_MAX}, ${worstPair})</span></div>` +
+    `<div><span class="k">front/side Z disagreement:</span> ${zWorst.toFixed(1)} mm</div>`;
+}
+function refreshExportBtn() {
+  const allPlaced = LANDMARKS.every(l => pts[l.id] && (pts[l.id].front || pts[l.id].side));
+  document.getElementById("btn-export").disabled = !(allPlaced && (isCalibrated("front") || isCalibrated("side")));
+}
+
+// Export / import -----------------------------------------------------------
+function exportJson() {
+  const out = {};
+  const meta = {
+    _generator: "rig-landmark-calibrator", _units: "meters", _up_axis: "Z", _origin: "floor_center",
+    _model_height_m: parseFloat(document.getElementById("height").value) || 2.0,
+  };
+  for (const l of LANDMARKS) {
+    const w = worldOf(l.id);
+    if (!w) continue;
+    out[l.id] = [round3(w.X), round3(w.Y), round3(w.Z)];
+  }
+  const payload = Object.assign({}, meta, out);
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "landmarks.json"; a.click();
+  setStatus("Exported landmarks.json (world metres, Z-up, floor-center).");
+}
+function onJsonFile(e) {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const data = JSON.parse(r.result);
+      // Re-derive canvas points from world coords requires calibration; if not calibrated,
+      // we can only import for reference. Store world directly by faking front-view placement.
+      if (data._model_height_m) document.getElementById("height").value = data._model_height_m;
+      importWorld(data);
+      setStatus("Imported landmarks.json. Re-calibrate views to edit positions accurately.");
+    } catch (err) { setStatus("Import failed: " + err.message); }
+  };
+  r.readAsText(f); e.target.value = "";
+}
+function importWorld(data) {
+  // If both views calibrated, back-project world coords to canvas px so markers appear.
+  const h = parseFloat(document.getElementById("height").value) || 2.0;
+  for (const l of LANDMARKS) {
+    const v = data[l.id]; if (!Array.isArray(v)) continue;
+    const [X, Y, Z] = v; pts[l.id] = {};
+    if (isCalibrated("front")) { const c = views.front.cal; const ppm = (c.floorY - c.topY) / h; pts[l.id].front = { x: c.centerX + X * ppm, y: c.floorY - Z * ppm }; }
+    if (isCalibrated("side"))  { const c = views.side.cal;  const ppm = (c.floorY - c.topY) / h; pts[l.id].side  = { x: c.centerX + Y * ppm, y: c.floorY - Z * ppm }; }
+  }
+  redrawAll(); buildLmList(); updateMetrics(); refreshExportBtn();
+}
+
+// Helpers -------------------------------------------------------------------
+function setStatus(s) { document.getElementById("status").textContent = s; }
+function setPill(s) { document.getElementById("mode-pill").textContent = s; }
+
+init();
+</script>
+</body>
+</html>

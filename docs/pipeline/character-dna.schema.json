@@ -1,0 +1,217 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://warcrest/pipeline/character-dna.schema.json",
+  "title": "Character DNA",
+  "description": "Versioned contract every asset in a character family must satisfy. Children may only tighten parent ranges, never widen them.",
+  "type": "object",
+  "required": [
+    "dna_id", "version", "inherits", "silhouette_class", "body_proportions",
+    "scale_m", "poly_budget", "topology_rules", "material_slots", "uv_rules",
+    "texture_res_policy", "color_palette", "accessory_points", "skeleton_hierarchy",
+    "joint_naming", "finger_schema", "export_schema"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "dna_id":   { "type": "string", "pattern": "^[a-z0-9_]+$" },
+    "version":  { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "inherits": { "type": ["string", "null"], "description": "Parent dna_id or null for a root faction DNA." },
+    "style_pack_id": { "type": "string" },
+
+    "silhouette_class": {
+      "type": "string",
+      "enum": ["lithe_agile", "balanced_soldier", "bulky_bruiser", "hulking_giant", "quadruped_beast", "custom"]
+    },
+
+    "body_proportions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["head_height_units", "shoulder_width_heads", "hip_width_heads", "arm_to_height", "leg_to_height"],
+      "properties": {
+        "head_height_units":   { "$ref": "#/$defs/range" },
+        "shoulder_width_heads":{ "$ref": "#/$defs/range" },
+        "hip_width_heads":     { "$ref": "#/$defs/range" },
+        "arm_to_height":       { "$ref": "#/$defs/range" },
+        "leg_to_height":       { "$ref": "#/$defs/range" }
+      }
+    },
+
+    "scale_m": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["height_m", "origin", "up_axis"],
+      "properties": {
+        "height_m": { "$ref": "#/$defs/range" },
+        "origin":   { "type": "string", "enum": ["floor_center"], "description": "Origin at min-Z plane, X/Y centroid, snapped to world 0." },
+        "origin_tolerance_mm": { "type": "number", "default": 1.0 },
+        "up_axis":  { "type": "string", "enum": ["Z"], "description": "Blender-internal up axis; export presets convert per engine." }
+      }
+    },
+
+    "poly_budget": {
+      "type": "object",
+      "description": "Triangle budget per LOD.",
+      "additionalProperties": false,
+      "required": ["lods"],
+      "properties": {
+        "lods": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["lod", "tris"],
+            "properties": {
+              "lod": { "type": "integer", "minimum": 0 },
+              "tris": { "$ref": "#/$defs/range" }
+            }
+          }
+        }
+      }
+    },
+
+    "topology_rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["quad_pct_min", "min_loops_at_deform_joints", "max_pole_valence", "ngons_allowed"],
+      "properties": {
+        "quad_pct_min":               { "type": "number", "minimum": 0, "maximum": 100 },
+        "min_loops_at_deform_joints": { "type": "integer", "minimum": 1 },
+        "max_pole_valence":           { "type": "integer", "minimum": 3 },
+        "poles_banned_on_deform_bands": { "type": "boolean", "default": true },
+        "ngons_allowed":              { "type": "boolean", "default": false }
+      }
+    },
+
+    "material_slots": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["names", "max_count"],
+      "properties": {
+        "names":     { "type": "array", "items": { "type": "string" } },
+        "max_count": { "type": "integer", "minimum": 1 }
+      }
+    },
+
+    "uv_rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["layout", "min_texel_density_px_per_m", "overlaps_allowed", "seam_zones"],
+      "properties": {
+        "layout":                     { "type": "string", "enum": ["single_atlas", "udim"] },
+        "min_texel_density_px_per_m": { "type": "number", "minimum": 0 },
+        "overlaps_allowed":           { "type": "string", "enum": ["none", "mirrored_only"] },
+        "seam_zones":                 { "type": "array", "items": { "type": "string" }, "description": "Where seams are allowed to hide (e.g. inner_arm, inner_leg)." }
+      }
+    },
+
+    "texture_res_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["per_lod", "channel_packing"],
+      "properties": {
+        "per_lod": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["lod", "albedo_px", "normal_px"],
+            "properties": {
+              "lod":       { "type": "integer" },
+              "albedo_px": { "type": "integer", "enum": [256, 512, 1024, 2048, 4096] },
+              "normal_px": { "type": "integer", "enum": [256, 512, 1024, 2048, 4096] },
+              "orm_px":    { "type": "integer", "enum": [256, 512, 1024, 2048, 4096] }
+            }
+          }
+        },
+        "channel_packing": { "type": "string", "enum": ["ORM", "separate"], "description": "ORM = Occlusion(R)-Roughness(G)-Metal(B)." }
+      }
+    },
+
+    "color_palette": {
+      "type": "object",
+      "description": "Per material slot: allowed HSV boundaries and approved swatch reference with a ΔE tolerance.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["hue_deg", "sat", "val", "delta_e_max"],
+        "properties": {
+          "hue_deg":     { "$ref": "#/$defs/range" },
+          "sat":         { "$ref": "#/$defs/range" },
+          "val":         { "$ref": "#/$defs/range" },
+          "swatch_ref":  { "type": "string", "description": "Path into style_pack swatches." },
+          "delta_e_max": { "type": "number", "minimum": 0 },
+          "max_out_of_gamut_pct": { "type": "number", "minimum": 0, "maximum": 100, "default": 2 }
+        }
+      }
+    },
+
+    "accessory_points": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "parent_bone", "local_transform"],
+        "properties": {
+          "name":            { "type": "string", "pattern": "^socket_[a-z0-9_]+$" },
+          "parent_bone":     { "type": "string" },
+          "local_transform": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "loc": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+              "rot_euler_deg": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 }
+            }
+          }
+        }
+      }
+    },
+
+    "skeleton_hierarchy": { "type": "string", "description": "Canonical skeleton id this DNA binds to, e.g. canon_biped_v2." },
+
+    "joint_naming": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pattern", "side_suffixes"],
+      "properties": {
+        "pattern":       { "type": "string", "description": "e.g. <Region>_<Joint>[_<Index>].<Side>" },
+        "regex":         { "type": "string", "description": "Validation regex enforced at S10." },
+        "side_suffixes": { "type": "array", "items": { "type": "string" }, "default": [".L", ".R"] }
+      }
+    },
+
+    "finger_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["preset", "thumb", "digits", "bones_per_digit"],
+      "properties": {
+        "preset":          { "type": "string", "enum": ["preset_2finger", "preset_3finger", "preset_5finger"] },
+        "thumb":           { "type": "boolean" },
+        "digits":          { "type": "integer", "minimum": 1, "maximum": 4, "description": "Non-thumb digits." },
+        "bones_per_digit": { "type": "integer", "minimum": 1, "maximum": 3 }
+      }
+    },
+
+    "export_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["engines", "preset_ref", "lod_count"],
+      "properties": {
+        "engines":    { "type": "array", "items": { "type": "string", "enum": ["unity", "unreal", "blender", "godot"] } },
+        "preset_ref": { "type": "string", "description": "Key into export-presets.json." },
+        "lod_count":  { "type": "integer", "minimum": 1 }
+      }
+    }
+  },
+
+  "$defs": {
+    "range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "max"],
+      "properties": {
+        "min":    { "type": "number" },
+        "max":    { "type": "number" },
+        "target": { "type": "number", "description": "Optional central target used for style scoring." }
+      }
+    }
+  }
+}

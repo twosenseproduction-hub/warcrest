@@ -6,5 +6,6 @@ COPY index.html /usr/share/nginx/html/
 COPY styles/ /usr/share/nginx/html/styles/
 COPY src/ /usr/share/nginx/html/src/
 COPY assets/ /usr/share/nginx/html/assets/
+COPY tools/ /usr/share/nginx/html/tools/
 
 EXPOSE 8080

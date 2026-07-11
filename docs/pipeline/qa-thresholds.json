@@ -1,0 +1,102 @@
+{
+  "$schema_note": "Locked validation thresholds. Changing any value is a reviewed commit. gate = REJECT on any hard_fail; APPROVE-eligible when every category >= pass and no hard_fail; NEEDS_REVIEW otherwise.",
+  "version": "1.0.0",
+  "gate": {
+    "reject_on_any_hard_fail": true,
+    "gray_band_action": "needs_review"
+  },
+
+  "geometry": {
+    "non_manifold_edges_max": 0,
+    "degenerate_faces_max": 0,
+    "loose_geometry_max": 0,
+    "normals_consistent": true,
+    "scale_must_equal": [1.0, 1.0, 1.0],
+    "origin_offset_mm_max": 1.0,
+    "merge_by_distance_epsilon_mm": 0.1,
+    "hole_area_repair_max_cm2": 4.0,
+    "hard_fail": ["non_manifold_edges_max", "scale_must_equal", "normals_consistent"]
+  },
+
+  "topology": {
+    "quad_pct_min": 90.0,
+    "quad_pct_hard_fail_below": 85.0,
+    "min_loops_at_deform_joints": 3,
+    "max_pole_valence": 5,
+    "poles_on_deform_bands_max": 0,
+    "tri_budget_source": "dna.poly_budget",
+    "silhouette_iou_drop_max_after_retopo": 0.05,
+    "hard_fail": ["quad_pct_hard_fail_below", "tri_budget_source", "min_loops_at_deform_joints"]
+  },
+
+  "symmetry": {
+    "symmetry_score_min": 0.92,
+    "symmetry_score_needs_review_below": 0.92,
+    "symmetry_score_hard_fail_below": 0.80,
+    "note": "Skipped if dna flags intentional_asymmetry.",
+    "hard_fail": ["symmetry_score_hard_fail_below"]
+  },
+
+  "style": {
+    "composite_pass_min": 0.85,
+    "composite_hard_fail_below": 0.75,
+    "weights": {
+      "proportion_fit": 0.25,
+      "silhouette_fit": 0.20,
+      "palette_fit": 0.20,
+      "surface_detail_density": 0.15,
+      "material_treatment": 0.10,
+      "silhouette_class_match": 0.10
+    },
+    "palette_delta_e_max": 5.0,
+    "palette_out_of_gamut_pct_max": 2.0,
+    "hard_fail": ["composite_hard_fail_below", "palette_out_of_gamut_pct_max"]
+  },
+
+  "rig": {
+    "hierarchy_exact_match": true,
+    "naming_regex_match": true,
+    "landmark_residual_mm_max": 15.0,
+    "landmark_residual_needs_review_above": 15.0,
+    "landmark_lr_symmetry_mm_max": 5.0,
+    "required_landmarks": [
+      "chin", "shoulder.L", "shoulder.R", "elbow.L", "elbow.R",
+      "wrist.L", "wrist.R", "hips", "knee.L", "knee.R", "ankle.L", "ankle.R"
+    ],
+    "hard_fail": ["hierarchy_exact_match", "naming_regex_match"]
+  },
+
+  "deformation": {
+    "test_clips": ["tpose_to_apose", "arm_raise", "deep_squat", "wrist_twist", "walk_full_range"],
+    "volume_loss_pct_max": 12.0,
+    "joint_collapse_ratio_max": 0.35,
+    "self_intersection_faces_max": 0,
+    "jitter_px_max": 1.5,
+    "max_influences_per_vertex": 4,
+    "unweighted_vertices_max": 0,
+    "hard_fail": ["joint_collapse_ratio_max", "self_intersection_faces_max", "unweighted_vertices_max"]
+  },
+
+  "motion": {
+    "foot_slide_cm_per_frame_max": 2.0,
+    "ground_penetration_cm_max": 1.0,
+    "jitter_deg_per_frame_max": 3.0,
+    "loop_seam_pose_error_deg_max": 2.0,
+    "loop_seam_velocity_error_max": 0.15,
+    "contact_frames_must_pin": true,
+    "hard_fail": ["ground_penetration_cm_max", "contact_frames_must_pin"]
+  },
+
+  "export": {
+    "roundtrip_vertex_count_delta_max": 0,
+    "roundtrip_bone_count_delta_max": 0,
+    "roundtrip_scale_delta_max": 0.0001,
+    "hard_fail": ["roundtrip_vertex_count_delta_max", "roundtrip_bone_count_delta_max", "roundtrip_scale_delta_max"]
+  },
+
+  "drift_monitoring": {
+    "sigma_alert_threshold": 2.0,
+    "min_samples_before_alert": 15,
+    "note": "Running mean of any observed metric beyond N sigma from the style bible target raises a drift alert for art-direction review. The bible is never auto-updated from generated output."
+  }
+}
