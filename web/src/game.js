@@ -129,7 +129,7 @@ function makeTerrainTex(){ if(_terraTex) return _terraTex;
   const aim=actx.createImageData(S,S), nim=nctx.createImageData(S,S);
   const H=(x,y)=>hgt[(((y%S)+S)%S)*S+(((x%S)+S)%S)], STR=2.6;
   for(let y=0;y<S;y++)for(let x=0;x<S;x++){ const i=(y*S+x)*4, h=hgt[y*S+x];
-    let g=0.74+h*0.34; const sp=hash(x*3.1,y*2.7); if(sp>0.87)g*=1.12; else if(sp<0.07)g*=0.78;
+    let g=0.56+h*0.30; const sp=hash(x*3.1,y*2.7); if(sp>0.87)g*=1.10; else if(sp<0.07)g*=0.78;   // darker mid-ash so lit ground doesn't clip to white
     g=Math.max(0.28,Math.min(1,g));
     aim.data[i]=255*Math.min(1,g*1.03); aim.data[i+1]=255*g; aim.data[i+2]=255*g*0.94; aim.data[i+3]=255;   // faint warm-grey tint
     let nx=-(H(x+1,y)-H(x-1,y))*STR, ny=-(H(x,y+1)-H(x,y-1))*STR, nz=1; const inv=1/Math.hypot(nx,ny,nz);
@@ -192,7 +192,7 @@ function buildTerrain(){
   g.computeVertexNormals();   // non-indexed → per-face normals (keeps the low-poly facet base); the normalMap adds surface relief on top
   const tx=makeTerrainTex();
   const m=new THREE.MeshStandardMaterial({vertexColors:true, map:tx.albedo, normalMap:tx.normal, roughness:0.97, metalness:0.0, side:THREE.DoubleSide});
-  m.normalScale.set(1.15,1.15);
+  m.normalScale.set(1.4,1.4);
   const mesh=new THREE.Mesh(g,m); mesh.receiveShadow=true; mesh.castShadow=false;
   return mesh;
 }
@@ -285,7 +285,7 @@ function turretPad(x,z,r,th){ th=th||PLOT_THEME.elf; const g=new THREE.Group();
   for(const [dx,dz] of [[r,r],[-r,r],[r,-r],[-r,-r]]){ const p=new THREE.Mesh(new THREE.BoxGeometry(0.9,1.4,0.9),lam(th.ground)); p.position.set(dx,0.7,dz); p.castShadow=true; g.add(p); }
   g.position.set(x,topY(x,z)+0.02,z); return g; }
 function courtyard(x,z,r){ const g=new THREE.Group();
-  const disc=new THREE.Mesh(new THREE.CylinderGeometry(r,r,0.4,40),lam(C.path)); disc.position.y=0.03; disc.receiveShadow=true; g.add(disc);
+  const disc=new THREE.Mesh(new THREE.CylinderGeometry(r,r,0.4,40),lam(0x6b6358)); disc.position.y=0.03; disc.receiveShadow=true; g.add(disc);   // darker ash paving so the lit courtyard doesn't blow out
   const rim=new THREE.Mesh(new THREE.TorusGeometry(r-0.5,0.45,8,44),lam(C.cliffMid)); rim.rotation.x=Math.PI/2; rim.position.y=0.28; g.add(rim);
   g.position.set(x,topY(x,z)+0.02,z); return g; }
 function makeHouse(){
@@ -936,7 +936,7 @@ function build(){
 
   // lights — WC3-Reforged style: warm key sun, cool sky fill, cool back-rim for separation
   scene.add(new THREE.HemisphereLight(0xbfe0ff,0x2c4a36,0.42));   // cooler sky, deeper green ground bounce
-  const dir=new THREE.DirectionalLight(0xffe6bc,1.45);            // stronger, warmer key sun
+  const dir=new THREE.DirectionalLight(0xffe6bc,1.28);            // stronger, warmer key sun
   dir.position.copy(sun.clone().multiplyScalar(120)); dir.castShadow=true;
   dir.shadow.mapSize.set(2048,2048);   // higher-res + softer shadows read more cinematic
   const sc=dir.shadow.camera; sc.left=-105;sc.right=105;sc.top=105;sc.bottom=-105;sc.near=20;sc.far=360;
@@ -2229,7 +2229,7 @@ function initPost(){
   composer.setSize(innerWidth,innerHeight); composer.setPixelRatio(pr());
   composer.addPass(new THREE.RenderPass(scene,cam));
   // selective bloom: high threshold so only fires / magic / sun-glints glow (Reforged-style)
-  bloomPass=new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight), 0.62, 0.55, 0.80);
+  bloomPass=new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight), 0.42, 0.5, 0.92);
   composer.addPass(bloomPass);
   // final grade pass — chromatic aberration + exposure/saturation/contrast + warm/cool split-tone + vignette
   const grade=new THREE.ShaderPass({
@@ -2237,7 +2237,7 @@ function initPost(){
     vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
     fragmentShader:[
       'uniform sampler2D tDiffuse;uniform float uAmt;uniform vec2 uRes;varying vec2 vUv;',
-      'const float EXPOSURE=1.05, CONTRAST=1.10, SAT=1.20;',
+      'const float EXPOSURE=1.00, CONTRAST=1.10, SAT=1.20;',
       'void main(){',
       '  vec2 d=vUv-0.5; float r2=dot(d,d);',
       '  vec2 off=d*(uAmt/uRes)*(1.0+r2*3.0);',
