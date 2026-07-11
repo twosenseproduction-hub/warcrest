@@ -1112,14 +1112,16 @@ function build(){
   scene.background=new THREE.Color(0x3f9fd6);
   scene.fog=new THREE.Fog(0x3f9fd6, 520, 1050);   // pushed out for the bigger map
 
-  // lights
-  scene.add(new THREE.HemisphereLight(0xdff0ff,0x3f6a44,0.55));
-  const dir=new THREE.DirectionalLight(0xfff3d8,1.05);
+  // lights — WC3-Reforged style: warm key sun, cool sky fill, cool back-rim for separation
+  scene.add(new THREE.HemisphereLight(0xbfe0ff,0x2c4a36,0.42));   // cooler sky, deeper green ground bounce
+  const dir=new THREE.DirectionalLight(0xffe6bc,1.45);            // stronger, warmer key sun
   dir.position.copy(sun.clone().multiplyScalar(120)); dir.castShadow=true;
-  dir.shadow.mapSize.set(1024,1024);   // trees/rocks no longer cast, so a smaller map still looks crisp on the buildings/units
+  dir.shadow.mapSize.set(2048,2048);   // higher-res + softer shadows read more cinematic
   const sc=dir.shadow.camera; sc.left=-105;sc.right=105;sc.top=105;sc.bottom=-105;sc.near=20;sc.far=360;
-  dir.shadow.bias=-0.0004; dir.shadow.normalBias=1.4; dir.shadow.radius=3;
+  dir.shadow.bias=-0.0004; dir.shadow.normalBias=1.4; dir.shadow.radius=4.5;
   scene.add(dir); scene.add(dir.target); sunLight=dir;   // shadow frustum tracks the camera focus (keeps shadows sharp on a big map)
+  const rim=new THREE.DirectionalLight(0x7c93cf,0.4);            // cool back-fill so silhouettes pop against the ground
+  rim.position.set(-sun.x*120, 70, -sun.z*120); scene.add(rim);
 
   // water (big flat plane below rim, the sea the archipelago sits in)
   const water=new THREE.Mesh(new THREE.CircleGeometry(620,64),
@@ -2370,14 +2372,22 @@ function initPost(){
     vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}',
     fragmentShader:[
       'uniform sampler2D tDiffuse;uniform float uAmt;uniform vec2 uRes;varying vec2 vUv;',
+      'const float EXPOSURE=1.06, CONTRAST=1.10, SAT=1.22;',
       'void main(){',
       '  vec2 d=vUv-0.5; float r2=dot(d,d);',
-      '  vec2 off=d*(uAmt/uRes)*(1.0+r2*3.0);',   // stronger toward edges
+      '  vec2 off=d*(uAmt/uRes)*(1.0+r2*3.0);',   // chromatic aberration, stronger toward edges
       '  float cr=texture2D(tDiffuse,vUv+off).r;',
       '  float cg=texture2D(tDiffuse,vUv).g;',
       '  float cb=texture2D(tDiffuse,vUv-off).b;',
       '  vec3 col=vec3(cr,cg,cb);',
-      '  col*=1.0-r2*0.28;',                      // gentle vignette
+      '  col*=EXPOSURE;',
+      '  float l=dot(col,vec3(0.299,0.587,0.114));',              // luma for grading
+      '  col=mix(vec3(l),col,SAT);',                              // saturation punch
+      '  col=(col-0.5)*CONTRAST+0.5;',                            // filmic-ish contrast around mid grey
+      '  vec3 warm=vec3(1.05,1.0,0.9), cool=vec3(0.92,0.98,1.08);',
+      '  col*=mix(cool,warm,smoothstep(0.25,0.85,l));',           // split-tone: cool shadows, warm highlights
+      '  col=clamp(col,0.0,1.0);',
+      '  col*=1.0-r2*0.30;',                                      // gentle vignette
       '  gl_FragColor=vec4(col,1.0);',
       '}'].join('\n')
   });
