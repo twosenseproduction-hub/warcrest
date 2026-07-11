@@ -2222,37 +2222,41 @@ function setCam(pitchDeg,dist,fov,az,lookY){
 window.__cam=setCam;
 
 // ---------- chromatic-offset "screenprint" post pass ----------
-let rt,postScene,postCam,postMat;
+let composer,bloomPass,postMat;
 function pr(){return Math.min(devicePixelRatio,2);}
 function initPost(){
-  rt=new THREE.WebGLRenderTarget(innerWidth*pr(),innerHeight*pr(),{samples:2});
-  postCam=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
-  postScene=new THREE.Scene();
-  postMat=new THREE.ShaderMaterial({
-    uniforms:{tDiffuse:{value:rt.texture},uAmt:{value:2.2},uRes:{value:new THREE.Vector2(innerWidth,innerHeight)}},
-    vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}',
+  composer=new THREE.EffectComposer(rnd3d);
+  composer.setSize(innerWidth,innerHeight); composer.setPixelRatio(pr());
+  composer.addPass(new THREE.RenderPass(scene,cam));
+  // selective bloom: high threshold so only fires / magic / sun-glints glow (Reforged-style)
+  bloomPass=new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight), 0.62, 0.55, 0.80);
+  composer.addPass(bloomPass);
+  // final grade pass — chromatic aberration + exposure/saturation/contrast + warm/cool split-tone + vignette
+  const grade=new THREE.ShaderPass({
+    uniforms:{ tDiffuse:{value:null}, uAmt:{value:2.2}, uRes:{value:new THREE.Vector2(innerWidth,innerHeight)} },
+    vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
     fragmentShader:[
       'uniform sampler2D tDiffuse;uniform float uAmt;uniform vec2 uRes;varying vec2 vUv;',
-      'const float EXPOSURE=1.06, CONTRAST=1.10, SAT=1.22;',
+      'const float EXPOSURE=1.05, CONTRAST=1.10, SAT=1.20;',
       'void main(){',
       '  vec2 d=vUv-0.5; float r2=dot(d,d);',
-      '  vec2 off=d*(uAmt/uRes)*(1.0+r2*3.0);',   // chromatic aberration, stronger toward edges
+      '  vec2 off=d*(uAmt/uRes)*(1.0+r2*3.0);',
       '  float cr=texture2D(tDiffuse,vUv+off).r;',
       '  float cg=texture2D(tDiffuse,vUv).g;',
       '  float cb=texture2D(tDiffuse,vUv-off).b;',
       '  vec3 col=vec3(cr,cg,cb);',
       '  col*=EXPOSURE;',
-      '  float l=dot(col,vec3(0.299,0.587,0.114));',              // luma for grading
-      '  col=mix(vec3(l),col,SAT);',                              // saturation punch
-      '  col=(col-0.5)*CONTRAST+0.5;',                            // filmic-ish contrast around mid grey
+      '  float l=dot(col,vec3(0.299,0.587,0.114));',
+      '  col=mix(vec3(l),col,SAT);',
+      '  col=(col-0.5)*CONTRAST+0.5;',
       '  vec3 warm=vec3(1.05,1.0,0.9), cool=vec3(0.92,0.98,1.08);',
-      '  col*=mix(cool,warm,smoothstep(0.25,0.85,l));',           // split-tone: cool shadows, warm highlights
+      '  col*=mix(cool,warm,smoothstep(0.25,0.85,l));',
       '  col=clamp(col,0.0,1.0);',
-      '  col*=1.0-r2*0.30;',                                      // gentle vignette
+      '  col*=1.0-r2*0.30;',
       '  gl_FragColor=vec4(col,1.0);',
       '}'].join('\n')
   });
-  postScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),postMat));
+  grade.renderToScreen=true; composer.addPass(grade); postMat=grade.material;
 }
 
 async function boot(){
@@ -2265,7 +2269,7 @@ async function boot(){
   await Promise.all([loadNature(), loadBuildings()]); build(); initPost(); await loadRig(); spawnGame(); initFog(); setupHUD(); followCam();
   addEventListener('resize',()=>{
     rnd3d.setSize(innerWidth,innerHeight); cam.aspect=innerWidth/innerHeight; cam.updateProjectionMatrix();
-    rt.setSize(innerWidth*pr(),innerHeight*pr()); postMat.uniforms.uRes.value.set(innerWidth,innerHeight);
+    composer.setSize(innerWidth,innerHeight); bloomPass.setSize(innerWidth,innerHeight); postMat.uniforms.uRes.value.set(innerWidth,innerHeight);
   });
   let last=performance.now();
   (function loop(){ requestAnimationFrame(loop);
@@ -2273,8 +2277,7 @@ async function boot(){
     updateGame(dt); followCam(dt); repositionRadial(); updateFires(dt); updateAtmos(dt);
     if(++miniAcc%4===0){ drawMini(); updateSelPanel(); }   // ~15fps minimap + selection-card refresh
     if(miniAcc%6===0) updateFog();   // ~10fps fog recompute
-    rnd3d.setRenderTarget(rt); rnd3d.render(scene,cam);
-    rnd3d.setRenderTarget(null); rnd3d.render(postScene,postCam);
+    composer.render();
   })();
   window.__ready=true;
 }
