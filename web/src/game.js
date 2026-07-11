@@ -149,35 +149,48 @@ function buildTerrain(){
     ab.set(vb[0]-va[0],vb[1]-va[1],vb[2]-va[2]); ac.set(vc[0]-va[0],vc[1]-va[1],vc[2]-va[2]);
     nrm.crossVectors(ab,ac).normalize();
     if(region==='grass'){ if(nrm.y<0) nrm.negate(); } else { if(nrm.y>0.4){/*keep*/} }
-    let hex;
-    if(region==='grass'){
+    let hex, mul=1;
+    if(region==='water'){
+      hex=C.shallow;                                                       // shallow shore shelf
+    } else if(region==='grass'){
       const mx=(va[0]+vb[0]+vc[0])/3, mz=(va[2]+vb[2]+vc[2])/3, avgY=(va[1]+vb[1]+vc[1])/3;
       if(pathDist(mx,mz)<6.5) hex=C.path;                                  // packed gravel road
       else if(landField(mx,mz)<0.13) hex=C.beach;                          // frost-wet stone shore
       else if(avgY<-6) hex=C.snowLo;                                       // low, shaded weathered stone near the water
       else { const n=fbm(mx*0.045,mz*0.045), n2=fbm(mx*0.09+11,mz*0.09+4); // frozen tundra: mostly stone, patches of dead grass, the odd snow drift
         hex = (n>0.72&&n2>0.6)?C.grass3 : n2>0.58?C.grass2 : n2<0.32?C.snowTan : n<0.34?C.snowLo : C.grass; }
-    } else { // coastal cliff: snow lip → grey rock → cold deep water, by depth
-      const avgY=(va[1]+vb[1]+vc[1])/3;
+    } else { // coastal edge: rocky cliff face above the waterline, cold-blue sea below it
+      const avgY=(va[1]+vb[1]+vc[1])/3, mx=(va[0]+vb[0]+vc[0])/3, mz=(va[2]+vb[2]+vc[2])/3;
       const dep=Math.min(1,Math.max(0,(edgeTopY-avgY)/(edgeTopY-bottomY)));
       const lit=nrm.dot(sun);
-      if(dep<0.22) hex=C.cliffLit;
-      else if(dep<0.55) hex = lit>0.0 ? C.cliffLit : C.cliffMid;
-      else hex = lit>0.12 ? C.cliffMid : C.cliffShade;
+      if(dep<0.42){                                                        // above water: grey rock, mottled, darker in shade
+        hex = dep<0.15 ? C.cliffMid : (lit>0.0 ? C.cliffMid : 0x554d44);
+        const rn=fbm(mx*0.11+7,mz*0.11+3); mul=0.78+rn*0.40;              // rock mottling
+      } else {                                                             // below water = the sea: cold blue (lit shimmer vs deep)
+        hex = lit>0.10 ? 0x2f6a90 : 0x1c4258;
+      }
     }
-    tmp.setHex(hex);
+    tmp.setHex(hex); if(mul!==1) tmp.multiplyScalar(mul);
     for(const P of [va,vb,vc]){ pos.push(P[0],P[1],P[2]); col.push(tmp.r,tmp.g,tmp.b);
-      if(region==='grass') uv.push(P[0]/TILE, P[2]/TILE);          // flats: top-down world UV
-      else uv.push((P[0]+P[2])/TILE, P[1]/TILE); }                 // cliffs: run horizontally, striate vertically
+      if(region==='cliff') uv.push((P[0]+P[2])/TILE, P[1]/TILE);   // cliffs: run horizontally, striate vertically
+      else uv.push(P[0]/TILE, P[2]/TILE); }                        // flats + water shelf: top-down world UV
   }
   const STEP=5, M=WORLD+20, N=Math.ceil(2*M/STEP);
   const cellLand=(i,j)=>onIsland(-M+(i+0.5)*STEP, -M+(j+0.5)*STEP);
   const H=(x,z)=>Math.max(topY(x,z), SEA_Y+0.5);   // let the coast dip to the beach shelf, but never below sea
   const wall=(ax,az,tyA,bx,bz,tyB)=>{ const a=[ax,tyA,az],b=[bx,tyB,bz],c=[bx,bottomY,bz],d=[ax,bottomY,az];
     pushTri(a,b,c,'cliff'); pushTri(a,c,d,'cliff'); };
+  const WSHELF=-14.6;   // shallow shore shelf just below the beach lip
   for(let i=0;i<N;i++) for(let j=0;j<N;j++){
-    if(!cellLand(i,j)) continue;
     const x0=-M+i*STEP, z0=-M+j*STEP, x1=x0+STEP, z1=z0+STEP;
+    if(!cellLand(i,j)){
+      // shallow-water shelf: a flat shoal hugging the coast so the sea reads at every shoreline
+      if(cellLand(i-1,j)||cellLand(i+1,j)||cellLand(i,j-1)||cellLand(i,j+1)||cellLand(i-1,j-1)||cellLand(i+1,j+1)||cellLand(i-1,j+1)||cellLand(i+1,j-1)){
+        const a=[x0,WSHELF,z0],b=[x1,WSHELF,z0],c=[x1,WSHELF,z1],d=[x0,WSHELF,z1];
+        pushTri(a,b,c,'water'); pushTri(a,c,d,'water');
+      }
+      continue;
+    }
     const a=[x0,H(x0,z0),z0],b=[x1,H(x1,z0),z0],c=[x1,H(x1,z1),z1],d=[x0,H(x0,z1),z1];
     pushTri(a,b,c,'grass'); pushTri(a,c,d,'grass');
     if(!cellLand(i-1,j)) wall(x0,z0,H(x0,z0), x0,z1,H(x0,z1));   // west coast
@@ -199,6 +212,8 @@ function buildTerrain(){
 
 // ---------- helpers ----------
 function lam(hex,flat){return new THREE.MeshLambertMaterial({color:hex,flatShading:!!flat});}
+// tinted ground material with the shared terrain normal-map — gives pads/paving surface relief so they read as ground, not flat discs
+function groundStd(hex,ns){ const m=new THREE.MeshStandardMaterial({color:hex, normalMap:makeTerrainTex().normal, roughness:0.93, metalness:0}); m.normalScale.set(ns||0.5,ns||0.5); return m; }
 function outlineOf(mesh,scale){
   const o=new THREE.Mesh(mesh.geometry,new THREE.MeshBasicMaterial({color:C.outline,side:THREE.BackSide}));
   o.scale.multiplyScalar(scale||1.06); return o;
@@ -276,16 +291,16 @@ function padDecor(g,r,type,n){ n=n||9;
     if(m)g.add(m); } }
 // organic base pad: a low domed ground disc tinted to the race + a rim of themed decor
 function hexPad(x,z,r,th){ th=th||PLOT_THEME.elf; const g=new THREE.Group();
-  const disc=new THREE.Mesh(new THREE.CylinderGeometry(r,r+0.35,0.5,20),lam(th.ground)); disc.position.y=0.05; disc.receiveShadow=true; g.add(disc);
+  const disc=new THREE.Mesh(new THREE.CylinderGeometry(r,r+0.35,0.5,20),groundStd(th.ground,0.5)); disc.position.y=0.05; disc.receiveShadow=true; g.add(disc);
   const dome=new THREE.Mesh(new THREE.CylinderGeometry(r*0.62,r*0.9,0.42,18),lam(th.ground)); dome.position.y=0.34; dome.receiveShadow=true; g.add(dome);
   padDecor(g,r,th.decor,10); g.position.set(x,topY(x,z)+0.02,z); return g; }
 function turretPad(x,z,r,th){ th=th||PLOT_THEME.elf; const g=new THREE.Group();
-  const disc=new THREE.Mesh(new THREE.CylinderGeometry(r+0.4,r+0.7,0.5,18),lam(th.ground)); disc.position.y=0.05; disc.receiveShadow=true; g.add(disc);
+  const disc=new THREE.Mesh(new THREE.CylinderGeometry(r+0.4,r+0.7,0.5,18),groundStd(th.ground,0.5)); disc.position.y=0.05; disc.receiveShadow=true; g.add(disc);
   padDecor(g,r+0.3,th.decor,7);                       // fortified spot: a couple of raised themed blocks as a footing
   for(const [dx,dz] of [[r,r],[-r,r],[r,-r],[-r,-r]]){ const p=new THREE.Mesh(new THREE.BoxGeometry(0.9,1.4,0.9),lam(th.ground)); p.position.set(dx,0.7,dz); p.castShadow=true; g.add(p); }
   g.position.set(x,topY(x,z)+0.02,z); return g; }
 function courtyard(x,z,r){ const g=new THREE.Group();
-  const disc=new THREE.Mesh(new THREE.CylinderGeometry(r,r,0.4,40),lam(0x6b6358)); disc.position.y=0.03; disc.receiveShadow=true; g.add(disc);   // darker ash paving so the lit courtyard doesn't blow out
+  const disc=new THREE.Mesh(new THREE.CylinderGeometry(r,r,0.4,40),groundStd(0x6b6358,0.6)); disc.position.y=0.03; disc.receiveShadow=true; g.add(disc);   // darker ash paving so the lit courtyard doesn't blow out
   const rim=new THREE.Mesh(new THREE.TorusGeometry(r-0.5,0.45,8,44),lam(C.cliffMid)); rim.rotation.x=Math.PI/2; rim.position.y=0.28; g.add(rim);
   g.position.set(x,topY(x,z)+0.02,z); return g; }
 function makeHouse(){
@@ -2262,6 +2277,7 @@ function initPost(){
 async function boot(){
   rnd3d=new THREE.WebGLRenderer({antialias:true});
   rnd3d.setSize(innerWidth,innerHeight); rnd3d.setPixelRatio(pr());
+  rnd3d.setClearColor(0x3f9fd6, 1);   // EffectComposer clears to this — paints the open sea/sky (scene.background isn't drawn through the composer)
   rnd3d.shadowMap.enabled=true; rnd3d.shadowMap.type=THREE.PCFSoftShadowMap;
   if('outputColorSpace' in rnd3d) rnd3d.outputColorSpace=THREE.SRGBColorSpace;
   document.body.appendChild(rnd3d.domElement);
