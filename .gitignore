@@ -1,14 +1,4 @@
-.DS_Store
-__pycache__/
-*.pyc
-*.swp
-*.swo
-.env
-.env.*
-
 node_modules/
-
-# Mixamo/Tripo pipeline intermediates (only the optimized *_mx.glb are committed)
-assets/models/*_mixamo.glb
-assets/models/*_mixamo_vc.glb
-assets/models/*_raw.glb
+dist/
+*.log
+.DS_Store
