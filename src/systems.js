@@ -1220,6 +1220,9 @@
       var boomY = e.y - e.h * 0.22;
       var boomSize = Math.max(e.w, e.h) * 0.75;
       RTS.spawnExplosion(s, e.x, boomY, boomSize, '#ffce6b');
+      // Rubble VFX — collapse dust cloud + flying embers over the footprint.
+      RTS.SkillVFX && RTS.SkillVFX.spawn(s, 'build_rubble', e.x, e.y + e.h * 0.2,
+        { scale: Math.max(e.w || 48, e.h || 48) * 1.7 / 512, life: 0.85 });
       s.screenShake = Math.max(s.screenShake, 7);
       if (e.team === TEAM.PLAYER) {
         s.ui.baseAlarm = 1.4; s.screenFlash = 0.4; s.flashColor = '#ff5555';

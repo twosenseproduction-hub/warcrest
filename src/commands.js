@@ -1268,6 +1268,9 @@
     var b = RTS.makeBuilding(s, type, RTS.TEAM.PLAYER, x, y, s.playerFaction, false);
     if (RTS.Pathfind) RTS.Pathfind.markDirty(s);
     RTS.markBuildingFootprint(s, b, true);
+    // Foundation VFX — blueprint snaps to the ground the moment the site is placed.
+    RTS.SkillVFX && RTS.SkillVFX.spawn(s, 'build_foundation', b.x, b.y + b.h * 0.2,
+      { scale: Math.max(b.w || 48, b.h || 48) * 1.35 / 512, life: 0.6 });
     if (type === 'outpost') {
       var ringNode = nearResourceRing(s, x, y, RTS.Buildings[type].w / 2, RTS.Buildings[type].h / 2);
       if (ringNode) {

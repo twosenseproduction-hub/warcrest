@@ -15,9 +15,11 @@
     sprout_heal:  { frames: 12, fps: 20, fw: 16, fh: 16 },
     leaf_fall:    { frames: 28, fps: 22, fw: 16, fh: 16 },
     levelup_aura: { frames: 5,  fps: 12, fw: 25, fh: 24 },
-    // HD construction sheets (Blender-baked, top-down, 512px frames, alpha).
-    build_dust:     { frames: 20, fps: 26, fw: 512, fh: 512, smooth: true },
-    build_complete: { frames: 20, fps: 30, fw: 512, fh: 512, smooth: true },
+    // HD building-lifecycle sheets (Blender-baked, top-down, 512px frames, alpha).
+    build_foundation: { frames: 18, fps: 30, fw: 512, fh: 512, smooth: true },
+    build_dust:       { frames: 20, fps: 26, fw: 512, fh: 512, smooth: true },
+    build_complete:   { frames: 20, fps: 30, fw: 512, fh: 512, smooth: true },
+    build_rubble:     { frames: 20, fps: 28, fw: 512, fh: 512, smooth: true },
   };
 
   function img(sheet) {
