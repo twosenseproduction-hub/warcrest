@@ -1117,7 +1117,7 @@ function faceTo(e,dx,dz){ if(dx||dz) e.face=Math.atan2(dx,dz); }
 // Each GLB packs the mesh once + all its clips; the clips are authored on the Bitgem
 // skeleton so they play with no retarget. Textures are embedded (palette atlas, UVs
 // pre-flipped) — we just force NearestFilter so swatches sample solid, not the black gaps.
-const RIGS={}, PROPS={}, TEXS={}; const CHAR_H={thoryn:4.8, queen:4.4, paladin:4.4, aelindra:4.4, archer:3.6, priestess:3.8, warrior:3.9, chief:4.9, orcarcher:3.7, orcgrunt:3.7, orcwarrior:4.1, orcshaman:3.7, drake:5.4,
+const RIGS={}, PROPS={}, TEXS={}; const CHAR_H={thoryn:4.8, queen:4.4, paladin:4.4, aelindra:4.4, archer:3.6, priestess:3.8, warrior:3.9, chief:4.9, orcarcher:3.7, orcgrunt:3.7, orcwarrior:4.1, orcshaman:3.7, drake:5.4, neaarcher:3.9,
   cinderhound:3.0, direboar:3.4, emberspitter:3.0, ashtreant:6.5, moltenwisp:3.8, wyveling:4.2, revenant:5.6,
   hfootman:4.0, harcher:3.9, hknight:4.2, hmage:3.9};   // neutral creeps (ash-basin bestiary)
 const CREEP_KEYS=['cinderhound','direboar','emberspitter','ashtreant','moltenwisp','wyveling','revenant'];   // Tripo/PBR rigs — flatten to the unlit look like thoryn
@@ -1138,7 +1138,8 @@ const WEAPONS={
   hknight:  [{file:'sword_human_knight', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
   hmage:    [{file:'staff_human_mage', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
 };
-const RIG_SPECS=[['thoryn','thoryn'],['queen','elf_queen'],['paladin','human_paladin'],['aelindra','aelindra'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior'],['chief','orc_chieftain'],['orcarcher','orc_archer'],['orcgrunt','orc_grunt'],['orcwarrior','orc_warrior'],['orcshaman','orc_shaman'],
+const RIG_YAW={neaarcher:Math.PI};   // Blender-built rig faces -Z; spin 180° so it faces +Z like the others
+const RIG_SPECS=[['thoryn','thoryn'],['queen','elf_queen'],['paladin','human_paladin'],['aelindra','aelindra'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior'],['neaarcher','nightelf_archer'],['chief','orc_chieftain'],['orcarcher','orc_archer'],['orcgrunt','orc_grunt'],['orcwarrior','orc_warrior'],['orcshaman','orc_shaman'],
   ['cinderhound','cinder_hound'],['direboar','direboar'],['emberspitter','ember_spitter'],['ashtreant','ash_treant'],['moltenwisp','molten_wisp'],['wyveling','wyveling'],['revenant','stone_revenant'],   // neutral creeps
   ['hfootman','human_footman'],['harcher','human_archer'],['hknight','human_knight'],['hmage','human_mage']];   // Iron Crown units
 // Several FBX (the elf/orc bows AND every elf building) export as SkinnedMesh with a rigid little
@@ -1172,7 +1173,7 @@ function loadRig(){ return new Promise(res=>{
 function makeChar(key,opts){ opts=opts||{}; const src=RIGS[key]; if(!src)return null;
   const inner=THREE.SkeletonUtils.clone(src.scene), outer=new THREE.Group();
   // models natively face +Z; face() sets outer.rotation.y=atan2(dx,dz) so +Z aligns with travel — no extra spin (was Math.PI → moonwalk)
-  inner.rotation.y=0;
+  inner.rotation.y=RIG_YAW[key]||0;   // per-rig facing correction (e.g. Blender-built rigs that export facing -Z)
   inner.traverse(nd=>{ if(nd.isMesh){ nd.frustumCulled=false; nd.castShadow=true; const mm=nd.material;
     if(mm&&mm.map){ mm.map.magFilter=THREE.NearestFilter; mm.map.minFilter=THREE.NearestFilter; mm.map.generateMipmaps=false; mm.map.needsUpdate=true; } } });
   outer.add(inner); outer.updateMatrixWorld(true);
@@ -1581,8 +1582,8 @@ const HERO_KIT={
 };
 // each hero fields its own faction's army + buildings in skirmish (pbld='' elf, 'human_' Iron Crown, 'orc_' horde)
 const HERO_FACTION={
-  queen:    {pbld:'',       units:{warrior:'warrior',  archer:'archer',  cleric:'priestess'}},   // Rimwalkers (Night Elf)
-  aelindra: {pbld:'',       units:{warrior:'warrior',  archer:'archer',  cleric:'priestess'}},   // Rimwalkers (Night Elf)
+  queen:    {pbld:'',       units:{warrior:'warrior',  archer:'neaarcher', cleric:'priestess'}},   // Rimwalkers (Night Elf) — original night-elf archer
+  aelindra: {pbld:'',       units:{warrior:'warrior',  archer:'neaarcher', cleric:'priestess'}},   // Rimwalkers (Night Elf)
   paladin:  {pbld:'human_', units:{warrior:'hfootman', archer:'harcher', cleric:'hmage'}},        // Iron Crown (Human)
 };
 function applyHeroFaction(k){ const f=HERO_FACTION[k]; if(!f)return; BLDPFX=f.pbld; URIG={...f.units}; }
