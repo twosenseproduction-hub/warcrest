@@ -1,5 +1,16 @@
 # Agent Instructions
 
+## Direction — 3D only (standing rule)
+
+As of 2026-07, **all new work is 3D**. The 2D Phaser game has been retired; `main`
+is the Three.js / Vite build. Do **not** create new 2D deliverables — sprite sheets,
+2D-canvas tools, 2D UI mockups, or 2D asset pipelines — unless the user explicitly
+asks. When a task could be done in either 2D or 3D, choose 3D.
+
+Existing 2D sprite assets and their processing scripts (see "Hero / unit art" below)
+remain in place for backward compatibility but are **not** the basis for new features.
+This rule stands until the user says otherwise.
+
 ## Cursor Cloud specific instructions
 
 - Cursor Cloud environment setup is committed in `.cursor/environment.json`.
