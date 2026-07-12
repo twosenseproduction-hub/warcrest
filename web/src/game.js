@@ -406,7 +406,8 @@ function styleRing(p){ if(!p.ring)return; if(p.cat){ p.ring.visible=false; if(p.
   p.ring.visible=true; if(p.plus)p.plus.visible=!p.locked;
   p.ring.material.color.setHex(p.locked?0x5a6a74 : (p.slot==='turret'?0xffb45c:((p.theme||PLOT_THEME.elf).ring)));
   p.ring.material.opacity=p.locked?0.26:0.55; }
-function makePlot(x,z,tier,slot){ slot=slot||'gen'; const th=PLOT_THEME.elf; scene.add(slot==='turret'?turretPad(x,z,3.4,th):hexPad(x,z,5.3,th));
+function playerTheme(){ return BLDPFX==='human_'?PLOT_THEME.human : BLDPFX==='orc_'?PLOT_THEME.orc : PLOT_THEME.elf; }
+function makePlot(x,z,tier,slot){ slot=slot||'gen'; const th=playerTheme(); scene.add(slot==='turret'?turretPad(x,z,3.4,th):hexPad(x,z,5.3,th));
   const ri=slot==='turret'?1.9:2.4, ro=slot==='turret'?2.5:3.1;
   const ring=new THREE.Mesh(new THREE.RingGeometry(ri,ro,26),new THREE.MeshBasicMaterial({color:th.ring,transparent:true,opacity:0.55,side:THREE.DoubleSide,depthWrite:false}));
   ring.rotation.x=-Math.PI/2; ring.position.set(x,topY(x,z)+0.4,z); scene.add(ring);
@@ -1578,6 +1579,13 @@ const HERO_KIT={
   paladin:{name:'Paladin', rig:'paladin', a:{icon:'holy',cap:'Bless',cd:7}, spell:{icon:'hammer',cap:'Hammer',cd:8}, blink:{icon:'shield',cap:'Shield',cd:12}},
   aelindra:{name:'Aelindra', rig:'aelindra', a:{icon:'fan',cap:'Volley',cd:7}, spell:{icon:'archer',cap:'Moonfire',cd:7}, blink:{icon:'blink',cap:'Windstep',cd:6}},
 };
+// each hero fields its own faction's army + buildings in skirmish (pbld='' elf, 'human_' Iron Crown, 'orc_' horde)
+const HERO_FACTION={
+  queen:    {pbld:'',       units:{warrior:'warrior',  archer:'archer',  cleric:'priestess'}},   // Rimwalkers (Night Elf)
+  aelindra: {pbld:'',       units:{warrior:'warrior',  archer:'archer',  cleric:'priestess'}},   // Rimwalkers (Night Elf)
+  paladin:  {pbld:'human_', units:{warrior:'hfootman', archer:'harcher', cleric:'hmage'}},        // Iron Crown (Human)
+};
+function applyHeroFaction(k){ const f=HERO_FACTION[k]; if(!f)return; BLDPFX=f.pbld; URIG={...f.units}; }
 function nearestAllyTo(x,z,maxd){ let b=null,bd=maxd*maxd;
   for(const e of [hero,...allies]){ if(!e||!e.alive)continue; const dd=(e.px-x)**2+(e.pz-z)**2; if(dd<bd){bd=dd;b=e;} } return b; }
 function clearSel(){ selected.clear(); updateSelPanel(); refreshRadial(); }
@@ -2122,13 +2130,14 @@ function setupHUD(){
   heroSelEl=document.createElement('div'); heroSelEl.id='heroSel';
   heroSelEl.innerHTML='<h2>Choose your Hero</h2><div class="cards"></div>';
   const cards=heroSelEl.querySelector('.cards');
-  const HEROES=[['queen','sword','Elf Queen','Warden — Blink · Fan of Knives · Shadow Strike. Fast, evasive, poison burst.'],
-                ['paladin','shield','Paladin','Holy tank — Consecration · Hammer of Justice · Divine Shield. Durable, stuns, invulnerable.'],
-                ['aelindra','archer','Aelindra Ashveil','Moonfire Warden — Windstep · Volley · Moonfire. The oldest Rimwalker: a fast, evasive archer who kites the field with moonfire arrows.']];
+  const HEROES=[['queen','sword','Elf Queen','Rimwalkers · Night Elf — Blink · Fan of Knives · Shadow Strike. Fields an elven host.'],
+                ['paladin','shield','Paladin','Iron Crown · Human — Consecration · Hammer of Justice · Divine Shield. Fields footmen, crossbows & mages.'],
+                ['aelindra','archer','Aelindra Ashveil','Rimwalkers · Night Elf — Windstep · Volley · Moonfire. A fast, evasive archer; fields an elven host.']];
   for(const [k,icn,nm,blurb] of HEROES){ const c=document.createElement('div'); c.className='hc';
     c.innerHTML='<div class="ic">'+ic(icn)+'</div><div class="nm">'+nm+'</div><div class="kit">'+blurb+'</div>';
-    c.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); gameMode='skirmish'; activeMission=null;
-      if(LVID!=='skirmish'){ applyLevel('skirmish'); resetWorld(); heroKind=k; build(); spawnGame(); initFog(); if(typeof bakeMiniLand==='function')bakeMiniLand(); }   // came from a campaign map → rebuild skirmish
+    c.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); gameMode='skirmish'; activeMission=null; heroKind=k;
+      // always rebuild the skirmish so the army + buildings match the chosen hero's faction
+      applyLevel('skirmish'); applyHeroFaction(k); resetWorld(); build(); spawnGame(); initFog(); if(typeof bakeMiniLand==='function')bakeMiniLand();
       pickHero(k); }); cards.appendChild(c); }
   document.body.appendChild(heroSelEl);   // hidden until the player picks Skirmish (mode-select gates it)
   refreshRadial();   // initialise the radial in hero mode
@@ -2344,7 +2353,7 @@ async function boot(){
   if('outputColorSpace' in rnd3d) rnd3d.outputColorSpace=THREE.SRGBColorSpace;
   document.body.appendChild(rnd3d.domElement);
   cam=new THREE.PerspectiveCamera(30,innerWidth/innerHeight,1,600);
-  await Promise.all([loadNature(), loadBuildings()]); build(); initPost(); await loadRig(); bakePortraits(); spawnGame(); initFog(); setupHUD(); followCam();
+  await Promise.all([loadNature(), loadBuildings()]); applyHeroFaction(heroKind); build(); initPost(); await loadRig(); bakePortraits(); spawnGame(); initFog(); setupHUD(); followCam();
   addEventListener('resize',()=>{
     rnd3d.setSize(innerWidth,innerHeight); cam.aspect=innerWidth/innerHeight; cam.updateProjectionMatrix();
     composer.setSize(innerWidth,innerHeight); bloomPass.setSize(innerWidth,innerHeight); postMat.uniforms.uRes.value.set(innerWidth,innerHeight);
