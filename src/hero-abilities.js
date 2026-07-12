@@ -79,6 +79,7 @@
       var R = ab.radius || 300, heal = ab.healAmt || 45, dmg = ab.dmgAmt || 45;
       nova(s, u.x, u.y, R, '#8dff7a', 0.7);
       pillar(s, u.x, u.y, '#8dff7a', 24, 72, 0.7);
+      RTS.SkillVFX && RTS.SkillVFX.spawn(s, 'moon_bolt', u.x, u.y, { scale: (R * 2) / 512, life: 0.7 });
       scatter(s, 'sprout_heal', u.x, u.y, R, 7, 2.6);
       (s.entities.units || []).forEach(function (t) {
         if (t.dead || dist(t.x, t.y, u.x, u.y) > R) return;
@@ -169,6 +170,7 @@
       var R = ab.radius || 240, dur = ab.duration || 10, n = 0;
       nova(s, u.x, u.y, R, '#ffd98a', 0.8);
       pillar(s, u.x, u.y, '#ffd98a', 26, 84, 0.85);   // banner of light
+      RTS.SkillVFX && RTS.SkillVFX.spawn(s, 'holy_nova', u.x, u.y, { scale: (R * 2) / 512, life: 0.8 });
       (s.entities.units || []).forEach(function (a) {
         if (a.dead || a.team !== u.team || dist(a.x, a.y, u.x, u.y) > R) return;
         if (RTS.applyBuff) RTS.applyBuff(s, a, { id: 'iron_edict_ward', wardLethal: true, duration: dur, color: '#ffd98a' });
@@ -191,6 +193,7 @@
         nextTick: 0, nextRing: 0,
       };
       nova(s, u.x, u.y, ab.auraRadius || 80, '#cfe0ff', 0.6);
+      RTS.SkillVFX && RTS.SkillVFX.spawn(s, 'holy_strike', u.x, u.y, { scale: ((ab.auraRadius || 80) * 2.4) / 512, life: 0.8 });
       RTS.toast && RTS.toast(s, 'Valdris holds The Last Wall');
       return true;
     },
@@ -268,6 +271,7 @@
       });
       nova(s, t.x, t.y, 40, '#cfe6ff', 0.6);
       pillar(s, t.x, t.y, '#cfe6ff', 18, 62, 0.7);
+      RTS.SkillVFX && RTS.SkillVFX.spawn(s, 'holy_ward', t.x, t.y, { scale: 0.34, life: 0.9 });
       RTS.SkillVFX && RTS.SkillVFX.spawn(s, 'levelup_aura', t.x, t.y - (t.radius || 12), { scale: 2.2, life: 0.8 });
       float(s, t.x, t.y - (t.radius || 12), 'attuned', '#cfe6ff');
       return true;
@@ -396,6 +400,7 @@
       u._empowerUntil = now(s) + (ab.bonusWindow || 3);
       u._empowerMul = ab.bonusDmgPct || 0.80;
       nova(s, bx, by, 44, '#bfe86a', 0.5);
+      RTS.SkillVFX && RTS.SkillVFX.spawn(s, 'dash_wind', bx, by, { scale: 0.3, life: 0.5 });
       RTS.SkillVFX && RTS.SkillVFX.spawn(s, 'spike_vine', bx, by, { scale: 2.4, life: 0.7 });
       return true;
     },
@@ -463,6 +468,7 @@
         u._invuln = false;
         nova(s, c.x, c.y, c.shockR, '#dfe9ff', 0.7);
         burst(s, c.x, c.y, '#dfe9ff', c.shockR, 0.6);   // shockwave
+        RTS.SkillVFX && RTS.SkillVFX.spawn(s, 'holy_strike', c.x, c.y, { scale: (c.shockR * 2) / 512, life: 0.8 });
         s.screenShake = Math.max(s.screenShake || 0, 8);
         (s.entities.units || []).forEach(function (e) {
           if (e.dead || e.team === u.team || e.kind !== 'unit' || dist(e.x, e.y, c.x, c.y) > c.shockR) return;
@@ -515,6 +521,7 @@
       nova(s, c.x, c.y, c.radius, '#c7e85a', 0.8);
       pillar(s, c.x, c.y, '#c7e85a', 32, 96, 0.85);
       burst(s, c.x, c.y, '#c7e85a', c.radius, 0.6);
+      RTS.SkillVFX && RTS.SkillVFX.spawn(s, 'moon_nova', c.x, c.y, { scale: (c.radius * 2) / 512, life: 0.9 });
       scatter(s, 'leaf_fall', c.x, c.y, c.radius, 10, 2.8, 1.0);
       (s.entities.units || []).forEach(function (e) {
         if (e.dead || e.team === u.team || dist(e.x, e.y, c.x, c.y) > c.radius) return;
