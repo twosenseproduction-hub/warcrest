@@ -20,6 +20,7 @@ import sys, os, math
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import mdx_parse
 import bpy
+import bmesh
 from mathutils import Matrix, Quaternion, Vector
 
 NONE = mdx_parse.NONE_ID
@@ -560,6 +561,144 @@ def bake_actions(model, arm_obj, bone_names, order):
     return made
 
 
+# ---- added accessory geometry (dreads / beads / feathers / fringe) -----------
+# Original low-poly pieces generated procedurally and rigidly bound to the MDX
+# skeleton so they animate with the body — the reference's beadwork/dreads/
+# feathers are geometry, not texture, so we add them rather than paint them.
+BEAD_PALETTE = [0xb5402f, 0xd9a63a, 0x2f6bb5, 0xe6ddc8, 0x3a7a45, 0x8a3b8f]
+ACC = {'dread': 0x3a2416, 'cuff': 0xd9b24a, 'cowrie': 0xe6ddc8,
+       'feather': 0xe6ddc8, 'leaf': 0x6f8a37, 'quill': 0x8a5a2a}
+
+
+def _accobj(name, bm, clay, bone_name, arm_obj):
+    me = bpy.data.meshes.new(name)
+    bm.normal_update(); bm.to_mesh(me); bm.free()
+    me.attributes.active_color = me.color_attributes.get('acccol')
+    try: me.color_attributes.render_color_index = list(me.color_attributes).index(me.color_attributes['acccol'])
+    except Exception: pass
+    mat = bpy.data.materials.new(name + '_m'); mat.use_nodes = True
+    nt = mat.node_tree; bsdf = nt.nodes.get('Principled BSDF')
+    bsdf.inputs['Roughness'].default_value = 0.85
+    vc = nt.nodes.new('ShaderNodeVertexColor'); vc.layer_name = 'acccol'
+    nt.links.new(vc.outputs['Color'], bsdf.inputs['Base Color'])
+    me.materials.append(mat)
+    obj = bpy.data.objects.new(name, me); bpy.context.collection.objects.link(obj)
+    vg = obj.vertex_groups.new(name=bone_name)
+    vg.add(list(range(len(me.vertices))), 1.0, 'REPLACE')
+    m = obj.modifiers.new('Armature', 'ARMATURE'); m.object = arm_obj
+    obj.parent = arm_obj
+    return obj
+
+
+def _newbm():
+    bm = bmesh.new(); clay = bm.verts.layers.float_color.new('acccol'); return bm, clay
+
+
+def _sphere(bm, clay, r, pos, color, scale=(1, 1, 1)):
+    res = bmesh.ops.create_uvsphere(bm, u_segments=6, v_segments=5, radius=r)
+    M = Matrix.Translation(Vector(pos)) @ Matrix.Diagonal(Vector((scale[0], scale[1], scale[2], 1.0)))
+    bmesh.ops.transform(bm, matrix=M, verts=res['verts'])
+    c = _hex(color)
+    for v in res['verts']:
+        v[clay] = (c[0], c[1], c[2], 1.0)
+
+
+def _cone(bm, clay, r1, r2, depth, matrix, color, seg=6):
+    res = bmesh.ops.create_cone(bm, cap_ends=True, segments=seg, radius1=r1, radius2=r2, depth=depth)
+    bmesh.ops.transform(bm, matrix=matrix, verts=res['verts'])
+    c = _hex(color)
+    for v in res['verts']:
+        v[clay] = (c[0], c[1], c[2], 1.0)
+
+
+def _aim(frm, to):
+    """4x4 that places a +Z cone of the given depth from `frm` toward `to`
+    (returns matrix positioning a unit cone centred at the midpoint)."""
+    frm = Vector(frm); to = Vector(to); d = to - frm
+    q = Vector((0, 0, 1)).rotation_difference(d.normalized())
+    return Matrix.Translation((frm + to) * 0.5) @ q.to_matrix().to_4x4()
+
+
+def add_accessories(model, arm_obj, bone_names):
+    if model.name != 'Archer':
+        return
+    byname = {n.name: n for n in model.nodes}
+    def piv(nm): return Vector(byname[nm].pivot)
+    head, chest = piv('Bone_Head'), piv('Bone_Chest')
+    # face front: compare eye vertices' X to the head pivot X
+    g3 = model.geosets[3]; byid = model.node_by_id
+    ex = []
+    for i in range(len(g3.verts)):
+        grp = g3.vgroups[i] if i < len(g3.vgroups) else 0
+        nids = g3.matrix_groups[grp] if grp < len(g3.matrix_groups) else []
+        if any('Eye' in byid[n].name for n in nids if n in byid): ex.append(g3.verts[i][0])
+    front = 1.0 if (ex and (sum(ex) / len(ex)) > head.x) else -1.0
+
+    # ── dreadlocks (→ head) ──
+    bm, clay = _newbm()
+    NL = 12
+    for i in range(NL):
+        a = i / NL * 2 * math.pi
+        rx, ry = 6.5, 7.5
+        # bias locks toward the back/sides (away from the face-front) so they read
+        back = -front * math.cos(a)                       # +1 at the back
+        top = Vector((head.x + math.cos(a) * rx, head.y + math.sin(a) * ry, head.z + 7))
+        out = Vector((math.cos(a) * 7, math.sin(a) * 7, 0))
+        drop = -40 - 8 * max(0, back)                     # longer at the back
+        end = top + Vector((0, 0, drop)) + out
+        _cone(bm, clay, 2.0, 1.0, (end - top).length, _aim(top, end), ACC['dread'], seg=5)
+        qm = Vector((0, 0, 1)).rotation_difference((end - top).normalized()).to_matrix().to_4x4()
+        if i % 2 == 0:  # gold cuff on alternate locks
+            _cone(bm, clay, 2.5, 2.5, 2.6, Matrix.Translation(top.lerp(end, 0.22)) @ qm, ACC['cuff'], seg=6)
+        # a cowrie/bead near the tip of some locks
+        if i % 3 == 0:
+            _sphere(bm, clay, 1.6, top.lerp(end, 0.92), BEAD_PALETTE[i % len(BEAD_PALETTE)])
+    _accobj('acc_dreads', bm, clay, bone_names[byname['Bone_Head'].object_id], arm_obj)
+
+    # ── beaded necklaces + cowrie (→ chest) ──
+    bm, clay = _newbm()
+    for strand, (nb, zc, rad) in enumerate([(20, 74, 10.5), (22, 72, 12.5), (18, 70.5, 8.5)]):
+        for i in range(nb):
+            t = (i / (nb - 1)) * 2 - 1
+            pos = Vector((chest.x + front * (7 + strand), t * rad, zc - (1 - t * t) * 8))
+            _sphere(bm, clay, 1.35, pos, BEAD_PALETTE[(i + strand) % len(BEAD_PALETTE)])
+    for i in range(6):  # cowrie shells dangling at the front-centre
+        _sphere(bm, clay, 1.5, (chest.x + front * 9, (i - 2.5) * 2.2, 60 - abs(i - 2.5) * 0.6),
+                ACC['cowrie'], scale=(0.6, 0.9, 1.5))
+    _accobj('acc_necklace', bm, clay, bone_names[byname['Bone_Chest'].object_id], arm_obj)
+
+    # ── shoulder feather fringe (→ chest) ──
+    bm, clay = _newbm()
+    for s in (1, -1):
+        sh = Vector((chest.x + front * 2, s * 10.5, 80))
+        for j in range(5):
+            spread = (j - 2) * 0.32
+            end = sh + Vector((front * 2, s * 4 + spread * 6, -12 - abs(spread) * 3))
+            col = [ACC['feather'], ACC['leaf'], ACC['quill']][j % 3]
+            _cone(bm, clay, 2.6, 0.25, (end - sh).length, _aim(sh, end), col, seg=4)
+    _accobj('acc_fringe', bm, clay, bone_names[byname['Bone_Chest'].object_id], arm_obj)
+
+    # ── forearm + ankle bead bands (→ limb bones) ──
+    for side, arm_b, foot_b in (('L', 'Bone_Arm2_L', 'Bone_Foot_L'), ('R', 'Bone_Arm2_R', 'Bone_Foot_R')):
+        bm, clay = _newbm()
+        ap = piv(arm_b)
+        for band, dz in ((0, 0), (1, -7)):
+            for i in range(10):
+                a = i / 10 * 2 * math.pi
+                _sphere(bm, clay, 1.15, (ap.x + math.cos(a) * 3.4, ap.y + math.sin(a) * 3.4, ap.z + dz),
+                        BEAD_PALETTE[(i + band) % len(BEAD_PALETTE)])
+        _accobj('acc_arm_' + side, bm, clay, bone_names[byname[arm_b].object_id], arm_obj)
+        bm, clay = _newbm()
+        fp = piv(foot_b)
+        for band, dz in ((0, 8), (1, 13)):
+            for i in range(10):
+                a = i / 10 * 2 * math.pi
+                _sphere(bm, clay, 1.2, (fp.x + math.cos(a) * 3.6, fp.y + math.sin(a) * 3.6, fp.z + dz),
+                        BEAD_PALETTE[(i + band) % len(BEAD_PALETTE)])
+        _accobj('acc_ankle_' + side, bm, clay, bone_names[byname[foot_b].object_id], arm_obj)
+    print('  added accessories: dreads, necklace, fringe, arm+ankle beads')
+
+
 def main():
     inp, outp = sys.argv[1], sys.argv[2]
     model = mdx_parse.parse(inp)
@@ -571,6 +710,8 @@ def main():
     _objs, painted = build_meshes(model, arm_obj, bone_names)
     if not os.environ.get('FORGE_NO_PAINT'):
         paint_bake(painted)          # bake hand-painted albedo before pose mode
+    if not os.environ.get('FORGE_NO_ACC'):
+        add_accessories(model, arm_obj, bone_names)   # dreads/beads/feathers, rigged
     made = bake_actions(model, arm_obj, bone_names, order)
     # export: one glTF animation per action
     bpy.ops.object.select_all(action='SELECT')
