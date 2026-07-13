@@ -57,8 +57,14 @@ TEX_COLORS = [
 ]
 
 
+def _s2l(c):
+    return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+
 def _hex(h):
-    return ((h >> 16 & 255) / 255.0, (h >> 8 & 255) / 255.0, (h & 255) / 255.0)
+    # hex is an sRGB display colour; Blender colour sockets & colour attributes
+    # are LINEAR, so convert (otherwise mid-tones read washed-out/pale).
+    return (_s2l((h >> 16 & 255) / 255.0), _s2l((h >> 8 & 255) / 255.0), _s2l((h & 255) / 255.0))
 
 
 # Rimwalker elf faction palette (from render3d.js elf builder): lavender-violet
@@ -67,33 +73,50 @@ def _hex(h):
 # colour per region. Several regions share the "team colour" (empty) texture, so
 # for the Archer these are assigned per geoset index (identified by height + the
 # nodes each geoset's skin references).
-RW = {'skin': 0xb39bd8, 'hair': 0x9d8ad6, 'cloth': 0x3c6b39, 'cape': 0x2f6a4a,
-      'leaf': 0x4f8a5a, 'leather': 0x6e4a2a, 'metal': 0xd6dde6, 'trim': 0xd9c069,
-      'wood': 0x8a6a3a, 'eye': 0xcffcff, 'boot': 0x4a3524}
+# Palette tuned to the "night purple archer" reference: deep violet skin, olive
+# green cloth with gold geometric patterning, dark carved wood, warm gold trim.
+RW = {'skin': 0x4e4270, 'hair': 0x241a2e, 'cloth': 0x4f6a33, 'cape': 0x3a5427,
+      'leaf': 0x6f8a37, 'leather': 0x5a3d22, 'metal': 0xcaa63c, 'trim': 0xcaa63c,
+      'wood': 0x5a3d22, 'eye': 0xcffcff, 'boot': 0x3f2c1a, 'gold': 0xcaa63c}
 # geoset → region, identified by rendering each geoset mesh in a distinct colour
 # from 4 angles (front/back/sides) and reading off the silhouette.
+# geoset → (material region, base colour). Region drives the procedural
+# hand-painted detail baked into the albedo (weave, grain, strands, mottle …).
+# Identified by rendering each geoset in a distinct colour from 4 angles.
+# Night-Elf face feature colours (ref: WoW NE face set) — painted per vertex on
+# the head geoset by the node each vertex is skinned to (Eye L/R, Lip A, else face).
+# deeper/saturated so they survive the game's bright toon ramp (a light base
+# washes to white and the features stop contrasting).
+FACE_EYE = 0x8fe6ff    # punchy cyan glow
+FACE_LIP = 0x241018    # near-black lips
+FACE_SKIN = 0x4e4270   # deep violet skin
+FACE_PAINT = 0xe6ddc8  # bone-white war-paint markings
+
 RIMWALKER_ARCHER_GEO = {
-    2: RW['cape'],     # flowing cloak / cape down the back
-    3: RW['hair'],     # hair (+ hooded head)
-    4: RW['cloth'],    # torso tunic
-    5: RW['trim'],     # belt / waist band
-    6: RW['skin'],     # bare upper arm
-    7: RW['cape'],     # leggings (dark teal-green)
-    8: RW['leather'],  # belt pouch / midriff strap
-    9: RW['leather'],  # shoulder + hip leather (pauldron straps, tassets)
-    10: RW['leaf'],    # leaf-green collar / shoulder trim
-    11: RW['leather'], # quiver + bow (leather + wood)
-    12: RW['trim'],    # arrow fletching
+    2:  ('cloth',   RW['cape']),     # flowing cloak / cape down the back
+    3:  ('face',    RW['skin']),     # head: face + glowing eyes + dark lips
+    4:  ('cloth',   RW['cloth']),    # torso tunic
+    5:  ('trim',    RW['trim']),     # belt / waist band (gold)
+    6:  ('skin',    RW['skin']),     # bare upper arm
+    7:  ('cloth',   RW['cape']),     # leggings (dark teal-green)
+    8:  ('metal',   RW['gold']),     # forearm bands (gold)
+    9:  ('leather', RW['leather']),  # shoulder + hip leather
+    10: ('cloth',   RW['leaf']),     # leaf-green collar / shoulder trim (patterned)
+    11: ('wood',    RW['wood']),     # quiver + bow (carved dark wood)
+    12: ('trim',    RW['trim']),     # arrow fletching (gold)
 }
 
 
-def geo_color(model, gi, path):
+def geo_region(model, gi, path):
+    """Return (region, rgb) for a geoset. region ∈ skin/cloth/leather/metal/
+    hair/wood/trim and selects the painted-material pattern."""
     if model.name == 'Archer' and gi in RIMWALKER_ARCHER_GEO:
-        return _hex(RIMWALKER_ARCHER_GEO[gi])
+        region, hexc = RIMWALKER_ARCHER_GEO[gi]
+        return region, _hex(hexc)
     for key, col in TEX_COLORS:
         if key.lower() in (path or '').lower():
-            return col
-    return (0.45, 0.47, 0.44)
+            return 'cloth', col
+    return 'cloth', (0.45, 0.47, 0.44)
 
 
 # ---- MDX track sampling ---------------------------------------------------
@@ -256,8 +279,149 @@ def geoset_visible_in(model, gi, seq):
     return lo >= 0.5
 
 
+def painted_material(name, region, rgb):
+    """A procedural hand-painted material per region. The pattern (fabric weave,
+    skin mottle, leather grain, hair strands, wood grain, metal streaks) is baked
+    into the albedo so it survives glTF export and reads as real material detail
+    under Warcrest's toon shader. Base Color is driven by a pattern→2-shade ramp."""
+    import mathutils
+    mat = bpy.data.materials.new(name); mat.use_nodes = True
+    nt = mat.node_tree; nodes = nt.nodes; links = nt.links
+    bsdf = nodes.get('Principled BSDF')
+    bsdf.inputs['Roughness'].default_value = 0.5 if region in ('metal', 'trim') else 0.92
+    if 'Metallic' in bsdf.inputs:
+        bsdf.inputs['Metallic'].default_value = 0.5 if region in ('metal', 'trim') else 0.0
+    tc = nodes.new('ShaderNodeTexCoord')
+    mp = nodes.new('ShaderNodeMapping')
+    # Generated coords (0..1 over each part's bounding box) → pattern frequency is
+    # in "cycles across the part", readable regardless of the part's world size.
+    links.new(tc.outputs['Generated'], mp.inputs['Vector'])
+
+    def noise(scale, detail=2.0):
+        n = nodes.new('ShaderNodeTexNoise'); n.inputs['Scale'].default_value = scale
+        n.inputs['Detail'].default_value = detail
+        links.new(mp.outputs['Vector'], n.inputs['Vector']); return n.outputs['Fac']
+    def wave(scale, dist=0.0, bands=True):
+        w = nodes.new('ShaderNodeTexWave')
+        w.wave_type = 'BANDS' if bands else 'RINGS'
+        w.inputs['Scale'].default_value = scale
+        w.inputs['Distortion'].default_value = dist
+        links.new(mp.outputs['Vector'], w.inputs['Vector']); return w.outputs['Fac']
+    def voronoi(scale):
+        v = nodes.new('ShaderNodeTexVoronoi'); v.feature = 'F1'; v.inputs['Scale'].default_value = scale
+        links.new(mp.outputs['Vector'], v.inputs['Vector']); return v.outputs['Distance']
+    def band(direction, scale):
+        w = nodes.new('ShaderNodeTexWave'); w.wave_type = 'BANDS'
+        try: w.bands_direction = direction
+        except Exception: pass
+        w.inputs['Scale'].default_value = scale
+        links.new(mp.outputs['Vector'], w.inputs['Vector'])
+        # THIN bright line at each band crossing (narrow peak → sparse lattice)
+        r = nodes.new('ShaderNodeValToRGB'); e = r.color_ramp.elements
+        e[0].position = 0.45; e[0].color = (0, 0, 0, 1)
+        e[1].position = 0.5; e[1].color = (1, 1, 1, 1)
+        e.new(0.55); e[2].color = (0, 0, 0, 1)
+        links.new(w.outputs['Fac'], r.inputs['Fac'])
+        return r.outputs['Color']
+    def mix(a, b, fac):
+        m = nodes.new('ShaderNodeMixRGB'); m.blend_type = 'MULTIPLY'; m.inputs['Fac'].default_value = fac
+        links.new(a, m.inputs['Color1']);
+        if hasattr(b, 'default_value') or True:
+            try: links.new(b, m.inputs['Color2'])
+            except Exception: m.inputs['Color2'].default_value = b
+        return m.outputs['Color']
+
+    # face: base colour comes from the per-vertex feature colours (skin/eyes/lips)
+    # painted in build_meshes; add a faint skin mottle over it.
+    if region == 'face':
+        vc = nodes.new('ShaderNodeVertexColor'); vc.layer_name = 'facecol'
+        n = nodes.new('ShaderNodeTexNoise'); n.inputs['Scale'].default_value = 5.0
+        links.new(mp.outputs['Vector'], n.inputs['Vector'])
+        mrg = nodes.new('ShaderNodeMixRGB'); mrg.blend_type = 'MULTIPLY'; mrg.inputs['Fac'].default_value = 0.12
+        links.new(vc.outputs['Color'], mrg.inputs['Color1'])
+        links.new(n.outputs['Fac'], mrg.inputs['Color2'])
+        links.new(mrg.outputs['Color'], bsdf.inputs['Base Color'])
+        return mat
+
+    # choose a 0..1 pattern per region (scales = cycles across the part)
+    if region == 'skin':
+        fac = noise(3.0, 2.0)          # soft large tonal mottle
+    elif region == 'hair':
+        fac = wave(24.0, 0.35)         # directional strands
+    elif region == 'wood':
+        fac = wave(12.0, 1.3)          # wavy grain along the shaft
+    elif region == 'leather':
+        fac = voronoi(9.0)             # pebbled grain
+    elif region == 'metal':
+        fac = wave(30.0, 0.1)          # brushed streaks
+    elif region == 'trim':
+        fac = noise(5.0, 2.0)
+    elif region == 'cloth':
+        # olive fabric (weave × folds) with a GOLD geometric lattice overlay —
+        # crossed thin bands → grid; gold painted where the grid is bright.
+        weave = wave(26.0, 0.0)
+        folds = noise(3.0, 2.0)
+        wf = nodes.new('ShaderNodeMixRGB'); wf.blend_type = 'MULTIPLY'; wf.inputs['Fac'].default_value = 0.55
+        links.new(weave, wf.inputs['Color1']); links.new(folds, wf.inputs['Color2'])
+        cr = nodes.new('ShaderNodeValToRGB'); ce = cr.color_ramp.elements
+        dk = tuple(min(1.0, c * 0.55) for c in rgb); lt = tuple(min(1.0, c * 1.2) for c in rgb)
+        ce[0].position = 0.34; ce[0].color = (dk[0], dk[1], dk[2], 1)
+        ce[1].position = 0.66; ce[1].color = (lt[0], lt[1], lt[2], 1)
+        links.new(wf.outputs['Color'], cr.inputs['Fac'])
+        gx = band('X', 6.0); gy = band('Y', 6.0)
+        grid = nodes.new('ShaderNodeMixRGB'); grid.blend_type = 'LIGHTEN'; grid.inputs['Fac'].default_value = 1.0
+        links.new(gx, grid.inputs['Color1']); links.new(gy, grid.inputs['Color2'])
+        gcol = _hex(RW['gold'])
+        gld = nodes.new('ShaderNodeMixRGB'); gld.blend_type = 'MIX'
+        links.new(grid.outputs['Color'], gld.inputs['Fac'])
+        links.new(cr.outputs['Color'], gld.inputs['Color1'])
+        gld.inputs['Color2'].default_value = (gcol[0], gcol[1], gcol[2], 1)
+        links.new(gld.outputs['Color'], bsdf.inputs['Base Color'])
+        return mat
+
+    ramp = nodes.new('ShaderNodeValToRGB')
+    dark = tuple(min(1.0, c * 0.58) for c in rgb)
+    light = tuple(min(1.0, c * 1.2) for c in rgb)
+    contrast = 0.5 if region in ('leather', 'wood', 'hair') else 0.36
+    ramp.color_ramp.elements[0].position = 0.5 - contrast / 2
+    ramp.color_ramp.elements[0].color = (dark[0], dark[1], dark[2], 1)
+    ramp.color_ramp.elements[1].position = 0.5 + contrast / 2
+    ramp.color_ramp.elements[1].color = (light[0], light[1], light[2], 1)
+    links.new(fac, ramp.inputs['Fac'])
+    links.new(ramp.outputs['Color'], bsdf.inputs['Base Color'])
+    return mat
+
+
+def paint_bake(painted):
+    """Bake each geoset's procedural material to an albedo texture on its UVs and
+    rewire Base Color to the baked image so glTF exports a real baseColorTexture."""
+    scene = bpy.context.scene
+    scene.render.engine = 'CYCLES'
+    try: scene.cycles.device = 'CPU'; scene.cycles.samples = 4
+    except Exception: pass
+    scene.render.bake.use_pass_direct = False
+    scene.render.bake.use_pass_indirect = False
+    scene.render.bake.margin = 8
+    for obj, region, rgb in painted:
+        mat = obj.data.materials[0]; nt = mat.node_tree
+        img = bpy.data.images.new(f'{obj.name}_alb', 512, 512, alpha=False)
+        img.generated_color = (rgb[0], rgb[1], rgb[2], 1.0)
+        tex = nt.nodes.new('ShaderNodeTexImage'); tex.image = img
+        nt.nodes.active = tex
+        bpy.ops.object.select_all(action='DESELECT')
+        obj.select_set(True); bpy.context.view_layer.objects.active = obj
+        bpy.ops.object.bake(type='DIFFUSE', pass_filter={'COLOR'}, use_clear=True, margin=8)
+        bsdf = nt.nodes.get('Principled BSDF')
+        for l in list(bsdf.inputs['Base Color'].links):
+            nt.links.remove(l)
+        nt.links.new(tex.outputs['Color'], bsdf.inputs['Base Color'])
+    bpy.ops.object.select_all(action='DESELECT')
+    print('  painted + baked %d geoset textures' % len(painted))
+
+
 def build_meshes(model, arm_obj, bone_names):
     objs = []
+    painted = []
     seq_idle = idle_sequence(model)
     skipped = []
     for gi, g in enumerate(model.geosets):
@@ -269,23 +433,47 @@ def build_meshes(model, arm_obj, bone_names):
         faces = [tuple(f) for f in g.faces]
         mesh.from_pydata(verts, [], faces)
         mesh.validate()
-        # material colour
+        # region + colour → procedural painted material (baked later)
         texid = model.materials[g.material_id]['texture_id'] if g.material_id < len(model.materials) else 0
         path = model.textures[texid]['path'] if texid < len(model.textures) else ''
-        col = geo_color(model, gi, path)
+        region, col = geo_region(model, gi, path)
         if os.environ.get('FORGE_DEBUG_GEO'):     # distinct colour per geoset for ID
             import colorsys
-            col = colorsys.hsv_to_rgb((gi * 0.147) % 1.0, 0.85, 1.0)
-        mat = bpy.data.materials.new(f'mat{gi}')
-        mat.use_nodes = True
-        bsdf = mat.node_tree.nodes.get('Principled BSDF')
-        if bsdf:
-            bsdf.inputs['Base Color'].default_value = (col[0], col[1], col[2], 1.0)
-            bsdf.inputs['Roughness'].default_value = 0.9
-            if 'Metallic' in bsdf.inputs: bsdf.inputs['Metallic'].default_value = 0.0
+            region, col = 'skin', colorsys.hsv_to_rgb((gi * 0.147) % 1.0, 0.85, 1.0)
+        # face: paint per-vertex feature colours (eyes / lips / skin) BEFORE the
+        # material references the 'facecol' layer; baked into the albedo.
+        if region == 'face':
+            byid = model.node_by_id
+            cattr = mesh.color_attributes.new(name='facecol', type='FLOAT_COLOR', domain='POINT')
+            # geometry frame for placing war-paint: MDX Z=up, Y=front. Find the
+            # eye height and the front so we can lay a cheek stripe under the eyes.
+            def kind(vidx):
+                grp = g.vgroups[vidx] if vidx < len(g.vgroups) else 0
+                nids = g.matrix_groups[grp] if grp < len(g.matrix_groups) else []
+                return [byid[n].name for n in nids if n in byid]
+            eye_z = [g.verts[i][2] for i in range(len(g.verts)) if any('Eye' in n for n in kind(i))]
+            eye_z = sum(eye_z) / len(eye_z) if eye_z else 0
+            ys = [v[1] for v in g.verts]; y_front = min(ys) + 0.68 * (max(ys) - min(ys))
+            xs = [v[0] for v in g.verts]; cx = (min(xs) + max(xs)) / 2; xw = (max(xs) - min(xs)) or 1
+            zs = [v[2] for v in g.verts]; zh = (max(zs) - min(zs)) or 1
+            for vidx in range(len(g.verts)):
+                names = kind(vidx)
+                vx, vy, vz = g.verts[vidx]
+                if any('Eye' in n for n in names):
+                    c = _hex(FACE_EYE)
+                elif any('Lip' in n for n in names):
+                    c = _hex(FACE_LIP)
+                elif (vy > y_front and abs(vz - eye_z) < 0.10 * zh
+                      and 0.12 * xw < abs(vx - cx) < 0.5 * xw):
+                    c = _hex(FACE_PAINT)     # under-eye cheek war-paint stripe
+                else:
+                    c = _hex(FACE_SKIN)
+                cattr.data[vidx].color = (c[0], c[1], c[2], 1.0)
+        mat = painted_material(f'mat{gi}', region, col)
         mesh.materials.append(mat)
-        # UVs (kept for when real textures are added later)
-        if g.uvs and len(g.uvs) == len(g.verts):
+        # UVs (drive the baked texture; without them the geoset stays flat-shaded)
+        has_uv = bool(g.uvs and len(g.uvs) == len(g.verts))
+        if has_uv:
             uvl = mesh.uv_layers.new(name='UVMap')
             for poly in mesh.polygons:
                 for li in poly.loop_indices:
@@ -309,9 +497,11 @@ def build_meshes(model, arm_obj, bone_names):
         mod.object = arm_obj
         obj.parent = arm_obj
         objs.append(obj)
+        if has_uv:
+            painted.append((obj, region, col))
     if skipped:
         print('  skipped hidden geosets (alpha≈0 in idle):', skipped)
-    return objs
+    return objs, painted
 
 
 def bake_actions(model, arm_obj, bone_names, order):
@@ -378,7 +568,9 @@ def main():
           (len(model.nodes), len(model.geosets), len(model.sequences)))
     clear_scene()
     arm_obj, bone_names = build_armature(model, order)
-    build_meshes(model, arm_obj, bone_names)
+    _objs, painted = build_meshes(model, arm_obj, bone_names)
+    if not os.environ.get('FORGE_NO_PAINT'):
+        paint_bake(painted)          # bake hand-painted albedo before pose mode
     made = bake_actions(model, arm_obj, bone_names, order)
     # export: one glTF animation per action
     bpy.ops.object.select_all(action='SELECT')

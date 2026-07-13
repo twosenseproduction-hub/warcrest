@@ -23,9 +23,10 @@ var rn=new THREE.WebGLRenderer({canvas:document.getElementById('c'),antialias:tr
 if(THREE.sRGBEncoding&&'outputEncoding' in rn) rn.outputEncoding=THREE.sRGBEncoding;
 var sc=new THREE.Scene();sc.background=new THREE.Color(0x20242e);
 var cam=new THREE.PerspectiveCamera(35,420/520,0.1,6000);
-sc.add(new THREE.HemisphereLight(0xbcd3ff,0x38304a,0.55));
-var k=new THREE.DirectionalLight(0xfff2dd,1.25);k.position.set(4,7,5);sc.add(k);
-var rim=new THREE.DirectionalLight(0x9ad8ff,0.4);rim.position.set(-4,3,-5);sc.add(rim);
+// match the game's lighting (render3d.js): low ambient + hemi, warm sun 1.2
+sc.add(new THREE.AmbientLight(0xb9c4d0,0.20));
+sc.add(new THREE.HemisphereLight(0x8ea6c2,0x39481f,0.16));
+var k=new THREE.DirectionalLight(0xffe2a8,1.2);k.position.set(4,7,5);sc.add(k);
 // ground grid so "right side up" is unambiguous (lies in XZ at y=0)
 var grid=new THREE.GridHelper(400,20,0x557799,0x33445a); sc.add(grid);
 function grad(){var t=new THREE.DataTexture(new Uint8Array([190,225,255]),3,1,THREE.RedFormat||THREE.LuminanceFormat);t.minFilter=t.magFilter=THREE.NearestFilter;t.needsUpdate=true;return t;}
