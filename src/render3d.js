@@ -1036,13 +1036,13 @@
         attachments: [{ url: 'assets/models/w_footman_shield.glb?v=20260701a', bone: 'mixamorigLeftHand', pos: [0, 0, 0], rot: [0, 1.5708, 0], scale: 0.6 }] });
       // ── New T-pose-authored Night Elf roster (clean rigs) + separate weapons
       //    mounted on a hand bone. All bodies front = +X, so yaw = -PI/2.
-      // Bark Archer: Mixamo auto-rigged (clean deformation) with real idle/run/
-      // bow-draw mocap; the Tripo texture atlas can't survive re-rigging so the
-      // skin is baked as vertex colours. Front = +Z (Mixamo), so yaw = 0. Elven
-      // longbow in the left hand; the draw clip drives attack, projectile fires.
-      registerUnitModel('elf:archer', { url: 'assets/models/rim_archer_mx.glb?v=20260701a', height: 60, yaw: 0,
-        anims: { idle: 'idle', walk: 'walk', attack: 'attack' }, stripRootMotion: true, attackRate: 1.1,
-        weapon: { url: 'assets/models/w_longbow.glb?v=20260701a', bone: 'mixamorigLeftHand', pos: [0.05, 0, 0.05], rot: [0, 0, 0], scale: 1.0 } });
+      // Rim Walker (elf archer): faithfully rebuilt from the uploaded WC3 .mdx by
+      // the headless-Blender forge (tools/forge/mdx_to_glb.py) — original mesh,
+      // skeleton, skin, and Stand/Walk/Attack/Death baked as Idle/Walk/Attack/Death.
+      // Bow + quiver are part of the mesh (no weapon attachment). Model faces +Z
+      // (yaw 0). Walk carries a big forward stride → stripRootMotion plays it in place.
+      registerUnitModel('elf:archer', { url: 'assets/models/rim_walker_mdx.glb?v=20260713a', height: 60, yaw: 0,
+        anims: { idle: 'Idle', walk: 'Walk', attack: 'Attack', death: 'Death' }, stripRootMotion: true, attackRate: 1.1 });
       // Huntress: panther rider, biped-rigged — her arms animate while the leg
       // bones are frozen (stripBones) so the panther body stays intact. Moon
       // glaive in the right hand.
