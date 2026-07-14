@@ -899,6 +899,36 @@ def add_cat_features(model, arm_obj, bone_names):
     print('  added cat features: eyes + fangs (→ Bone Wolf Head)')
 
 
+def add_orc_face(model, arm_obj, bone_names):
+    """Warsong Grunt facial detail (the source .blp face is flat green): glowing
+    amber eyes deep under the brow, big ivory tusks curving up from the lower jaw,
+    two smaller upper fangs, and a dark snarling maw. Bound to Bone_Head so they
+    ride the head through every clip. The face points +X (eyes ~z93, jaw ~z85)."""
+    byname = {n.name: n for n in model.nodes}
+    hb = byname.get('Bone_Head')
+    if hb is None:
+        return
+    bone = bone_names[hb.object_id]
+    bm, clay = _newbm()
+    # eyes — molten amber, set under the heavy brow and splayed to each side
+    for s in (1, -1):
+        _sphere(bm, clay, 1.75, (10.7, s * 3.1, 93.1), 0xff9412, scale=(0.85, 1.15, 1.0))
+        _sphere(bm, clay, 0.72, (11.5, s * 2.95, 93.3), 0xfff0ad)   # hot pupil highlight
+    # lower tusks — two big ivory fangs sweeping UP and OUT past the cheeks (the
+    # grunt's signature). Base at the lower-jaw corners, tips flaring to eye height.
+    for s in (1, -1):
+        base = Vector((11.2, s * 3.9, 85.2)); tip = Vector((12.1, s * 5.6, 95.2))
+        _cone(bm, clay, 1.5, 0.04, (tip - base).length, _aim(base, tip), 0xe9e1c8, seg=6)
+    # upper fangs — smaller, pointing down from the top jaw
+    for s in (1, -1):
+        base = Vector((11.7, s * 2.0, 88.6)); tip = Vector((11.9, s * 2.1, 85.0))
+        _cone(bm, clay, 0.55, 0.03, (tip - base).length, _aim(base, tip), 0xe9e1c8, seg=4)
+    # dark snarling maw between the jaws (reads as the open mouth interior)
+    _sphere(bm, clay, 2.05, (10.8, 0.0, 87.1), 0x2b0c0c, scale=(0.42, 1.5, 0.85))
+    _accobj('acc_orc_face', bm, clay, bone, arm_obj)
+    print('  added orc face: eyes + tusks + maw (→ Bone_Head)')
+
+
 def main():
     inp, outp = sys.argv[1], sys.argv[2]
     model = mdx_parse.parse(inp)
@@ -913,6 +943,8 @@ def main():
     if not os.environ.get('FORGE_NO_ACC'):
         add_accessories(model, arm_obj, bone_names)   # dreads/beads/feathers, rigged
         add_cat_features(model, arm_obj, bone_names)   # nightsaber eyes + fangs
+        if model.name == 'Grunt':
+            add_orc_face(model, arm_obj, bone_names)   # eyes + tusks + maw
     made = bake_actions(model, arm_obj, bone_names, order)
     # export: one glTF animation per action
     bpy.ops.object.select_all(action='SELECT')

@@ -98,6 +98,21 @@ the game then toon-shades. Two mechanisms, in priority order:
 `region` (skin/cloth/leather/metal/hair/wood/trim/face/tiger/tribal) selects the
 procedural hand-painted detail baked into the albedo.
 
+## Facial detail (always)
+
+Every unit gets explicit facial features — eyes, and where the source race has
+them, tusks / fangs and a dark open maw — because the stock `.blp` faces bake to
+flat colour and read as blank up close. Two ways, both bound to the head bone so
+they ride every clip:
+
+- **Painted** (`region: 'face'`): per-vertex eyes / lips / war-paint on the head
+  geoset, placed by the node each vertex is skinned to (or by position when the
+  model has no eye nodes). Used by the elves.
+- **Geometry** (`add_cat_features`, `add_orc_face`): small bmesh eyes / fangs /
+  tusks / maw rigged to the head bone. The nightsaber gets glowing eyes + fangs;
+  the Warsong Grunt gets molten-amber eyes, ivory tusks sweeping up past the
+  cheeks, and a dark snarling maw.
+
 ## Limitations
 
 - **Textures.** The uploaded `.mdx` references external `.blp` files that aren't
