@@ -807,26 +807,50 @@ def add_accessories(model, arm_obj, bone_names):
 
 
 def add_cat_features(model, arm_obj, bone_names):
-    """Moon Hunter's nightsaber: glowing eyes + fangs on the cat's head, bound to
-    'Bone Wolf Head' so they animate. Cat faces +X (muzzle ref sits at higher X)."""
-    byname = {n.name: n for n in model.nodes}
-    hb = byname.get('Bone Wolf Head')
-    if hb is None:
+    """Moon Hunter's nightsaber: glowing eyes + fangs placed on the ACTUAL snout.
+    The deform bone for the muzzle is found data-driven — the bone most used by
+    the forward-most (max-X) verts of the cat body geoset — since 'Bone Wolf Head'
+    is only an animation helper and skins no geometry."""
+    if not any(n.name == 'Bone Wolf Head' for n in model.nodes):
+        return  # not a mounted cat
+    from collections import Counter
+    g = model.geosets[0]; byid = model.node_by_id
+    idx = sorted(range(len(g.verts)), key=lambda i: -g.verts[i][0])[:24]  # snout = max X
+    sv = [g.verts[i] for i in idx]                       # snout bounding box
+    scen = [sum(v[k] for v in sv) / len(sv) for k in range(3)]   # snout centroid
+    cand = set()
+    for i in idx:
+        grp = g.vgroups[i]
+        for nid in (g.matrix_groups[grp] if grp < len(g.matrix_groups) else []):
+            if nid in bone_names:
+                cand.add(nid)
+    if not cand:
         return
-    hp = Vector(hb.pivot); bone = bone_names[hb.object_id]
+    # bind to the bone whose PIVOT is nearest the snout (the muzzle deform bone),
+    # not merely the most-referenced one — so the eyes/fangs track the head.
+    def d2(nid):
+        p = byid[nid].pivot
+        return sum((p[k] - scen[k]) ** 2 for k in range(3))
+    mnid = min(cand, key=d2)
+    bone = bone_names[mnid]
+    sx0, sx1 = min(v[0] for v in sv), max(v[0] for v in sv)
+    sz0, sz1 = min(v[2] for v in sv), max(v[2] for v in sv)
+    yw = max(abs(v[1]) for v in sv) or 8
     bm, clay = _newbm()
-    # big glowing amber eyes on the upper snout (raised a touch so they read from
-    # the game's elevated camera), splayed to each side and forward
+    # glowing amber eyes: upper snout, set back from the tip, splayed to each side
+    ex = sx1 - (sx1 - sx0) * 0.32
+    ez = sz1 - (sz1 - sz0) * 0.28
     for s in (1, -1):
-        _sphere(bm, clay, 3.3, (hp.x + 13, hp.y + s * 6.2, hp.z + 5.0), 0xffcf3a, scale=(1.0, 1.2, 1.05))
-    # fangs — white cones pointing down from the upper jaw at the muzzle front
+        _sphere(bm, clay, 3.4, (ex, s * yw * 0.5, ez), 0xffcf3a, scale=(1.0, 1.2, 1.1))
+    # fangs: white cones at the muzzle tip underside, pointing down
+    fz = sz0 + (sz1 - sz0) * 0.12
     for s in (1, -1):
-        for fx in (0.0, 4.5):
-            top = Vector((hp.x + 19 + fx, hp.y + s * 3.0, hp.z - 1.5))
-            tip = top + Vector((0, 0, -6.5))
+        for fo in (0.0, 4.0):
+            top = Vector((sx1 - 3 - fo, s * yw * 0.28, fz + 3))
+            tip = top + Vector((0, 0, -6.0))
             _cone(bm, clay, 1.15, 0.08, (top - tip).length, _aim(top, tip), 0xece6d4, seg=4)
     _accobj('acc_cat_face', bm, clay, bone, arm_obj)
-    print('  added cat features: eyes + fangs (→ Bone Wolf Head)')
+    print('  added cat features: eyes + fangs (→ %s, snout x=%.0f..%.0f)' % (bone, sx0, sx1))
 
 
 def main():
