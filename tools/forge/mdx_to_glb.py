@@ -130,12 +130,31 @@ RIMWALKER_ARCHER_GEO = {
     12: ('trim',    RW['trim']),     # arrow fletching (gold)
 }
 
+# Moon Hunter (Huntress) — Night Elf sentinel on a nightsaber. Geosets IDed by
+# the distinct-colour render: g0 cat body, g1 paws, g2 cape, g4 rider (face/skin),
+# g5 hair, g6 glaive blade, g7 glaive haft, g8/g9 armour accents.
+MOON_HUNTER_GEO = {
+    0:  ('skin',  0x35386a),   # nightsaber body — dark indigo hide (mottle)
+    1:  ('skin',  0x1d1e33),   # paws — near-black
+    2:  ('cloth', 0x2f4a66),   # sentinel cape — deep teal-blue
+    4:  ('face',  0xb39bd8),   # rider: lavender skin (+ eyes/lips if present)
+    5:  ('hair',  0x2b2750),   # hair / headdress — dark violet
+    6:  ('metal', 0xc6d2dc),   # moon glaive blade — bright moon-silver
+    7:  ('wood',  0x4a3a2a),   # glaive haft — dark wood
+    8:  ('cloth', 0x3a5a72),   # armour accent — teal
+    9:  ('metal', 0xc6d2dc),   # buckle / accent — silver
+}
+
+GEO_MAPS = {'Archer': RIMWALKER_ARCHER_GEO, 'HuntressNew': MOON_HUNTER_GEO}
+
 
 def geo_region(model, gi, path):
     """Return (region, rgb) for a geoset. region ∈ skin/cloth/leather/metal/
-    hair/wood/trim and selects the painted-material pattern."""
-    if model.name == 'Archer' and gi in RIMWALKER_ARCHER_GEO:
-        region, hexc = RIMWALKER_ARCHER_GEO[gi]
+    hair/wood/trim/face and selects the painted-material pattern. Per-model geoset
+    maps (GEO_MAPS) win; otherwise fall back to texture-name colour heuristics."""
+    gmap = GEO_MAPS.get(model.name)
+    if gmap and gi in gmap:
+        region, hexc = gmap[gi]
         return region, _hex(hexc)
     lin = lambda c: (_s2l(c[0]), _s2l(c[1]), _s2l(c[2]))     # tuples are sRGB
     # 'skin' = soft mottle, a safer default surface than fabric weave for
@@ -476,8 +495,9 @@ def build_meshes(model, arm_obj, bone_names):
                 grp = g.vgroups[vidx] if vidx < len(g.vgroups) else 0
                 nids = g.matrix_groups[grp] if grp < len(g.matrix_groups) else []
                 return [byid[n].name for n in nids if n in byid]
-            eye_z = [g.verts[i][2] for i in range(len(g.verts)) if any('Eye' in n for n in kind(i))]
-            eye_z = sum(eye_z) / len(eye_z) if eye_z else 0
+            eye_zs = [g.verts[i][2] for i in range(len(g.verts)) if any('Eye' in n for n in kind(i))]
+            has_eyes = bool(eye_zs)
+            eye_z = sum(eye_zs) / len(eye_zs) if has_eyes else 0
             ys = [v[1] for v in g.verts]; y_front = min(ys) + 0.68 * (max(ys) - min(ys))
             xs = [v[0] for v in g.verts]; cx = (min(xs) + max(xs)) / 2; xw = (max(xs) - min(xs)) or 1
             zs = [v[2] for v in g.verts]; zh = (max(zs) - min(zs)) or 1
@@ -488,7 +508,7 @@ def build_meshes(model, arm_obj, bone_names):
                     c = _hex(FACE_EYE)
                 elif any('Lip' in n for n in names):
                     c = _hex(FACE_LIP)
-                elif (vy > y_front and abs(vz - eye_z) < 0.10 * zh
+                elif (has_eyes and vy > y_front and abs(vz - eye_z) < 0.10 * zh
                       and 0.12 * xw < abs(vx - cx) < 0.5 * xw):
                     c = _hex(FACE_PAINT)     # under-eye cheek war-paint stripe
                 else:
