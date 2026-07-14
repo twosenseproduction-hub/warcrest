@@ -4,10 +4,18 @@ Recreate a WC3 unit **1:1** as a rigged, animated glTF that Warcrest's renderer
 loads directly. Runs fully headless (no GUI Blender install) using the `bpy`
 Python module + a headless Chromium for verification.
 
-The first unit built with it is the **Rim Walker** elf archer
-(`assets/models/rim_walker_mdx.glb`), converted from `Rim Walker ElfArcher.mdx`:
-original mesh, skeleton, skinning, and the Stand / Walk / Attack / Death
-sequences baked as `Idle` / `Walk` / `Attack` / `Death` clips.
+Units built with it so far — one parser, one builder, no per-model code:
+
+| unit | source `.mdx` | output | notes |
+|------|---------------|--------|-------|
+| **Rim Walker** elf archer | `Rim Walker ElfArcher.mdx` | `rim_walker_mdx.glb` | bow + quiver in-mesh; hand-painted night-elf palette + rigged accessories |
+| **Moon Hunter** huntress | `Huntress.mdx` | `moon_hunter_mdx.glb` | mounted nightsaber, native four-legged rig; glaive in-mesh |
+| **Warsong Grunt** orc | `WarsongGruntBV2.mdx` | `warsong_grunt_mdx.glb` | **kitbash** — vanilla body geoset hidden by its own alpha track, armour built from stock textures; texture-name palette (§ *Palette*) |
+
+Each carries the Stand / Walk / Attack / Death sequences baked as `Idle` /
+`Walk` / `Attack` / `Death` clips. The orc was a deliberate cross-race
+de-risking test: a non-elf, heavily kitbashed model converted with **zero**
+changes to the parser or builder — only a new texture→region palette entry.
 
 ## Pipeline
 
@@ -68,7 +76,27 @@ Which MDX sequence feeds each game clip is configured by `CLIP_SOURCES` in
   hand-rolled axis flip desync the mesh from the animation and tip the model over.
 - **Hidden geosets.** Gore / shadow / decay geosets are alpha-animated to zero
   during the living stance; they're dropped by sampling each geoset's `GEOA` alpha
-  within the idle sequence.
+  within the idle sequence. Kitbash models exploit the same mechanism to *replace*
+  parts — the Warsong Grunt hides the whole vanilla body geoset (visible only for a
+  frame during "Spell Morph") and shows a custom armoured figure instead. The forge
+  honours the alpha exactly, so what renders matches the original in every stance.
+
+## Palette
+
+`.blp` textures aren't in the uploads, so each geoset gets a region + colour that
+the game then toon-shades. Two mechanisms, in priority order:
+
+1. **`GEO_MAPS`** — a hand-authored `{geoset_index: (region, colour)}` for a
+   specific model, used when many geosets share one *empty* "team colour" texture
+   and can only be told apart by silhouette (the elf archer, the huntress).
+2. **`TEX_REGIONS`** — a texture-path → `(region, colour)` table. Kitbash units
+   bind each geoset to a *meaningful* stock texture (`Grunt.blp`, `BeastMaster.blp`,
+   `AxeBladeBlueSteel.blp`, …), so the path alone picks the surface. This needs no
+   per-model work and grows as new source textures appear; empty-path geosets are
+   treated as team-colour armour.
+
+`region` (skin/cloth/leather/metal/hair/wood/trim/face/tiger/tribal) selects the
+procedural hand-painted detail baked into the albedo.
 
 ## Limitations
 

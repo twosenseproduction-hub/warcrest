@@ -80,6 +80,30 @@ TEX_COLORS = [
     ('IronRaven',     (0.26, 0.28, 0.34)),  # dark iron / raven feathers
 ]
 
+# Texture-name → (region, sRGB hex). Unlike the elf kitbash (whose geosets share
+# one empty "team colour" texture and need per-index disambiguation), a kitbash
+# like the Warsong Grunt binds each geoset to a *meaningful* stock texture, so the
+# texture path alone identifies the surface. This table drives the paint for any
+# unit without a hand-authored GEO_MAP, and grows as new source textures appear.
+TEX_REGIONS = [
+    # orc (Warsong Grunt kitbash)
+    ('Orc\\Grunt\\Grunt', 'skin',    0x5c6b34),   # orc hide: mossy olive-green
+    ('Wolfrider',         'leather', 0x5b4a30),   # wolf pelt / rider leather: brown
+    ('BeastMaster',       'leather', 0x6d5738),   # tan hide / fur
+    ('BatTroll',          'leather', 0x453b2c),   # dark worn leather
+    ('Guldan',            'cloth',   0x39324d),   # dark cloth / robe accents
+    ('Thrall',            'metal',   0x565b62),   # heavy armour plate
+    ('BlueSteel',         'metal',   0x93a3b3),   # axe blade: cold steel
+    ('AxeBlade',          'metal',   0x93a3b3),
+    ('TeamColor',         'metal',   0x44474e),   # explicit team-colour plate: dark iron
+    ('RibbonBlur',        'trim',    0xb8bcc4),   # motion ribbon (rarely visible)
+    ('Shockwave',         'metal',   0x9fc7e0),   # ice effect (hidden in idle)
+    ('gutz',              'skin',    0x9e2828),   # gore (decay only)
+]
+# Empty-path texture = WC3 team colour. On a kitbash these are the tinted armour
+# plates; render them as dark iron so the unit reads as armoured, not slate-grey.
+TEAMCOLOR = ('metal', 0x44474e)
+
 
 def _s2l(c):
     return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
@@ -158,12 +182,20 @@ def geo_region(model, gi, path):
         region, hexc = gmap[gi]
         return region, _hex(hexc)
     lin = lambda c: (_s2l(c[0]), _s2l(c[1]), _s2l(c[2]))     # tuples are sRGB
+    p = (path or '').strip()
+    if not p:                                                # empty path = team colour
+        region, hexc = TEAMCOLOR
+        return region, _hex(hexc)
+    # texture-name → region+colour (kitbash units: each geoset has a real texture)
+    for key, region, hexc in TEX_REGIONS:
+        if key.lower() in p.lower():
+            return region, _hex(hexc)
     # 'skin' = soft mottle, a safer default surface than fabric weave for
     # arbitrary units (hide, armour, fur) when we don't have a per-geoset map.
     for key, col in TEX_COLORS:
-        if key.lower() in (path or '').lower():
+        if key.lower() in p.lower():
             return 'skin', lin(col)
-    return 'skin', lin((0.33, 0.38, 0.50))                   # team-colour/panther: slate blue
+    return 'skin', lin((0.33, 0.38, 0.50))                   # unknown: slate blue
 
 
 # ---- MDX track sampling ---------------------------------------------------
