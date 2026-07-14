@@ -43,6 +43,25 @@ CLIP_SOURCES = [
     ('Death',  ['Death']),
 ]
 
+
+def _norm(s):
+    return ''.join(s.lower().split()).replace('-', '')
+
+
+def find_sequence(model, sources):
+    """Match a source name to a model sequence, whitespace/dash-insensitive and
+    prefix-tolerant (WC3 naming varies: 'Attack - 1' vs 'Attack -1' vs 'Attack')."""
+    seqs = model.sequences
+    for src in sources:
+        ns = _norm(src)
+        for s in seqs:                       # exact (normalized) first
+            if _norm(s.name) == ns:
+                return s
+        for s in seqs:                       # then prefix (e.g. 'Attack' → 'Attack1')
+            if _norm(s.name).startswith(ns):
+                return s
+    return None
+
 # Per-texture base colour (no .blp available in the upload) so the untextured
 # mesh still reads with sensible regions once Warcrest toon-shades it. Keyed by
 # a substring of the texture path; falls back to a neutral cloth colour.
@@ -55,6 +74,10 @@ TEX_COLORS = [
     ('Assassin',      (0.30, 0.26, 0.22)),  # straps
     ('gutz',          (0.62, 0.16, 0.16)),  # innards (decay) — rarely visible
     ('star2',         (0.85, 0.78, 0.42)),  # sparkle
+    # night-elf textures (Moon Hunter / Huntress and kin)
+    ('Priestess',     (0.69, 0.66, 0.82)),  # moon-priestess rider: pale lavender
+    ('Sentinel',      (0.24, 0.44, 0.42)),  # sentinel armour: teal
+    ('IronRaven',     (0.26, 0.28, 0.34)),  # dark iron / raven feathers
 ]
 
 
@@ -114,10 +137,13 @@ def geo_region(model, gi, path):
     if model.name == 'Archer' and gi in RIMWALKER_ARCHER_GEO:
         region, hexc = RIMWALKER_ARCHER_GEO[gi]
         return region, _hex(hexc)
+    lin = lambda c: (_s2l(c[0]), _s2l(c[1]), _s2l(c[2]))     # tuples are sRGB
+    # 'skin' = soft mottle, a safer default surface than fabric weave for
+    # arbitrary units (hide, armour, fur) when we don't have a per-geoset map.
     for key, col in TEX_COLORS:
         if key.lower() in (path or '').lower():
-            return 'cloth', col
-    return 'cloth', (0.45, 0.47, 0.44)
+            return 'skin', lin(col)
+    return 'skin', lin((0.33, 0.38, 0.50))                   # team-colour/panther: slate blue
 
 
 # ---- MDX track sampling ---------------------------------------------------
@@ -251,13 +277,11 @@ def build_armature(model, order):
 
 
 def idle_sequence(model):
-    seq_by_name = {s.name: s for s in model.sequences}
     for _clip, sources in CLIP_SOURCES:
-        if _clip != 'Idle':
-            continue
-        for n in sources:
-            if n in seq_by_name:
-                return seq_by_name[n]
+        if _clip == 'Idle':
+            s = find_sequence(model, sources)
+            if s:
+                return s
     return model.sequences[0] if model.sequences else None
 
 
@@ -519,10 +543,9 @@ def bake_actions(model, arm_obj, bone_names, order):
         parent_bone[nid] = p if p in bone_names else None
     pbones = {nid: arm_obj.pose.bones[bone_names[nid]] for nid in order}
 
-    seq_by_name = {s.name: s for s in model.sequences}
     made = []
     for clip, sources in CLIP_SOURCES:
-        seq = next((seq_by_name[n] for n in sources if n in seq_by_name), None)
+        seq = find_sequence(model, sources)
         if not seq:
             print('  (no source sequence for %s)' % clip); continue
         dur_ms = max(1, seq.end - seq.start)

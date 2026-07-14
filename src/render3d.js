@@ -1043,13 +1043,12 @@
       // (yaw 0). Walk carries a big forward stride → stripRootMotion plays it in place.
       registerUnitModel('elf:archer', { url: 'assets/models/rim_walker_mdx.glb?v=20260713a', height: 60, yaw: 0,
         anims: { idle: 'Idle', walk: 'Walk', attack: 'Attack', death: 'Death' }, stripRootMotion: true, attackRate: 1.1 });
-      // Huntress: panther rider, biped-rigged — her arms animate while the leg
-      // bones are frozen (stripBones) so the panther body stays intact. Moon
-      // glaive in the right hand.
-      registerUnitModel('elf:lancer', { url: 'assets/models/rim_huntress.glb?v=20260630k', height: 72, yaw: -Math.PI / 2,
-        anims: { idle: 'NlaTrack', walk: 'NlaTrack.001' }, stripRootMotion: true,
-        stripBones: 'Thigh|Calf|Foot|Toe|Pelvis|Hip|Waist|Spine',
-        weapon: { url: 'assets/models/w_moonglaive.glb?v=20260630k', bone: 'R_Hand', pos: [0.03, 0.02, -0.02], rot: [1.396, 0, 0.175], scale: 0.45 } });
+      // Moon Hunter (Huntress): mounted war-cat + rider, converted 1:1 from the
+      // WC3 .mdx by the forge (tools/forge/mdx_to_glb.py). Native mounted rig —
+      // the panther legs animate in the clips, so no stripBones/weapon hacks.
+      // Glaive is part of the mesh. Faces +Z (yaw 0).
+      registerUnitModel('elf:lancer', { url: 'assets/models/moon_hunter_mdx.glb?v=20260713a', height: 72, yaw: 0,
+        anims: { idle: 'Idle', walk: 'Walk', attack: 'Attack', death: 'Death' }, stripRootMotion: true });
       // Dryad: centaur, biped-rigged with frozen leg bones (stripBones) so the
       // deer body stays intact while her arms animate. Leaf spear in the right hand.
       registerUnitModel('elf:caster', { url: 'assets/models/rim_dryad.glb?v=20260630l', height: 66, yaw: -Math.PI / 2,
