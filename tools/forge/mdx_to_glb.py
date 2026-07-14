@@ -170,7 +170,45 @@ MOON_HUNTER_GEO = {
     9:  ('metal', 0xc6d2dc),   # buckle / accent — silver
 }
 
-GEO_MAPS = {'Archer': RIMWALKER_ARCHER_GEO, 'HuntressNew': MOON_HUNTER_GEO}
+# Warsong Grunt (orc) — a kitbash whose geosets DON'T map cleanly by texture (the
+# big green body shares the empty "team colour" texture with several armour plates),
+# so it needs a per-geoset map like the elves. Geosets IDed by isolating each one in
+# a flat render and reading it against the reference art: vivid grass-green orc hide,
+# silver steel plate, crimson team-colour shields (shoulder/knee/hip), tan horns,
+# bone skull emblem, brown leather straps, steel axe.
+GRUNT_SKIN = 0x63a52c   # bright orc grass-green
+GRUNT_STEEL = 0xb4bac2  # armour plate
+GRUNT_RED = 0xb02828    # team-colour shields
+GRUNT_LEATHER = 0x40301e
+WARSONG_GRUNT_GEO = {
+    1:  ('skin',    GRUNT_SKIN),      # main body: face, chest, arms, thighs
+    2:  ('skin',    GRUNT_SKIN),      # small skin bit
+    6:  ('skin',    GRUNT_SKIN),      # lower face / jaw
+    7:  ('skin',    GRUNT_SKIN),      # brow / upper face
+    9:  ('skin',    GRUNT_SKIN),      # inner thighs
+    11: ('skin',    GRUNT_SKIN),      # scalp between horns
+    18: ('skin',    GRUNT_SKIN),      # hands
+    8:  ('metal',   GRUNT_RED),       # left shoulder pauldron shield — red
+    10: ('metal',   GRUNT_RED),       # knee + boot shields — red
+    15: ('metal',   GRUNT_RED),       # hip plates (TeamColor11) — red
+    13: ('metal',   GRUNT_STEEL),     # shoulder yoke / collar
+    19: ('metal',   GRUNT_STEEL),     # forearm bracers
+    21: ('metal',   GRUNT_STEEL),     # helmet face guard
+    22: ('metal',   GRUNT_STEEL),     # helmet crown
+    24: ('metal',   0xbfc4ca),        # pectoral plate
+    27: ('metal',   0x9aa7b4),        # axe blade — steel
+    28: ('metal',   0x9aa7b4),        # axe binding / blade root
+    17: ('wood',    0x8a6a3e),        # helmet horns — tan bone (grain reads as ridges)
+    23: ('trim',    0xcabfa0),        # skull emblem — bone
+    14: ('leather', GRUNT_LEATHER),   # belt
+    20: ('leather', GRUNT_LEATHER),   # loincloth tassets
+    25: ('leather', GRUNT_LEATHER),   # tassets
+    26: ('leather', 0x52412c),        # chest sash
+    16: ('leather', 0x7a5f36),        # upper-arm band — tan
+}
+
+GEO_MAPS = {'Archer': RIMWALKER_ARCHER_GEO, 'HuntressNew': MOON_HUNTER_GEO,
+            'Grunt': WARSONG_GRUNT_GEO}
 
 
 def geo_region(model, gi, path):

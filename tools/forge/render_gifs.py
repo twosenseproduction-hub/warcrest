@@ -82,7 +82,8 @@ async def main():
         b = await p.chromium.launch(**L)
         pg = await b.new_page(viewport={'width': 420, 'height': 520})
         for clip in clips:
-            await pg.goto(f'http://127.0.0.1:{port}/_gif.html?glb={glb}&clip={clip}&angle=35', wait_until='load')
+            ang = os.environ.get('FORGE_GIF_ANGLE', '35')
+            await pg.goto(f'http://127.0.0.1:{port}/_gif.html?glb={glb}&clip={clip}&angle={ang}', wait_until='load')
             await pg.wait_for_function('window.READY', timeout=20000)
             dur = await pg.evaluate('window.DUR') or 1.0
             frames = []

@@ -1024,9 +1024,10 @@
       // mesh, skeleton, skin, and Stand/Walk/Attack/Death baked as the game clips.
       // A kitbash model: the vanilla grunt body geoset is hidden by its own alpha
       // track, replaced by armour built from stock textures; the forge honours that.
-      // Axe is part of the mesh (no weapon attachment). Faces +Z (yaw 0); Walk
-      // carries a forward stride → stripRootMotion plays it in place.
-      registerUnitModel('horde:warrior', { url: 'assets/models/warsong_grunt_mdx.glb?v=20260714a', height: 62, yaw: 0,
+      // Axe is part of the mesh (no weapon attachment). This model's body faces
+      // +X (unlike the elf archer's +Z), so yaw = -PI/2 turns it to face forward;
+      // Walk carries a forward stride → stripRootMotion plays it in place.
+      registerUnitModel('horde:warrior', { url: 'assets/models/warsong_grunt_mdx.glb?v=20260714b', height: 62, yaw: -Math.PI / 2,
         anims: { idle: 'Idle', walk: 'Walk', attack: 'Attack', death: 'Death' }, stripRootMotion: true, attackRate: 1.0 });
       // Footman (crown/Human warrior): Tripo grey-plate knight from the user's own
       // concept, Mixamo-rigged (idle/run/slash), vertex-colour reskin. Front = +Z
