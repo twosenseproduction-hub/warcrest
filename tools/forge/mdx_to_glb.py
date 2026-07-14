@@ -115,17 +115,18 @@ FACE_EYE = 0x8fe6ff    # punchy cyan glow
 FACE_LIP = 0x241018    # near-black lips
 FACE_SKIN = 0x4e4270   # deep violet skin
 FACE_PAINT = 0xe6ddc8  # bone-white war-paint markings
+FACE_BROW = 0x2a2038   # dark brow / eye socket
 
 RIMWALKER_ARCHER_GEO = {
-    2:  ('cloth',   RW['cape']),     # flowing cloak / cape down the back
+    2:  ('tribal',  RW['cape']),     # flowing cloak / cape down the back
     3:  ('face',    RW['skin']),     # head: face + glowing eyes + dark lips
-    4:  ('cloth',   RW['cloth']),    # torso tunic
+    4:  ('tribal',  RW['cloth']),    # torso tunic (gold-patterned)
     5:  ('trim',    RW['trim']),     # belt / waist band (gold)
     6:  ('skin',    RW['skin']),     # bare upper arm
-    7:  ('cloth',   RW['cape']),     # leggings (dark teal-green)
+    7:  ('tribal',  RW['cape']),     # leggings (gold-patterned)
     8:  ('metal',   RW['gold']),     # forearm bands (gold)
     9:  ('leather', RW['leather']),  # shoulder + hip leather
-    10: ('cloth',   RW['leaf']),     # leaf-green collar / shoulder trim (patterned)
+    10: ('tribal',  RW['leaf']),     # leaf-green collar / shoulder trim (patterned)
     11: ('wood',    RW['wood']),     # quiver + bow (carved dark wood)
     12: ('trim',    RW['trim']),     # arrow fletching (gold)
 }
@@ -134,7 +135,7 @@ RIMWALKER_ARCHER_GEO = {
 # the distinct-colour render: g0 cat body, g1 paws, g2 cape, g4 rider (face/skin),
 # g5 hair, g6 glaive blade, g7 glaive haft, g8/g9 armour accents.
 MOON_HUNTER_GEO = {
-    0:  ('skin',  0x35386a),   # nightsaber body — dark indigo hide (mottle)
+    0:  ('tiger', 0x35386a),   # nightsaber body — dark indigo hide + stripes + pale belly
     1:  ('skin',  0x1d1e33),   # paws — near-black
     2:  ('cloth', 0x2f4a66),   # sentinel cape — deep teal-blue
     4:  ('face',  0xb39bd8),   # rider: lavender skin (+ eyes/lips if present)
@@ -387,11 +388,51 @@ def painted_material(name, region, rgb):
         links.new(mrg.outputs['Color'], bsdf.inputs['Base Color'])
         return mat
 
+    def genZ():
+        sep = nodes.new('ShaderNodeSeparateXYZ')
+        links.new(mp.outputs['Vector'], sep.inputs['Vector']); return sep.outputs['Z']
+    def col4(c):
+        return (min(1.0, c[0]), min(1.0, c[1]), min(1.0, c[2]), 1.0)
+
+    # nightsaber hide: wavy dark tiger stripes over the base + a pale underbelly
+    if region == 'tiger':
+        st = wave(8.0, 3.2)                                  # wavy markings
+        sr = nodes.new('ShaderNodeValToRGB'); se = sr.color_ramp.elements
+        se[0].position = 0.40; se[0].color = (1, 1, 1, 1)    # stripe (mask=1)
+        se[1].position = 0.56; se[1].color = (0, 0, 0, 1)    # base (mask=0)
+        links.new(st, sr.inputs['Fac'])
+        m1 = nodes.new('ShaderNodeMixRGB'); m1.blend_type = 'MIX'
+        m1.inputs['Color1'].default_value = col4(rgb)
+        m1.inputs['Color2'].default_value = col4((rgb[0] * 0.36, rgb[1] * 0.36, rgb[2] * 0.42))
+        links.new(sr.outputs['Color'], m1.inputs['Fac'])
+        br = nodes.new('ShaderNodeValToRGB'); be = br.color_ramp.elements
+        be[0].position = 0.30; be[0].color = (1, 1, 1, 1)    # low (belly) → pale
+        be[1].position = 0.5; be[1].color = (0, 0, 0, 1)
+        links.new(genZ(), br.inputs['Fac'])
+        m2 = nodes.new('ShaderNodeMixRGB'); m2.blend_type = 'MIX'
+        links.new(m1.outputs['Color'], m2.inputs['Color1'])
+        m2.inputs['Color2'].default_value = col4((rgb[0] * 1.9 + 0.10, rgb[1] * 1.9 + 0.10, rgb[2] * 1.9 + 0.12))
+        links.new(br.outputs['Color'], m2.inputs['Fac'])
+        links.new(m2.outputs['Color'], bsdf.inputs['Base Color'])
+        return mat
+
+    # hair: layered strands (coarse × fine) shaded root→mid→highlight
+    if region == 'hair':
+        s1 = wave(30.0, 0.5); s2 = wave(74.0, 0.15)
+        hf = nodes.new('ShaderNodeMixRGB'); hf.blend_type = 'MULTIPLY'; hf.inputs['Fac'].default_value = 0.5
+        links.new(s1, hf.inputs['Color1']); links.new(s2, hf.inputs['Color2'])
+        hr = nodes.new('ShaderNodeValToRGB'); he = hr.color_ramp.elements
+        root, tip = he[0], he[1]
+        root.position = 0.12; root.color = col4((rgb[0] * 0.5, rgb[1] * 0.5, rgb[2] * 0.55))
+        mid = he.new(0.5); mid.color = col4(rgb)                                            # mid tone
+        tip.position = 0.88; tip.color = col4((rgb[0] * 1.55, rgb[1] * 1.5, rgb[2] * 1.75)) # highlight
+        links.new(hf.outputs['Color'], hr.inputs['Fac'])
+        links.new(hr.outputs['Color'], bsdf.inputs['Base Color'])
+        return mat
+
     # choose a 0..1 pattern per region (scales = cycles across the part)
     if region == 'skin':
         fac = noise(3.0, 2.0)          # soft large tonal mottle
-    elif region == 'hair':
-        fac = wave(24.0, 0.35)         # directional strands
     elif region == 'wood':
         fac = wave(12.0, 1.3)          # wavy grain along the shaft
     elif region == 'leather':
@@ -400,9 +441,9 @@ def painted_material(name, region, rgb):
         fac = wave(30.0, 0.1)          # brushed streaks
     elif region == 'trim':
         fac = noise(5.0, 2.0)
-    elif region == 'cloth':
-        # olive fabric (weave × folds) with a GOLD geometric lattice overlay —
-        # crossed thin bands → grid; gold painted where the grid is bright.
+    elif region in ('cloth', 'tribal'):
+        # woven fabric (weave × folds) → 2-tone ramp. 'tribal' adds a GOLD
+        # geometric lattice overlay (crossed thin bands); 'cloth' is plain.
         weave = wave(26.0, 0.0)
         folds = noise(3.0, 2.0)
         wf = nodes.new('ShaderNodeMixRGB'); wf.blend_type = 'MULTIPLY'; wf.inputs['Fac'].default_value = 0.55
@@ -412,6 +453,9 @@ def painted_material(name, region, rgb):
         ce[0].position = 0.34; ce[0].color = (dk[0], dk[1], dk[2], 1)
         ce[1].position = 0.66; ce[1].color = (lt[0], lt[1], lt[2], 1)
         links.new(wf.outputs['Color'], cr.inputs['Fac'])
+        if region == 'cloth':
+            links.new(cr.outputs['Color'], bsdf.inputs['Base Color'])
+            return mat
         gx = band('X', 6.0); gy = band('Y', 6.0)
         grid = nodes.new('ShaderNodeMixRGB'); grid.blend_type = 'LIGHTEN'; grid.inputs['Fac'].default_value = 1.0
         links.new(gx, grid.inputs['Color1']); links.new(gy, grid.inputs['Color2'])
@@ -501,18 +545,38 @@ def build_meshes(model, arm_obj, bone_names):
             ys = [v[1] for v in g.verts]; y_front = min(ys) + 0.68 * (max(ys) - min(ys))
             xs = [v[0] for v in g.verts]; cx = (min(xs) + max(xs)) / 2; xw = (max(xs) - min(xs)) or 1
             zs = [v[2] for v in g.verts]; zh = (max(zs) - min(zs)) or 1
+            # no eye NODES (e.g. Huntress): place features by position within the
+            # head sub-mesh ('Head'-skinned verts) so the face still gets eyes+brow.
+            hidx = [i for i in range(len(g.verts)) if any('Head' in n for n in kind(i))]
+            if not hidx:
+                hidx = list(range(len(g.verts)))
+            hv = [g.verts[i] for i in hidx]
+            hy0, hy1 = min(p[1] for p in hv), max(p[1] for p in hv)
+            hz0, hz1 = min(p[2] for p in hv), max(p[2] for p in hv)
+            hxs = [p[0] for p in hv]; hcx = (min(hxs) + max(hxs)) / 2; hxw = (max(hxs) - min(hxs)) or 1
+            hset = set(hidx)
+            def rel(v):
+                ry = (v[1] - hy0) / ((hy1 - hy0) or 1)
+                rz = (v[2] - hz0) / ((hz1 - hz0) or 1)
+                rx = (v[0] - hcx) / (hxw / 2 or 1)
+                return ry, rz, rx
             for vidx in range(len(g.verts)):
                 names = kind(vidx)
                 vx, vy, vz = g.verts[vidx]
+                c = _hex(FACE_SKIN)
                 if any('Eye' in n for n in names):
                     c = _hex(FACE_EYE)
                 elif any('Lip' in n for n in names):
                     c = _hex(FACE_LIP)
-                elif (has_eyes and vy > y_front and abs(vz - eye_z) < 0.10 * zh
-                      and 0.12 * xw < abs(vx - cx) < 0.5 * xw):
-                    c = _hex(FACE_PAINT)     # under-eye cheek war-paint stripe
-                else:
-                    c = _hex(FACE_SKIN)
+                elif has_eyes and (vy > y_front and abs(vz - eye_z) < 0.10 * zh
+                                   and 0.12 * xw < abs(vx - cx) < 0.5 * xw):
+                    c = _hex(FACE_PAINT)     # archer: under-eye cheek war-paint
+                elif not has_eyes and vidx in hset:
+                    ry, rz, rx = rel(g.verts[vidx])
+                    if ry > 0.55 and 0.50 < rz < 0.70 and 0.10 < abs(rx) < 0.62:
+                        c = _hex(FACE_EYE)   # glowing eyes (placed by position)
+                    elif ry > 0.5 and 0.70 <= rz < 0.86:
+                        c = _hex(FACE_BROW)  # dark brow band
                 cattr.data[vidx].color = (c[0], c[1], c[2], 1.0)
         mat = painted_material(f'mat{gi}', region, col)
         mesh.materials.append(mat)
