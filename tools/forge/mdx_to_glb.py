@@ -806,6 +806,29 @@ def add_accessories(model, arm_obj, bone_names):
     print('  added accessories: dreads, necklace, fringe, arm+ankle beads')
 
 
+def add_cat_features(model, arm_obj, bone_names):
+    """Moon Hunter's nightsaber: glowing eyes + fangs on the cat's head, bound to
+    'Bone Wolf Head' so they animate. Cat faces +X (muzzle ref sits at higher X)."""
+    byname = {n.name: n for n in model.nodes}
+    hb = byname.get('Bone Wolf Head')
+    if hb is None:
+        return
+    hp = Vector(hb.pivot); bone = bone_names[hb.object_id]
+    bm, clay = _newbm()
+    # big glowing amber eyes on the upper snout (raised a touch so they read from
+    # the game's elevated camera), splayed to each side and forward
+    for s in (1, -1):
+        _sphere(bm, clay, 3.3, (hp.x + 13, hp.y + s * 6.2, hp.z + 5.0), 0xffcf3a, scale=(1.0, 1.2, 1.05))
+    # fangs — white cones pointing down from the upper jaw at the muzzle front
+    for s in (1, -1):
+        for fx in (0.0, 4.5):
+            top = Vector((hp.x + 19 + fx, hp.y + s * 3.0, hp.z - 1.5))
+            tip = top + Vector((0, 0, -6.5))
+            _cone(bm, clay, 1.15, 0.08, (top - tip).length, _aim(top, tip), 0xece6d4, seg=4)
+    _accobj('acc_cat_face', bm, clay, bone, arm_obj)
+    print('  added cat features: eyes + fangs (→ Bone Wolf Head)')
+
+
 def main():
     inp, outp = sys.argv[1], sys.argv[2]
     model = mdx_parse.parse(inp)
@@ -819,6 +842,7 @@ def main():
         paint_bake(painted)          # bake hand-painted albedo before pose mode
     if not os.environ.get('FORGE_NO_ACC'):
         add_accessories(model, arm_obj, bone_names)   # dreads/beads/feathers, rigged
+        add_cat_features(model, arm_obj, bone_names)   # nightsaber eyes + fangs
     made = bake_actions(model, arm_obj, bone_names, order)
     # export: one glTF animation per action
     bpy.ops.object.select_all(action='SELECT')
