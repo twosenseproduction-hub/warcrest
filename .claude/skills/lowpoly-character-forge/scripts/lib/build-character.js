@@ -772,29 +772,36 @@
    * green glowing eyes, and navy + gold + rose regalia. Chibi-heroic proportions,
    * a raised gold moon-glaive. Facial detail always: green eyes, white brows,
    * nose, dark open mouth. Built from lathed anatomy so the form reads smooth. */
-  function queenHorn(side, horn) {   // big smooth gold horn sweeping up + outward
-    var h = new THREE.Group(), n = 5, R = 1.0, pts = [];
-    for (var i = 0; i <= n; i++) { var t = i / n, ang = 0.1 + t * 1.9;
-      pts.push([side * Math.sin(ang) * R * 0.72, (1 - Math.cos(ang)) * R + t * 0.18]); }
+  function queenHorn(side, horn) {   // thick, short gold horn sweeping up + curling out
+    var h = new THREE.Group(), n = 6, R = 0.5, pts = [];
+    for (var i = 0; i <= n; i++) { var t = i / n, ang = 0.3 + t * 1.95;   // short, tightly curling ram hook
+      pts.push([side * Math.sin(ang) * R, (1 - Math.cos(ang)) * R * 0.95 + t * 0.2]); }
     for (var k = 0; k < n; k++) { var a = pts[k], b = pts[k + 1];
       var dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy);
-      var r1 = 0.13 * (1 - k / n) + 0.02, r2 = 0.13 * (1 - (k + 1) / n) + 0.02;
-      var seg = new THREE.Mesh(LPF.smooth(new THREE.CylinderGeometry(r2, r1, len * 1.05, 8)), horn);
+      var r1 = 0.22 * (1 - k / n) + 0.025, r2 = 0.22 * (1 - (k + 1) / n) + 0.025;   // thick base, tapering
+      var seg = new THREE.Mesh(LPF.smooth(new THREE.CylinderGeometry(r2, r1, len * 1.1, 8)), horn);
       seg.position.set((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 0);
       seg.rotation.z = Math.atan2(dy, dx) - Math.PI / 2; h.add(seg); }
     return h;
   }
   LPF.buildElfQueen = function (params) {
     var pal = Object.assign({
-      skin: 0x6d5cd6, skinRim: 0xc0a8ff, brow: 0xf0eefb, ink: 0x160a1a,
+      skin: 0x5f4fca, skinRim: 0xc0a8ff, brow: 0xf0eefb, ink: 0x160a1a,
       hair: 0xeeecf6, horn: 0xf6b81f, leaf: 0x4fc23c, leafD: 0x2c9130,
-      eye: 0x8bff4e, navy: 0x222a5c, navyD: 0x161c40, rose: 0xe06a86,
+      eye: 0x8bff4e, navy: 0x3a4890, navyD: 0x222a5c, rose: 0xe06a86,
       gold: 0xf6b81f, silver: 0xc2cad6, gem: 0xff5586
     }, (params && params.palette) || {});
-    var Mc = function (c, o) { return LPF.toon(c, Object.assign({ ramp: LPF.RAMP.cloth }, o || {})); };
-    var Mm = function (c, o) { return LPF.toon(c, Object.assign({ ramp: LPF.RAMP.metal }, o || {})); };
-    var skin = LPF.toon(pal.skin, { ramp: LPF.RAMP.skin, rimColor: pal.skinRim, rimStrength: 0.24 });
-    var navy = Mc(pal.navy), rose = Mc(pal.rose), hairM = Mc(pal.hair),
+    // GAME-GAMMA: Warcrest's toon ramp (min ~0.75) + sun 1.2 multiply flat colours
+    // up by ~1.5×, washing bright albedo pale (a TEXTURED model like the base queen
+    // survives because its texels sit darker). So author non-emissive colours DARK
+    // and let the engine bloom them back to the saturated target. One knob for the
+    // whole roster; skip it for emissive (eyes/gems/glow) which should stay hot.
+    var DK = (params && params.gameGamma != null) ? params.gameGamma : 0.6;
+    var D = function (h) { return (Math.round((h >> 16 & 255) * DK) << 16) | (Math.round((h >> 8 & 255) * DK) << 8) | Math.round((h & 255) * DK); };
+    var Mc = function (c, o) { return LPF.toon(D(c), Object.assign({ ramp: LPF.RAMP.cloth }, o || {})); };
+    var Mm = function (c, o) { return LPF.toon(D(c), Object.assign({ ramp: LPF.RAMP.metal }, o || {})); };
+    var skin = LPF.toon(D(pal.skin), { ramp: LPF.RAMP.skin, rimColor: pal.skinRim, rimStrength: 0.24 });
+    var navy = Mc(pal.navy), navyD = Mc(pal.navyD), rose = Mc(pal.rose), hairM = Mc(pal.hair),
       gold = Mm(pal.gold, { rimColor: 0xfff0c0, rimStrength: 0.16 }),
       horn = Mm(pal.horn, { rimColor: 0xfff0c0, rimStrength: 0.2 }),
       leaf = Mc(pal.leaf), leafD = Mc(pal.leafD), ink = Mc(pal.ink, { rim: false });
@@ -802,88 +809,113 @@
     var gem = LPF.toon(pal.gem, { ramp: LPF.RAMP.metal, emissive: pal.gem, emissiveIntensity: 0.4, rim: false });
     var glaiveM = LPF.toon(0xffd85a, { ramp: LPF.RAMP.metal, emissive: 0xffb020, emissiveIntensity: 0.6, rim: false }); glaiveM.userData.glow = true;
     var g = new THREE.Group(), glow = [], flat = Math.PI / 2;
-    var limbLen = 1.0, torsoH = 1.14, hs = 1.08, headR = 0.5 * hs, hipX = 0.19;
+    // CHIBI proportions (per the reference): a big head sitting low on a small
+    // compact body with short, thick limbs. Head ends up ~45% of total height.
+    var limbLen = 0.66, torsoH = 0.86, hs = 1.32, headR = 0.5 * hs, hipX = 0.24;
 
-    // ── LEGS: violet tapered, gold boots + rose cuff + gold anklet ──
+    // ── LEGS: violet, short + thick, gold boots + rose cuff + gold anklet ──
     [-1, 1].forEach(function (s) {
-      var legPts = [[0.1, 0], [0.12, 0.06], [0.16, limbLen * 0.34], [0.115, limbLen * 0.6], [0.165, limbLen * 0.9], [0.14, limbLen]];
-      g.add(at(smoothMesh(P.profileLimb(legPts, 14), skin), hipX * s, 0, 0));
-      g.add(at(smoothMesh(P.profileLimb([[0.15, 0], [0.2, 0.05], [0.2, 0.26], [0.15, 0.4]], 14), gold), hipX * s, 0, 0));
-      var cuff = smoothMesh(new THREE.TorusGeometry(0.185, 0.045, 6, 12), rose); cuff.rotation.x = flat; at(cuff, hipX * s, 0.4, 0); g.add(cuff);
-      g.add(at(smoothMesh(new THREE.SphereGeometry(0.15, 10, 7), gold), hipX * s, 0.04, 0.08));
+      var legPts = [[0.14, 0], [0.16, 0.05], [0.21, limbLen * 0.36], [0.16, limbLen * 0.62], [0.21, limbLen * 0.9], [0.17, limbLen]];
+      g.add(at(smoothMesh(P.profileLimb(legPts, 14), skin), hipX * s, 0, 0));   // violet leg (bare thigh/shin shows below the skirt)
+      g.add(at(smoothMesh(P.profileLimb([[0.2, 0], [0.24, 0.05], [0.23, limbLen * 0.24], [0.18, limbLen * 0.34]], 14), gold), hipX * s, 0.1, 0));   // gold greave, lower shin only
+      var cuff = smoothMesh(new THREE.TorusGeometry(0.22, 0.05, 6, 12), rose); cuff.rotation.x = flat; at(cuff, hipX * s, 0.1 + limbLen * 0.34, 0); g.add(cuff);   // rose cuff at greave top
+      g.add(at(smoothMesh(new THREE.SphereGeometry(0.19, 10, 7), navyD), hipX * s, 0.05, 0.1));   // navy shoe
     });
 
     var ty0 = limbLen, th = torsoH;
     // ── TORSO: navy hourglass bodysuit + rose midriff band + gold collar ──
     g.add(at(smoothMesh(P.profileLimb([[0.29, 0], [0.25, th * 0.16], [0.21, th * 0.32], [0.31, th * 0.58], [0.37, th * 0.84], [0.29, th * 0.94], [0.13, th]], 18), navy), 0, ty0, 0));
     g.add(at(smoothMesh(P.profileLimb([[0.22, 0], [0.24, 0.08], [0.22, 0.16]], 16), rose), 0, ty0 + th * 0.2, 0));   // rose midriff
-    [-1, 1].forEach(function (s) { var cg = facetMesh(P.crystalGeo(0.09, 1.1), gem); at(cg, 0.12 * s, ty0 + th * 0.62, 0.3); g.add(cg); glow.push(cg); });  // rose chest gems
-    var collar = smoothMesh(new THREE.TorusGeometry(0.16, 0.05, 6, 14), gold); collar.rotation.x = flat; at(collar, 0, ty0 + th * 0.9, 0.02); g.add(collar);
+    // rose collar band at the neckline + two round rose chest gems
+    var rcol = smoothMesh(new THREE.TorusGeometry(0.2, 0.055, 6, 16), rose); rcol.rotation.x = flat; rcol.scale.set(1.1, 1, 0.85); at(rcol, 0, ty0 + th * 0.82, 0.04); g.add(rcol);
+    [-1, 1].forEach(function (s) { var cg = smoothMesh(new THREE.SphereGeometry(0.1, 10, 8), rose); cg.scale.set(1, 1, 0.7); at(cg, 0.13 * s, ty0 + th * 0.66, 0.3); g.add(cg); });  // round rose chest gems
+    var collar = smoothMesh(new THREE.TorusGeometry(0.14, 0.045, 6, 14), gold); collar.rotation.x = flat; at(collar, 0, ty0 + th * 0.92, 0.02); g.add(collar);
 
     // ── SKIRT: gold flared skirt + rose hem + gold pendant with rose gem ──
     g.add(at(smoothMesh(P.profileLimb([[0.3, 0], [0.5, 0.06], [0.46, 0.22], [0.4, 0.42], [0.34, 0.58]], 20), gold), 0, ty0 - 0.02, 0));
     g.add(at(smoothMesh(P.profileLimb([[0.42, 0], [0.4, 0.08], [0.35, 0.14]], 20), rose), 0, ty0 + 0.36, 0));   // rose hem band
-    g.add(at(facetMesh(new THREE.ConeGeometry(0.13, 0.26, 6), gold), 0, ty0 - 0.04, 0.34));
-    var pend = facetMesh(P.crystalGeo(0.1, 1.1), gem); at(pend, 0, ty0 - 0.1, 0.4); g.add(pend); glow.push(pend);
+    // gold pom/tassel cluster at the front of the skirt (the reference's signature)
+    [[0, 0.15, 0.14], [-0.14, 0.06, 0.11], [0.14, 0.06, 0.11], [0, -0.05, 0.1]].forEach(function (o) {
+      g.add(at(smoothMesh(new THREE.SphereGeometry(o[2], 9, 7), gold), o[0], ty0 - 0.02 + o[1], 0.38));
+    });
+    var pend = facetMesh(P.crystalGeo(0.08, 1.1), gem); at(pend, 0, ty0 + 0.12, 0.44); g.add(pend);
 
     var shoulderY = ty0 + th;
     g.add(at(smoothMesh(P.profileLimb([[0.1, 0], [0.12, 0.1], [0.1, 0.18]], 12), skin), 0, shoulderY - 0.06, 0));   // neck
 
-    // ── ARMS: violet skin + gold armband cuff w/ rose stripe + wrist bracer ──
-    var armHandY = ty0 + th * 0.2;
+    // ── ARMS: held OUT to the sides (like the reference), each a shoulder-pivoted
+    //    group: violet upper arm, a big banded GOLD armband, violet forearm, hand.
+    //    Big fluffy pauldron cap where the arm meets the shoulder. ──
+    var armGlow = [];
     [-1, 1].forEach(function (s) {
-      var alen = (shoulderY - 0.04) - armHandY;
-      var arm = smoothMesh(P.profileLimb([[0.08, 0], [0.1, alen * 0.32], [0.082, alen * 0.6], [0.13, alen * 0.92], [0.115, alen]], 12), skin);
-      at(arm, 0.44 * s, armHandY, 0.02); arm.rotation.z = s * 0.08; g.add(arm);
-      g.add(at(smoothMesh(new THREE.CylinderGeometry(0.13, 0.13, 0.18, 14), gold), 0.46 * s, shoulderY - 0.18, 0.02));
-      var stripe = smoothMesh(new THREE.TorusGeometry(0.135, 0.03, 6, 14), rose); stripe.rotation.x = flat; at(stripe, 0.46 * s, shoulderY - 0.18, 0.02); g.add(stripe);
-      var br = smoothMesh(new THREE.TorusGeometry(0.12, 0.04, 6, 12), gold); br.rotation.x = flat; at(br, 0.44 * s, armHandY + 0.04, 0.02); g.add(br);
-    });
-    [-1, 1].forEach(function (s) {   // navy pauldron caps w/ gold trim
-      var pa = smoothMesh(new THREE.SphereGeometry(0.2, 10, 8), navy); pa.scale.set(1.1, 0.7, 1.05); at(pa, 0.42 * s, shoulderY - 0.02, 0); g.add(pa);
-      var tr = smoothMesh(new THREE.TorusGeometry(0.18, 0.035, 6, 12), gold); tr.rotation.x = flat; at(tr, 0.42 * s, shoulderY - 0.09, 0); g.add(tr);
-    });
-
-    // ── HEAD: violet face, green glowing eyes, white brows, nose, open mouth ──
-    var headY = shoulderY + 0.5 * hs;
-    var head = smoothMesh(P.headGeo(headR, 0.28), skin); head.position.y = headY; head.scale.z = 0.92; g.add(head);
-    [-1, 1].forEach(function (s) { var e = new THREE.Mesh(new THREE.SphereGeometry(0.09 * hs, 8, 7), eye); e.position.set(0.17 * hs * s, headY + 0.04, headR * 0.9); e.scale.set(1.1, 1.5, 0.9); e.rotation.z = -s * 0.2; g.add(e); glow.push(e); });
-    [-1, 1].forEach(function (s) { var b = smoothMesh(new THREE.BoxGeometry(0.2 * hs, 0.05, 0.1), hairM); b.position.set(0.17 * hs * s, headY + 0.15, headR * 0.82); b.rotation.z = s * 0.2; g.add(b); });
-    var nose = smoothMesh(new THREE.ConeGeometry(0.05 * hs, 0.18 * hs, 5), skin); nose.rotation.x = flat; nose.position.set(0, headY - 0.02, headR * 0.92); g.add(nose);
-    var mouth = smoothMesh(new THREE.SphereGeometry(0.07 * hs, 8, 6), ink); mouth.scale.set(1.0, 0.7, 0.5); mouth.position.set(0, headY - 0.17, headR * 0.88); g.add(mouth);
-    [-1, 1].forEach(function (s) { var ear = smoothMesh(P.extrude(P.pointedShape(0.5, 0.16), 0.08), skin); ear.position.set(headR * 0.86 * s, headY + 0.02, -0.05); ear.rotation.z = -s * 0.7; ear.rotation.y = s * 0.3; g.add(ear); });
-
-    // ── WHITE HAIR: crown cap + cascade down the back + face-framing side locks ──
-    var hb = smoothMesh(new THREE.SphereGeometry(0.52 * hs, 12, 9), hairM); hb.scale.set(1.08, 0.9, 1.12); at(hb, 0, headY + 0.16, -0.1); g.add(hb);   // crown cap (top+back only)
-    var backHair = smoothMesh(P.profileLimb([[0.42, 0], [0.46, 0.3], [0.36, 0.72], [0.22, 1.02]], 12), hairM);
-    at(backHair, 0, headY + 0.28, -0.22); backHair.rotation.x = Math.PI; g.add(backHair);   // cascade down the back
-    [-1, 1].forEach(function (s) {   // side locks hanging DOWN, framing the face
-      var lk = smoothMesh(P.profileLimb([[0.055, 0], [0.1, 0.22], [0.11, 0.52], [0.07, 0.82], [0.025, 0.98]], 10), hairM);
-      at(lk, headR * 0.84 * s, headY + 0.06, headR * 0.4); lk.rotation.x = Math.PI - 0.12; lk.rotation.z = -s * 0.06; g.add(lk);
-    });
-    g.add(at(smoothMesh(new THREE.ConeGeometry(0.15 * hs, 0.26, 6), hairM), 0, headY + 0.32 * hs, headR * 0.5));   // widow's-peak fringe
-
-    // ── GOLD HORNS: two big smooth horns sweeping up + out from the temples ──
-    [-1, 1].forEach(function (s) { var hn = queenHorn(s, horn); at(hn, headR * 0.52 * s, headY + 0.28, -0.02); g.add(hn); });
-
-    // ── GREEN LEAF CROWN: three big leaves fanning UP + two smaller side leaves ──
-    [[-0.5, 1.0, leafD], [-0.24, 1.28, leaf], [0, 1.5, leaf], [0.24, 1.28, leaf], [0.5, 1.0, leafD]].forEach(function (cl) {
-      var lf = facetMesh(P.extrude(P.pointedShape(0.62 * cl[1], 0.3), 0.08), cl[2]);
-      at(lf, 0, headY + 0.5 * hs, -0.05); lf.rotation.z = cl[0]; lf.rotation.x = -0.16; g.add(lf);
+      var armG = new THREE.Group(); armG.position.set(0.26 * s, shoulderY - 0.04, 0.0);
+      var alen = 0.86;
+      armG.add(at(smoothMesh(P.profileLimb([[0.1, 0], [0.11, alen * 0.28], [0.075, alen * 0.52], [0.095, alen * 0.8], [0.115, alen * 0.92], [0.095, alen]], 12), skin), 0, 0, 0));
+      // big gold armband (banded: gold cylinder + rose stripe) on the upper arm
+      armG.add(at(smoothMesh(new THREE.CylinderGeometry(0.145, 0.145, 0.24, 16), gold), 0, alen * 0.32, 0));
+      var stripe = smoothMesh(new THREE.TorusGeometry(0.15, 0.04, 6, 16), rose); stripe.rotation.x = flat; at(stripe, 0, alen * 0.32, 0); armG.add(stripe);
+      // hand (floating mitt) at the wrist end
+      armG.add(at(floatingHand(skin, 0.14), 0, alen + 0.06, 0));
+      armG.rotation.z = -s * 1.54;   // swing OUT to the side, near-horizontal with a slight droop
+      g.add(armG);
+      // navy pauldron cap over the shoulder joint (with gold trim ring)
+      var pa = smoothMesh(new THREE.SphereGeometry(0.23, 10, 8), navy); pa.scale.set(1.12, 0.78, 1.08); at(pa, 0.3 * s, shoulderY + 0.02, 0); g.add(pa);
+      var tr = smoothMesh(new THREE.TorusGeometry(0.2, 0.04, 6, 12), gold); tr.rotation.x = flat; at(tr, 0.3 * s, shoulderY - 0.05, 0); g.add(tr);
     });
 
-    // ── WEAPON: raised gold moon-glaive — a slim upright crescent on a gold haft ──
-    var glaive = new THREE.Group();
-    glaive.add(smoothMesh(P.limbGeo(0.05, 2.1), gold));
-    var cr = new THREE.Mesh(LPF.facet(new THREE.TorusGeometry(0.26, 0.055, 5, 14, Math.PI * 1.35)), glaiveM); at(cr, 0, 1.5, 0); cr.rotation.z = Math.PI / 2; glaive.add(cr);   // crescent moon opening upward
-    glaive.add(at(facetMesh(P.crystalGeo(0.1, 1.25), gem), 0, 1.16, 0));                    // rose gem socket below the moon
-    glaive.userData.glow = [cr];
-    var hands = { right: glaive, left: null, rRotZ: -0.22, rTilt: 0.08 };
-    var handY = limbLen + torsoH * 0.2;
-    glow = glow.concat(placeHands(g, g, skin, handY, 0.5, 0.15, hands));
+    // ── HEAD: big, sitting low (short neck). Violet face; large almond eyes with
+    //    WHITE sclera + green glowing iris; thick white brows; nose; open mouth. ──
+    var headY = shoulderY + 0.36 * hs;
+    var white = Mc(0xf6f5fc, { rim: false });
+    var head = smoothMesh(P.headGeo(headR, 0.24), skin); head.position.y = headY; head.scale.set(1.02, 0.98, 0.94); g.add(head);
+    var fz = headR * 0.88;   // face-front z
+    var iris = LPF.toon(0x4fbf30, { ramp: LPF.RAMP.metal, emissive: 0x2f8f22, emissiveIntensity: 0.32, rim: false });
+    [-1, 1].forEach(function (s) {
+      var sc = new THREE.Mesh(new THREE.SphereGeometry(0.115 * hs, 9, 7), white); sc.position.set(0.19 * hs * s, headY + 0.035, fz - 0.02); sc.scale.set(1.0, 1.45, 0.4); sc.rotation.z = -s * 0.22; g.add(sc);   // thin white backing (rim only)
+      var ir = new THREE.Mesh(new THREE.SphereGeometry(0.105 * hs, 9, 7), iris); ir.position.set(0.19 * hs * s, headY + 0.03, fz + 0.03); ir.scale.set(0.92, 1.65, 0.5); ir.rotation.z = -s * 0.36; g.add(ir); glow.push(ir);   // GREEN angled almond iris
+      var pu = new THREE.Mesh(new THREE.SphereGeometry(0.045 * hs, 7, 6), ink); pu.position.set(0.19 * hs * s, headY + 0.02, fz + 0.09); pu.scale.set(1, 1.3, 1); g.add(pu);   // dark pupil
+      var gl = new THREE.Mesh(new THREE.SphereGeometry(0.025 * hs, 6, 5), white); gl.position.set(0.215 * hs * s, headY + 0.075, fz + 0.1); g.add(gl);   // glint
+    });
+    [-1, 1].forEach(function (s) { var b = smoothMesh(new THREE.SphereGeometry(0.16 * hs, 9, 6), white); b.scale.set(1.0, 0.42, 0.5); b.position.set(0.19 * hs * s, headY + 0.22, fz * 0.95); b.rotation.z = s * 0.28; g.add(b); });   // thick fluffy white brows
+    var nose = smoothMesh(new THREE.ConeGeometry(0.045 * hs, 0.12 * hs, 5), skin); nose.rotation.x = flat; nose.position.set(0, headY - 0.07, fz + 0.01); g.add(nose);
+    var mouth = smoothMesh(new THREE.SphereGeometry(0.06 * hs, 8, 6), ink); mouth.scale.set(1.5, 0.9, 0.5); mouth.position.set(0, headY - 0.3, fz * 0.98); g.add(mouth);   // small wide open mouth, low on the face
+    [-1, 1].forEach(function (s) { var ear = smoothMesh(P.extrude(P.pointedShape(0.5, 0.15), 0.08), skin); ear.position.set(headR * 0.92 * s, headY - 0.02, -0.06); ear.rotation.z = -s * 0.95; ear.rotation.y = s * 0.4; g.add(ear); });   // smaller swept-back ears
+
+    // ── WHITE HAIR: minimal — a volume BEHIND the head (never covering the big
+    //    violet face), short side locks framing the cheeks, and a thin frontal
+    //    hairline peak under the leaves. The face stays the dominant front form. ──
+    var hb = smoothMesh(new THREE.SphereGeometry(0.5 * hs, 12, 9), hairM); hb.scale.set(1.04, 0.98, 0.66); at(hb, 0, headY + 0.06, -0.34); g.add(hb);   // back volume
+    // long flowing white ponytail cascading down the back (the queen's silhouette)
+    var pony = smoothMesh(P.profileLimb([[0.26, 0], [0.3, 0.24], [0.22, 0.62], [0.14, 1.02], [0.05, 1.34]], 12), hairM);
+    at(pony, 0, headY + 0.02, -headR * 0.5); pony.rotation.x = Math.PI - 0.12; g.add(pony);
+    [-1, 1].forEach(function (s) {   // short side locks at the cheeks, hanging to the jaw
+      var lk = smoothMesh(P.profileLimb([[0.07, 0], [0.12, 0.18], [0.1, 0.4], [0.04, 0.56]], 9), hairM);
+      at(lk, headR * 0.86 * s, headY - 0.04, headR * 0.42); lk.rotation.x = Math.PI - 0.1; lk.rotation.z = -s * 0.05; g.add(lk);
+    });
+    var peak = smoothMesh(new THREE.SphereGeometry(0.34 * hs, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.32), hairM); peak.scale.set(1.0, 0.42, 0.6); at(peak, 0, headY + 0.34 * hs, headR * 0.1); g.add(peak);   // thin frontal hairline (skin forehead shows below it)
+
+    // ── GOLD HORNS: thick horns sweeping up + out, set behind the leaves ──
+    [-1, 1].forEach(function (s) { var hn = queenHorn(s, horn); hn.scale.set(0.95, 0.95, 0.95); at(hn, headR * 0.5 * s, headY + 0.44 * hs, -0.2); g.add(hn); });
+
+    // ── GREEN LEAF CROWN: five DISTINCT broad laurel leaves fanned across the
+    //    hairline (each own x-position + outward tilt + gap, not a merged cone). ──
+    // [xFrac, zRot, scale, depthPush, mat]
+    [[-0.72, 0.74, 0.82, leafD], [-0.37, 0.37, 1.04, leaf], [0, 0, 1.2, leaf],
+     [0.37, -0.37, 1.04, leaf], [0.72, -0.74, 0.82, leafD]].forEach(function (cl) {
+      var lf = facetMesh(P.extrude(P.pointedShape(0.9 * cl[2], 0.36), 0.08), cl[3]);   // big distinct sharp leaves
+      at(lf, headR * cl[0], headY + 0.48 * hs, -headR * 0.05); lf.rotation.z = cl[1]; lf.rotation.x = 0.08; g.add(lf);   // fan UP + out with gaps between
+    });
+
+    // (arms + hands are built above as posed shoulder groups; the queen is
+    //  empty-handed, so no weapon — a signature weapon is a later hero variant)
 
     g.userData.emissiveMeshes = glow;
-    LPF.outlineGroup(g, (params && params.outline != null) ? params.outline : 0.022, 0x180f1e);
+    // No baked inverted-hull outline by default: the reference queen uses pure
+    // smooth-toon (no hard outline), and a baked hull breaks glTF export (the
+    // exporter drops material.side, so the shells load as solid covers). The
+    // in-game toon shader reapplies whatever edge treatment the engine wants.
+    var ol = (params && params.outline != null) ? params.outline : 0;
+    if (ol > 0) LPF.outlineGroup(g, ol, 0x180f1e);
     return finish(g);
   };
 
