@@ -801,6 +801,8 @@
     var Mc = function (c, o) { return LPF.toon(D(c), Object.assign({ ramp: LPF.RAMP.cloth }, o || {})); };
     var Mm = function (c, o) { return LPF.toon(D(c), Object.assign({ ramp: LPF.RAMP.metal }, o || {})); };
     var skin = LPF.toon(D(pal.skin), { ramp: LPF.RAMP.skin, rimColor: pal.skinRim, rimStrength: 0.24 });
+    var skinD = LPF.toon(D(0x4a3f92), { ramp: LPF.RAMP.skin, rim: false });   // subtle shadow violet: eye sockets, recesses, lips
+    var skinHi = LPF.toon(D(0x7d6cdc), { ramp: LPF.RAMP.skin, rim: false });  // subtle highlight violet: cheeks, nose bridge
     var navy = Mc(pal.navy), navyD = Mc(pal.navyD), rose = Mc(pal.rose), hairM = Mc(pal.hair),
       gold = Mm(pal.gold, { rimColor: 0xfff0c0, rimStrength: 0.16 }),
       horn = Mm(pal.horn, { rimColor: 0xfff0c0, rimStrength: 0.2 }),
@@ -863,23 +865,37 @@
       var tr = smoothMesh(new THREE.TorusGeometry(0.2, 0.04, 6, 12), gold); tr.rotation.x = flat; at(tr, 0.3 * s, shoulderY - 0.05, 0); g.add(tr);
     });
 
-    // ── HEAD: big, sitting low (short neck). Violet face; large almond eyes with
-    //    WHITE sclera + green glowing iris; thick white brows; nose; open mouth. ──
+    // ── HEAD: SCULPTED violet face (studied against elf_queen/priestess/warrior/
+    //    archer). Two-tone skin (cheek + nose-bridge highlights, dark eye sockets),
+    //    glowing almond eyes (no white sclera) with a dark rim, bold swept white
+    //    brow tufts, shaded nose, lipped open mouth, long pointed ears w/ inner shadow. ──
     var headY = shoulderY + 0.36 * hs;
     var white = Mc(0xf6f5fc, { rim: false });
-    var head = smoothMesh(P.headGeo(headR, 0.24), skin); head.position.y = headY; head.scale.set(1.02, 0.98, 0.94); g.add(head);
+    var head = smoothMesh(P.headGeo(headR, 0.24), skin); head.position.y = headY; head.scale.set(1.02, 0.99, 0.95); g.add(head);
     var fz = headR * 0.88;   // face-front z
-    var iris = LPF.toon(0x4fbf30, { ramp: LPF.RAMP.metal, emissive: 0x2f8f22, emissiveIntensity: 0.32, rim: false });
+    var iris = LPF.toon(0x6cff3a, { ramp: LPF.RAMP.metal, emissive: 0x40c41e, emissiveIntensity: 0.6, rim: false });
+    // subtle cheekbone + nose-bridge highlights (kept flat + soft so they read as
+    //  shading, not blobs — the originals get this from a painted texture)
+    [-1, 1].forEach(function (s) { var ch = smoothMesh(new THREE.SphereGeometry(0.15 * hs, 9, 7), skinHi); ch.scale.set(0.8, 0.6, 0.22); at(ch, 0.22 * hs * s, headY - 0.1, fz * 0.82); g.add(ch); });   // cheekbones
+    var nb = smoothMesh(new THREE.SphereGeometry(0.05 * hs, 8, 7), skinHi); nb.scale.set(0.6, 1.7, 0.6); at(nb, 0, headY - 0.02, fz + 0.04); g.add(nb);   // nose bridge
+    [-1, 1].forEach(function (s) { g.add(at(new THREE.Mesh(new THREE.SphereGeometry(0.016 * hs, 5, 4), skinD), 0.04 * hs * s, headY - 0.12, fz + 0.03)); });   // nostril hints
+    // subtle eye sockets (soft eyeshadow) + small glowing almond eyes + top lash line + glint
     [-1, 1].forEach(function (s) {
-      var sc = new THREE.Mesh(new THREE.SphereGeometry(0.115 * hs, 9, 7), white); sc.position.set(0.19 * hs * s, headY + 0.035, fz - 0.02); sc.scale.set(1.0, 1.45, 0.4); sc.rotation.z = -s * 0.22; g.add(sc);   // thin white backing (rim only)
-      var ir = new THREE.Mesh(new THREE.SphereGeometry(0.105 * hs, 9, 7), iris); ir.position.set(0.19 * hs * s, headY + 0.03, fz + 0.03); ir.scale.set(0.92, 1.65, 0.5); ir.rotation.z = -s * 0.36; g.add(ir); glow.push(ir);   // GREEN angled almond iris
-      var pu = new THREE.Mesh(new THREE.SphereGeometry(0.045 * hs, 7, 6), ink); pu.position.set(0.19 * hs * s, headY + 0.02, fz + 0.09); pu.scale.set(1, 1.3, 1); g.add(pu);   // dark pupil
-      var gl = new THREE.Mesh(new THREE.SphereGeometry(0.025 * hs, 6, 5), white); gl.position.set(0.215 * hs * s, headY + 0.075, fz + 0.1); g.add(gl);   // glint
+      var sock = smoothMesh(new THREE.SphereGeometry(0.13 * hs, 9, 7), skinD); sock.scale.set(1.1, 0.8, 0.22); at(sock, 0.18 * hs * s, headY + 0.05, fz - 0.01); sock.rotation.z = -s * 0.32; g.add(sock);
+      var ir = new THREE.Mesh(new THREE.SphereGeometry(0.075 * hs, 9, 7), iris); ir.scale.set(0.95, 1.45, 0.5); at(ir, 0.18 * hs * s, headY + 0.05, fz + 0.05); ir.rotation.z = -s * 0.38; g.add(ir); glow.push(ir);
+      var lash = smoothMesh(new THREE.TorusGeometry(0.085 * hs, 0.016 * hs, 5, 10, Math.PI), ink); at(lash, 0.18 * hs * s, headY + 0.08, fz + 0.04); lash.rotation.z = -s * 0.38; g.add(lash);   // top lash line
+      g.add(at(new THREE.Mesh(new THREE.SphereGeometry(0.022 * hs, 6, 5), white), 0.2 * hs * s, headY + 0.09, fz + 0.09));   // glint
     });
-    [-1, 1].forEach(function (s) { var b = smoothMesh(new THREE.SphereGeometry(0.16 * hs, 9, 6), white); b.scale.set(1.0, 0.42, 0.5); b.position.set(0.19 * hs * s, headY + 0.22, fz * 0.95); b.rotation.z = s * 0.28; g.add(b); });   // thick fluffy white brows
-    var nose = smoothMesh(new THREE.ConeGeometry(0.045 * hs, 0.12 * hs, 5), skin); nose.rotation.x = flat; nose.position.set(0, headY - 0.07, fz + 0.01); g.add(nose);
-    var mouth = smoothMesh(new THREE.SphereGeometry(0.06 * hs, 8, 6), ink); mouth.scale.set(1.5, 0.9, 0.5); mouth.position.set(0, headY - 0.3, fz * 0.98); g.add(mouth);   // small wide open mouth, low on the face
-    [-1, 1].forEach(function (s) { var ear = smoothMesh(P.extrude(P.pointedShape(0.5, 0.15), 0.08), skin); ear.position.set(headR * 0.92 * s, headY - 0.02, -0.06); ear.rotation.z = -s * 0.95; ear.rotation.y = s * 0.4; g.add(ear); });   // smaller swept-back ears
+    // bold swept WHITE brows — three pointed tufts per side sweeping up-and-out
+    [-1, 1].forEach(function (s) { for (var i = 0; i < 3; i++) { var t = facetMesh(new THREE.ConeGeometry((0.07 - i * 0.01) * hs, (0.32 - i * 0.04) * hs, 4), white); at(t, (0.08 + i * 0.095) * hs * s, headY + 0.22 + i * 0.01, fz * 0.9 - i * 0.02); t.rotation.z = s * (0.8 + i * 0.16); t.rotation.x = -0.26; g.add(t); } });
+    // lipped open mouth: a violet lip ring around a dark interior
+    var lips = smoothMesh(new THREE.TorusGeometry(0.07 * hs, 0.028 * hs, 6, 12), skinD); lips.scale.set(1.25, 0.98, 0.5); at(lips, 0, headY - 0.27, fz * 0.92); lips.rotation.x = 0.3; g.add(lips);
+    g.add(at(function () { var m = new THREE.Mesh(new THREE.SphereGeometry(0.05 * hs, 8, 6), ink); m.scale.set(1.3, 1.05, 0.45); return m; }(), 0, headY - 0.27, fz * 0.86));
+    // long pointed ears with a darker inner shadow
+    [-1, 1].forEach(function (s) {
+      var ear = smoothMesh(P.extrude(P.pointedShape(0.62, 0.18), 0.07), skin); at(ear, headR * 0.9 * s, headY + 0.0, -0.05); ear.rotation.z = -s * 0.9; ear.rotation.y = s * 0.42; g.add(ear);
+      var inner = smoothMesh(P.extrude(P.pointedShape(0.4, 0.1), 0.04), skinD); at(inner, headR * 0.92 * s, headY + 0.0, -0.01); inner.rotation.z = -s * 0.9; inner.rotation.y = s * 0.42; g.add(inner);
+    });
 
     // ── WHITE HAIR: minimal — a volume BEHIND the head (never covering the big
     //    violet face), short side locks framing the cheeks, and a thin frontal
@@ -903,7 +919,7 @@
     [[-0.72, 0.74, 0.82, leafD], [-0.37, 0.37, 1.04, leaf], [0, 0, 1.2, leaf],
      [0.37, -0.37, 1.04, leaf], [0.72, -0.74, 0.82, leafD]].forEach(function (cl) {
       var lf = facetMesh(P.extrude(P.pointedShape(0.9 * cl[2], 0.36), 0.08), cl[3]);   // big distinct sharp leaves
-      at(lf, headR * cl[0], headY + 0.48 * hs, -headR * 0.05); lf.rotation.z = cl[1]; lf.rotation.x = 0.08; g.add(lf);   // fan UP + out with gaps between
+      at(lf, headR * cl[0], headY + 0.62 * hs, -headR * 0.02); lf.rotation.z = cl[1]; lf.rotation.x = 0.06; g.add(lf);   // sit HIGH on the crown, off the forehead
     });
 
     // (arms + hands are built above as posed shoulder groups; the queen is
