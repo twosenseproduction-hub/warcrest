@@ -367,7 +367,7 @@ const CAT={
   defense:{ label:'Tower',      model:'tower',   H:[8,9.5,11],    cost:[60,100,160], dmg:[18,32,52], range:[22,26,30], rof:[1.15,0.95,0.8] },
 };
 // WC3-style supply: the Throne seeds a base cap, each House raises it; units cost supply and gate training
-const BASE_SUPPLY=12, UNIT_SUP={warrior:3,archer:2,cleric:3,grunt:2,shaman:3,drake:6};
+const BASE_SUPPLY=12, UNIT_SUP={warrior:3,archer:2,cleric:3,assassin:2,grunt:2,shaman:3,drake:6};
 let supplyCap=BASE_SUPPLY, supplyUsed=0;
 // ===== Central combat balance table — every spawn path (player train, enemy AI, waves,
 // starting warband) reads its base stats from here, so tuning one number tunes the whole
@@ -378,6 +378,7 @@ const UBAL={
   warrior:{hp:130, dmg:14, range:3.5, atk:1.0},   // frontline: tanky, ~14 dps
   archer: {hp:64,  dmg:12, range:9,   atk:1.2},   // ranged glass cannon, ~10 dps
   cleric: {hp:62,  dmg:7,  range:7,   atk:1.3},   // support/heal, light dmg
+  assassin:{hp:80, dmg:19, range:3.3, atk:0.72},  // fast melee flanker: high burst, fragile
   grunt:  {hp:92,  dmg:11, range:3.4, atk:1.0},   // enemy cheap chaff, ~11 dps
   shaman: {hp:60,  dmg:13, range:10,  atk:1.7},   // enemy caster, long-range magic
   drake:  {hp:520, dmg:34, range:5,   atk:1.1},   // elite winged bruiser — expensive, tanky, hits hard
@@ -390,6 +391,7 @@ const TRAIN=[
   {kind:'warrior', rig:'warrior',  icon:'warrior', label:'Warrior',   gold:65, sup:3, dur:7,  minLvl:1},
   {kind:'archer',  rig:'archer',   icon:'archer',  label:'Archer',    gold:55, sup:2, dur:6,  minLvl:1},
   {kind:'cleric',  rig:'priestess',icon:'cleric',  label:'Priestess', gold:95, sup:3, dur:10, minLvl:2},
+  {kind:'assassin',rig:'assassin', icon:'sword',   label:'Assassin',  gold:80, sup:2, dur:8,  minLvl:2},
   // Drake shelved for now — earmarked as the RIMWALKER flying unit (to be renamed). See docs/CAMPAIGN.md roster gaps.
 ];
 const CORE_H=[9,10.5,12], CORE_HP=[1600,2400,3400], CORE_UP=[0,300,480];
@@ -1117,7 +1119,7 @@ function faceTo(e,dx,dz){ if(dx||dz) e.face=Math.atan2(dx,dz); }
 // Each GLB packs the mesh once + all its clips; the clips are authored on the Bitgem
 // skeleton so they play with no retarget. Textures are embedded (palette atlas, UVs
 // pre-flipped) — we just force NearestFilter so swatches sample solid, not the black gaps.
-const RIGS={}, PROPS={}, TEXS={}; const CHAR_H={thoryn:4.8, queen:4.4, paladin:4.4, aelindra:4.4, archer:3.6, priestess:3.8, warrior:3.9, chief:4.9, orcarcher:3.7, orcgrunt:3.7, orcwarrior:4.1, orcshaman:3.7, drake:5.4, neaarcher:3.9,
+const RIGS={}, PROPS={}, TEXS={}; const CHAR_H={thoryn:4.8, queen:4.4, paladin:4.4, aelindra:4.4, archer:3.6, priestess:3.8, warrior:3.9, assassin:3.7, chief:4.9, orcarcher:3.7, orcgrunt:3.7, orcwarrior:4.1, orcshaman:3.7, drake:5.4, neaarcher:3.9,
   cinderhound:3.0, direboar:3.4, emberspitter:3.0, ashtreant:6.5, moltenwisp:3.8, wyveling:4.2, revenant:5.6,
   hfootman:4.0, harcher:3.9, hknight:4.2, hmage:3.9};   // neutral creeps (ash-basin bestiary)
 const CREEP_KEYS=['cinderhound','direboar','emberspitter','ashtreant','moltenwisp','wyveling','revenant'];   // Tripo/PBR rigs — flatten to the unlit look like thoryn
@@ -1139,7 +1141,7 @@ const WEAPONS={
   hmage:    [{file:'staff_human_mage', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
 };
 const RIG_YAW={neaarcher:Math.PI};   // Blender-built rig faces -Z; spin 180° so it faces +Z like the others
-const RIG_SPECS=[['thoryn','thoryn'],['queen','elf_queen'],['paladin','human_paladin'],['aelindra','aelindra'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior'],['neaarcher','nightelf_archer'],['chief','orc_chieftain'],['orcarcher','orc_archer'],['orcgrunt','orc_grunt'],['orcwarrior','orc_warrior'],['orcshaman','orc_shaman'],
+const RIG_SPECS=[['thoryn','thoryn'],['queen','elf_queen'],['paladin','human_paladin'],['aelindra','aelindra'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior'],['assassin','elf_assassin'],['neaarcher','nightelf_archer'],['chief','orc_chieftain'],['orcarcher','orc_archer'],['orcgrunt','orc_grunt'],['orcwarrior','orc_warrior'],['orcshaman','orc_shaman'],
   ['cinderhound','cinder_hound'],['direboar','direboar'],['emberspitter','ember_spitter'],['ashtreant','ash_treant'],['moltenwisp','molten_wisp'],['wyveling','wyveling'],['revenant','stone_revenant'],   // neutral creeps
   ['hfootman','human_footman'],['harcher','human_archer'],['hknight','human_knight'],['hmage','human_mage']];   // Iron Crown units
 // Several FBX (the elf/orc bows AND every elf building) export as SkinnedMesh with a rigid little
@@ -1616,7 +1618,7 @@ function attackOrder(list,en){ for(const e of list){ if(!e.alive)continue;
     if(e===hero){ e.order={x:en.px,z:en.pz}; } else { e.forcedTarget=en; e.target=en; e.order=null; e.following=false; } }
   rallyMarker.material.color.setHex(0xff6a5a); rallyMarker.position.set(en.px,topY(en.px,en.pz)+0.3,en.pz); rallyMarker.visible=true; clearTimeout(rallyMarker.__to); rallyMarker.__to=setTimeout(()=>rallyMarker.visible=false,900); }
 const KIND_NAME={hero:'Elf Queen', warrior:'Warrior', archer:'Archer', cleric:'Priestess', drake:'Drake'};
-const KIND_ICON={hero:'sword', warrior:'warrior', archer:'archer', cleric:'cleric', drake:'drake'};
+const KIND_ICON={hero:'sword', warrior:'warrior', archer:'archer', cleric:'cleric', assassin:'sword', drake:'drake'};
 // prefer the unit's baked face portrait; fall back to the line icon if a portrait wasn't rendered
 function unitFace(u,fallbackKind){ const rk=u&&u.rigKey, src=rk&&PORTRAITS[rk];
   return src ? '<img class="spFace" src="'+src+'" alt="">' : ic(KIND_ICON[fallbackKind]||'warrior'); }
@@ -1995,7 +1997,7 @@ function updateGame(dt){
                  else if(Math.hypot(t.px-hero.px,t.pz-hero.pz)<ENGAGE) e.target=t; } } } // following: engage foes near the hero
       if(e.target){ const t=e.target, d=Math.hypot(t.px-e.px,t.pz-e.pz);                 // committed: fight until it dies
              if(d>e.range+(t.big||0)){ e.state='move'; moveTo(e,t.px,t.pz,dt); } else { e.state='attack'; faceTo(e,t.px-e.px,t.pz-e.pz);
-               if(e.cd<=0 && e.kind!=='warrior') shootFx(e.px,e.pz,t.px,t.pz, e.kind==='cleric'?'arcane':'arrow'); attack(e,t); } }
+               if(e.cd<=0 && e.kind!=='warrior' && e.kind!=='assassin') shootFx(e.px,e.pz,t.px,t.pz, e.kind==='cleric'?'arcane':'arrow'); attack(e,t); } }
       else if(e.order){ // hold the commanded position
              if(Math.hypot(e.order.x-e.px,e.order.z-e.pz)>1.4){ e.state='move'; moveTo(e,e.order.x,e.order.z,dt); } else e.state='idle'; }
       else { // loose leash: idle in the hero's vicinity, only re-form once he's walked past FOLLOW_OUT
