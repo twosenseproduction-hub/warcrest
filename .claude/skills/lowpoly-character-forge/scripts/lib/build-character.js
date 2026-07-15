@@ -830,11 +830,20 @@
     g.add(at(smoothMesh(P.profileLimb([[0.22, 0], [0.24, 0.08], [0.22, 0.16]], 16), rose), 0, ty0 + th * 0.2, 0));   // rose midriff
     // rose collar band at the neckline + two round rose chest gems
     var rcol = smoothMesh(new THREE.TorusGeometry(0.2, 0.055, 6, 16), rose); rcol.rotation.x = flat; rcol.scale.set(1.1, 1, 0.85); at(rcol, 0, ty0 + th * 0.82, 0.04); g.add(rcol);
-    [-1, 1].forEach(function (s) { var cg = smoothMesh(new THREE.SphereGeometry(0.1, 10, 8), rose); cg.scale.set(1, 1, 0.7); at(cg, 0.13 * s, ty0 + th * 0.66, 0.3); g.add(cg); });  // round rose chest gems
+    [-1, 1].forEach(function (s) {   // faceted hexagonal rose chest gems in gold bezels
+      var bez = facetMesh(new THREE.CylinderGeometry(0.12, 0.12, 0.05, 6), gold); bez.rotation.x = flat; at(bez, 0.12 * s, ty0 + th * 0.66, 0.29); g.add(bez);
+      var cg = facetMesh(new THREE.CylinderGeometry(0.09, 0.09, 0.09, 6), rose); cg.rotation.x = flat; at(cg, 0.12 * s, ty0 + th * 0.66, 0.32); g.add(cg);
+    });
     var collar = smoothMesh(new THREE.TorusGeometry(0.14, 0.045, 6, 14), gold); collar.rotation.x = flat; at(collar, 0, ty0 + th * 0.92, 0.02); g.add(collar);
 
-    // ── SKIRT: gold flared skirt + rose hem + gold pendant with rose gem ──
-    g.add(at(smoothMesh(P.profileLimb([[0.3, 0], [0.5, 0.06], [0.46, 0.22], [0.4, 0.42], [0.34, 0.58]], 20), gold), 0, ty0 - 0.02, 0));
+    // ── SKIRT: PANELED — gold flared base, navy side panels, rose vertical seams,
+    //    rose hem band. (The reference skirt is panelled, not a single gold cone.) ──
+    var skY = ty0 - 0.02, skPts = [[0.3, 0], [0.5, 0.06], [0.46, 0.22], [0.4, 0.42], [0.34, 0.58]];
+    g.add(at(smoothMesh(P.profileLimb(skPts, 20), gold), 0, skY, 0));
+    // navy side panels (left/right) laid over the gold as wide arcs
+    [-1, 1].forEach(function (s) { var sp = new THREE.Mesh(LPF.smooth(new THREE.CylinderGeometry(0.5, 0.36, 0.56, 16, 1, true, (s > 0 ? 0.2 : Math.PI + 0.2), 1.4)), navy); at(sp, 0, skY + 0.28, 0); sp.scale.set(1.0, 1.0, 0.98); g.add(sp); });
+    // clean rose vertical stripe down the centre-front gold panel
+    var fstripe = smoothMesh(new THREE.BoxGeometry(0.08, 0.52, 0.05), rose); at(fstripe, 0, skY + 0.28, 0.44); fstripe.rotation.x = 0.3; g.add(fstripe);
     g.add(at(smoothMesh(P.profileLimb([[0.42, 0], [0.4, 0.08], [0.35, 0.14]], 20), rose), 0, ty0 + 0.36, 0));   // rose hem band
     // gold pom/tassel cluster at the front of the skirt (the reference's signature)
     [[0, 0.15, 0.14], [-0.14, 0.06, 0.11], [0.14, 0.06, 0.11], [0, -0.05, 0.1]].forEach(function (o) {
@@ -853,9 +862,10 @@
       var armG = new THREE.Group(); armG.position.set(0.26 * s, shoulderY - 0.04, 0.0);
       var alen = 0.86;
       armG.add(at(smoothMesh(P.profileLimb([[0.1, 0], [0.11, alen * 0.28], [0.075, alen * 0.52], [0.095, alen * 0.8], [0.115, alen * 0.92], [0.095, alen]], 12), skin), 0, 0, 0));
-      // big gold armband (banded: gold cylinder + rose stripe) on the upper arm
-      armG.add(at(smoothMesh(new THREE.CylinderGeometry(0.145, 0.145, 0.24, 16), gold), 0, alen * 0.32, 0));
-      var stripe = smoothMesh(new THREE.TorusGeometry(0.15, 0.04, 6, 16), rose); stripe.rotation.x = flat; at(stripe, 0, alen * 0.32, 0); armG.add(stripe);
+      // banded armband: navy base + alternating gold/rose rings (striped cuff)
+      var bandY = alen * 0.34;
+      armG.add(at(smoothMesh(new THREE.CylinderGeometry(0.14, 0.14, 0.32, 16), navy), 0, bandY, 0));
+      [-0.12, -0.05, 0.02, 0.09].forEach(function (dy, i) { var ring = smoothMesh(new THREE.CylinderGeometry(0.155, 0.155, 0.05, 16), i % 2 ? rose : gold); at(ring, 0, bandY + dy, 0); armG.add(ring); });
       // hand (floating mitt) at the wrist end
       armG.add(at(floatingHand(skin, 0.14), 0, alen + 0.06, 0));
       armG.rotation.z = -s * 1.54;   // swing OUT to the side, near-horizontal with a slight droop
