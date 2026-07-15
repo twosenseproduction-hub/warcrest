@@ -1121,7 +1121,8 @@ function faceTo(e,dx,dz){ if(dx||dz) e.face=Math.atan2(dx,dz); }
 // pre-flipped) — we just force NearestFilter so swatches sample solid, not the black gaps.
 const RIGS={}, PROPS={}, TEXS={}; const CHAR_H={thoryn:4.8, queen:4.4, paladin:4.4, aelindra:4.4, archer:3.6, priestess:3.8, warrior:3.9, assassin:3.7, chief:4.9, orcarcher:3.7, orcgrunt:3.7, orcwarrior:4.1, orcshaman:3.7, drake:5.4, neaarcher:3.9,
   cinderhound:3.0, direboar:3.4, emberspitter:3.0, ashtreant:6.5, moltenwisp:3.8, wyveling:4.2, revenant:5.6,
-  hfootman:4.0, harcher:3.9, hknight:4.2, hmage:3.9};   // neutral creeps (ash-basin bestiary)
+  hfootman:4.0, harcher:3.9, hknight:4.2, hmage:3.9,
+  uking:4.3, uwarrior:3.9, uassassin:3.7, uarcher:3.9, umage:3.9, uworker:3.6};   // undead roster + neutral creeps (ash-basin bestiary)
 const CREEP_KEYS=['cinderhound','direboar','emberspitter','ashtreant','moltenwisp','wyveling','revenant'];   // Tripo/PBR rigs — flatten to the unlit look like thoryn
 // hand weapons: each char has a list of props → { prop FBX, hand bone, local transform }
 const WEAPONS={
@@ -1143,7 +1144,8 @@ const WEAPONS={
 const RIG_YAW={neaarcher:Math.PI};   // Blender-built rig faces -Z; spin 180° so it faces +Z like the others
 const RIG_SPECS=[['thoryn','thoryn'],['queen','elf_queen'],['paladin','human_paladin'],['aelindra','aelindra'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior'],['assassin','elf_assassin'],['neaarcher','nightelf_archer'],['chief','orc_chieftain'],['orcarcher','orc_archer'],['orcgrunt','orc_grunt'],['orcwarrior','orc_warrior'],['orcshaman','orc_shaman'],
   ['cinderhound','cinder_hound'],['direboar','direboar'],['emberspitter','ember_spitter'],['ashtreant','ash_treant'],['moltenwisp','molten_wisp'],['wyveling','wyveling'],['revenant','stone_revenant'],   // neutral creeps
-  ['hfootman','human_footman'],['harcher','human_archer'],['hknight','human_knight'],['hmage','human_mage']];   // Iron Crown units
+  ['hfootman','human_footman'],['harcher','human_archer'],['hknight','human_knight'],['hmage','human_mage'],   // Iron Crown units
+  ['uking','undead_king'],['uwarrior','undead_warrior'],['uassassin','undead_assassin'],['uarcher','undead_archer'],['umage','undead_mage'],['uworker','undead_worker']];   // Undead roster (borrowed elf clips on the shared Bitgem rig)
 // Several FBX (the elf/orc bows AND every elf building) export as SkinnedMesh with a rigid little
 // armature. Cloned with a plain .clone(true) — not SkeletonUtils.clone — the skeleton binding
 // breaks: the renderer skins the mesh in the skeleton's own space, so it renders at ~world origin
