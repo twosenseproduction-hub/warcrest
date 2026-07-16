@@ -1673,10 +1673,10 @@ const HERO_KIT={
 };
 // each hero fields its own faction's army + buildings in skirmish (pbld='' elf, 'human_' Iron Crown, 'orc_' horde)
 const HERO_FACTION={
-  queen:    {pbld:'',       units:{warrior:'warrior',  archer:'neaarcher', cleric:'priestess'}},   // Rimwalkers (Night Elf) — original night-elf archer
-  aelindra: {pbld:'',       units:{warrior:'warrior',  archer:'neaarcher', cleric:'priestess'}},   // Rimwalkers (Night Elf)
+  queen:    {pbld:'',       units:{warrior:'warrior',  archer:'archer', cleric:'priestess'}},   // Rimwalkers (Night Elf) — Bitgem elf archer
+  aelindra: {pbld:'',       units:{warrior:'warrior',  archer:'archer', cleric:'priestess'}},   // Rimwalkers (Night Elf)
   paladin:  {pbld:'human_', units:{warrior:'hfootman', archer:'harcher', cleric:'hmage'}},        // Iron Crown (Human)
-  thoryn:   {pbld:'',       units:{warrior:'warrior',  archer:'neaarcher', cleric:'priestess'}},   // Rimwalkers (Night Elf) — Greywarden
+  thoryn:   {pbld:'',       units:{warrior:'warrior',  archer:'archer', cleric:'priestess'}},   // Rimwalkers (Night Elf) — Greywarden
 };
 function applyHeroFaction(k){ const f=HERO_FACTION[k]; if(!f)return; BLDPFX=f.pbld; URIG={...f.units}; }
 function nearestAllyTo(x,z,maxd){ let b=null,bd=maxd*maxd;
