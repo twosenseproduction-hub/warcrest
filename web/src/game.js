@@ -1459,17 +1459,25 @@ function tickHolyGrounds(dt){ for(let i=holyGrounds.length-1;i>=0;i--){ const g=
 // ---------- Warden passive: Moonlight aura (code-driven, follows the hero) ----------
 // rune ring + counter-spun inner ring + soft ground glow + pulsing dome + rising moon motes.
 let heroAura=null;
+// per-hero passive aura palette. Each hero that carries one gets a distinct glow so it reads
+// as *their* magic: the Queen's silver-blue Moonlight, Thoryn's cold teal Runeblade, Aelindra's
+// green Moonlit-grove. Heroes without an entry (e.g. Paladin) simply carry no aura.
+const HERO_AURA={
+  queen:    {glow:0x4fd8ff, outer:0x6fe0ff, inner:0x9a6bff, dome:0x5fe0ff, mote:0x9ff2ff},   // Moonlight
+  thoryn:   {glow:0x2ff0d8, outer:0x35e8d0, inner:0x2f9cff, dome:0x30f0d8, mote:0x9ffff0},   // Runeblade (teal)
+  aelindra: {glow:0x8fe86a, outer:0x9ff07a, inner:0xd8ffb0, dome:0x8fe86a, mote:0xe6ffc0},   // Moonlit grove (nature)
+};
 function auraRing(inner,outer,col,op){ const m=new THREE.Mesh(new THREE.RingGeometry(inner,outer,48),
   new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:op,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending})); m.rotation.x=-Math.PI/2; return m; }
-function makeHeroAura(){ disposeHeroAura(); cvTex(); const grp=new THREE.Group(); scene.add(grp);
-  const glow=new THREE.Mesh(new THREE.CircleGeometry(3.0,48), new THREE.MeshBasicMaterial({color:0x4fd8ff,transparent:true,opacity:0.12,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending})); glow.rotation.x=-Math.PI/2; grp.add(glow);
-  const outer=auraRing(2.55,2.95,0x6fe0ff,0.55), inner=auraRing(1.7,1.9,0x9a6bff,0.5); grp.add(outer,inner);
-  const dome=new THREE.Mesh(new THREE.SphereGeometry(2.4,20,12), new THREE.MeshBasicMaterial({color:0x5fe0ff,transparent:true,opacity:0.06,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending})); dome.position.y=2.0; grp.add(dome);
-  const motes=[]; for(let i=0;i<9;i++){ const s=new THREE.Sprite(new THREE.SpriteMaterial({map:CV_GLOW,color:0x9ff2ff,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,opacity:0})); s.frustumCulled=false; grp.add(s); motes.push({s,a:i/9*6.28,rad:1.4+(i%3)*0.5,ph:i/9}); }
-  heroAura={grp,outer,inner,glow,dome,motes,t:0}; return heroAura; }
+function makeHeroAura(){ disposeHeroAura(); const cfg=HERO_AURA[heroKind]||HERO_AURA.queen; cvTex(); const grp=new THREE.Group(); scene.add(grp);
+  const glow=new THREE.Mesh(new THREE.CircleGeometry(3.0,48), new THREE.MeshBasicMaterial({color:cfg.glow,transparent:true,opacity:0.12,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending})); glow.rotation.x=-Math.PI/2; grp.add(glow);
+  const outer=auraRing(2.55,2.95,cfg.outer,0.55), inner=auraRing(1.7,1.9,cfg.inner,0.5); grp.add(outer,inner);
+  const dome=new THREE.Mesh(new THREE.SphereGeometry(2.4,20,12), new THREE.MeshBasicMaterial({color:cfg.dome,transparent:true,opacity:0.06,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending})); dome.position.y=2.0; grp.add(dome);
+  const motes=[]; for(let i=0;i<9;i++){ const s=new THREE.Sprite(new THREE.SpriteMaterial({map:CV_GLOW,color:cfg.mote,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,opacity:0})); s.frustumCulled=false; grp.add(s); motes.push({s,a:i/9*6.28,rad:1.4+(i%3)*0.5,ph:i/9}); }
+  heroAura={grp,outer,inner,glow,dome,motes,t:0,kind:heroKind}; return heroAura; }
 function disposeHeroAura(){ if(!heroAura)return; scene.remove(heroAura.grp);
   heroAura.grp.traverse(o=>{ if(o.material&&o.material.dispose)o.material.dispose(); if(o.geometry&&o.geometry.dispose)o.geometry.dispose(); }); heroAura=null; }
-function refreshHeroAura(){ if(heroKind==='queen' && hero && hero.alive){ if(!heroAura)makeHeroAura(); } else disposeHeroAura(); }
+function refreshHeroAura(){ if(HERO_AURA[heroKind] && hero && hero.alive){ if(!heroAura||heroAura.kind!==heroKind)makeHeroAura(); } else disposeHeroAura(); }
 function updateHeroAura(dt){ if(!heroAura)return; const a=heroAura;
   if(!hero||!hero.alive){ a.grp.visible=false; return; } a.grp.visible=true; a.t+=dt;
   a.grp.position.set(hero.px, topY(hero.px,hero.pz)+0.06, hero.pz);
