@@ -988,7 +988,7 @@ function build(){
   scene.fog=new THREE.Fog(0x3f9fd6, 520, 1050);   // pushed out for the bigger map
 
   // lights — WC3-Reforged style: warm key sun, cool sky fill, cool back-rim for separation
-  scene.add(new THREE.HemisphereLight(0xbfe0ff,0x2c4a36,0.42));   // cooler sky, deeper green ground bounce
+  scene.add(new THREE.HemisphereLight(0xcfe8ff,0x3e5c46,0.62));   // brighter sky fill + lifted ground bounce (was 0.42 — cleaner daylit look, less dim-CRT)
   const dir=new THREE.DirectionalLight(0xffe6bc,1.28);            // stronger, warmer key sun
   dir.position.copy(sun.clone().multiplyScalar(120)); dir.castShadow=true;
   dir.shadow.mapSize.set(2048,2048);   // higher-res + softer shadows read more cinematic
@@ -1206,8 +1206,6 @@ function makeChar(key,opts){ opts=opts||{}; const src=RIGS[key]; if(!src)return 
   inner.traverse(nd=>{ if(nd.isMesh){ nd.frustumCulled=false; nd.castShadow=true; const mm=nd.material;
     if(mm&&mm.map){ mm.map.magFilter=THREE.NearestFilter; mm.map.minFilter=THREE.NearestFilter; mm.map.generateMipmaps=false; mm.map.needsUpdate=true; } } });
   outer.add(inner); outer.updateMatrixWorld(true);
-  const bb=new THREE.Box3().setFromObject(inner); const hh=Math.max(0.001,bb.getSize(new THREE.Vector3()).y);
-  inner.position.y=-bb.min.y; outer.scale.setScalar(CHAR_H[key]/hh);
   const mixer=new THREE.AnimationMixer(inner); const act={};
   // strip .position tracks → play in place. The clips carry huge baked root motion
   // (run ≈ 250u forward), which otherwise slides the body ahead of its game position,
@@ -1227,9 +1225,24 @@ function makeChar(key,opts){ opts=opts||{}; const src=RIGS[key]; if(!src)return 
   if(act.run) act.run.setEffectiveTimeScale(0.8);   // legs cycle a touch slower to match the calmer move speed
   if(act.attack) act.attack.setEffectiveTimeScale(1.4);   // snappier draw-and-release so it reads as a shot
   if(act.idle) act.idle.play();
-  mixer.update(0.3); outer.updateMatrixWorld(true);          // settle idle, then plant feet + centre exactly
-  const b2=new THREE.Box3().setFromObject(inner); const c2=b2.getCenter(new THREE.Vector3());
-  inner.position.y-=b2.min.y/outer.scale.x; inner.position.x-=c2.x/outer.scale.x; inner.position.z-=c2.z/outer.scale.x;
+  mixer.update(0.3); outer.updateMatrixWorld(true);          // pose to idle BEFORE measuring
+  // Size + plant from the POSED mesh via SkinnedMesh.computeBoundingBox(): it skins the vertices on the
+  // CPU with the same bone matrices the GPU uses, so the measurement always matches what's drawn. This
+  // is device-independent. (Box3.setFromObject reads the raw, UN-skinned geometry bounds instead — and
+  // for the 3D-gen hero rigs, whose tiny geometry is scaled up by the skeleton, that mismatch computed a
+  // huge scale and rendered the hero gigantic on some browsers.) Union every mesh in inner-local space.
+  const _im=new THREE.Matrix4(), _gb=new THREE.Box3(), box=new THREE.Box3(); box.makeEmpty();
+  inner.updateMatrixWorld(true);
+  inner.traverse(o=>{ if(!o.isMesh||!o.geometry)return; let src;
+    if(o.isSkinnedMesh && o.computeBoundingBox){ if(o.skeleton&&o.skeleton.update)o.skeleton.update(); o.computeBoundingBox(); src=o.boundingBox; }
+    else { if(!o.geometry.boundingBox)o.geometry.computeBoundingBox(); src=o.geometry.boundingBox; }
+    if(!src||src.isEmpty())return;
+    _im.copy(inner.matrixWorld).invert().multiply(o.matrixWorld); _gb.copy(src).applyMatrix4(_im); box.union(_gb); });
+  const hh=Math.max(0.001, box.getSize(new THREE.Vector3()).y);
+  outer.scale.setScalar(CHAR_H[key]/hh);
+  inner.position.y=-box.min.y;                               // plant feet at the group origin
+  const c2=box.getCenter(new THREE.Vector3()); inner.position.x-=c2.x; inner.position.z-=c2.z;   // centre X/Z
+  outer.updateMatrixWorld(true);
   // hand weapons — parent each prop to its hand bone (rides the animation), painted with the char atlas.
   // Some orc rigs ship 5-6 DUPLICATE skeletons (a Character-Studio biped overlaid with a second rig):
   // the clip drives the base-named bone, but the visible arm mesh is skinned to a *different* duplicate
@@ -2405,25 +2418,22 @@ function initPost(){
   // selective bloom: high threshold so only fires / magic / sun-glints glow (Reforged-style)
   bloomPass=new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight), 0.42, 0.5, 0.92);
   composer.addPass(bloomPass);
-  // final grade pass — chromatic aberration + exposure/saturation/contrast + warm/cool split-tone + vignette
+  // final grade pass — clean, punchy toon look. No chromatic aberration, no warm/cool split-tone
+  // and no vignette (those three read as an old-CRT/VHS grade); just a small exposure lift and a
+  // gentle saturation pop so the Bitgem hand-painted palette stays crisp and bright.
   const grade=new THREE.ShaderPass({
     uniforms:{ tDiffuse:{value:null}, uAmt:{value:2.2}, uRes:{value:new THREE.Vector2(innerWidth,innerHeight)} },
     vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
     fragmentShader:[
       'uniform sampler2D tDiffuse;uniform float uAmt;uniform vec2 uRes;varying vec2 vUv;',
-      'const float EXPOSURE=1.00, CONTRAST=1.08, SAT=1.16;',
+      'const float EXPOSURE=1.05, CONTRAST=1.02, SAT=1.14;',
       'void main(){',
-      '  vec2 d=vUv-0.5; float r2=dot(d,d);',
-      '  vec3 col=texture2D(tDiffuse,vUv).rgb;',   // straight sample — no chromatic aberration (that RGB channel-split read as an old-VHS fringe)
+      '  vec3 col=texture2D(tDiffuse,vUv).rgb;',
       '  col*=EXPOSURE;',
       '  float l=dot(col,vec3(0.299,0.587,0.114));',
-      '  col=mix(vec3(l),col,SAT);',
+      '  col=mix(vec3(l),col,SAT);',                 // gentle saturation pop, neutral tint
       '  col=(col-0.5)*CONTRAST+0.5;',
-      '  vec3 warm=vec3(1.04,1.0,0.92), cool=vec3(0.94,0.98,1.06);',
-      '  col*=mix(cool,warm,smoothstep(0.25,0.85,l));',
-      '  col=clamp(col,0.0,1.0);',
-      '  col*=1.0-r2*0.16;',                        // gentle vignette (was 0.30 — lighter, less "lo-fi")
-      '  gl_FragColor=vec4(col,1.0);',
+      '  gl_FragColor=vec4(clamp(col,0.0,1.0),1.0);',
       '}'].join('\n')
   });
   grade.renderToScreen=true; composer.addPass(grade); postMat=grade.material;
