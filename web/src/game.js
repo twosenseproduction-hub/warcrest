@@ -506,6 +506,14 @@ const CREEP={
   moltenwisp:  {hp:90,  dmg:18, range:10,  atk:1.5, spd:13, rad:1.4, ranged:true, magic:true, name:'Molten Wisp'},
   wyveling:    {hp:210, dmg:22, range:5,   atk:1.1, spd:16, rad:1.8,           name:'Wyveling'},
   revenant:    {hp:680, dmg:40, range:4.4, atk:1.4, spd:9,  rad:2.8, big:3.2, name:'Stone Revenant'},
+  // The Deepvein dead — the risen ("ash-touched") that crawl up the ironstone veins near the Reach.
+  // The true campaign antagonist, seeded here as neutral creeps guarding the flanks of the Floor.
+  uworker:  {hp:75,  dmg:10, range:3.0, atk:1.2, spd:11, rad:1.3,           name:'Risen Thrall'},
+  uwarrior: {hp:170, dmg:20, range:3.4, atk:1.1, spd:11, rad:1.6,           name:'Risen Warrior'},
+  uassassin:{hp:115, dmg:23, range:3.2, atk:0.8, spd:16, rad:1.4,           name:'Grave Stalker'},
+  uarcher:  {hp:90,  dmg:16, range:10,  atk:1.4, spd:12, rad:1.4, ranged:true,             name:'Risen Bowman'},
+  umage:    {hp:105, dmg:21, range:11,  atk:1.7, spd:10, rad:1.5, ranged:true, magic:true, name:'Bonecaster'},
+  uking:    {hp:560, dmg:38, range:3.8, atk:1.3, spd:9,  rad:2.4, big:2.6,  name:'Barrow King'},
 };
 function mkCreep(kind,camp,home){ const b=CREEP[kind]||CREEP.cinderhound;
   const e=mkFighter(0x8a7d5a,1.0,'enemy',{hp:b.hp,dmg:b.dmg,range:b.range,atkEvery:b.atk,spd:b.spd});
@@ -533,6 +541,13 @@ const CREEP_VFX={
   wyveling:   {eyes:{color:0xff5a1e,size:0.05,sep:0.1,up:0.1,fwd:0.36}},
   moltenwisp: {baseglow:{color:0x9dff4a,size:0.4}, ash:{count:14,color:0x8f8f92,ember:0x9dff4a,life:1.7,fall:0.55,spread:0.16}},
   revenant:   {eyes:{color:0x9dff4a,size:0.045,sep:0.09,up:0.13,fwd:0.13}, flame:{color:0x62ff20,core:0xe8ff96,count:12,life:0.5,rise:0.5}, smoke:{color:0x8f8f96,count:6,life:2.0,rise:0.7,anchors:[[0,1.08,0],[0.14,1.03,-0.05],[-0.14,1.03,-0.05]]}, crystals:{color:0x9dff4a,count:2}},
+  // Deepvein dead — cold necrotic eye-lights; casters/king wreathed in soul-fire
+  uworker:  {eyes:{color:0x8dffb0,size:0.04, sep:0.07,up:0.10,fwd:0.13}},
+  uwarrior: {eyes:{color:0x8dffb0,size:0.045,sep:0.08,up:0.10,fwd:0.13}},
+  uassassin:{eyes:{color:0x8dffb0,size:0.045,sep:0.08,up:0.10,fwd:0.14}},
+  uarcher:  {eyes:{color:0x8dffb0,size:0.045,sep:0.08,up:0.10,fwd:0.14}},
+  umage:    {eyes:{color:0x9dff6a,size:0.05, sep:0.08,up:0.10,fwd:0.13}, flame:{color:0x62ff20,core:0xe8ff96,count:10,life:0.5,rise:0.5}},
+  uking:    {eyes:{color:0x9dff6a,size:0.05, sep:0.09,up:0.11,fwd:0.13}, flame:{color:0x62ff20,core:0xe8ff96,count:12,life:0.55,rise:0.5}, smoke:{color:0x8f8f96,count:5,life:2.2,rise:0.6,anchors:[[0.28,0.6,0],[-0.28,0.6,0]]}},
 };
 function makeCreepVfx(e,key){ const cfg=CREEP_VFX[key]; if(!cfg)return null; cvTex();
   const H=CHAR_H[key]||4, hw=H*0.3, dz=H*0.28, parts=[];
@@ -907,7 +922,12 @@ let RITUAL=null, ritualT=0, ritualDone=false, ritualCasters=[], _ritWaves=[], _r
 const LEVELS={
   skirmish:{ seas:[{cx:80,cz:-82,r:60},{cx:-80,cz:82,r:60},{cx:22,cz:-30,r:24},{cx:-22,cz:30,r:24}],
     paths:[[[105,108],[60,60],[6,6],[-52,-52],[-105,-108]]], flats:[{x:105,z:108,r:50,y:0.4},{x:-105,z:-108,r:50,y:0.4}],
-    pbase:{x:105,z:108}, ebase:{x:-105,z:-108}, plots:PLOTDEF_DEFAULT, raiders:{type:'base'}, start:['warrior','archer'], creeps:[], gold:180 },
+    pbase:{x:105,z:108}, ebase:{x:-105,z:-108}, plots:PLOTDEF_DEFAULT, raiders:{type:'base'}, start:['warrior','archer'], gold:180,
+    // The Deepvein dead crawl up the ironstone veins along the Reach — risen camps on the flanks of
+    // the SE→NW lane, away from both keeps. Clear them for bounty; leave them and they hold the sides.
+    creeps:[{name:'Cairn of the Risen', bounty:90,  at:[58,20],  roster:['uwarrior','uwarrior','uarcher']},
+            {name:'Ashen Barrow',       bounty:120, at:[-58,-20],roster:['uwarrior','uassassin','umage']},
+            {name:'The Barrow King',    bounty:230, at:[18,62],  roster:['uking','uwarrior','uworker']}] },
   // ---- Tutorial 1: The Survey Road — a winding land corridor over the frozen sea ----
   a1m1:{ shape:'road', roadW:28, seas:[],
     paths:[[[108,96],[70,48],[24,10],[-30,-34],[-78,-84],[-112,-112]],
@@ -943,12 +963,13 @@ const LEVELS={
     pbld:'human_', units:{warrior:'hfootman',archer:'harcher',cleric:'hmage'},
     start:['warrior','warrior','archer'], gold:340,
     ritual:{ duration:150, casters:2, spawnR:70,
-      waves:[ {at:6,  s:[['cinderhound',3]]},
-              {at:28, s:[['cinderhound',3],['emberspitter',1]]},
-              {at:52, s:[['cinderhound',3],['moltenwisp',2]]},
-              {at:78, s:[['direboar',1],['cinderhound',3]]},
-              {at:104,s:[['revenant',1],['cinderhound',2],['moltenwisp',2]]},
-              {at:130,s:[['cinderhound',4],['emberspitter',2],['direboar',1]]} ] } },
+      // the Unveiled rise in escalating waves as the seal weakens, culminating in the Barrow King
+      waves:[ {at:6,  s:[['uworker',3],['uwarrior',1]]},
+              {at:28, s:[['uwarrior',3],['uarcher',1]]},
+              {at:52, s:[['uwarrior',2],['umage',2]]},
+              {at:78, s:[['uassassin',2],['uwarrior',3]]},
+              {at:104,s:[['uking',1],['uwarrior',2],['umage',2]]},
+              {at:130,s:[['uwarrior',4],['uarcher',2],['uassassin',2]] } ] } },
 };
 function applyLevel(id){ const L=LEVELS[id]||LEVELS.skirmish; LVID=id in LEVELS?id:'skirmish';
   MAPSHAPE=L.shape||'island'; ROAD_W=L.roadW||32; ARENA_R=L.arenaR||72; RITUAL=L.ritual||null;
@@ -1124,6 +1145,9 @@ const RIGS={}, PROPS={}, TEXS={}; const CHAR_H={thoryn:4.8, queen:4.4, paladin:4
   hfootman:4.0, harcher:3.9, hknight:4.2, hmage:3.9,
   uking:4.3, uwarrior:3.9, uassassin:3.7, uarcher:3.9, umage:3.9, uworker:3.6};   // undead roster + neutral creeps (ash-basin bestiary)
 const CREEP_KEYS=['cinderhound','direboar','emberspitter','ashtreant','moltenwisp','wyveling','revenant'];   // Tripo/PBR rigs — flatten to the unlit look like thoryn
+// NB: the Deepvein dead (uworker/uwarrior/uassassin/uarcher/umage/uking) are creeps too — CREEP stats,
+// CREEP_VFX, camp AI — but deliberately NOT in CREEP_KEYS: they're Bitgem humanoids with a non-metallic
+// atlas like the elf/orc units, so they keep their lit materials (flattening would render them flat).
 // hand weapons: each char has a list of props → { prop FBX, hand bone, local transform }
 const WEAPONS={
   queen:    [{file:'glaive_elf_queen', bone:'hand_r', pos:[-6.2,-1.25,-0.1], rot:[Math.PI/2,-1.326,0], scl:1}],
