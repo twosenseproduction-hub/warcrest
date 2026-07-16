@@ -389,13 +389,19 @@ const ALLY_SPD=15, ENEMY_SPD=12;
 // ---- hero progression ----
 const HERO_MAX_LVL=10;                                      // both commanders can climb to Lv 10
 const XP_BASE=90, XP_GROW=1.45;                             // XP to reach the next level grows each rank
+const ABIL_UNLOCK={a:1, spell:3, blink:5};                  // hero ability slots unlock as the hero levels (basic → mid → utility)
+function abilLevelOk(slot){ return !!hero && (hero.level||1) >= (ABIL_UNLOCK[slot]||1); }
+function abilLocked(slot){ if(abilLevelOk(slot))return false;   // gate + brief feedback when a still-locked ability is tapped
+  if(hero){ try{ popDmg(hero.px, topY(hero.px,hero.pz)+4, hero.pz, 'Unlocks at Lv '+(ABIL_UNLOCK[slot]||1), 'heal'); }catch(_){} } try{ sfx('ui'); }catch(_){} return true; }
 function xpToNext(lvl){ return Math.round(XP_BASE*Math.pow(XP_GROW, lvl-1)); }
 function xpFor(e){ return Math.max(8, Math.round((e&&e.max||30)*0.14)); }   // kill worth ≈ 14% of the victim's HP (a boss/hero is a big chunk)
 // per-level stat gains, applied off the stored base so they never compound
 function applyHeroLevel(h){ if(!h||!h.baseHp)return; const m=h.level-1;
   h.max=Math.round(h.baseHp*(1+0.12*m)); h.dmg=Math.round(h.baseDmg*(1+0.10*m)); }
 function heroLevelUp(h){ h.level=Math.min(HERO_MAX_LVL,(h.level||1)+1); applyHeroLevel(h); h.hp=h.max;   // a level-up fully heals
-  if(typeof levelFx==='function') levelFx(h); }
+  if(typeof levelFx==='function') levelFx(h);
+  if(h===hero){ for(const s in ABIL_UNLOCK){ if(ABIL_UNLOCK[s]===h.level){ const k=HERO_KIT[h.kit]||HERO_KIT.queen; const cap=(k[s]&&k[s].cap)||'Ability';
+    try{ popDmg(h.px, topY(h.px,h.pz)+5.2, h.pz, cap+' unlocked!', 'heal'); }catch(_){} } } } }
 function grantXp(h, amt){ if(!h||!h.alive||(h.level||1)>=HERO_MAX_LVL)return; h.xp=(h.xp||0)+amt;
   while((h.level||1)<HERO_MAX_LVL && h.xp>=xpToNext(h.level||1)){ h.xp-=xpToNext(h.level||1); heroLevelUp(h); } }
 // per-Barracks train catalogue (min barracks level = tech gate; foundation for the tech tree)
@@ -1179,6 +1185,7 @@ const WEAPONS={
   hmage:    [{file:'staff_human_mage', bone:'hand_r', pos:[0,0,0], rot:[0,0,0], scl:1}],
 };
 const RIG_YAW={neaarcher:Math.PI};   // Blender-built rig faces -Z; spin 180° so it faces +Z like the others
+const RIG_ATTACK={thoryn:'Double_Blade_Spin'};   // per-rig basic-attack clip override (else the rig's own 'attack')
 const RIG_SPECS=[['thoryn','thoryn'],['queen','elf_queen'],['paladin','human_paladin'],['aelindra','aelindra'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior'],['assassin','elf_assassin'],['neaarcher','nightelf_archer'],['chief','orc_chieftain'],['orcarcher','orc_archer'],['orcgrunt','orc_grunt'],['orcwarrior','orc_warrior'],['orcshaman','orc_shaman'],
   ['cinderhound','cinder_hound'],['direboar','direboar'],['emberspitter','ember_spitter'],['ashtreant','ash_treant'],['moltenwisp','molten_wisp'],['wyveling','wyveling'],['revenant','stone_revenant'],   // neutral creeps
   ['hfootman','human_footman'],['harcher','human_archer'],['hknight','human_knight'],['hmage','human_mage'],   // Iron Crown units
@@ -1235,6 +1242,7 @@ function makeChar(key,opts){ opts=opts||{}; const src=RIGS[key]; if(!src)return 
   // idle/run/attack/block names (as independent actions) so the anim state machine can drive it.
   if(!act.idle && src.anims.length){ const base=src.anims[0];
     ['idle','run','attack','block'].forEach(n=>{ if(!act[n]){ const clip=new THREE.AnimationClip(n, base.duration, base.tracks.filter(t=>!t.name.endsWith('.position'))); act[n]=mixer.clipAction(clip); } }); }
+  if(RIG_ATTACK[key] && act[RIG_ATTACK[key]]) act.attack=act[RIG_ATTACK[key]];   // e.g. Thoryn swings his Double Blade Spin as his basic attack
   if(act.run) act.run.setEffectiveTimeScale(0.8);   // legs cycle a touch slower to match the calmer move speed
   if(act.attack) act.attack.setEffectiveTimeScale(1.4);   // snappier draw-and-release so it reads as a shot
   if(act.idle) act.idle.play();
@@ -2032,14 +2040,19 @@ function updateSpellUI(){
   const ring=(el,cd,max)=>{ if(!el)return; const c=el.querySelector('.cd'); el.classList.toggle('cooling',cd>0);
     if(c){ const f=Math.max(0,Math.min(1,cd/max)); c.style.background='conic-gradient(rgba(8,12,18,0.66) '+(f*360).toFixed(0)+'deg, rgba(0,0,0,0) 0deg)'; } };
   if(radialMode==='squad'){                                        // squad-command buttons: no cooldowns; Atk-Move shows armed
-    [abilEl,boltEl,smiteEl].forEach(el=>{ if(el)el.classList.remove('cooling'); });
+    [abilEl,boltEl,smiteEl].forEach(el=>{ if(el){ el.classList.remove('cooling'); el.style.opacity=''; el.style.filter=''; } });   // squad orders are never level-locked
     if(boltEl)boltEl.classList.remove('armed'); if(smiteEl)smiteEl.classList.toggle('armed',amArmed); if(autoEl)autoEl.classList.toggle('on',autoBolt);
     return; }
   if(hitEl){ hitEl.classList.toggle('off',!heroCanHit); hitEl.classList.toggle('ready',heroCanHit); }   // attack button lights up only in reach
   if(abilEl){ ring(abilEl, hero?hero.aCd:0, hero&&hero.aMax||6); }                    // AoE slot
   if(boltEl){ boltEl.classList.toggle('armed',spellArmed); ring(boltEl, hero?hero.spellCd:0, hero&&hero.spellMax||8); }   // armed-target slot
   if(autoEl){ autoEl.classList.toggle('on',autoBolt); }
-  if(smiteEl){ ring(smiteEl, hero?hero.blinkCd:0, hero&&hero.blinkMax||7); } }         // utility slot
+  if(smiteEl){ ring(smiteEl, hero?hero.blinkCd:0, hero&&hero.blinkMax||7); }           // utility slot
+  // grey out still-locked ability slots and show the level they unlock at (restore the kit caption once unlocked)
+  const K=HERO_KIT[(hero&&hero.kit)||heroKind]||HERO_KIT.queen;
+  const lk=(el,slot,cap)=>{ if(!el)return; const locked=!abilLevelOk(slot); el.style.opacity=locked?'0.42':''; el.style.filter=locked?'grayscale(1)':'';
+    const c=el.querySelector('.cap'); if(c) c.textContent = locked ? ('Lv '+(ABIL_UNLOCK[slot]||1)) : cap; };
+  lk(abilEl,'a', K.a.cap); lk(boltEl,'spell', K.spell.cap); lk(smiteEl,'blink', K.blink.cap); }
 function drawLasso(){ if(!lctx)return; lctx.clearRect(0,0,lcv.width,lcv.height); const p=cmd.pts; if(p.length<2)return;
   lctx.beginPath(); lctx.moveTo(p[0][0],p[0][1]); for(let i=1;i<p.length;i++)lctx.lineTo(p[i][0],p[i][1]);
   lctx.strokeStyle='rgba(127,240,255,0.95)'; lctx.lineWidth=3; lctx.stroke();
@@ -2090,7 +2103,7 @@ function updateGame(dt){
       if(hero.__healT>0){ hero.__healT-=dt; hero.hp=Math.min(hero.max,hero.hp+42*dt); } }
     tickHolyGrounds(dt);                                                                // Consecration blessed ground
     const FO=foes();   // enemy units + attackable enemy structures (core/buildings) — the player's valid targets
-    if(hero.alive && autoBolt && hero.spellCd<=0 && enemies.length){ const t=nearestEnemyTo(hero.px,hero.pz,26); if(t) shadowStrike(t); }   // AUTO = auto Shadow Strike nearest visible foe
+    if(hero.alive && autoBolt && abilLevelOk('spell') && hero.spellCd<=0 && enemies.length){ const t=nearestEnemyTo(hero.px,hero.pz,26); if(t) shadowStrike(t); }   // AUTO = auto Shadow Strike nearest visible foe (once unlocked)
     for(const e of enemies){ if(!e.alive||!e.poison)continue; e.poison.t-=dt; e.__pt-=dt;   // Shadow Strike poison DoT — lingering green wisp
       if(e.__pt<=0){ e.__pt=0.32; damage(e, e.poison.dps*0.32, false);
         if(isVisible(e.px,e.pz)){ const y=topY(e.px,e.pz)+2.2, ph=(e.__pw=(e.__pw||0)+0.8);   // orbiting wisp + rising drip
@@ -2253,9 +2266,9 @@ function setupHUD(){
     b.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); _tutBtn=cls; sfx('ui'); fn(); }); hand.appendChild(b); return b; };
   hitEl  =mkAbil('hit',ic('sword'),'Hit',76,12,12,()=>{ heroHit(); });                                            // basic attack — lights up only in range
   // inner ring — Warden abilities (spokes low→high: 14°, 51°, 88°)
-  abilEl =mkAbil('stomp',ic('fan'),'Fan',56,121,47,()=>{ if(radialMode==='squad'){ stopSel(); return; } if(hero.kit==='paladin')consecration(); else fanOfKnives(); });   // AoE slot / squad Stop
-  boltEl =mkAbil('bolt',ic('shadow'),'Strike',56,86,101,()=>{ if(radialMode==='squad'){ holdSel(); return; } if(hero.spellCd<=0){ spellArmed=!spellArmed; } updateSpellUI(); });   // armed target / squad Hold
-  smiteEl=mkAbil('smite',ic('blink'),'Blink',56,26,124,()=>{ if(radialMode==='squad'){ amArmed=!amArmed; updateSpellUI(); return; } if(hero.kit==='paladin')divineShield(); else blink(); });   // utility / squad Attack-Move
+  abilEl =mkAbil('stomp',ic('fan'),'Fan',56,121,47,()=>{ if(radialMode==='squad'){ stopSel(); return; } if(abilLocked('a'))return; if(hero.kit==='paladin')consecration(); else fanOfKnives(); });   // AoE slot / squad Stop
+  boltEl =mkAbil('bolt',ic('shadow'),'Strike',56,86,101,()=>{ if(radialMode==='squad'){ holdSel(); return; } if(abilLocked('spell'))return; if(hero.spellCd<=0){ spellArmed=!spellArmed; } updateSpellUI(); });   // armed target / squad Hold
+  smiteEl=mkAbil('smite',ic('blink'),'Blink',56,26,124,()=>{ if(radialMode==='squad'){ amArmed=!amArmed; updateSpellUI(); return; } if(abilLocked('blink'))return; if(hero.kit==='paladin')divineShield(); else blink(); });   // utility / squad Attack-Move
   // outer ring — army orders (same three spokes, one radius further out)
   boxBtn =mkAbil('select',ic('select'),'Select',50,185,65,()=>setBoxMode(!boxMode));   // arm marquee: next drag selects troops
   chargeEl=mkAbil('charge',ic('swords'),'Charge',50,129,153,()=>chargeAll());
