@@ -1225,23 +1225,25 @@ function makeChar(key,opts){ opts=opts||{}; const src=RIGS[key]; if(!src)return 
   if(act.run) act.run.setEffectiveTimeScale(0.8);   // legs cycle a touch slower to match the calmer move speed
   if(act.attack) act.attack.setEffectiveTimeScale(1.4);   // snappier draw-and-release so it reads as a shot
   if(act.idle) act.idle.play();
-  mixer.update(0.3); outer.updateMatrixWorld(true);          // pose to idle BEFORE measuring
-  // Size + plant from the POSED mesh via SkinnedMesh.computeBoundingBox(): it skins the vertices on the
-  // CPU with the same bone matrices the GPU uses, so the measurement always matches what's drawn. This
-  // is device-independent. (Box3.setFromObject reads the raw, UN-skinned geometry bounds instead — and
-  // for the 3D-gen hero rigs, whose tiny geometry is scaled up by the skeleton, that mismatch computed a
-  // huge scale and rendered the hero gigantic on some browsers.) Union every mesh in inner-local space.
-  const _im=new THREE.Matrix4(), _gb=new THREE.Box3(), box=new THREE.Box3(); box.makeEmpty();
-  inner.updateMatrixWorld(true);
-  inner.traverse(o=>{ if(!o.isMesh||!o.geometry)return; let src;
-    if(o.isSkinnedMesh && o.computeBoundingBox){ if(o.skeleton&&o.skeleton.update)o.skeleton.update(); o.computeBoundingBox(); src=o.boundingBox; }
-    else { if(!o.geometry.boundingBox)o.geometry.computeBoundingBox(); src=o.geometry.boundingBox; }
-    if(!src||src.isEmpty())return;
-    _im.copy(inner.matrixWorld).invert().multiply(o.matrixWorld); _gb.copy(src).applyMatrix4(_im); box.union(_gb); });
-  const hh=Math.max(0.001, box.getSize(new THREE.Vector3()).y);
+  // ---- size by the SKELETON, not the geometry ----
+  // What renders is the skinned mesh following the bones. Box3.setFromObject measures the raw,
+  // un-skinned geometry; for several rigs the stored geometry is a different scale than the skeleton
+  // (the 3D-gen heroes ~80× off, orcs & undead ~2×), so geometry-based sizing rendered them far too big.
+  // Bone world positions are deterministic (CPU-posed — no skinning/readback quirks) and track the drawn
+  // body, so scaling to the bone span sizes every rig consistently on every device. MARGIN accounts for
+  // the mesh reaching a little past the outermost bones (scalp above the head bone, soles below the ankle).
+  outer.scale.setScalar(1); mixer.update(0.3); outer.updateMatrixWorld(true);
+  const _bw=new THREE.Vector3(); let ylo=1e30,yhi=-1e30,xlo=1e30,xhi=-1e30,zlo=1e30,zhi=-1e30,nb=0;
+  inner.traverse(o=>{ if(!o.isBone)return; o.getWorldPosition(_bw); if(!isFinite(_bw.x)||!isFinite(_bw.y)||!isFinite(_bw.z))return;
+    nb++; if(_bw.y<ylo)ylo=_bw.y; if(_bw.y>yhi)yhi=_bw.y; if(_bw.x<xlo)xlo=_bw.x; if(_bw.x>xhi)xhi=_bw.x; if(_bw.z<zlo)zlo=_bw.z; if(_bw.z>zhi)zhi=_bw.z; });
+  const MARGIN=1.1;
+  let hh;
+  if(nb>=2 && (yhi-ylo)>1e-4){ hh=(yhi-ylo)*MARGIN; }
+  else { const bb=new THREE.Box3().setFromObject(inner); hh=Math.max(0.001,bb.getSize(new THREE.Vector3()).y); }   // fallback: unrigged prop
   outer.scale.setScalar(CHAR_H[key]/hh);
-  inner.position.y=-box.min.y;                               // plant feet at the group origin
-  const c2=box.getCenter(new THREE.Vector3()); inner.position.x-=c2.x; inner.position.z-=c2.z;   // centre X/Z
+  // plant feet + centre X/Z from the bone extents (same space the size came from). A small foot gap
+  // lifts the ankle bone so the soles land on the ground rather than sinking to the ankle joint.
+  if(nb>=2){ const foot=(yhi-ylo)*0.06; inner.position.set(-(xlo+xhi)*0.5, -ylo+foot, -(zlo+zhi)*0.5); }
   outer.updateMatrixWorld(true);
   // hand weapons — parent each prop to its hand bone (rides the animation), painted with the char atlas.
   // Some orc rigs ship 5-6 DUPLICATE skeletons (a Character-Studio biped overlaid with a second rig):
