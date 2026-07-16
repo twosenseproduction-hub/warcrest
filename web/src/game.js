@@ -1186,13 +1186,14 @@ function bakeStatic(o){ o.updateMatrixWorld(true); const parts=[]; let hadSkin=f
 const bakeProp=bakeStatic;   // back-compat alias for the weapon-prop loader
 function loadRig(){ return new Promise(res=>{
   const gl=new THREE.GLTFLoader(), fx=new THREE.FBXLoader(), tl=new THREE.TextureLoader();
-  const MDLV='?v=6';   // asset cache-buster — bump on any model/texture change so /assets max-age=86400 doesn't pin a stale rig (index.html revalidates, so a new ?v reaches clients at once)
+  const MDLV='?v=7';   // asset cache-buster — bump on any model/texture change so /assets max-age=86400 doesn't pin a stale rig (index.html revalidates, so a new ?v reaches clients at once)
   const propFiles=[...new Set(Object.values(WEAPONS).flat().map(w=>w.file))];
   let n=0, need=RIG_SPECS.length*2 + propFiles.length; const done=()=>{ if(++n>=need) res(); };   // body GLB + atlas per char, + each prop once
   RIG_SPECS.forEach(([k,f])=>{
     gl.load('/assets/models/'+f+'_anim.glb'+MDLV, g=>{
-      if(k==='thoryn'||k==='drake'||k==='aelindra'||CREEP_KEYS.includes(k)) g.scene.traverse(o=>{ if(o.isMesh&&o.material&&o.material.map){   // Tripo/PBR (metallic) renders black in our unlit look — flatten to Basic like every other unit
-        const t=o.material.map; if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; o.material=new THREE.MeshBasicMaterial({map:t,side:THREE.DoubleSide}); } });
+      if(k==='thoryn'||k==='drake'||k==='aelindra'||CREEP_KEYS.includes(k)) g.scene.traverse(o=>{ if(!o.isMesh||!o.material)return;   // Tripo/PBR (metallic) renders black in our unlit look — flatten to Basic like every other unit
+        const flat=m=>{ const t=m&&m.map; if(!t)return m; if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; return new THREE.MeshBasicMaterial({map:t,side:THREE.DoubleSide}); };
+        o.material = Array.isArray(o.material) ? o.material.map(flat) : flat(o.material); });
       RIGS[k]={scene:g.scene,anims:g.animations}; done(); }, undefined, ()=>done());
     tl.load('/assets/models/'+f+'_tex.png'+MDLV, t=>{ t.flipY=true; t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter; t.generateMipmaps=false; if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; TEXS[k]=t; done(); }, undefined, ()=>done());
   });
@@ -1648,12 +1649,14 @@ const HERO_KIT={
   queen:  {name:'Elf Queen', rig:'queen', a:{icon:'fan',cap:'Fan',cd:6}, spell:{icon:'shadow',cap:'Strike',cd:8}, blink:{icon:'blink',cap:'Blink',cd:7}},
   paladin:{name:'Paladin', rig:'paladin', a:{icon:'holy',cap:'Bless',cd:7}, spell:{icon:'hammer',cap:'Hammer',cd:8}, blink:{icon:'shield',cap:'Shield',cd:12}},
   aelindra:{name:'Aelindra', rig:'aelindra', a:{icon:'fan',cap:'Volley',cd:7}, spell:{icon:'archer',cap:'Moonfire',cd:7}, blink:{icon:'blink',cap:'Windstep',cd:6}},
+  thoryn: {name:'Thoryn Greywarden', rig:'thoryn', a:{icon:'swords',cap:'Blade Dance',cd:6}, spell:{icon:'shadow',cap:'Root Lash',cd:8}, blink:{icon:'blink',cap:'Windstep',cd:7}},   // warden swordmaster — reuses the Warden handlers (nova / poison-strike / blink)
 };
 // each hero fields its own faction's army + buildings in skirmish (pbld='' elf, 'human_' Iron Crown, 'orc_' horde)
 const HERO_FACTION={
   queen:    {pbld:'',       units:{warrior:'warrior',  archer:'neaarcher', cleric:'priestess'}},   // Rimwalkers (Night Elf) — original night-elf archer
   aelindra: {pbld:'',       units:{warrior:'warrior',  archer:'neaarcher', cleric:'priestess'}},   // Rimwalkers (Night Elf)
   paladin:  {pbld:'human_', units:{warrior:'hfootman', archer:'harcher', cleric:'hmage'}},        // Iron Crown (Human)
+  thoryn:   {pbld:'',       units:{warrior:'warrior',  archer:'neaarcher', cleric:'priestess'}},   // Rimwalkers (Night Elf) — Greywarden
 };
 function applyHeroFaction(k){ const f=HERO_FACTION[k]; if(!f)return; BLDPFX=f.pbld; URIG={...f.units}; }
 function nearestAllyTo(x,z,maxd){ let b=null,bd=maxd*maxd;
@@ -2205,7 +2208,8 @@ function setupHUD(){
   const cards=heroSelEl.querySelector('.cards');
   const HEROES=[['queen','sword','Elf Queen','Rimwalkers · Night Elf — Blink · Fan of Knives · Shadow Strike. Fields an elven host.'],
                 ['paladin','shield','Paladin','Iron Crown · Human — Consecration · Hammer of Justice · Divine Shield. Fields footmen, crossbows & mages.'],
-                ['aelindra','archer','Aelindra Ashveil','Rimwalkers · Night Elf — Windstep · Volley · Moonfire. A fast, evasive archer; fields an elven host.']];
+                ['aelindra','archer','Aelindra Ashveil','Rimwalkers · Night Elf — Windstep · Volley · Moonfire. A fast, evasive archer; fields an elven host.'],
+                ['thoryn','swords','Thoryn Greywarden','Rimwalkers · Night Elf — Windstep · Blade Dance · Root Lash. A runeblade warden with a glowing greatblade; fields an elven host.']];
   for(const [k,icn,nm,blurb] of HEROES){ const c=document.createElement('div'); c.className='hc';
     c.innerHTML='<div class="ic">'+ic(icn)+'</div><div class="nm">'+nm+'</div><div class="kit">'+blurb+'</div>';
     c.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); gameMode='skirmish'; activeMission=null; heroKind=k;
