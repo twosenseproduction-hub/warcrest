@@ -1133,13 +1133,14 @@ const WEAPONS={
   priestess:[{file:'magic_ball',       bone:'hand_r', pos:[-10,-10,6.9], rot:[0,0,0], scl:0.52}],
   warrior:  [{file:'sword_elf_warrior', bone:'hand_r', pos:[-10,-2.55,0.3], rot:[Math.PI/2,2.705,Math.PI], scl:0.66},
              {file:'shield_elf_warrior',bone:'hand_l', pos:[7.95,-3.7,0.45], rot:[1.292,3.019,0], scl:0.8}],
+  assassin: [{file:'dagger_elf_assassin', bone:'hand_r', pos:[-10,-2.55,0.3], rot:[Math.PI/2,2.705,Math.PI], scl:0.5}],
   // orc horde (chief/orcarcher/orcgrunt/orcwarrior/orcshaman) now ship their weapons baked into the
   // mesh (great-sword, sword+shield, throwing spear, war-axe) — no separate hand props to attach.
-  hfootman: [{file:'sword_human_footman', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1},
-             {file:'shield_human_footman',bone:'hand_l', pos:[0,0,0], rot:[0,0,0], scl:1}],
-  harcher:  [{file:'bow_human_archer', bone:'hand_l', pos:[0,0,0], rot:[0,0,0], scl:1}],
-  hknight:  [{file:'sword_human_knight', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
-  hmage:    [{file:'staff_human_mage', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
+  hfootman: [{file:'sword_human_footman', bone:'hand_r', pos:[-10,-2.55,0.3], rot:[Math.PI/2,2.705,Math.PI], scl:0.66},
+             {file:'shield_human_footman',bone:'hand_l', pos:[7.95,-3.7,0.45], rot:[1.292,3.019,0], scl:0.8}],
+  harcher:  [{file:'bow_human_archer', bone:'hand_l', pos:[10,-3.55,0], rot:[-2.845,Math.PI/2,-1.518], scl:0.86}],
+  hknight:  [{file:'sword_human_knight', bone:'hand_r', pos:[-10,-2.55,0.3], rot:[Math.PI/2,2.705,Math.PI], scl:0.66}],
+  hmage:    [{file:'staff_human_mage', bone:'hand_r', pos:[0,0,0], rot:[0,0,0], scl:1}],
 };
 const RIG_YAW={neaarcher:Math.PI};   // Blender-built rig faces -Z; spin 180° so it faces +Z like the others
 const RIG_SPECS=[['thoryn','thoryn'],['queen','elf_queen'],['paladin','human_paladin'],['aelindra','aelindra'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior'],['assassin','elf_assassin'],['neaarcher','nightelf_archer'],['chief','orc_chieftain'],['orcarcher','orc_archer'],['orcgrunt','orc_grunt'],['orcwarrior','orc_warrior'],['orcshaman','orc_shaman'],
