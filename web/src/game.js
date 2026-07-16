@@ -386,6 +386,18 @@ const UBAL={
 const HERO_STAT={hp:320, dmg:22, range:3.6, atk:0.55, spd:19};   // heroes feel powerful but killable
 const BOSS_STAT={hp:900, dmg:30, range:4.6, atk:1.2,  spd:11};   // chieftain: army-buster, abilities carry threat
 const ALLY_SPD=15, ENEMY_SPD=12;
+// ---- hero progression ----
+const HERO_MAX_LVL=10;                                      // both commanders can climb to Lv 10
+const XP_BASE=90, XP_GROW=1.45;                             // XP to reach the next level grows each rank
+function xpToNext(lvl){ return Math.round(XP_BASE*Math.pow(XP_GROW, lvl-1)); }
+function xpFor(e){ return Math.max(8, Math.round((e&&e.max||30)*0.14)); }   // kill worth ≈ 14% of the victim's HP (a boss/hero is a big chunk)
+// per-level stat gains, applied off the stored base so they never compound
+function applyHeroLevel(h){ if(!h||!h.baseHp)return; const m=h.level-1;
+  h.max=Math.round(h.baseHp*(1+0.12*m)); h.dmg=Math.round(h.baseDmg*(1+0.10*m)); }
+function heroLevelUp(h){ h.level=Math.min(HERO_MAX_LVL,(h.level||1)+1); applyHeroLevel(h); h.hp=h.max;   // a level-up fully heals
+  if(typeof levelFx==='function') levelFx(h); }
+function grantXp(h, amt){ if(!h||!h.alive||(h.level||1)>=HERO_MAX_LVL)return; h.xp=(h.xp||0)+amt;
+  while((h.level||1)<HERO_MAX_LVL && h.xp>=xpToNext(h.level||1)){ h.xp-=xpToNext(h.level||1); heroLevelUp(h); } }
 // per-Barracks train catalogue (min barracks level = tech gate; foundation for the tech tree)
 const TRAIN=[
   {kind:'warrior', rig:'warrior',  icon:'warrior', label:'Warrior',   gold:65, sup:3, dur:7,  minLvl:1},
@@ -978,7 +990,7 @@ function applyLevel(id){ const L=LEVELS[id]||LEVELS.skirmish; LVID=id in LEVELS?
   BLDPFX=L.pbld||''; URIG=L.units||{warrior:'warrior',archer:'archer',cleric:'priestess'}; }
 function resetWorld(){ allies=[]; enemies=[]; eStructs=[]; ePlots=[]; plots=[]; creepCamps=[]; fires=[];
   coreB=null; enemyCore=null; gold=LVGOLD; wood=0; incomeRate=1; woodRate=0; eGold=130; eWood=0; eIncome=1; eWoodRate=0;
-  spawnLeft=0; spawnN=0; killed=0; gameOver=0; if(typeof selected!=='undefined')selected.clear(); camAim.init=false; hero=null;
+  spawnLeft=0; spawnN=0; killed=0; gameOver=0; if(typeof selected!=='undefined')selected.clear(); camAim.init=false; hero=null; enemyBoss=null;
   if(typeof orderMarkers!=='undefined')orderMarkers.length=0; if(typeof holyGrounds!=='undefined')holyGrounds.length=0;
   ritualT=0; ritualDone=false; ritualCasters=[]; _ritWaves=[]; _ritRing=null; if(typeof disposeHeroAura==='function')disposeHeroAura(); }
 function build(){
@@ -1092,8 +1104,9 @@ function build(){
 // ================= GAMEPLAY: control-direction test =================
 // Pilot the hero (joystick / WASD); the squad auto-follows & auto-fights;
 // tap the ground to rally them; STOMP button = warstomp. Survive the wave.
-let hero=null, allies=[], enemies=[];
+let hero=null, allies=[], enemies=[], enemyBoss=null;   // enemyBoss: the raider chieftain — the opposing commander (revives like the player hero)
 let rallyPoint=null, rallyMarker=null, gameOver=0, spawnLeft=0, spawnTimer=1.5, killed=0;   // warband now produced by the enemy AI, not a fixed pool
+const ENEMY_RESPAWN=14;   // the raider chieftain returns to the field after this many seconds
 let heroFwd={x:0,z:1};
 // loose-leash follow: units idle in your vicinity, only surge to re-form once
 // you've walked past FOLLOW_OUT, and settle again within FOLLOW_IN of their slot.
@@ -1105,7 +1118,7 @@ let spellArmed=false, autoBolt=false, orderMarkers=[], boltEl, autoEl, smiteArme
 let hitEl=null, heroCanHit=false, heroHitTarget=null;   // Wild-Rift attack button: active only when a foe is in the hero's reach
 let abilHandEl=null, cmdStripEl=null;                   // thumb-cluster no-command zones (taps here never issue a ground order)
 let keys={}, joy={active:false,nx:0,ny:0,id:null,sx:0,sy:0};
-let heroHpEl, waveEl, resultEl, abilEl, joyBase, joyKnob, supEl, woodEl, viewPop=null;
+let heroHpEl, heroLvEl, heroXpEl, waveEl, resultEl, abilEl, joyBase, joyKnob, supEl, woodEl, viewPop=null;
 const raycaster=new THREE.Raycaster(), groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
 const camF={pitch:52,az:34,dist:66,lookY:4,pos:new THREE.Vector3(),init:false};   // closer default view
 const VIEW_AZS=[34,124,214,304];   // four 90-degree-apart perspectives; the picked one persists as default
@@ -1307,6 +1320,7 @@ function spawnGame(){
   const rk=(HERO_KIT[heroKind]&&RIGS[HERO_KIT[heroKind].rig])?HERO_KIT[heroKind].rig:(RIGS.queen?'queen':'thoryn');
   riggize(hero, rk);   // the chosen hero (Elf Queen default, or Paladin)
   hero.kit=heroKind; const _k=HERO_KIT[heroKind]||HERO_KIT.queen; hero.aMax=_k.a.cd; hero.spellMax=_k.spell.cd; hero.blinkMax=_k.blink.cd;
+  hero.isHero=true; hero.level=1; hero.xp=0; hero.baseHp=HERO_STAT.hp; hero.baseDmg=HERO_STAT.dmg;   // progression
   refreshHeroAura();   // Warden moonlight aura (queen only)
   // muster just outside the base, facing into the map (toward the raider camp)
   const outAng=Math.atan2(enemyBase.x-PBASE.x, enemyBase.z-PBASE.z);
@@ -1320,6 +1334,7 @@ function spawnGame(){
   if(RAIDERS.type==='base'){
     const boss=mkFighter(C.enemyRed,1.6,'enemy',{hp:BOSS_STAT.hp,dmg:BOSS_STAT.dmg,range:BOSS_STAT.range,atkEvery:BOSS_STAT.atk,spd:BOSS_STAT.spd});
     boss.rad=2.8; boss.max=BOSS_STAT.hp; boss.isBoss=true; boss.hurlCd=4; boss.slamCd=7; boss.roarCd=10; riggize(boss,'chief'); setP(boss,enemyBase.x+8,enemyBase.z+8); enemies.push(boss);
+    boss.isHero=true; boss.level=1; boss.xp=0; boss.baseHp=BOSS_STAT.hp; boss.baseDmg=BOSS_STAT.dmg; boss.respawnT=0; enemyBoss=boss;   // the raider chieftain is the enemy commander — levels & revives
     for(const rig of ['orcgrunt','orcarcher']){ const e=mkOrc(rig); setP(e,enemyBase.x+rr(2,10),enemyBase.z+rr(2,10)); enemies.push(e); }
   } else if(RAIDERS.type==='camp'){   // tutorial raider camp: static guards defending a lone throne (razing it wins)
     (RAIDERS.guards||['orcgrunt','orcgrunt']).forEach((rig,i)=>{ const e=mkOrc(rig); const a=i/Math.max(1,(RAIDERS.guards||[]).length)*6.28;
@@ -1492,6 +1507,13 @@ function makeHeroAura(){ disposeHeroAura(); const cfg=HERO_AURA[heroKind]||HERO_
   heroAura={grp,outer,inner,glow,dome,motes,t:0,kind:heroKind}; return heroAura; }
 function disposeHeroAura(){ if(!heroAura)return; scene.remove(heroAura.grp);
   heroAura.grp.traverse(o=>{ if(o.material&&o.material.dispose)o.material.dispose(); if(o.geometry&&o.geometry.dispose)o.geometry.dispose(); }); heroAura=null; }
+// level-up flourish: a golden ground ring + rising sparks + floating "LEVEL N" text
+function levelFx(h){ const x=h.px, z=h.pz, y0=topY(x,z);
+  runeRingFlash(x,z,0xffd24a,7);
+  for(let i=0;i<12;i++){ const a=i/12*6.28, m=new THREE.Sprite(new THREE.SpriteMaterial({map:CV_GLOW,color:0xffe27a,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending})); m.scale.setScalar(0.9); m.frustumCulled=false; scene.add(m); let t=0;
+    (function an(){ t+=0.05; const r=1.4+t*1.2; m.position.set(x+Math.cos(a)*r, y0+t*5.5, z+Math.sin(a)*r); m.material.opacity=Math.max(0,0.95-t); m.scale.setScalar(0.9*(1-t*0.6)); if(t<1)requestAnimationFrame(an); else scene.remove(m); })(); }
+  if(typeof popDmg==='function') popDmg(x, y0+4.2, z, 'LEVEL '+h.level, 'heal');
+  if(h===hero){ try{ sfx('build'); }catch(_){} } }
 function refreshHeroAura(){ if(HERO_AURA[heroKind] && hero && hero.alive){ if(!heroAura||heroAura.kind!==heroKind)makeHeroAura(); } else disposeHeroAura(); }
 function updateHeroAura(dt){ if(!heroAura)return; const a=heroAura;
   if(!hero||!hero.alive){ a.grp.visible=false; return; } a.grp.visible=true; a.t+=dt;
@@ -1523,7 +1545,9 @@ function applyHeroKit(){ const k=HERO_KIT[heroKind]||HERO_KIT.queen; if(hero)her
   const setBtn=(el,slot,cls)=>{ if(!el)return; const i=el.querySelector('.ic'), c=el.querySelector('.cap'); if(i)i.innerHTML=ic(slot.icon); if(c)c.textContent=slot.cap; };
   setBtn(abilEl,k.a); setBtn(boltEl,k.spell); setBtn(smiteEl,k.blink); KIND_NAME.hero=k.name; }
 function pickHero(kind){ if(!HERO_KIT[kind])kind='queen'; heroKind=kind; try{localStorage.setItem('wc_hero',kind);}catch(_){}
-  if(hero){ const rk=RIGS[HERO_KIT[kind].rig]?HERO_KIT[kind].rig:'queen'; riggize(hero,rk); hero.hp=hero.max; hero.__atkT=0; hero.__invuln=0; hero.animState='idle';
+  if(hero){ const rk=RIGS[HERO_KIT[kind].rig]?HERO_KIT[kind].rig:'queen'; riggize(hero,rk);
+    hero.level=1; hero.xp=0; hero.baseHp=HERO_STAT.hp; hero.baseDmg=HERO_STAT.dmg; applyHeroLevel(hero);   // fresh hero starts at Lv 1
+    hero.hp=hero.max; hero.__atkT=0; hero.__invuln=0; hero.animState='idle';
     if(camLocked){ camAim.x=hero.px; camAim.z=hero.pz; } }
   applyHeroKit(); refreshHeroAura(); if(heroSelEl)heroSelEl.style.display='none'; started=true; refreshRadial();
   initAudio(); resumeAudio(); startMusic(); sfx('build'); }
@@ -2127,7 +2151,13 @@ function updateGame(dt){
           if(Math.hypot(t.px-e.px,t.pz-e.pz)>18)continue; const def=t.max-t.hp; if(def>bestDef){bestDef=def;best=t;} }
         if(best){ best.hp=Math.min(best.max,best.hp+24); claims.add(best); e.healCd=2.8; healFx(best); popDmg(best.px,topY(best.px,best.pz)+3.4,best.pz,'+24','heal'); } } }
     separate(); loco(dt); baseTick(dt); eBaseTick(dt); if(creepCamps.length) updateCamps(dt); if(RITUAL) ritualTick(dt); tutTick();
-    const reap=l=>{ for(const e of l){ if(e.alive&&e.hp<=0){ e.alive=false; deathFx(e); if(e.vfx)e.vfx.dispose(); scene.remove(e.g); scene.remove(e.bar); if(e.ring){scene.remove(e.ring); selected.delete(e);} if(e.team==='enemy')killed++; } } return l.filter(e=>e.alive); };
+    const reap=l=>{ for(const e of l){ if(e.alive&&e.hp<=0){
+      if(e===enemyBoss){ e.alive=false; e.respawnT=ENEMY_RESPAWN; deathFx(e); e.g.visible=false; if(e.bar)e.bar.visible=false; if(e.ring)e.ring.visible=false;
+        e.target=null; e.order=null; selected.delete(e); killed++; grantXp(hero, xpFor(e)); continue; }   // enemy commander: revive, keep the reference
+      e.alive=false; deathFx(e); if(e.vfx)e.vfx.dispose(); scene.remove(e.g); scene.remove(e.bar); if(e.ring){scene.remove(e.ring); selected.delete(e);}
+      if(e.team==='enemy'){ killed++; grantXp(hero, xpFor(e)); }                 // player hero earns XP for downing raiders
+      else if(e.team==='ally'){ grantXp(enemyBoss, xpFor(e)); } } }              // the chieftain grows from felling your troops
+      return l.filter(e=> e.alive || e===enemyBoss); };
     allies=reap(allies); enemies=reap(enemies);
     for(const s of eStructs){ if(s.alive&&s.hp<=0){ s.alive=false; deathFx(s); scene.remove(s.g); scene.remove(s.bar);
         if(s.kind==='bld'&&s.plot){ const p=s.plot; p.cat=null; p.level=0; p.g=null; p.struct=null; eRecomputeIncome(); } } }
@@ -2141,8 +2171,15 @@ function updateGame(dt){
       if(hero.respawnT<=0){ hero.alive=true; hero.hp=hero.max; hero.cd=hero.aCd=hero.spellCd=hero.blinkCd=0; hero.order=null; hero.__atkT=0;
         const rx=coreB?coreB.x:105, rz=(coreB?coreB.z:108)+4; setP(hero,rx,rz); hero.g.visible=true; hero.animState='idle'; blinkPop(rx,rz);
         if(camLocked){ camAim.x=rx; camAim.z=rz; } if(respawnEl) respawnEl.style.display='none'; } }
+    // the raider chieftain revives at its stronghold too — but only while its throne still stands
+    if(enemyBoss && !enemyBoss.alive && enemyCore && enemyCore.alive){ enemyBoss.respawnT-=dt;
+      if(enemyBoss.respawnT<=0){ enemyBoss.alive=true; enemyBoss.hp=enemyBoss.max; enemyBoss.cd=0; enemyBoss.stunT=0; enemyBoss.rageT=0;
+        enemyBoss.hurlCd=enemyBoss.slamCd=enemyBoss.roarCd=3; enemyBoss.target=null; enemyBoss.order=null; enemyBoss.__atkT=0;
+        const rx=enemyBase.x+8, rz=enemyBase.z+8; setP(enemyBoss,rx,rz); enemyBoss.g.visible=true; enemyBoss.animState='idle'; blinkPop(rx,rz); } }
     if(coreB&&coreB.hp<=0) endGame(false); else if(enemyCore&&enemyCore.hp<=0) endGame(true);
     if(heroHpEl) heroHpEl.style.width=(Math.max(0,hero.hp)/hero.max*100)+'%';
+    if(heroLvEl) heroLvEl.textContent=String(hero.level||1);
+    if(heroXpEl){ const lv=hero.level||1; heroXpEl.style.width=(lv>=HERO_MAX_LVL?100:Math.max(0,Math.min(1,(hero.xp||0)/xpToNext(lv)))*100)+'%'; }
     if(waveEl&&enemyCore) waveEl.textContent = enemyCore.hp>0 ? ('⚔ Orc throne  '+Math.ceil(Math.max(0,enemyCore.hp))+'/'+enemyCore.max) : 'The orc throne has fallen!';
     updateOrderMarkers(); updateSpellUI();   // Stomp cooldown + Hit-in-range state handled in updateSpellUI
   }
@@ -2193,6 +2230,13 @@ function setupHUD(){
   const hp=document.createElement('div'); hp.className='hud';
   hp.style.cssText+=';left:50%;top:calc(52px + var(--st));transform:translateX(-50%);width:min(240px,56vw);height:13px;background:rgba(10,14,20,0.5);border:1px solid var(--brd);border-radius:7px;overflow:hidden;box-shadow:none;backdrop-filter:blur(6px)';
   heroHpEl=document.createElement('div'); heroHpEl.style.cssText='height:100%;width:100%;background:linear-gradient(#a6ec5e,#5cb43a)'; hp.appendChild(heroHpEl); document.body.appendChild(hp);
+  // hero level badge (round gold chip on the left end of the HP frame) + a thin XP bar tucked under it
+  heroLvEl=document.createElement('div'); heroLvEl.className='hud';
+  heroLvEl.style.cssText+=';left:calc(50% - min(120px,28vw) - 15px);top:calc(49px + var(--st));transform:translateX(-50%);width:26px;height:26px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#ffe9a8,#c8912f);border:1px solid #7a5410;color:#3a2600;font:900 12px system-ui;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.5)';
+  heroLvEl.textContent='1'; document.body.appendChild(heroLvEl);
+  const xpw=document.createElement('div'); xpw.className='hud';
+  xpw.style.cssText+=';left:50%;top:calc(66px + var(--st));transform:translateX(-50%);width:min(240px,56vw);height:4px;background:rgba(10,14,20,0.5);border:1px solid var(--brd);border-radius:3px;overflow:hidden;box-shadow:none';
+  heroXpEl=document.createElement('div'); heroXpEl.style.cssText='height:100%;width:0%;background:linear-gradient(#ffe27a,#e0a935)'; xpw.appendChild(heroXpEl); document.body.appendChild(xpw);
   waveEl=document.createElement('div'); waveEl.className='hud';
   waveEl.style.cssText+=';left:50%;top:calc(72px + var(--st));transform:translateX(-50%);font:800 12px system-ui;color:#ffd9d2;text-shadow:0 1px 3px #000;white-space:nowrap'; document.body.appendChild(waveEl);
   joyBase=document.createElement('div'); joyBase.id='joy';
@@ -2467,7 +2511,7 @@ async function boot(){
 // dev/debug bridge — the game body is module-scoped under Vite, so expose the internals
 // headless verification + the weapon tuner poke. Harmless in prod; gate behind a flag later.
 window.__dbg={
-  get hero(){return hero}, get camAim(){return camAim}, get camF(){return camF}, get scene(){return scene},
+  get hero(){return hero}, get camAim(){return camAim}, get camF(){return camF}, get scene(){return scene}, get enemyBoss(){return enemyBoss}, grantXp:(...a)=>grantXp(...a),
   get enemies(){return enemies}, get allies(){return allies}, get waterMat(){return waterMat}, get motes(){return motes},
   get modeSelEl(){return modeSelEl}, get missionSelEl(){return missionSelEl}, get missionCardEl(){return missionCardEl}, get heroSelEl(){return heroSelEl},
   followCam:(...a)=>followCam(...a), riggize:(...a)=>riggize(...a), makeChar:(...a)=>makeChar(...a), setAnim:(...a)=>setAnim(...a),
