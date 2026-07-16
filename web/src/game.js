@@ -980,7 +980,7 @@ function resetWorld(){ allies=[]; enemies=[]; eStructs=[]; ePlots=[]; plots=[]; 
   coreB=null; enemyCore=null; gold=LVGOLD; wood=0; incomeRate=1; woodRate=0; eGold=130; eWood=0; eIncome=1; eWoodRate=0;
   spawnLeft=0; spawnN=0; killed=0; gameOver=0; if(typeof selected!=='undefined')selected.clear(); camAim.init=false; hero=null;
   if(typeof orderMarkers!=='undefined')orderMarkers.length=0; if(typeof holyGrounds!=='undefined')holyGrounds.length=0;
-  ritualT=0; ritualDone=false; ritualCasters=[]; _ritWaves=[]; _ritRing=null; }
+  ritualT=0; ritualDone=false; ritualCasters=[]; _ritWaves=[]; _ritRing=null; if(typeof disposeHeroAura==='function')disposeHeroAura(); }
 function build(){
   scene=new THREE.Scene();
   if(renderPass) renderPass.scene=scene;   // build() makes a fresh scene each mission — repoint the composer's render pass at it (else it keeps drawing the stale boot scene: black, fog-smothered)
@@ -1292,6 +1292,7 @@ function spawnGame(){
   const rk=(HERO_KIT[heroKind]&&RIGS[HERO_KIT[heroKind].rig])?HERO_KIT[heroKind].rig:(RIGS.queen?'queen':'thoryn');
   riggize(hero, rk);   // the chosen hero (Elf Queen default, or Paladin)
   hero.kit=heroKind; const _k=HERO_KIT[heroKind]||HERO_KIT.queen; hero.aMax=_k.a.cd; hero.spellMax=_k.spell.cd; hero.blinkMax=_k.blink.cd;
+  refreshHeroAura();   // Warden moonlight aura (queen only)
   // muster just outside the base, facing into the map (toward the raider camp)
   const outAng=Math.atan2(enemyBase.x-PBASE.x, enemyBase.z-PBASE.z);
   setP(hero, PBASE.x+Math.sin(outAng)*14, PBASE.z+Math.cos(outAng)*14);
@@ -1404,12 +1405,13 @@ function blinkPop(x,z){ const g=new THREE.Mesh(new THREE.SphereGeometry(1.6,12,1
 function blink(){ if(!hero||!hero.alive||hero.blinkCd>0||gameOver)return; hero.blinkCd=7;
   const a=hero.face; let bx=hero.px, bz=hero.pz;                              // teleport forward, clamped to stay on the island
   for(let s=17;s>=3;s-=1.5){ const nx=hero.px+Math.sin(a)*s, nz=hero.pz+Math.cos(a)*s; if(onIsland(nx,nz)){ bx=nx; bz=nz; break; } }
-  blinkPop(hero.px,hero.pz); setP(hero,bx,bz); blinkPop(bx,bz); addShake(0.4); sfx('blink'); }
+  blinkImplode(hero.px,hero.pz); setP(hero,bx,bz); blinkExplode(bx,bz); addShake(0.4); sfx('blink'); }
 function fanOfKnives(){ if(!hero||!hero.alive||hero.aCd>0||gameOver)return; hero.aCd=6;                 // instant AoE glaive nova
   if(hero.rigged){ hero.__atkClip=pickAtkClip(hero); hero.__atkT=0.5; }
   const R=15; for(const e of enemies){ if(!e.alive)continue; if(Math.hypot(e.px-hero.px,e.pz-hero.pz)<R) damage(e,44,true); }
-  const N=16; for(let i=0;i<N;i++){ const a=i/N*6.28; bladeSpin(hero.px,hero.pz, hero.px+Math.sin(a)*R, hero.pz+Math.cos(a)*R, 0xbfe9ff, 0.34); }
-  shockwave(hero.px,hero.pz,0xcdeeff,15); addShake(1.5); sfx('nova'); }
+  const N=18; for(let i=0;i<N;i++){ const a=i/N*6.28; bladeSpin(hero.px,hero.pz, hero.px+Math.sin(a)*R, hero.pz+Math.cos(a)*R, 0xbfe9ff, 0.34); }
+  runeRingFlash(hero.px,hero.pz,0x9fe8ff,R); shockwave(hero.px,hero.pz,0xcdeeff,15);
+  puff(hero.px,topY(hero.px,hero.pz)+2.2,hero.pz,0xdffbff,1.5,0.85); addShake(1.5); sfx('nova'); }
 function shadowStrike(en){ if(!hero||!hero.alive||hero.spellCd>0||!en||!en.alive)return false;
   if(Math.hypot(en.px-hero.px,en.pz-hero.pz)>ABIL_RANGE)return false;   // must be within cast range of the hero
   hero.spellCd=8; spellArmed=false;   // poisoned glaive: burst + DoT
@@ -1454,6 +1456,44 @@ function tickHolyGrounds(dt){ for(let i=holyGrounds.length-1;i>=0;i--){ const g=
     if(g.next<=0){ g.next=0.5; for(const e of enemies){ if(e.alive&&Math.hypot(e.px-g.x,e.pz-g.z)<g.r) damage(e,7,false); } }
     if(g.ring){ g.ring.material.opacity=0.14+0.24*Math.max(0,g.t/3.5)+0.08*Math.sin(g.t*8); g.ring.rotation.z+=dt*0.7; }
     if(g.t<=0){ if(g.ring)scene.remove(g.ring); holyGrounds.splice(i,1); } } }
+// ---------- Warden passive: Moonlight aura (code-driven, follows the hero) ----------
+// rune ring + counter-spun inner ring + soft ground glow + pulsing dome + rising moon motes.
+let heroAura=null;
+function auraRing(inner,outer,col,op){ const m=new THREE.Mesh(new THREE.RingGeometry(inner,outer,48),
+  new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:op,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending})); m.rotation.x=-Math.PI/2; return m; }
+function makeHeroAura(){ disposeHeroAura(); cvTex(); const grp=new THREE.Group(); scene.add(grp);
+  const glow=new THREE.Mesh(new THREE.CircleGeometry(3.0,48), new THREE.MeshBasicMaterial({color:0x4fd8ff,transparent:true,opacity:0.12,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending})); glow.rotation.x=-Math.PI/2; grp.add(glow);
+  const outer=auraRing(2.55,2.95,0x6fe0ff,0.55), inner=auraRing(1.7,1.9,0x9a6bff,0.5); grp.add(outer,inner);
+  const dome=new THREE.Mesh(new THREE.SphereGeometry(2.4,20,12), new THREE.MeshBasicMaterial({color:0x5fe0ff,transparent:true,opacity:0.06,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending})); dome.position.y=2.0; grp.add(dome);
+  const motes=[]; for(let i=0;i<9;i++){ const s=new THREE.Sprite(new THREE.SpriteMaterial({map:CV_GLOW,color:0x9ff2ff,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,opacity:0})); s.frustumCulled=false; grp.add(s); motes.push({s,a:i/9*6.28,rad:1.4+(i%3)*0.5,ph:i/9}); }
+  heroAura={grp,outer,inner,glow,dome,motes,t:0}; return heroAura; }
+function disposeHeroAura(){ if(!heroAura)return; scene.remove(heroAura.grp);
+  heroAura.grp.traverse(o=>{ if(o.material&&o.material.dispose)o.material.dispose(); if(o.geometry&&o.geometry.dispose)o.geometry.dispose(); }); heroAura=null; }
+function refreshHeroAura(){ if(heroKind==='queen' && hero && hero.alive){ if(!heroAura)makeHeroAura(); } else disposeHeroAura(); }
+function updateHeroAura(dt){ if(!heroAura)return; const a=heroAura;
+  if(!hero||!hero.alive){ a.grp.visible=false; return; } a.grp.visible=true; a.t+=dt;
+  a.grp.position.set(hero.px, topY(hero.px,hero.pz)+0.06, hero.pz);
+  a.outer.rotation.z+=dt*0.5; a.inner.rotation.z-=dt*0.8;
+  const ds=1+0.05*Math.sin(a.t*2.0); a.dome.scale.set(ds,ds*0.92,ds); a.dome.material.opacity=0.05+0.03*Math.sin(a.t*2.4);
+  a.glow.material.opacity=0.10+0.04*Math.sin(a.t*1.7);
+  for(const m of a.motes){ const t=(a.t*0.25+m.ph)%1, s=Math.max(0.01,1-t);
+    m.s.position.set(Math.cos(m.a+t*0.8)*m.rad, 0.1+t*3.4, Math.sin(m.a+t*0.8)*m.rad);
+    m.s.scale.setScalar(0.5*s+0.15); m.s.material.opacity=0.9*Math.sin(Math.min(1,t)*Math.PI); } }
+// expanding ground rune-ring flash (Fan of Knives cast)
+function runeRingFlash(x,z,col,maxR){ const r=new THREE.Mesh(new THREE.RingGeometry(2.4,3.0,48),
+  new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.9,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending}));
+  r.rotation.x=-Math.PI/2; r.position.set(x,topY(x,z)+0.12,z); r.scale.set(0.1,0.1,1); scene.add(r);
+  const target=maxR/3.0; let t=0;(function an(){ t+=0.06; const s=0.1+(target-0.1)*Math.min(1,t/0.6); r.scale.set(s,s,1); r.material.opacity=Math.max(0,0.9-t*1.0); if(t<0.9)requestAnimationFrame(an); else scene.remove(r); })(); }
+// Blink: violet shards implode at the origin, explode at the destination
+function blinkImplode(x,z){ const y=topY(x,z)+2.0, geo=new THREE.OctahedronGeometry(0.5,0);
+  for(let i=0;i<10;i++){ const a=i/10*6.28, m=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:0x9a5cff,transparent:true,opacity:0.9,blending:THREE.AdditiveBlending,depthWrite:false})); scene.add(m); let t=0;
+    (function an(){ t+=0.10; const k=Math.min(1,t), r=2.8*(1-k)+0.2; m.position.set(x+Math.cos(a)*r,y+(1-k)*1.4,z+Math.sin(a)*r); m.scale.setScalar(Math.max(0.01,k*0.9)); m.material.opacity=0.9*k; if(t<1)requestAnimationFrame(an); else scene.remove(m); })(); }
+  const f=new THREE.Mesh(new THREE.SphereGeometry(1.8,14,10),new THREE.MeshBasicMaterial({color:0xb98cff,transparent:true,opacity:0.6,blending:THREE.AdditiveBlending,depthWrite:false})); f.position.set(x,y,z); scene.add(f); let t=0;(function an(){t+=0.1;f.scale.setScalar(Math.max(0.01,1-t));f.material.opacity=Math.max(0,0.6*(1-t));if(t<1)requestAnimationFrame(an);else scene.remove(f);})(); pingRing(x,z,0x9a5cff); }
+function blinkExplode(x,z){ const y=topY(x,z)+2.0, geo=new THREE.OctahedronGeometry(0.5,0);
+  for(let i=0;i<12;i++){ const a=i/12*6.28, m=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:0xb07cff,transparent:true,opacity:0.95,blending:THREE.AdditiveBlending,depthWrite:false})); scene.add(m); let t=0;
+    (function an(){ t+=0.07; const k=Math.min(1,t), r=0.3+k*3.4; m.position.set(x+Math.cos(a)*r,y+k*1.6,z+Math.sin(a)*r); m.scale.setScalar(Math.max(0.01,(1-k)*0.9)); m.material.opacity=Math.max(0,0.95-k); if(t<1)requestAnimationFrame(an); else scene.remove(m); })(); }
+  const f=new THREE.Mesh(new THREE.SphereGeometry(1.4,14,10),new THREE.MeshBasicMaterial({color:0xd8b8ff,transparent:true,opacity:0.9,blending:THREE.AdditiveBlending,depthWrite:false})); f.position.set(x,y,z); scene.add(f); let t=0;(function an(){t+=0.09;f.scale.setScalar(1+t*3.2);f.material.opacity=Math.max(0,0.9-t*1.2);if(t<0.9)requestAnimationFrame(an);else scene.remove(f);})();
+  shockwave(x,z,0x9a5cff,7); }
 // apply the active hero's kit to the three ability buttons (icon/label) + per-slot cooldown maxes
 function applyHeroKit(){ const k=HERO_KIT[heroKind]||HERO_KIT.queen; if(hero)hero.kit=heroKind;
   if(hero){ hero.aMax=k.a.cd; hero.spellMax=k.spell.cd; hero.blinkMax=k.blink.cd; }
@@ -1462,7 +1502,7 @@ function applyHeroKit(){ const k=HERO_KIT[heroKind]||HERO_KIT.queen; if(hero)her
 function pickHero(kind){ if(!HERO_KIT[kind])kind='queen'; heroKind=kind; try{localStorage.setItem('wc_hero',kind);}catch(_){}
   if(hero){ const rk=RIGS[HERO_KIT[kind].rig]?HERO_KIT[kind].rig:'queen'; riggize(hero,rk); hero.hp=hero.max; hero.__atkT=0; hero.__invuln=0; hero.animState='idle';
     if(camLocked){ camAim.x=hero.px; camAim.z=hero.pz; } }
-  applyHeroKit(); if(heroSelEl)heroSelEl.style.display='none'; started=true; refreshRadial();
+  applyHeroKit(); refreshHeroAura(); if(heroSelEl)heroSelEl.style.display='none'; started=true; refreshRadial();
   initAudio(); resumeAudio(); startMusic(); sfx('build'); }
 // ===== Campaign / Skirmish (see docs/CAMPAIGN.md, docs/LORE.md) =====
 // Skirmish = the current free-play; Campaign = linear missions on hand-authored maps.
@@ -2002,8 +2042,11 @@ function updateGame(dt){
     tickHolyGrounds(dt);                                                                // Consecration blessed ground
     const FO=foes();   // enemy units + attackable enemy structures (core/buildings) — the player's valid targets
     if(hero.alive && autoBolt && hero.spellCd<=0 && enemies.length){ const t=nearestEnemyTo(hero.px,hero.pz,26); if(t) shadowStrike(t); }   // AUTO = auto Shadow Strike nearest visible foe
-    for(const e of enemies){ if(!e.alive||!e.poison)continue; e.poison.t-=dt; e.__pt-=dt;   // Shadow Strike poison DoT
-      if(e.__pt<=0){ e.__pt=0.5; damage(e, e.poison.dps*0.5, false); if(isVisible(e.px,e.pz)) puff(e.px+rr(-0.6,0.6),topY(e.px,e.pz)+2+rr(0,1.4),e.pz+rr(-0.6,0.6),0x8ef07a,0.5,0.5); }
+    for(const e of enemies){ if(!e.alive||!e.poison)continue; e.poison.t-=dt; e.__pt-=dt;   // Shadow Strike poison DoT — lingering green wisp
+      if(e.__pt<=0){ e.__pt=0.32; damage(e, e.poison.dps*0.32, false);
+        if(isVisible(e.px,e.pz)){ const y=topY(e.px,e.pz)+2.2, ph=(e.__pw=(e.__pw||0)+0.8);   // orbiting wisp + rising drip
+          puff(e.px+Math.cos(ph)*0.9, y+Math.sin(ph*1.7)*0.5, e.pz+Math.sin(ph)*0.9, 0x8ef07a,0.42,0.6);
+          puff(e.px+rr(-0.4,0.4), y+0.6+rr(0,0.8), e.pz+rr(-0.4,0.4), 0x5ad06a,0.28,0.4); } }
       if(e.poison.t<=0)e.poison=null; }
     if(hero.alive){ const {t,d}=nearest(hero.px,hero.pz,FO); heroHitTarget=(t&&d<=hero.range+(t.big||0)+1)?t:null; heroCanHit=!!heroHitTarget;
       if(heroHitTarget){ if(hero.rigged&&hero.cd<=0){ hero.__atkClip=pickAtkClip(hero); hero.__atkT=0.55; } attack(hero,heroHitTarget); } }
@@ -2391,7 +2434,7 @@ async function boot(){
   let last=performance.now();
   (function loop(){ requestAnimationFrame(loop);
     const now=performance.now(); let dt=(now-last)/1000; last=now; if(dt>0.05)dt=0.05;
-    updateGame(dt); followCam(dt); repositionRadial(); updateFires(dt); updateAtmos(dt);
+    updateGame(dt); followCam(dt); repositionRadial(); updateFires(dt); updateHeroAura(dt); updateAtmos(dt);
     if(++miniAcc%4===0){ drawMini(); updateSelPanel(); }   // ~15fps minimap + selection-card refresh
     if(miniAcc%6===0) updateFog();   // ~10fps fog recompute
     composer.render();
