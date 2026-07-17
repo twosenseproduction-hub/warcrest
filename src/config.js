@@ -51,6 +51,16 @@
     maxSupplyCap:    80,
     passiveTrickle:  0.0,
 
+    // ---- Global pacing -----------------------------------------------------
+    // Multipliers on how long things take (>1 = slower). Raise to stretch the
+    // match out so structures and units don't all pop at once; lower to speed
+    // it up. Applied at the two chokepoints: building construction (makeBuilding)
+    // and unit training (baseTrain). Creator mode still finishes instantly.
+    pace: {
+      build: 1.6,   // structure construction time ×
+      train: 1.5,   // unit training time ×
+    },
+
     mineAmounts: {
       starting:    12500,
       expansion:   5000,
