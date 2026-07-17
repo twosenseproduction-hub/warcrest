@@ -62,6 +62,7 @@ from the Deepvein. Clearing a camp should always unlock a **power spike**.
 | **Wild pack** | Sapphire Shores | fast melee chaff | frees an **ironstone mine** to claim |
 | **Bog-lurkers** | fords / the Reach shallows | ranged spitters | frees a **lumber grove** |
 | **Ridge sentinels** | Rimwall cliffs | one tanky elite | a **neutral Tower** to garrison |
+| **Risen barrow** (live: skirmish flanks) | Sapphire Shores, along the veins | Risen Warriors/Bowmen + a Bonecaster; a **Barrow King** elite camp | gold bounty (the first playable taste of the Deepvein dead) |
 | **Ash-touched** (Act III+) | near the Deepvein | corrupted, harder, "wrong" | ironstone cache + a story beat |
 
 **Neutral objectives (contest, don't raze):** ironstone-shrine buff, mercenary camp
@@ -164,10 +165,17 @@ The descent. Iron Crown, Horde, and Rimwalker fight together under the Shores.
 
 > Design note: the Deepvein dead are the antagonist force — the **undead** the
 > earlier design work explored (raise-from-corpses "Harvest" economy, a Barrow-King-
-> style leader). For the campaign they can start as creep-tier risen (cheap art:
-> reskinned/desaturated units + a few new pieces) and grow into a full roster if the
-> undead later become a **playable faction**. The reveal — that they raise *your own
-> fallen* — is the payoff of every corpse the war left on the Floor.
+> style leader). For the campaign they can start as creep-tier risen and grow into a
+> full roster if the undead later become a **playable faction**. The reveal — that they
+> raise *your own fallen* — is the payoff of every corpse the war left on the Floor.
+>
+> **Implemented (creep tier).** The full Bitgem undead roster now ships as game-ready
+> rigs — Risen Thrall / Warrior / Grave Stalker / Risen Bowman / Bonecaster, led by the
+> **Barrow King** elite — with cold necrotic eye-lights and soul-fire on the casters.
+> They appear as neutral creep camps on the flanks of the Sapphire Shores skirmish map
+> (the dead crawl up the ironstone veins along the Reach), and as the escalating waves
+> of the Act II "Sealing Rite" (`a2m1`), climaxing with the Barrow King. Deployment as a
+> full playable/enemy faction — hero, buildings, Harvest economy — is the next step.
 
 ---
 
