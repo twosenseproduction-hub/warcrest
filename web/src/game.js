@@ -367,7 +367,7 @@ const CAT={
   defense:{ label:'Tower',      model:'tower',   H:[8,9.5,11],    cost:[60,100,160], dmg:[18,32,52], range:[22,26,30], rof:[1.15,0.95,0.8] },
 };
 // WC3-style supply: the Throne seeds a base cap, each House raises it; units cost supply and gate training
-const BASE_SUPPLY=12, UNIT_SUP={warrior:3,archer:2,cleric:3,grunt:2,shaman:3,drake:6};
+const BASE_SUPPLY=12, UNIT_SUP={warrior:3,archer:2,cleric:3,assassin:2,grunt:2,shaman:3,drake:6};
 let supplyCap=BASE_SUPPLY, supplyUsed=0;
 // ===== Central combat balance table — every spawn path (player train, enemy AI, waves,
 // starting warband) reads its base stats from here, so tuning one number tunes the whole
@@ -378,6 +378,7 @@ const UBAL={
   warrior:{hp:130, dmg:14, range:3.5, atk:1.0},   // frontline: tanky, ~14 dps
   archer: {hp:64,  dmg:12, range:9,   atk:1.2},   // ranged glass cannon, ~10 dps
   cleric: {hp:62,  dmg:7,  range:7,   atk:1.3},   // support/heal, light dmg
+  assassin:{hp:80, dmg:19, range:3.3, atk:0.72},  // fast melee flanker: high burst, fragile
   grunt:  {hp:92,  dmg:11, range:3.4, atk:1.0},   // enemy cheap chaff, ~11 dps
   shaman: {hp:60,  dmg:13, range:10,  atk:1.7},   // enemy caster, long-range magic
   drake:  {hp:520, dmg:34, range:5,   atk:1.1},   // elite winged bruiser — expensive, tanky, hits hard
@@ -385,11 +386,30 @@ const UBAL={
 const HERO_STAT={hp:320, dmg:22, range:3.6, atk:0.55, spd:19};   // heroes feel powerful but killable
 const BOSS_STAT={hp:900, dmg:30, range:4.6, atk:1.2,  spd:11};   // chieftain: army-buster, abilities carry threat
 const ALLY_SPD=15, ENEMY_SPD=12;
+// ---- hero progression ----
+const HERO_MAX_LVL=10;                                      // both commanders can climb to Lv 10
+const XP_BASE=90, XP_GROW=1.45;                             // XP to reach the next level grows each rank
+const ABIL_UNLOCK={a:1, spell:3, blink:5};                  // hero ability slots unlock as the hero levels (basic → mid → utility)
+function abilLevelOk(slot){ return !!hero && (hero.level||1) >= (ABIL_UNLOCK[slot]||1); }
+function abilLocked(slot){ if(abilLevelOk(slot))return false;   // gate + brief feedback when a still-locked ability is tapped
+  if(hero){ try{ popDmg(hero.px, topY(hero.px,hero.pz)+4, hero.pz, 'Unlocks at Lv '+(ABIL_UNLOCK[slot]||1), 'heal'); }catch(_){} } try{ sfx('ui'); }catch(_){} return true; }
+function xpToNext(lvl){ return Math.round(XP_BASE*Math.pow(XP_GROW, lvl-1)); }
+function xpFor(e){ return Math.max(8, Math.round((e&&e.max||30)*0.14)); }   // kill worth ≈ 14% of the victim's HP (a boss/hero is a big chunk)
+// per-level stat gains, applied off the stored base so they never compound
+function applyHeroLevel(h){ if(!h||!h.baseHp)return; const m=h.level-1;
+  h.max=Math.round(h.baseHp*(1+0.12*m)); h.dmg=Math.round(h.baseDmg*(1+0.10*m)); }
+function heroLevelUp(h){ h.level=Math.min(HERO_MAX_LVL,(h.level||1)+1); applyHeroLevel(h); h.hp=h.max;   // a level-up fully heals
+  if(typeof levelFx==='function') levelFx(h);
+  if(h===hero){ for(const s in ABIL_UNLOCK){ if(ABIL_UNLOCK[s]===h.level){ const k=HERO_KIT[h.kit]||HERO_KIT.queen; const cap=(k[s]&&k[s].cap)||'Ability';
+    try{ popDmg(h.px, topY(h.px,h.pz)+5.2, h.pz, cap+' unlocked!', 'heal'); }catch(_){} } } } }
+function grantXp(h, amt){ if(!h||!h.alive||(h.level||1)>=HERO_MAX_LVL)return; h.xp=(h.xp||0)+amt;
+  while((h.level||1)<HERO_MAX_LVL && h.xp>=xpToNext(h.level||1)){ h.xp-=xpToNext(h.level||1); heroLevelUp(h); } }
 // per-Barracks train catalogue (min barracks level = tech gate; foundation for the tech tree)
 const TRAIN=[
   {kind:'warrior', rig:'warrior',  icon:'warrior', label:'Warrior',   gold:65, sup:3, dur:7,  minLvl:1},
   {kind:'archer',  rig:'archer',   icon:'archer',  label:'Archer',    gold:55, sup:2, dur:6,  minLvl:1},
   {kind:'cleric',  rig:'priestess',icon:'cleric',  label:'Priestess', gold:95, sup:3, dur:10, minLvl:2},
+  {kind:'assassin',rig:'assassin', icon:'sword',   label:'Assassin',  gold:80, sup:2, dur:8,  minLvl:2},
   // Drake shelved for now — earmarked as the RIMWALKER flying unit (to be renamed). See docs/CAMPAIGN.md roster gaps.
 ];
 const CORE_H=[9,10.5,12], CORE_HP=[1600,2400,3400], CORE_UP=[0,300,480];
@@ -504,6 +524,14 @@ const CREEP={
   moltenwisp:  {hp:90,  dmg:18, range:10,  atk:1.5, spd:13, rad:1.4, ranged:true, magic:true, name:'Molten Wisp'},
   wyveling:    {hp:210, dmg:22, range:5,   atk:1.1, spd:16, rad:1.8,           name:'Wyveling'},
   revenant:    {hp:680, dmg:40, range:4.4, atk:1.4, spd:9,  rad:2.8, big:3.2, name:'Stone Revenant'},
+  // The Deepvein dead — the risen ("ash-touched") that crawl up the ironstone veins near the Reach.
+  // The true campaign antagonist, seeded here as neutral creeps guarding the flanks of the Floor.
+  uworker:  {hp:75,  dmg:10, range:3.0, atk:1.2, spd:11, rad:1.3,           name:'Risen Thrall'},
+  uwarrior: {hp:170, dmg:20, range:3.4, atk:1.1, spd:11, rad:1.6,           name:'Risen Warrior'},
+  uassassin:{hp:115, dmg:23, range:3.2, atk:0.8, spd:16, rad:1.4,           name:'Grave Stalker'},
+  uarcher:  {hp:90,  dmg:16, range:10,  atk:1.4, spd:12, rad:1.4, ranged:true,             name:'Risen Bowman'},
+  umage:    {hp:105, dmg:21, range:11,  atk:1.7, spd:10, rad:1.5, ranged:true, magic:true, name:'Bonecaster'},
+  uking:    {hp:560, dmg:38, range:3.8, atk:1.3, spd:9,  rad:2.4, big:2.6,  name:'Barrow King'},
 };
 function mkCreep(kind,camp,home){ const b=CREEP[kind]||CREEP.cinderhound;
   const e=mkFighter(0x8a7d5a,1.0,'enemy',{hp:b.hp,dmg:b.dmg,range:b.range,atkEvery:b.atk,spd:b.spd});
@@ -531,6 +559,13 @@ const CREEP_VFX={
   wyveling:   {eyes:{color:0xff5a1e,size:0.05,sep:0.1,up:0.1,fwd:0.36}},
   moltenwisp: {baseglow:{color:0x9dff4a,size:0.4}, ash:{count:14,color:0x8f8f92,ember:0x9dff4a,life:1.7,fall:0.55,spread:0.16}},
   revenant:   {eyes:{color:0x9dff4a,size:0.045,sep:0.09,up:0.13,fwd:0.13}, flame:{color:0x62ff20,core:0xe8ff96,count:12,life:0.5,rise:0.5}, smoke:{color:0x8f8f96,count:6,life:2.0,rise:0.7,anchors:[[0,1.08,0],[0.14,1.03,-0.05],[-0.14,1.03,-0.05]]}, crystals:{color:0x9dff4a,count:2}},
+  // Deepvein dead — cold necrotic eye-lights; casters/king wreathed in soul-fire
+  uworker:  {eyes:{color:0x8dffb0,size:0.04, sep:0.07,up:0.10,fwd:0.13}},
+  uwarrior: {eyes:{color:0x8dffb0,size:0.045,sep:0.08,up:0.10,fwd:0.13}},
+  uassassin:{eyes:{color:0x8dffb0,size:0.045,sep:0.08,up:0.10,fwd:0.14}},
+  uarcher:  {eyes:{color:0x8dffb0,size:0.045,sep:0.08,up:0.10,fwd:0.14}},
+  umage:    {eyes:{color:0x9dff6a,size:0.05, sep:0.08,up:0.10,fwd:0.13}, flame:{color:0x62ff20,core:0xe8ff96,count:10,life:0.5,rise:0.5}},
+  uking:    {eyes:{color:0x9dff6a,size:0.05, sep:0.09,up:0.11,fwd:0.13}, flame:{color:0x62ff20,core:0xe8ff96,count:12,life:0.55,rise:0.5}, smoke:{color:0x8f8f96,count:5,life:2.2,rise:0.6,anchors:[[0.28,0.6,0],[-0.28,0.6,0]]}},
 };
 function makeCreepVfx(e,key){ const cfg=CREEP_VFX[key]; if(!cfg)return null; cvTex();
   const H=CHAR_H[key]||4, hw=H*0.3, dz=H*0.28, parts=[];
@@ -905,7 +940,12 @@ let RITUAL=null, ritualT=0, ritualDone=false, ritualCasters=[], _ritWaves=[], _r
 const LEVELS={
   skirmish:{ seas:[{cx:80,cz:-82,r:60},{cx:-80,cz:82,r:60},{cx:22,cz:-30,r:24},{cx:-22,cz:30,r:24}],
     paths:[[[105,108],[60,60],[6,6],[-52,-52],[-105,-108]]], flats:[{x:105,z:108,r:50,y:0.4},{x:-105,z:-108,r:50,y:0.4}],
-    pbase:{x:105,z:108}, ebase:{x:-105,z:-108}, plots:PLOTDEF_DEFAULT, raiders:{type:'base'}, start:['warrior','archer'], creeps:[], gold:180 },
+    pbase:{x:105,z:108}, ebase:{x:-105,z:-108}, plots:PLOTDEF_DEFAULT, raiders:{type:'base'}, start:['warrior','archer'], gold:180,
+    // The Deepvein dead crawl up the ironstone veins along the Reach — risen camps on the flanks of
+    // the SE→NW lane, away from both keeps. Clear them for bounty; leave them and they hold the sides.
+    creeps:[{name:'Cairn of the Risen', bounty:90,  at:[58,20],  roster:['uwarrior','uwarrior','uarcher']},
+            {name:'Ashen Barrow',       bounty:120, at:[-58,-20],roster:['uwarrior','uassassin','umage']},
+            {name:'The Barrow King',    bounty:230, at:[18,62],  roster:['uking','uwarrior','uworker']}] },
   // ---- Tutorial 1: The Survey Road — a winding land corridor over the frozen sea ----
   a1m1:{ shape:'road', roadW:28, seas:[],
     paths:[[[108,96],[70,48],[24,10],[-30,-34],[-78,-84],[-112,-112]],
@@ -941,12 +981,13 @@ const LEVELS={
     pbld:'human_', units:{warrior:'hfootman',archer:'harcher',cleric:'hmage'},
     start:['warrior','warrior','archer'], gold:340,
     ritual:{ duration:150, casters:2, spawnR:70,
-      waves:[ {at:6,  s:[['cinderhound',3]]},
-              {at:28, s:[['cinderhound',3],['emberspitter',1]]},
-              {at:52, s:[['cinderhound',3],['moltenwisp',2]]},
-              {at:78, s:[['direboar',1],['cinderhound',3]]},
-              {at:104,s:[['revenant',1],['cinderhound',2],['moltenwisp',2]]},
-              {at:130,s:[['cinderhound',4],['emberspitter',2],['direboar',1]]} ] } },
+      // the Unveiled rise in escalating waves as the seal weakens, culminating in the Barrow King
+      waves:[ {at:6,  s:[['uworker',3],['uwarrior',1]]},
+              {at:28, s:[['uwarrior',3],['uarcher',1]]},
+              {at:52, s:[['uwarrior',2],['umage',2]]},
+              {at:78, s:[['uassassin',2],['uwarrior',3]]},
+              {at:104,s:[['uking',1],['uwarrior',2],['umage',2]]},
+              {at:130,s:[['uwarrior',4],['uarcher',2],['uassassin',2]] } ] } },
 };
 function applyLevel(id){ const L=LEVELS[id]||LEVELS.skirmish; LVID=id in LEVELS?id:'skirmish';
   MAPSHAPE=L.shape||'island'; ROAD_W=L.roadW||32; ARENA_R=L.arenaR||72; RITUAL=L.ritual||null;
@@ -955,9 +996,9 @@ function applyLevel(id){ const L=LEVELS[id]||LEVELS.skirmish; LVID=id in LEVELS?
   BLDPFX=L.pbld||''; URIG=L.units||{warrior:'warrior',archer:'archer',cleric:'priestess'}; }
 function resetWorld(){ allies=[]; enemies=[]; eStructs=[]; ePlots=[]; plots=[]; creepCamps=[]; fires=[];
   coreB=null; enemyCore=null; gold=LVGOLD; wood=0; incomeRate=1; woodRate=0; eGold=130; eWood=0; eIncome=1; eWoodRate=0;
-  spawnLeft=0; spawnN=0; killed=0; gameOver=0; if(typeof selected!=='undefined')selected.clear(); camAim.init=false; hero=null;
+  spawnLeft=0; spawnN=0; killed=0; gameOver=0; if(typeof selected!=='undefined')selected.clear(); camAim.init=false; hero=null; enemyBoss=null;
   if(typeof orderMarkers!=='undefined')orderMarkers.length=0; if(typeof holyGrounds!=='undefined')holyGrounds.length=0;
-  ritualT=0; ritualDone=false; ritualCasters=[]; _ritWaves=[]; _ritRing=null; }
+  ritualT=0; ritualDone=false; ritualCasters=[]; _ritWaves=[]; _ritRing=null; if(typeof disposeHeroAura==='function')disposeHeroAura(); }
 function build(){
   scene=new THREE.Scene();
   if(renderPass) renderPass.scene=scene;   // build() makes a fresh scene each mission — repoint the composer's render pass at it (else it keeps drawing the stale boot scene: black, fog-smothered)
@@ -965,7 +1006,7 @@ function build(){
   scene.fog=new THREE.Fog(0x3f9fd6, 520, 1050);   // pushed out for the bigger map
 
   // lights — WC3-Reforged style: warm key sun, cool sky fill, cool back-rim for separation
-  scene.add(new THREE.HemisphereLight(0xbfe0ff,0x2c4a36,0.42));   // cooler sky, deeper green ground bounce
+  scene.add(new THREE.HemisphereLight(0xcfe8ff,0x3e5c46,0.62));   // brighter sky fill + lifted ground bounce (was 0.42 — cleaner daylit look, less dim-CRT)
   const dir=new THREE.DirectionalLight(0xffe6bc,1.28);            // stronger, warmer key sun
   dir.position.copy(sun.clone().multiplyScalar(120)); dir.castShadow=true;
   dir.shadow.mapSize.set(2048,2048);   // higher-res + softer shadows read more cinematic
@@ -1069,8 +1110,9 @@ function build(){
 // ================= GAMEPLAY: control-direction test =================
 // Pilot the hero (joystick / WASD); the squad auto-follows & auto-fights;
 // tap the ground to rally them; STOMP button = warstomp. Survive the wave.
-let hero=null, allies=[], enemies=[];
+let hero=null, allies=[], enemies=[], enemyBoss=null;   // enemyBoss: the raider chieftain — the opposing commander (revives like the player hero)
 let rallyPoint=null, rallyMarker=null, gameOver=0, spawnLeft=0, spawnTimer=1.5, killed=0;   // warband now produced by the enemy AI, not a fixed pool
+const ENEMY_RESPAWN=14;   // the raider chieftain returns to the field after this many seconds
 let heroFwd={x:0,z:1};
 // loose-leash follow: units idle in your vicinity, only surge to re-form once
 // you've walked past FOLLOW_OUT, and settle again within FOLLOW_IN of their slot.
@@ -1082,7 +1124,7 @@ let spellArmed=false, autoBolt=false, orderMarkers=[], boltEl, autoEl, smiteArme
 let hitEl=null, heroCanHit=false, heroHitTarget=null;   // Wild-Rift attack button: active only when a foe is in the hero's reach
 let abilHandEl=null, cmdStripEl=null;                   // thumb-cluster no-command zones (taps here never issue a ground order)
 let keys={}, joy={active:false,nx:0,ny:0,id:null,sx:0,sy:0};
-let heroHpEl, waveEl, resultEl, abilEl, joyBase, joyKnob, supEl, woodEl, viewPop=null;
+let heroHpEl, heroLvEl, heroXpEl, waveEl, resultEl, abilEl, joyBase, joyKnob, supEl, woodEl, viewPop=null;
 const raycaster=new THREE.Raycaster(), groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
 const camF={pitch:52,az:34,dist:66,lookY:4,pos:new THREE.Vector3(),init:false};   // closer default view
 const VIEW_AZS=[34,124,214,304];   // four 90-degree-apart perspectives; the picked one persists as default
@@ -1117,30 +1159,37 @@ function faceTo(e,dx,dz){ if(dx||dz) e.face=Math.atan2(dx,dz); }
 // Each GLB packs the mesh once + all its clips; the clips are authored on the Bitgem
 // skeleton so they play with no retarget. Textures are embedded (palette atlas, UVs
 // pre-flipped) — we just force NearestFilter so swatches sample solid, not the black gaps.
-const RIGS={}, PROPS={}, TEXS={}; const CHAR_H={thoryn:4.8, queen:4.4, paladin:4.4, aelindra:4.4, archer:3.6, priestess:3.8, warrior:3.9, chief:4.9, orcarcher:3.7, orcgrunt:3.7, orcwarrior:4.1, orcshaman:3.7, drake:5.4,
+const RIGS={}, PROPS={}, TEXS={}; const CHAR_H={thoryn:4.8, queen:4.4, paladin:4.4, aelindra:4.4, archer:3.6, priestess:3.8, warrior:3.9, assassin:3.7, chief:4.9, orcarcher:3.7, orcgrunt:3.7, orcwarrior:4.1, orcshaman:3.7, drake:5.4, neaarcher:3.9,
   cinderhound:3.0, direboar:3.4, emberspitter:3.0, ashtreant:6.5, moltenwisp:3.8, wyveling:4.2, revenant:5.6,
-  hfootman:4.0, harcher:3.9, hknight:4.2, hmage:3.9};   // neutral creeps (ash-basin bestiary)
+  hfootman:4.0, harcher:3.9, hknight:4.2, hmage:3.9,
+  uking:4.3, uwarrior:3.9, uassassin:3.7, uarcher:3.9, umage:3.9, uworker:3.6};   // undead roster + neutral creeps (ash-basin bestiary)
 const CREEP_KEYS=['cinderhound','direboar','emberspitter','ashtreant','moltenwisp','wyveling','revenant'];   // Tripo/PBR rigs — flatten to the unlit look like thoryn
+// NB: the Deepvein dead (uworker/uwarrior/uassassin/uarcher/umage/uking) are creeps too — CREEP stats,
+// CREEP_VFX, camp AI — but deliberately NOT in CREEP_KEYS: they're Bitgem humanoids with a non-metallic
+// atlas like the elf/orc units, so they keep their lit materials (flattening would render them flat).
 // hand weapons: each char has a list of props → { prop FBX, hand bone, local transform }
 const WEAPONS={
   queen:    [{file:'glaive_elf_queen', bone:'hand_r', pos:[-6.2,-1.25,-0.1], rot:[Math.PI/2,-1.326,0], scl:1}],
   paladin:  [{file:'hammer_human_paladin', bone:'hand_r', pos:[-8.4,-2.6,0], rot:[Math.PI/2,1.379,0.035], scl:1}],
-  aelindra: [{file:'bow_aelindra', bone:'LeftHand', pos:[0,0,0], rot:[0,0,0], scl:0.013}],
   archer:   [{file:'bow_elf_archer',   bone:'hand_l', pos:[10,-3.55,0], rot:[-2.845,Math.PI/2,-1.518], scl:0.86}],
   priestess:[{file:'magic_ball',       bone:'hand_r', pos:[-10,-10,6.9], rot:[0,0,0], scl:0.52}],
   warrior:  [{file:'sword_elf_warrior', bone:'hand_r', pos:[-10,-2.55,0.3], rot:[Math.PI/2,2.705,Math.PI], scl:0.66},
              {file:'shield_elf_warrior',bone:'hand_l', pos:[7.95,-3.7,0.45], rot:[1.292,3.019,0], scl:0.8}],
+  assassin: [{file:'dagger_elf_assassin', bone:'hand_r', pos:[-10,-2.55,0.3], rot:[Math.PI/2,2.705,Math.PI], scl:0.5}],
   // orc horde (chief/orcarcher/orcgrunt/orcwarrior/orcshaman) now ship their weapons baked into the
   // mesh (great-sword, sword+shield, throwing spear, war-axe) — no separate hand props to attach.
-  hfootman: [{file:'sword_human_footman', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1},
-             {file:'shield_human_footman',bone:'hand_l', pos:[0,0,0], rot:[0,0,0], scl:1}],
-  harcher:  [{file:'bow_human_archer', bone:'hand_l', pos:[0,0,0], rot:[0,0,0], scl:1}],
-  hknight:  [{file:'sword_human_knight', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
-  hmage:    [{file:'staff_human_mage', bone:'hand_r', pos:[0,0,0], rot:[Math.PI/2,0,0], scl:1}],
+  hfootman: [{file:'sword_human_footman', bone:'hand_r', pos:[-10,-2.55,0.3], rot:[Math.PI/2,2.705,Math.PI], scl:0.66},
+             {file:'shield_human_footman',bone:'hand_l', pos:[7.95,-3.7,0.45], rot:[1.292,3.019,0], scl:0.8}],
+  harcher:  [{file:'bow_human_archer', bone:'hand_l', pos:[10,-3.55,0], rot:[-2.845,Math.PI/2,-1.518], scl:0.86}],
+  hknight:  [{file:'sword_human_knight', bone:'hand_r', pos:[-10,-2.55,0.3], rot:[Math.PI/2,2.705,Math.PI], scl:0.66}],
+  hmage:    [{file:'staff_human_mage', bone:'hand_r', pos:[0,0,0], rot:[0,0,0], scl:1}],
 };
-const RIG_SPECS=[['thoryn','thoryn'],['queen','elf_queen'],['paladin','human_paladin'],['aelindra','aelindra'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior'],['chief','orc_chieftain'],['orcarcher','orc_archer'],['orcgrunt','orc_grunt'],['orcwarrior','orc_warrior'],['orcshaman','orc_shaman'],
+const RIG_YAW={neaarcher:Math.PI};   // Blender-built rig faces -Z; spin 180° so it faces +Z like the others
+const RIG_ATTACK={thoryn:'Double_Blade_Spin'};   // per-rig basic-attack clip override (else the rig's own 'attack')
+const RIG_SPECS=[['thoryn','thoryn'],['queen','elf_queen'],['paladin','human_paladin'],['aelindra','aelindra'],['archer','elf_archer'],['priestess','elf_priestess'],['warrior','elf_warrior'],['assassin','elf_assassin'],['neaarcher','nightelf_archer'],['chief','orc_chieftain'],['orcarcher','orc_archer'],['orcgrunt','orc_grunt'],['orcwarrior','orc_warrior'],['orcshaman','orc_shaman'],
   ['cinderhound','cinder_hound'],['direboar','direboar'],['emberspitter','ember_spitter'],['ashtreant','ash_treant'],['moltenwisp','molten_wisp'],['wyveling','wyveling'],['revenant','stone_revenant'],   // neutral creeps
-  ['hfootman','human_footman'],['harcher','human_archer'],['hknight','human_knight'],['hmage','human_mage']];   // Iron Crown units
+  ['hfootman','human_footman'],['harcher','human_archer'],['hknight','human_knight'],['hmage','human_mage'],   // Iron Crown units
+  ['uking','undead_king'],['uwarrior','undead_warrior'],['uassassin','undead_assassin'],['uarcher','undead_archer'],['umage','undead_mage'],['uworker','undead_worker']];   // Undead roster (borrowed elf clips on the shared Bitgem rig)
 // Several FBX (the elf/orc bows AND every elf building) export as SkinnedMesh with a rigid little
 // armature. Cloned with a plain .clone(true) — not SkeletonUtils.clone — the skeleton binding
 // breaks: the renderer skins the mesh in the skeleton's own space, so it renders at ~world origin
@@ -1156,13 +1205,14 @@ function bakeStatic(o){ o.updateMatrixWorld(true); const parts=[]; let hadSkin=f
 const bakeProp=bakeStatic;   // back-compat alias for the weapon-prop loader
 function loadRig(){ return new Promise(res=>{
   const gl=new THREE.GLTFLoader(), fx=new THREE.FBXLoader(), tl=new THREE.TextureLoader();
-  const MDLV='?v=5';   // asset cache-buster — bump on any model/texture change so /assets max-age=86400 doesn't pin a stale rig (index.html revalidates, so a new ?v reaches clients at once)
+  const MDLV='?v=8';   // asset cache-buster — bump on any model/texture change so /assets max-age=86400 doesn't pin a stale rig (index.html revalidates, so a new ?v reaches clients at once)
   const propFiles=[...new Set(Object.values(WEAPONS).flat().map(w=>w.file))];
   let n=0, need=RIG_SPECS.length*2 + propFiles.length; const done=()=>{ if(++n>=need) res(); };   // body GLB + atlas per char, + each prop once
   RIG_SPECS.forEach(([k,f])=>{
     gl.load('/assets/models/'+f+'_anim.glb'+MDLV, g=>{
-      if(k==='thoryn'||k==='drake'||k==='aelindra'||CREEP_KEYS.includes(k)) g.scene.traverse(o=>{ if(o.isMesh&&o.material&&o.material.map){   // Tripo/PBR (metallic) renders black in our unlit look — flatten to Basic like every other unit
-        const t=o.material.map; if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; o.material=new THREE.MeshBasicMaterial({map:t,side:THREE.DoubleSide}); } });
+      if(k==='thoryn'||k==='drake'||k==='aelindra'||CREEP_KEYS.includes(k)) g.scene.traverse(o=>{ if(!o.isMesh||!o.material)return;   // Tripo/PBR (metallic) renders black in our unlit look — flatten to Basic like every other unit
+        const flat=m=>{ const t=m&&m.map; if(!t)return m; if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; return new THREE.MeshBasicMaterial({map:t,side:THREE.DoubleSide}); };
+        o.material = Array.isArray(o.material) ? o.material.map(flat) : flat(o.material); });
       RIGS[k]={scene:g.scene,anims:g.animations}; done(); }, undefined, ()=>done());
     tl.load('/assets/models/'+f+'_tex.png'+MDLV, t=>{ t.flipY=true; t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter; t.generateMipmaps=false; if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; TEXS[k]=t; done(); }, undefined, ()=>done());
   });
@@ -1172,12 +1222,10 @@ function loadRig(){ return new Promise(res=>{
 function makeChar(key,opts){ opts=opts||{}; const src=RIGS[key]; if(!src)return null;
   const inner=THREE.SkeletonUtils.clone(src.scene), outer=new THREE.Group();
   // models natively face +Z; face() sets outer.rotation.y=atan2(dx,dz) so +Z aligns with travel — no extra spin (was Math.PI → moonwalk)
-  inner.rotation.y=0;
+  inner.rotation.y=RIG_YAW[key]||0;   // per-rig facing correction (e.g. Blender-built rigs that export facing -Z)
   inner.traverse(nd=>{ if(nd.isMesh){ nd.frustumCulled=false; nd.castShadow=true; const mm=nd.material;
     if(mm&&mm.map){ mm.map.magFilter=THREE.NearestFilter; mm.map.minFilter=THREE.NearestFilter; mm.map.generateMipmaps=false; mm.map.needsUpdate=true; } } });
   outer.add(inner); outer.updateMatrixWorld(true);
-  const bb=new THREE.Box3().setFromObject(inner); const hh=Math.max(0.001,bb.getSize(new THREE.Vector3()).y);
-  inner.position.y=-bb.min.y; outer.scale.setScalar(CHAR_H[key]/hh);
   const mixer=new THREE.AnimationMixer(inner); const act={};
   // strip .position tracks → play in place. The clips carry huge baked root motion
   // (run ≈ 250u forward), which otherwise slides the body ahead of its game position,
@@ -1194,12 +1242,30 @@ function makeChar(key,opts){ opts=opts||{}; const src=RIGS[key]; if(!src)return 
   // idle/run/attack/block names (as independent actions) so the anim state machine can drive it.
   if(!act.idle && src.anims.length){ const base=src.anims[0];
     ['idle','run','attack','block'].forEach(n=>{ if(!act[n]){ const clip=new THREE.AnimationClip(n, base.duration, base.tracks.filter(t=>!t.name.endsWith('.position'))); act[n]=mixer.clipAction(clip); } }); }
+  if(RIG_ATTACK[key] && act[RIG_ATTACK[key]]) act.attack=act[RIG_ATTACK[key]];   // e.g. Thoryn swings his Double Blade Spin as his basic attack
   if(act.run) act.run.setEffectiveTimeScale(0.8);   // legs cycle a touch slower to match the calmer move speed
   if(act.attack) act.attack.setEffectiveTimeScale(1.4);   // snappier draw-and-release so it reads as a shot
   if(act.idle) act.idle.play();
-  mixer.update(0.3); outer.updateMatrixWorld(true);          // settle idle, then plant feet + centre exactly
-  const b2=new THREE.Box3().setFromObject(inner); const c2=b2.getCenter(new THREE.Vector3());
-  inner.position.y-=b2.min.y/outer.scale.x; inner.position.x-=c2.x/outer.scale.x; inner.position.z-=c2.z/outer.scale.x;
+  // ---- size by the SKELETON, not the geometry ----
+  // What renders is the skinned mesh following the bones. Box3.setFromObject measures the raw,
+  // un-skinned geometry; for several rigs the stored geometry is a different scale than the skeleton
+  // (the 3D-gen heroes ~80× off, orcs & undead ~2×), so geometry-based sizing rendered them far too big.
+  // Bone world positions are deterministic (CPU-posed — no skinning/readback quirks) and track the drawn
+  // body, so scaling to the bone span sizes every rig consistently on every device. MARGIN accounts for
+  // the mesh reaching a little past the outermost bones (scalp above the head bone, soles below the ankle).
+  outer.scale.setScalar(1); mixer.update(0.3); outer.updateMatrixWorld(true);
+  const _bw=new THREE.Vector3(); let ylo=1e30,yhi=-1e30,xlo=1e30,xhi=-1e30,zlo=1e30,zhi=-1e30,nb=0;
+  inner.traverse(o=>{ if(!o.isBone)return; o.getWorldPosition(_bw); if(!isFinite(_bw.x)||!isFinite(_bw.y)||!isFinite(_bw.z))return;
+    nb++; if(_bw.y<ylo)ylo=_bw.y; if(_bw.y>yhi)yhi=_bw.y; if(_bw.x<xlo)xlo=_bw.x; if(_bw.x>xhi)xhi=_bw.x; if(_bw.z<zlo)zlo=_bw.z; if(_bw.z>zhi)zhi=_bw.z; });
+  const MARGIN=1.1;
+  let hh;
+  if(nb>=2 && (yhi-ylo)>1e-4){ hh=(yhi-ylo)*MARGIN; }
+  else { const bb=new THREE.Box3().setFromObject(inner); hh=Math.max(0.001,bb.getSize(new THREE.Vector3()).y); }   // fallback: unrigged prop
+  outer.scale.setScalar(CHAR_H[key]/hh);
+  // plant feet + centre X/Z from the bone extents (same space the size came from). A small foot gap
+  // lifts the ankle bone so the soles land on the ground rather than sinking to the ankle joint.
+  if(nb>=2){ const foot=(yhi-ylo)*0.06; inner.position.set(-(xlo+xhi)*0.5, -ylo+foot, -(zlo+zhi)*0.5); }
+  outer.updateMatrixWorld(true);
   // hand weapons — parent each prop to its hand bone (rides the animation), painted with the char atlas.
   // Some orc rigs ship 5-6 DUPLICATE skeletons (a Character-Studio biped overlaid with a second rig):
   // the clip drives the base-named bone, but the visible arm mesh is skinned to a *different* duplicate
@@ -1262,6 +1328,8 @@ function spawnGame(){
   const rk=(HERO_KIT[heroKind]&&RIGS[HERO_KIT[heroKind].rig])?HERO_KIT[heroKind].rig:(RIGS.queen?'queen':'thoryn');
   riggize(hero, rk);   // the chosen hero (Elf Queen default, or Paladin)
   hero.kit=heroKind; const _k=HERO_KIT[heroKind]||HERO_KIT.queen; hero.aMax=_k.a.cd; hero.spellMax=_k.spell.cd; hero.blinkMax=_k.blink.cd;
+  hero.isHero=true; hero.level=1; hero.xp=0; hero.baseHp=HERO_STAT.hp; hero.baseDmg=HERO_STAT.dmg;   // progression
+  refreshHeroAura();   // Warden moonlight aura (queen only)
   // muster just outside the base, facing into the map (toward the raider camp)
   const outAng=Math.atan2(enemyBase.x-PBASE.x, enemyBase.z-PBASE.z);
   setP(hero, PBASE.x+Math.sin(outAng)*14, PBASE.z+Math.cos(outAng)*14);
@@ -1274,6 +1342,7 @@ function spawnGame(){
   if(RAIDERS.type==='base'){
     const boss=mkFighter(C.enemyRed,1.6,'enemy',{hp:BOSS_STAT.hp,dmg:BOSS_STAT.dmg,range:BOSS_STAT.range,atkEvery:BOSS_STAT.atk,spd:BOSS_STAT.spd});
     boss.rad=2.8; boss.max=BOSS_STAT.hp; boss.isBoss=true; boss.hurlCd=4; boss.slamCd=7; boss.roarCd=10; riggize(boss,'chief'); setP(boss,enemyBase.x+8,enemyBase.z+8); enemies.push(boss);
+    boss.isHero=true; boss.level=1; boss.xp=0; boss.baseHp=BOSS_STAT.hp; boss.baseDmg=BOSS_STAT.dmg; boss.respawnT=0; enemyBoss=boss;   // the raider chieftain is the enemy commander — levels & revives
     for(const rig of ['orcgrunt','orcarcher']){ const e=mkOrc(rig); setP(e,enemyBase.x+rr(2,10),enemyBase.z+rr(2,10)); enemies.push(e); }
   } else if(RAIDERS.type==='camp'){   // tutorial raider camp: static guards defending a lone throne (razing it wins)
     (RAIDERS.guards||['orcgrunt','orcgrunt']).forEach((rig,i)=>{ const e=mkOrc(rig); const a=i/Math.max(1,(RAIDERS.guards||[]).length)*6.28;
@@ -1374,12 +1443,13 @@ function blinkPop(x,z){ const g=new THREE.Mesh(new THREE.SphereGeometry(1.6,12,1
 function blink(){ if(!hero||!hero.alive||hero.blinkCd>0||gameOver)return; hero.blinkCd=7;
   const a=hero.face; let bx=hero.px, bz=hero.pz;                              // teleport forward, clamped to stay on the island
   for(let s=17;s>=3;s-=1.5){ const nx=hero.px+Math.sin(a)*s, nz=hero.pz+Math.cos(a)*s; if(onIsland(nx,nz)){ bx=nx; bz=nz; break; } }
-  blinkPop(hero.px,hero.pz); setP(hero,bx,bz); blinkPop(bx,bz); addShake(0.4); sfx('blink'); }
+  blinkImplode(hero.px,hero.pz); setP(hero,bx,bz); blinkExplode(bx,bz); addShake(0.4); sfx('blink'); }
 function fanOfKnives(){ if(!hero||!hero.alive||hero.aCd>0||gameOver)return; hero.aCd=6;                 // instant AoE glaive nova
   if(hero.rigged){ hero.__atkClip=pickAtkClip(hero); hero.__atkT=0.5; }
   const R=15; for(const e of enemies){ if(!e.alive)continue; if(Math.hypot(e.px-hero.px,e.pz-hero.pz)<R) damage(e,44,true); }
-  const N=16; for(let i=0;i<N;i++){ const a=i/N*6.28; bladeSpin(hero.px,hero.pz, hero.px+Math.sin(a)*R, hero.pz+Math.cos(a)*R, 0xbfe9ff, 0.34); }
-  shockwave(hero.px,hero.pz,0xcdeeff,15); addShake(1.5); sfx('nova'); }
+  const N=18; for(let i=0;i<N;i++){ const a=i/N*6.28; bladeSpin(hero.px,hero.pz, hero.px+Math.sin(a)*R, hero.pz+Math.cos(a)*R, 0xbfe9ff, 0.34); }
+  runeRingFlash(hero.px,hero.pz,0x9fe8ff,R); shockwave(hero.px,hero.pz,0xcdeeff,15);
+  puff(hero.px,topY(hero.px,hero.pz)+2.2,hero.pz,0xdffbff,1.5,0.85); addShake(1.5); sfx('nova'); }
 function shadowStrike(en){ if(!hero||!hero.alive||hero.spellCd>0||!en||!en.alive)return false;
   if(Math.hypot(en.px-hero.px,en.pz-hero.pz)>ABIL_RANGE)return false;   // must be within cast range of the hero
   hero.spellCd=8; spellArmed=false;   // poisoned glaive: burst + DoT
@@ -1424,15 +1494,70 @@ function tickHolyGrounds(dt){ for(let i=holyGrounds.length-1;i>=0;i--){ const g=
     if(g.next<=0){ g.next=0.5; for(const e of enemies){ if(e.alive&&Math.hypot(e.px-g.x,e.pz-g.z)<g.r) damage(e,7,false); } }
     if(g.ring){ g.ring.material.opacity=0.14+0.24*Math.max(0,g.t/3.5)+0.08*Math.sin(g.t*8); g.ring.rotation.z+=dt*0.7; }
     if(g.t<=0){ if(g.ring)scene.remove(g.ring); holyGrounds.splice(i,1); } } }
+// ---------- Warden passive: Moonlight aura (code-driven, follows the hero) ----------
+// rune ring + counter-spun inner ring + soft ground glow + pulsing dome + rising moon motes.
+let heroAura=null;
+// per-hero passive aura palette. Each hero that carries one gets a distinct glow so it reads
+// as *their* magic: the Queen's silver-blue Moonlight, Thoryn's cold teal Runeblade, Aelindra's
+// green Moonlit-grove. Heroes without an entry (e.g. Paladin) simply carry no aura.
+const HERO_AURA={
+  queen:    {glow:0x4fd8ff, outer:0x6fe0ff, inner:0x9a6bff, dome:0x5fe0ff, mote:0x9ff2ff},   // Moonlight
+  thoryn:   {glow:0x2ff0d8, outer:0x35e8d0, inner:0x2f9cff, dome:0x30f0d8, mote:0x9ffff0},   // Runeblade (teal)
+  aelindra: {glow:0x8fe86a, outer:0x9ff07a, inner:0xd8ffb0, dome:0x8fe86a, mote:0xe6ffc0},   // Moonlit grove (nature)
+};
+function auraRing(inner,outer,col,op){ const m=new THREE.Mesh(new THREE.RingGeometry(inner,outer,48),
+  new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:op,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending})); m.rotation.x=-Math.PI/2; return m; }
+function makeHeroAura(){ disposeHeroAura(); const cfg=HERO_AURA[heroKind]||HERO_AURA.queen; cvTex(); const grp=new THREE.Group(); scene.add(grp);
+  const glow=new THREE.Mesh(new THREE.CircleGeometry(3.0,48), new THREE.MeshBasicMaterial({color:cfg.glow,transparent:true,opacity:0.12,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending})); glow.rotation.x=-Math.PI/2; grp.add(glow);
+  const outer=auraRing(2.55,2.95,cfg.outer,0.55), inner=auraRing(1.7,1.9,cfg.inner,0.5); grp.add(outer,inner);
+  const dome=new THREE.Mesh(new THREE.SphereGeometry(2.4,20,12), new THREE.MeshBasicMaterial({color:cfg.dome,transparent:true,opacity:0.06,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending})); dome.position.y=2.0; grp.add(dome);
+  const motes=[]; for(let i=0;i<9;i++){ const s=new THREE.Sprite(new THREE.SpriteMaterial({map:CV_GLOW,color:cfg.mote,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,opacity:0})); s.frustumCulled=false; grp.add(s); motes.push({s,a:i/9*6.28,rad:1.4+(i%3)*0.5,ph:i/9}); }
+  heroAura={grp,outer,inner,glow,dome,motes,t:0,kind:heroKind}; return heroAura; }
+function disposeHeroAura(){ if(!heroAura)return; scene.remove(heroAura.grp);
+  heroAura.grp.traverse(o=>{ if(o.material&&o.material.dispose)o.material.dispose(); if(o.geometry&&o.geometry.dispose)o.geometry.dispose(); }); heroAura=null; }
+// level-up flourish: a golden ground ring + rising sparks + floating "LEVEL N" text
+function levelFx(h){ const x=h.px, z=h.pz, y0=topY(x,z);
+  runeRingFlash(x,z,0xffd24a,7);
+  for(let i=0;i<12;i++){ const a=i/12*6.28, m=new THREE.Sprite(new THREE.SpriteMaterial({map:CV_GLOW,color:0xffe27a,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending})); m.scale.setScalar(0.9); m.frustumCulled=false; scene.add(m); let t=0;
+    (function an(){ t+=0.05; const r=1.4+t*1.2; m.position.set(x+Math.cos(a)*r, y0+t*5.5, z+Math.sin(a)*r); m.material.opacity=Math.max(0,0.95-t); m.scale.setScalar(0.9*(1-t*0.6)); if(t<1)requestAnimationFrame(an); else scene.remove(m); })(); }
+  if(typeof popDmg==='function') popDmg(x, y0+4.2, z, 'LEVEL '+h.level, 'heal');
+  if(h===hero){ try{ sfx('build'); }catch(_){} } }
+function refreshHeroAura(){ if(HERO_AURA[heroKind] && hero && hero.alive){ if(!heroAura||heroAura.kind!==heroKind)makeHeroAura(); } else disposeHeroAura(); }
+function updateHeroAura(dt){ if(!heroAura)return; const a=heroAura;
+  if(!hero||!hero.alive){ a.grp.visible=false; return; } a.grp.visible=true; a.t+=dt;
+  a.grp.position.set(hero.px, topY(hero.px,hero.pz)+0.06, hero.pz);
+  a.outer.rotation.z+=dt*0.5; a.inner.rotation.z-=dt*0.8;
+  const ds=1+0.05*Math.sin(a.t*2.0); a.dome.scale.set(ds,ds*0.92,ds); a.dome.material.opacity=0.05+0.03*Math.sin(a.t*2.4);
+  a.glow.material.opacity=0.10+0.04*Math.sin(a.t*1.7);
+  for(const m of a.motes){ const t=(a.t*0.25+m.ph)%1, s=Math.max(0.01,1-t);
+    m.s.position.set(Math.cos(m.a+t*0.8)*m.rad, 0.1+t*3.4, Math.sin(m.a+t*0.8)*m.rad);
+    m.s.scale.setScalar(0.5*s+0.15); m.s.material.opacity=0.9*Math.sin(Math.min(1,t)*Math.PI); } }
+// expanding ground rune-ring flash (Fan of Knives cast)
+function runeRingFlash(x,z,col,maxR){ const r=new THREE.Mesh(new THREE.RingGeometry(2.4,3.0,48),
+  new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.9,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending}));
+  r.rotation.x=-Math.PI/2; r.position.set(x,topY(x,z)+0.12,z); r.scale.set(0.1,0.1,1); scene.add(r);
+  const target=maxR/3.0; let t=0;(function an(){ t+=0.06; const s=0.1+(target-0.1)*Math.min(1,t/0.6); r.scale.set(s,s,1); r.material.opacity=Math.max(0,0.9-t*1.0); if(t<0.9)requestAnimationFrame(an); else scene.remove(r); })(); }
+// Blink: violet shards implode at the origin, explode at the destination
+function blinkImplode(x,z){ const y=topY(x,z)+2.0, geo=new THREE.OctahedronGeometry(0.5,0);
+  for(let i=0;i<10;i++){ const a=i/10*6.28, m=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:0x9a5cff,transparent:true,opacity:0.9,blending:THREE.AdditiveBlending,depthWrite:false})); scene.add(m); let t=0;
+    (function an(){ t+=0.10; const k=Math.min(1,t), r=2.8*(1-k)+0.2; m.position.set(x+Math.cos(a)*r,y+(1-k)*1.4,z+Math.sin(a)*r); m.scale.setScalar(Math.max(0.01,k*0.9)); m.material.opacity=0.9*k; if(t<1)requestAnimationFrame(an); else scene.remove(m); })(); }
+  const f=new THREE.Mesh(new THREE.SphereGeometry(1.8,14,10),new THREE.MeshBasicMaterial({color:0xb98cff,transparent:true,opacity:0.6,blending:THREE.AdditiveBlending,depthWrite:false})); f.position.set(x,y,z); scene.add(f); let t=0;(function an(){t+=0.1;f.scale.setScalar(Math.max(0.01,1-t));f.material.opacity=Math.max(0,0.6*(1-t));if(t<1)requestAnimationFrame(an);else scene.remove(f);})(); pingRing(x,z,0x9a5cff); }
+function blinkExplode(x,z){ const y=topY(x,z)+2.0, geo=new THREE.OctahedronGeometry(0.5,0);
+  for(let i=0;i<12;i++){ const a=i/12*6.28, m=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:0xb07cff,transparent:true,opacity:0.95,blending:THREE.AdditiveBlending,depthWrite:false})); scene.add(m); let t=0;
+    (function an(){ t+=0.07; const k=Math.min(1,t), r=0.3+k*3.4; m.position.set(x+Math.cos(a)*r,y+k*1.6,z+Math.sin(a)*r); m.scale.setScalar(Math.max(0.01,(1-k)*0.9)); m.material.opacity=Math.max(0,0.95-k); if(t<1)requestAnimationFrame(an); else scene.remove(m); })(); }
+  const f=new THREE.Mesh(new THREE.SphereGeometry(1.4,14,10),new THREE.MeshBasicMaterial({color:0xd8b8ff,transparent:true,opacity:0.9,blending:THREE.AdditiveBlending,depthWrite:false})); f.position.set(x,y,z); scene.add(f); let t=0;(function an(){t+=0.09;f.scale.setScalar(1+t*3.2);f.material.opacity=Math.max(0,0.9-t*1.2);if(t<0.9)requestAnimationFrame(an);else scene.remove(f);})();
+  shockwave(x,z,0x9a5cff,7); }
 // apply the active hero's kit to the three ability buttons (icon/label) + per-slot cooldown maxes
 function applyHeroKit(){ const k=HERO_KIT[heroKind]||HERO_KIT.queen; if(hero)hero.kit=heroKind;
   if(hero){ hero.aMax=k.a.cd; hero.spellMax=k.spell.cd; hero.blinkMax=k.blink.cd; }
   const setBtn=(el,slot,cls)=>{ if(!el)return; const i=el.querySelector('.ic'), c=el.querySelector('.cap'); if(i)i.innerHTML=ic(slot.icon); if(c)c.textContent=slot.cap; };
   setBtn(abilEl,k.a); setBtn(boltEl,k.spell); setBtn(smiteEl,k.blink); KIND_NAME.hero=k.name; }
 function pickHero(kind){ if(!HERO_KIT[kind])kind='queen'; heroKind=kind; try{localStorage.setItem('wc_hero',kind);}catch(_){}
-  if(hero){ const rk=RIGS[HERO_KIT[kind].rig]?HERO_KIT[kind].rig:'queen'; riggize(hero,rk); hero.hp=hero.max; hero.__atkT=0; hero.__invuln=0; hero.animState='idle';
+  if(hero){ const rk=RIGS[HERO_KIT[kind].rig]?HERO_KIT[kind].rig:'queen'; riggize(hero,rk);
+    hero.level=1; hero.xp=0; hero.baseHp=HERO_STAT.hp; hero.baseDmg=HERO_STAT.dmg; applyHeroLevel(hero);   // fresh hero starts at Lv 1
+    hero.hp=hero.max; hero.__atkT=0; hero.__invuln=0; hero.animState='idle';
     if(camLocked){ camAim.x=hero.px; camAim.z=hero.pz; } }
-  applyHeroKit(); if(heroSelEl)heroSelEl.style.display='none'; started=true; refreshRadial();
+  applyHeroKit(); refreshHeroAura(); if(heroSelEl)heroSelEl.style.display='none'; started=true; refreshRadial();
   initAudio(); resumeAudio(); startMusic(); sfx('build'); }
 // ===== Campaign / Skirmish (see docs/CAMPAIGN.md, docs/LORE.md) =====
 // Skirmish = the current free-play; Campaign = linear missions on hand-authored maps.
@@ -1578,12 +1703,14 @@ const HERO_KIT={
   queen:  {name:'Elf Queen', rig:'queen', a:{icon:'fan',cap:'Fan',cd:6}, spell:{icon:'shadow',cap:'Strike',cd:8}, blink:{icon:'blink',cap:'Blink',cd:7}},
   paladin:{name:'Paladin', rig:'paladin', a:{icon:'holy',cap:'Bless',cd:7}, spell:{icon:'hammer',cap:'Hammer',cd:8}, blink:{icon:'shield',cap:'Shield',cd:12}},
   aelindra:{name:'Aelindra', rig:'aelindra', a:{icon:'fan',cap:'Volley',cd:7}, spell:{icon:'archer',cap:'Moonfire',cd:7}, blink:{icon:'blink',cap:'Windstep',cd:6}},
+  thoryn: {name:'Thoryn Greywarden', rig:'thoryn', a:{icon:'swords',cap:'Blade Dance',cd:6}, spell:{icon:'shadow',cap:'Root Lash',cd:8}, blink:{icon:'blink',cap:'Windstep',cd:7}},   // warden swordmaster — reuses the Warden handlers (nova / poison-strike / blink)
 };
 // each hero fields its own faction's army + buildings in skirmish (pbld='' elf, 'human_' Iron Crown, 'orc_' horde)
 const HERO_FACTION={
-  queen:    {pbld:'',       units:{warrior:'warrior',  archer:'archer',  cleric:'priestess'}},   // Rimwalkers (Night Elf)
-  aelindra: {pbld:'',       units:{warrior:'warrior',  archer:'archer',  cleric:'priestess'}},   // Rimwalkers (Night Elf)
+  queen:    {pbld:'',       units:{warrior:'warrior',  archer:'archer', cleric:'priestess'}},   // Rimwalkers (Night Elf) — Bitgem elf archer
+  aelindra: {pbld:'',       units:{warrior:'warrior',  archer:'archer', cleric:'priestess'}},   // Rimwalkers (Night Elf)
   paladin:  {pbld:'human_', units:{warrior:'hfootman', archer:'harcher', cleric:'hmage'}},        // Iron Crown (Human)
+  thoryn:   {pbld:'',       units:{warrior:'warrior',  archer:'archer', cleric:'priestess'}},   // Rimwalkers (Night Elf) — Greywarden
 };
 function applyHeroFaction(k){ const f=HERO_FACTION[k]; if(!f)return; BLDPFX=f.pbld; URIG={...f.units}; }
 function nearestAllyTo(x,z,maxd){ let b=null,bd=maxd*maxd;
@@ -1615,7 +1742,7 @@ function attackOrder(list,en){ for(const e of list){ if(!e.alive)continue;
     if(e===hero){ e.order={x:en.px,z:en.pz}; } else { e.forcedTarget=en; e.target=en; e.order=null; e.following=false; } }
   rallyMarker.material.color.setHex(0xff6a5a); rallyMarker.position.set(en.px,topY(en.px,en.pz)+0.3,en.pz); rallyMarker.visible=true; clearTimeout(rallyMarker.__to); rallyMarker.__to=setTimeout(()=>rallyMarker.visible=false,900); }
 const KIND_NAME={hero:'Elf Queen', warrior:'Warrior', archer:'Archer', cleric:'Priestess', drake:'Drake'};
-const KIND_ICON={hero:'sword', warrior:'warrior', archer:'archer', cleric:'cleric', drake:'drake'};
+const KIND_ICON={hero:'sword', warrior:'warrior', archer:'archer', cleric:'cleric', assassin:'sword', drake:'drake'};
 // prefer the unit's baked face portrait; fall back to the line icon if a portrait wasn't rendered
 function unitFace(u,fallbackKind){ const rk=u&&u.rigKey, src=rk&&PORTRAITS[rk];
   return src ? '<img class="spFace" src="'+src+'" alt="">' : ic(KIND_ICON[fallbackKind]||'warrior'); }
@@ -1913,14 +2040,19 @@ function updateSpellUI(){
   const ring=(el,cd,max)=>{ if(!el)return; const c=el.querySelector('.cd'); el.classList.toggle('cooling',cd>0);
     if(c){ const f=Math.max(0,Math.min(1,cd/max)); c.style.background='conic-gradient(rgba(8,12,18,0.66) '+(f*360).toFixed(0)+'deg, rgba(0,0,0,0) 0deg)'; } };
   if(radialMode==='squad'){                                        // squad-command buttons: no cooldowns; Atk-Move shows armed
-    [abilEl,boltEl,smiteEl].forEach(el=>{ if(el)el.classList.remove('cooling'); });
+    [abilEl,boltEl,smiteEl].forEach(el=>{ if(el){ el.classList.remove('cooling'); el.style.opacity=''; el.style.filter=''; } });   // squad orders are never level-locked
     if(boltEl)boltEl.classList.remove('armed'); if(smiteEl)smiteEl.classList.toggle('armed',amArmed); if(autoEl)autoEl.classList.toggle('on',autoBolt);
     return; }
   if(hitEl){ hitEl.classList.toggle('off',!heroCanHit); hitEl.classList.toggle('ready',heroCanHit); }   // attack button lights up only in reach
   if(abilEl){ ring(abilEl, hero?hero.aCd:0, hero&&hero.aMax||6); }                    // AoE slot
   if(boltEl){ boltEl.classList.toggle('armed',spellArmed); ring(boltEl, hero?hero.spellCd:0, hero&&hero.spellMax||8); }   // armed-target slot
   if(autoEl){ autoEl.classList.toggle('on',autoBolt); }
-  if(smiteEl){ ring(smiteEl, hero?hero.blinkCd:0, hero&&hero.blinkMax||7); } }         // utility slot
+  if(smiteEl){ ring(smiteEl, hero?hero.blinkCd:0, hero&&hero.blinkMax||7); }           // utility slot
+  // grey out still-locked ability slots and show the level they unlock at (restore the kit caption once unlocked)
+  const K=HERO_KIT[(hero&&hero.kit)||heroKind]||HERO_KIT.queen;
+  const lk=(el,slot,cap)=>{ if(!el)return; const locked=!abilLevelOk(slot); el.style.opacity=locked?'0.42':''; el.style.filter=locked?'grayscale(1)':'';
+    const c=el.querySelector('.cap'); if(c) c.textContent = locked ? ('Lv '+(ABIL_UNLOCK[slot]||1)) : cap; };
+  lk(abilEl,'a', K.a.cap); lk(boltEl,'spell', K.spell.cap); lk(smiteEl,'blink', K.blink.cap); }
 function drawLasso(){ if(!lctx)return; lctx.clearRect(0,0,lcv.width,lcv.height); const p=cmd.pts; if(p.length<2)return;
   lctx.beginPath(); lctx.moveTo(p[0][0],p[0][1]); for(let i=1;i<p.length;i++)lctx.lineTo(p[i][0],p[i][1]);
   lctx.strokeStyle='rgba(127,240,255,0.95)'; lctx.lineWidth=3; lctx.stroke();
@@ -1971,9 +2103,12 @@ function updateGame(dt){
       if(hero.__healT>0){ hero.__healT-=dt; hero.hp=Math.min(hero.max,hero.hp+42*dt); } }
     tickHolyGrounds(dt);                                                                // Consecration blessed ground
     const FO=foes();   // enemy units + attackable enemy structures (core/buildings) — the player's valid targets
-    if(hero.alive && autoBolt && hero.spellCd<=0 && enemies.length){ const t=nearestEnemyTo(hero.px,hero.pz,26); if(t) shadowStrike(t); }   // AUTO = auto Shadow Strike nearest visible foe
-    for(const e of enemies){ if(!e.alive||!e.poison)continue; e.poison.t-=dt; e.__pt-=dt;   // Shadow Strike poison DoT
-      if(e.__pt<=0){ e.__pt=0.5; damage(e, e.poison.dps*0.5, false); if(isVisible(e.px,e.pz)) puff(e.px+rr(-0.6,0.6),topY(e.px,e.pz)+2+rr(0,1.4),e.pz+rr(-0.6,0.6),0x8ef07a,0.5,0.5); }
+    if(hero.alive && autoBolt && abilLevelOk('spell') && hero.spellCd<=0 && enemies.length){ const t=nearestEnemyTo(hero.px,hero.pz,26); if(t) shadowStrike(t); }   // AUTO = auto Shadow Strike nearest visible foe (once unlocked)
+    for(const e of enemies){ if(!e.alive||!e.poison)continue; e.poison.t-=dt; e.__pt-=dt;   // Shadow Strike poison DoT — lingering green wisp
+      if(e.__pt<=0){ e.__pt=0.32; damage(e, e.poison.dps*0.32, false);
+        if(isVisible(e.px,e.pz)){ const y=topY(e.px,e.pz)+2.2, ph=(e.__pw=(e.__pw||0)+0.8);   // orbiting wisp + rising drip
+          puff(e.px+Math.cos(ph)*0.9, y+Math.sin(ph*1.7)*0.5, e.pz+Math.sin(ph)*0.9, 0x8ef07a,0.42,0.6);
+          puff(e.px+rr(-0.4,0.4), y+0.6+rr(0,0.8), e.pz+rr(-0.4,0.4), 0x5ad06a,0.28,0.4); } }
       if(e.poison.t<=0)e.poison=null; }
     if(hero.alive){ const {t,d}=nearest(hero.px,hero.pz,FO); heroHitTarget=(t&&d<=hero.range+(t.big||0)+1)?t:null; heroCanHit=!!heroHitTarget;
       if(heroHitTarget){ if(hero.rigged&&hero.cd<=0){ hero.__atkClip=pickAtkClip(hero); hero.__atkT=0.55; } attack(hero,heroHitTarget); } }
@@ -1994,7 +2129,7 @@ function updateGame(dt){
                  else if(Math.hypot(t.px-hero.px,t.pz-hero.pz)<ENGAGE) e.target=t; } } } // following: engage foes near the hero
       if(e.target){ const t=e.target, d=Math.hypot(t.px-e.px,t.pz-e.pz);                 // committed: fight until it dies
              if(d>e.range+(t.big||0)){ e.state='move'; moveTo(e,t.px,t.pz,dt); } else { e.state='attack'; faceTo(e,t.px-e.px,t.pz-e.pz);
-               if(e.cd<=0 && e.kind!=='warrior') shootFx(e.px,e.pz,t.px,t.pz, e.kind==='cleric'?'arcane':'arrow'); attack(e,t); } }
+               if(e.cd<=0 && e.kind!=='warrior' && e.kind!=='assassin') shootFx(e.px,e.pz,t.px,t.pz, e.kind==='cleric'?'arcane':'arrow'); attack(e,t); } }
       else if(e.order){ // hold the commanded position
              if(Math.hypot(e.order.x-e.px,e.order.z-e.pz)>1.4){ e.state='move'; moveTo(e,e.order.x,e.order.z,dt); } else e.state='idle'; }
       else { // loose leash: idle in the hero's vicinity, only re-form once he's walked past FOLLOW_OUT
@@ -2029,7 +2164,13 @@ function updateGame(dt){
           if(Math.hypot(t.px-e.px,t.pz-e.pz)>18)continue; const def=t.max-t.hp; if(def>bestDef){bestDef=def;best=t;} }
         if(best){ best.hp=Math.min(best.max,best.hp+24); claims.add(best); e.healCd=2.8; healFx(best); popDmg(best.px,topY(best.px,best.pz)+3.4,best.pz,'+24','heal'); } } }
     separate(); loco(dt); baseTick(dt); eBaseTick(dt); if(creepCamps.length) updateCamps(dt); if(RITUAL) ritualTick(dt); tutTick();
-    const reap=l=>{ for(const e of l){ if(e.alive&&e.hp<=0){ e.alive=false; deathFx(e); if(e.vfx)e.vfx.dispose(); scene.remove(e.g); scene.remove(e.bar); if(e.ring){scene.remove(e.ring); selected.delete(e);} if(e.team==='enemy')killed++; } } return l.filter(e=>e.alive); };
+    const reap=l=>{ for(const e of l){ if(e.alive&&e.hp<=0){
+      if(e===enemyBoss){ e.alive=false; e.respawnT=ENEMY_RESPAWN; deathFx(e); e.g.visible=false; if(e.bar)e.bar.visible=false; if(e.ring)e.ring.visible=false;
+        e.target=null; e.order=null; selected.delete(e); killed++; grantXp(hero, xpFor(e)); continue; }   // enemy commander: revive, keep the reference
+      e.alive=false; deathFx(e); if(e.vfx)e.vfx.dispose(); scene.remove(e.g); scene.remove(e.bar); if(e.ring){scene.remove(e.ring); selected.delete(e);}
+      if(e.team==='enemy'){ killed++; grantXp(hero, xpFor(e)); }                 // player hero earns XP for downing raiders
+      else if(e.team==='ally'){ grantXp(enemyBoss, xpFor(e)); } } }              // the chieftain grows from felling your troops
+      return l.filter(e=> e.alive || e===enemyBoss); };
     allies=reap(allies); enemies=reap(enemies);
     for(const s of eStructs){ if(s.alive&&s.hp<=0){ s.alive=false; deathFx(s); scene.remove(s.g); scene.remove(s.bar);
         if(s.kind==='bld'&&s.plot){ const p=s.plot; p.cat=null; p.level=0; p.g=null; p.struct=null; eRecomputeIncome(); } } }
@@ -2043,8 +2184,15 @@ function updateGame(dt){
       if(hero.respawnT<=0){ hero.alive=true; hero.hp=hero.max; hero.cd=hero.aCd=hero.spellCd=hero.blinkCd=0; hero.order=null; hero.__atkT=0;
         const rx=coreB?coreB.x:105, rz=(coreB?coreB.z:108)+4; setP(hero,rx,rz); hero.g.visible=true; hero.animState='idle'; blinkPop(rx,rz);
         if(camLocked){ camAim.x=rx; camAim.z=rz; } if(respawnEl) respawnEl.style.display='none'; } }
+    // the raider chieftain revives at its stronghold too — but only while its throne still stands
+    if(enemyBoss && !enemyBoss.alive && enemyCore && enemyCore.alive){ enemyBoss.respawnT-=dt;
+      if(enemyBoss.respawnT<=0){ enemyBoss.alive=true; enemyBoss.hp=enemyBoss.max; enemyBoss.cd=0; enemyBoss.stunT=0; enemyBoss.rageT=0;
+        enemyBoss.hurlCd=enemyBoss.slamCd=enemyBoss.roarCd=3; enemyBoss.target=null; enemyBoss.order=null; enemyBoss.__atkT=0;
+        const rx=enemyBase.x+8, rz=enemyBase.z+8; setP(enemyBoss,rx,rz); enemyBoss.g.visible=true; enemyBoss.animState='idle'; blinkPop(rx,rz); } }
     if(coreB&&coreB.hp<=0) endGame(false); else if(enemyCore&&enemyCore.hp<=0) endGame(true);
     if(heroHpEl) heroHpEl.style.width=(Math.max(0,hero.hp)/hero.max*100)+'%';
+    if(heroLvEl) heroLvEl.textContent=String(hero.level||1);
+    if(heroXpEl){ const lv=hero.level||1; heroXpEl.style.width=(lv>=HERO_MAX_LVL?100:Math.max(0,Math.min(1,(hero.xp||0)/xpToNext(lv)))*100)+'%'; }
     if(waveEl&&enemyCore) waveEl.textContent = enemyCore.hp>0 ? ('⚔ Orc throne  '+Math.ceil(Math.max(0,enemyCore.hp))+'/'+enemyCore.max) : 'The orc throne has fallen!';
     updateOrderMarkers(); updateSpellUI();   // Stomp cooldown + Hit-in-range state handled in updateSpellUI
   }
@@ -2095,6 +2243,13 @@ function setupHUD(){
   const hp=document.createElement('div'); hp.className='hud';
   hp.style.cssText+=';left:50%;top:calc(52px + var(--st));transform:translateX(-50%);width:min(240px,56vw);height:13px;background:rgba(10,14,20,0.5);border:1px solid var(--brd);border-radius:7px;overflow:hidden;box-shadow:none;backdrop-filter:blur(6px)';
   heroHpEl=document.createElement('div'); heroHpEl.style.cssText='height:100%;width:100%;background:linear-gradient(#a6ec5e,#5cb43a)'; hp.appendChild(heroHpEl); document.body.appendChild(hp);
+  // hero level badge (round gold chip on the left end of the HP frame) + a thin XP bar tucked under it
+  heroLvEl=document.createElement('div'); heroLvEl.className='hud';
+  heroLvEl.style.cssText+=';left:calc(50% - min(120px,28vw) - 15px);top:calc(49px + var(--st));transform:translateX(-50%);width:26px;height:26px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#ffe9a8,#c8912f);border:1px solid #7a5410;color:#3a2600;font:900 12px system-ui;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.5)';
+  heroLvEl.textContent='1'; document.body.appendChild(heroLvEl);
+  const xpw=document.createElement('div'); xpw.className='hud';
+  xpw.style.cssText+=';left:50%;top:calc(66px + var(--st));transform:translateX(-50%);width:min(240px,56vw);height:4px;background:rgba(10,14,20,0.5);border:1px solid var(--brd);border-radius:3px;overflow:hidden;box-shadow:none';
+  heroXpEl=document.createElement('div'); heroXpEl.style.cssText='height:100%;width:0%;background:linear-gradient(#ffe27a,#e0a935)'; xpw.appendChild(heroXpEl); document.body.appendChild(xpw);
   waveEl=document.createElement('div'); waveEl.className='hud';
   waveEl.style.cssText+=';left:50%;top:calc(72px + var(--st));transform:translateX(-50%);font:800 12px system-ui;color:#ffd9d2;text-shadow:0 1px 3px #000;white-space:nowrap'; document.body.appendChild(waveEl);
   joyBase=document.createElement('div'); joyBase.id='joy';
@@ -2111,9 +2266,9 @@ function setupHUD(){
     b.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); _tutBtn=cls; sfx('ui'); fn(); }); hand.appendChild(b); return b; };
   hitEl  =mkAbil('hit',ic('sword'),'Hit',76,12,12,()=>{ heroHit(); });                                            // basic attack — lights up only in range
   // inner ring — Warden abilities (spokes low→high: 14°, 51°, 88°)
-  abilEl =mkAbil('stomp',ic('fan'),'Fan',56,121,47,()=>{ if(radialMode==='squad'){ stopSel(); return; } if(hero.kit==='paladin')consecration(); else fanOfKnives(); });   // AoE slot / squad Stop
-  boltEl =mkAbil('bolt',ic('shadow'),'Strike',56,86,101,()=>{ if(radialMode==='squad'){ holdSel(); return; } if(hero.spellCd<=0){ spellArmed=!spellArmed; } updateSpellUI(); });   // armed target / squad Hold
-  smiteEl=mkAbil('smite',ic('blink'),'Blink',56,26,124,()=>{ if(radialMode==='squad'){ amArmed=!amArmed; updateSpellUI(); return; } if(hero.kit==='paladin')divineShield(); else blink(); });   // utility / squad Attack-Move
+  abilEl =mkAbil('stomp',ic('fan'),'Fan',56,121,47,()=>{ if(radialMode==='squad'){ stopSel(); return; } if(abilLocked('a'))return; if(hero.kit==='paladin')consecration(); else fanOfKnives(); });   // AoE slot / squad Stop
+  boltEl =mkAbil('bolt',ic('shadow'),'Strike',56,86,101,()=>{ if(radialMode==='squad'){ holdSel(); return; } if(abilLocked('spell'))return; if(hero.spellCd<=0){ spellArmed=!spellArmed; } updateSpellUI(); });   // armed target / squad Hold
+  smiteEl=mkAbil('smite',ic('blink'),'Blink',56,26,124,()=>{ if(radialMode==='squad'){ amArmed=!amArmed; updateSpellUI(); return; } if(abilLocked('blink'))return; if(hero.kit==='paladin')divineShield(); else blink(); });   // utility / squad Attack-Move
   // outer ring — army orders (same three spokes, one radius further out)
   boxBtn =mkAbil('select',ic('select'),'Select',50,185,65,()=>setBoxMode(!boxMode));   // arm marquee: next drag selects troops
   chargeEl=mkAbil('charge',ic('swords'),'Charge',50,129,153,()=>chargeAll());
@@ -2132,7 +2287,8 @@ function setupHUD(){
   const cards=heroSelEl.querySelector('.cards');
   const HEROES=[['queen','sword','Elf Queen','Rimwalkers · Night Elf — Blink · Fan of Knives · Shadow Strike. Fields an elven host.'],
                 ['paladin','shield','Paladin','Iron Crown · Human — Consecration · Hammer of Justice · Divine Shield. Fields footmen, crossbows & mages.'],
-                ['aelindra','archer','Aelindra Ashveil','Rimwalkers · Night Elf — Windstep · Volley · Moonfire. A fast, evasive archer; fields an elven host.']];
+                ['aelindra','archer','Aelindra Ashveil','Rimwalkers · Night Elf — Windstep · Volley · Moonfire. A fast, evasive archer; fields an elven host.'],
+                ['thoryn','swords','Thoryn Greywarden','Rimwalkers · Night Elf — Windstep · Blade Dance · Root Lash. A runeblade warden with a glowing greatblade; fields an elven host.']];
   for(const [k,icn,nm,blurb] of HEROES){ const c=document.createElement('div'); c.className='hc';
     c.innerHTML='<div class="ic">'+ic(icn)+'</div><div class="nm">'+nm+'</div><div class="kit">'+blurb+'</div>';
     c.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); gameMode='skirmish'; activeMission=null; heroKind=k;
@@ -2321,25 +2477,22 @@ function initPost(){
   // selective bloom: high threshold so only fires / magic / sun-glints glow (Reforged-style)
   bloomPass=new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight), 0.42, 0.5, 0.92);
   composer.addPass(bloomPass);
-  // final grade pass — chromatic aberration + exposure/saturation/contrast + warm/cool split-tone + vignette
+  // final grade pass — clean, punchy toon look. No chromatic aberration, no warm/cool split-tone
+  // and no vignette (those three read as an old-CRT/VHS grade); just a small exposure lift and a
+  // gentle saturation pop so the Bitgem hand-painted palette stays crisp and bright.
   const grade=new THREE.ShaderPass({
     uniforms:{ tDiffuse:{value:null}, uAmt:{value:2.2}, uRes:{value:new THREE.Vector2(innerWidth,innerHeight)} },
     vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
     fragmentShader:[
       'uniform sampler2D tDiffuse;uniform float uAmt;uniform vec2 uRes;varying vec2 vUv;',
-      'const float EXPOSURE=1.00, CONTRAST=1.08, SAT=1.16;',
+      'const float EXPOSURE=1.05, CONTRAST=1.02, SAT=1.14;',
       'void main(){',
-      '  vec2 d=vUv-0.5; float r2=dot(d,d);',
-      '  vec3 col=texture2D(tDiffuse,vUv).rgb;',   // straight sample — no chromatic aberration (that RGB channel-split read as an old-VHS fringe)
+      '  vec3 col=texture2D(tDiffuse,vUv).rgb;',
       '  col*=EXPOSURE;',
       '  float l=dot(col,vec3(0.299,0.587,0.114));',
-      '  col=mix(vec3(l),col,SAT);',
+      '  col=mix(vec3(l),col,SAT);',                 // gentle saturation pop, neutral tint
       '  col=(col-0.5)*CONTRAST+0.5;',
-      '  vec3 warm=vec3(1.04,1.0,0.92), cool=vec3(0.94,0.98,1.06);',
-      '  col*=mix(cool,warm,smoothstep(0.25,0.85,l));',
-      '  col=clamp(col,0.0,1.0);',
-      '  col*=1.0-r2*0.16;',                        // gentle vignette (was 0.30 — lighter, less "lo-fi")
-      '  gl_FragColor=vec4(col,1.0);',
+      '  gl_FragColor=vec4(clamp(col,0.0,1.0),1.0);',
       '}'].join('\n')
   });
   grade.renderToScreen=true; composer.addPass(grade); postMat=grade.material;
@@ -2361,7 +2514,7 @@ async function boot(){
   let last=performance.now();
   (function loop(){ requestAnimationFrame(loop);
     const now=performance.now(); let dt=(now-last)/1000; last=now; if(dt>0.05)dt=0.05;
-    updateGame(dt); followCam(dt); repositionRadial(); updateFires(dt); updateAtmos(dt);
+    updateGame(dt); followCam(dt); repositionRadial(); updateFires(dt); updateHeroAura(dt); updateAtmos(dt);
     if(++miniAcc%4===0){ drawMini(); updateSelPanel(); }   // ~15fps minimap + selection-card refresh
     if(miniAcc%6===0) updateFog();   // ~10fps fog recompute
     composer.render();
@@ -2371,7 +2524,7 @@ async function boot(){
 // dev/debug bridge — the game body is module-scoped under Vite, so expose the internals
 // headless verification + the weapon tuner poke. Harmless in prod; gate behind a flag later.
 window.__dbg={
-  get hero(){return hero}, get camAim(){return camAim}, get camF(){return camF}, get scene(){return scene},
+  get hero(){return hero}, get camAim(){return camAim}, get camF(){return camF}, get scene(){return scene}, get enemyBoss(){return enemyBoss}, grantXp:(...a)=>grantXp(...a),
   get enemies(){return enemies}, get allies(){return allies}, get waterMat(){return waterMat}, get motes(){return motes},
   get modeSelEl(){return modeSelEl}, get missionSelEl(){return missionSelEl}, get missionCardEl(){return missionCardEl}, get heroSelEl(){return heroSelEl},
   followCam:(...a)=>followCam(...a), riggize:(...a)=>riggize(...a), makeChar:(...a)=>makeChar(...a), setAnim:(...a)=>setAnim(...a),

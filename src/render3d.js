@@ -1019,13 +1019,16 @@
       // cinder (orc) warrior: forged armored-orc. rimwalker (elf) archer: Tripo3D
       // image-to-model from the Rimwalker concept art (model front = +X, so
       // yaw = +PI/2 to match the +Z-front convention used by registerUnitModel).
-      // Grunt (horde/Orc warrior): Tripo orc from the user's "grunt in leather armor"
-      // concept, Mixamo-rigged (idle/run/overhead-chop), vertex-colour reskin (green
-      // skin + brown armor). Front = +Z (Mixamo) so yaw = 0. Spiked orc felling-axe
-      // in the right hand, blade up. Replaces the earlier cinder_warrior orc.
-      registerUnitModel('horde:warrior', { url: 'assets/models/grunt_mx.glb?v=20260701a', height: 60, yaw: 0,
-        anims: { idle: 'idle', walk: 'walk', attack: 'attack' }, stripRootMotion: true, attackRate: 1.0,
-        weapon: { url: 'assets/models/w_orc_axe.glb?v=20260701a', bone: 'mixamorigRightHand', pos: [0.03, 0.16, 0], rot: [0, 1.5708, 3.14159], scale: 0.55 } });
+      // Warsong Grunt (horde/Orc warrior): faithfully rebuilt from the uploaded WC3
+      // .mdx by the headless-Blender forge (tools/forge/mdx_to_glb.py) — original
+      // mesh, skeleton, skin, and Stand/Walk/Attack/Death baked as the game clips.
+      // A kitbash model: the vanilla grunt body geoset is hidden by its own alpha
+      // track, replaced by armour built from stock textures; the forge honours that.
+      // Axe is part of the mesh (no weapon attachment). This model's body faces
+      // +X (unlike the elf archer's +Z), so yaw = -PI/2 turns it to face forward;
+      // Walk carries a forward stride → stripRootMotion plays it in place.
+      registerUnitModel('horde:warrior', { url: 'assets/models/warsong_grunt_mdx.glb?v=20260714b', height: 62, yaw: -Math.PI / 2,
+        anims: { idle: 'Idle', walk: 'Walk', attack: 'Attack', death: 'Death' }, stripRootMotion: true, attackRate: 1.0 });
       // Footman (crown/Human warrior): Tripo grey-plate knight from the user's own
       // concept, Mixamo-rigged (idle/run/slash), vertex-colour reskin. Front = +Z
       // (Mixamo) so yaw = 0. Steel sword in the right hand, blue cross kite-shield
@@ -1036,20 +1039,19 @@
         attachments: [{ url: 'assets/models/w_footman_shield.glb?v=20260701a', bone: 'mixamorigLeftHand', pos: [0, 0, 0], rot: [0, 1.5708, 0], scale: 0.6 }] });
       // ── New T-pose-authored Night Elf roster (clean rigs) + separate weapons
       //    mounted on a hand bone. All bodies front = +X, so yaw = -PI/2.
-      // Bark Archer: Mixamo auto-rigged (clean deformation) with real idle/run/
-      // bow-draw mocap; the Tripo texture atlas can't survive re-rigging so the
-      // skin is baked as vertex colours. Front = +Z (Mixamo), so yaw = 0. Elven
-      // longbow in the left hand; the draw clip drives attack, projectile fires.
-      registerUnitModel('elf:archer', { url: 'assets/models/rim_archer_mx.glb?v=20260701a', height: 60, yaw: 0,
-        anims: { idle: 'idle', walk: 'walk', attack: 'attack' }, stripRootMotion: true, attackRate: 1.1,
-        weapon: { url: 'assets/models/w_longbow.glb?v=20260701a', bone: 'mixamorigLeftHand', pos: [0.05, 0, 0.05], rot: [0, 0, 0], scale: 1.0 } });
-      // Huntress: panther rider, biped-rigged — her arms animate while the leg
-      // bones are frozen (stripBones) so the panther body stays intact. Moon
-      // glaive in the right hand.
-      registerUnitModel('elf:lancer', { url: 'assets/models/rim_huntress.glb?v=20260630k', height: 72, yaw: -Math.PI / 2,
-        anims: { idle: 'NlaTrack', walk: 'NlaTrack.001' }, stripRootMotion: true,
-        stripBones: 'Thigh|Calf|Foot|Toe|Pelvis|Hip|Waist|Spine',
-        weapon: { url: 'assets/models/w_moonglaive.glb?v=20260630k', bone: 'R_Hand', pos: [0.03, 0.02, -0.02], rot: [1.396, 0, 0.175], scale: 0.45 } });
+      // Rim Walker (elf archer): faithfully rebuilt from the uploaded WC3 .mdx by
+      // the headless-Blender forge (tools/forge/mdx_to_glb.py) — original mesh,
+      // skeleton, skin, and Stand/Walk/Attack/Death baked as Idle/Walk/Attack/Death.
+      // Bow + quiver are part of the mesh (no weapon attachment). Model faces +Z
+      // (yaw 0). Walk carries a big forward stride → stripRootMotion plays it in place.
+      registerUnitModel('elf:archer', { url: 'assets/models/rim_walker_mdx.glb?v=20260713a', height: 60, yaw: 0,
+        anims: { idle: 'Idle', walk: 'Walk', attack: 'Attack', death: 'Death' }, stripRootMotion: true, attackRate: 1.1 });
+      // Moon Hunter (Huntress): mounted war-cat + rider, converted 1:1 from the
+      // WC3 .mdx by the forge (tools/forge/mdx_to_glb.py). Native mounted rig —
+      // the panther legs animate in the clips, so no stripBones/weapon hacks.
+      // Glaive is part of the mesh. Faces +Z (yaw 0).
+      registerUnitModel('elf:lancer', { url: 'assets/models/moon_hunter_mdx.glb?v=20260713a', height: 72, yaw: 0,
+        anims: { idle: 'Idle', walk: 'Walk', attack: 'Attack', death: 'Death' }, stripRootMotion: true });
       // Dryad: centaur, biped-rigged with frozen leg bones (stripBones) so the
       // deer body stays intact while her arms animate. Leaf spear in the right hand.
       registerUnitModel('elf:caster', { url: 'assets/models/rim_dryad.glb?v=20260630l', height: 66, yaw: -Math.PI / 2,
