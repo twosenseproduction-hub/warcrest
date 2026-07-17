@@ -89,6 +89,36 @@
       modeDebounce:     18,
       desiredWorkers:   3,
       rebuildPriority:  ['foundry', 'conduit', 'forge', 'core'],
+
+      // ---- "Play like a person" tuning --------------------------------------
+      // Economy: a real player saturates mining and scales workers with bases,
+      // rather than sitting on 3 pawns forever.
+      economy: {
+        workersPerBase: 5,    // target pawns per active deposit (core/outpost)
+        maxWorkers:     14,   // hard cap so it doesn't over-invest in economy
+      },
+      // Muster & push: instead of dribbling 1–2 units at the player, the AI
+      // gathers a real army at a forward staging point and commits it as ONE
+      // coordinated attack once it reaches a critical mass (in combat "power":
+      // warrior=3, monk=1.5, else 1). The bar grows over the match, drops when
+      // the AI is clearly ahead (press the advantage) and rises when it's behind
+      // (turtle and rebuild).
+      push: {
+        base:          9,     // power needed for the first push
+        growthPerMin:  5,     // added to the bar per minute elapsed
+        max:           34,    // ceiling on the push bar
+        advantageMul:  0.6,   // ×bar when strongly ahead (armyRatio > 1.6)
+        behindMul:     1.6,   // ×bar when behind (armyRatio < 0.9)
+        stagingDist:   300,   // how far forward from the core the army musters
+      },
+      // Target army composition (shares of the fighting army). Production fills
+      // the most-deficient slot and counter-biases against the player's mix.
+      comp: {
+        frontline: 0.50,      // warrior / lancer
+        ranged:    0.34,      // archer
+        caster:    0.16,      // monk
+      },
+
       squads: {
         assaultMinStrength: 4,
         harassMinStrength:  2,
