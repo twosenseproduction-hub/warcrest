@@ -218,6 +218,34 @@
     creatorMode: (function () {
       try { return localStorage.getItem('wc_creator') === '1'; } catch (e) { return false; }
     })(),
+    // Night mode (survival): a day/night cycle. After a grace day, night falls,
+    // the field darkens, and escalating waves of risen dead march on the base —
+    // neutral-hostile, so they threaten BOTH factions. Survive to dawn; each
+    // night is harder. Off by default; persisted in localStorage; toggled in
+    // Settings. All pacing lives in RTS.Config.night below.
+    nightMode: (function () {
+      try { return localStorage.getItem('wc_night') === '1'; } catch (e) { return false; }
+    })(),
+
+    // ---- Night mode pacing / undead waves ---------------------------------
+    // Times in seconds. The first night is delayed by firstNightAt so the
+    // player can establish an economy; subsequent days last dayLen.
+    night: {
+      firstNightAt:  100,   // grace before the very first nightfall
+      dayLen:        120,   // length of each day after the first
+      nightLen:       55,   // length of each night (survive to dawn)
+      duskLen:         8,    // ramp-in darkness at end of day
+      dawnLen:         9,    // ramp-out darkness at end of night
+      peakDark:      0.52,   // max screen-darken alpha at full night
+      spawnInterval:  11,    // seconds between reinforcement spawns during a night
+      baseCount:       4,    // risen spawned in the opening wave of night 1
+      countPerNight:   3,    // extra risen per subsequent night
+      reinforceFrac: 0.55,   // reinforcement batch size = ceil(waveCount * this)
+      archerFrac:    0.34,   // fraction of each batch that are Risen Bowmen (rest melee)
+      hpMul:         1.25,   // risen HP multiplier vs the base cinder unit
+      spawnRadius:    780,   // distance from the player core the risen crawl in at
+      faction:    'cinder',  // reskin source for risen visuals (bone/green horde art)
+    },
   };
 
   // Toggle the 3D engine. Flips the flag, persists it, and enables/disables the
@@ -239,6 +267,19 @@
     var st = RTS.Game && RTS.Game.state;
     if (st && on && st.res && st.res.player) st.res.player.halcite = Math.max(st.res.player.halcite, 100000);
     if (st && RTS.HUD && RTS.HUD.sync && st.scene === 'playing') RTS.HUD.sync(st);
+  };
+
+  // Toggle Night mode (survival day/night cycle). Flips the flag and persists
+  // it. RTS.Night (nightmode.js) reads Config.nightMode each tick and drives the
+  // cycle, the darkening overlay, and the risen-dead waves; flipping it off
+  // mid-match clears the darkness and stops new spawns on the next tick.
+  RTS.setNightMode = function (on) {
+    RTS.Config.nightMode = !!on;
+    try { localStorage.setItem('wc_night', on ? '1' : '0'); } catch (e) {}
+    if (!on && RTS.Night && RTS.Night.reset) {
+      var st = RTS.Game && RTS.Game.state;
+      RTS.Night.reset(st);
+    }
   };
 
   // Toggle the Thronefall look: flips the flag, the <body> skin class, persists

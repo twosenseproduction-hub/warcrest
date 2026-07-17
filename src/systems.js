@@ -195,6 +195,7 @@
     if (RTS.tickCharms) RTS.tickCharms(s, dt);             // Unravel allegiance revert
     tickAutoMine(s, dt);
     if (!(s.map && s.map.sandbox)) RTS.AI.update(s, dt);
+    if (RTS.Night) RTS.Night.update(s, dt);   // day/night cycle + risen-dead waves
 
     // expire timed summons (e.g. Grollusk's spirit warriors) — poof, not a death.
     for (i = 0; i < s.entities.units.length; i++) {

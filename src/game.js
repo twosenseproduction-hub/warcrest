@@ -108,6 +108,7 @@
       RTS.Render.resize(state);
       if (RTS._rebuildPhaserTerrain) RTS._rebuildPhaserTerrain(state.mapId, true);
       RTS.buildMap(state, state.mapId);
+      if (RTS.Night) RTS.Night.reset(state);   // fresh day/night cycle, clear any leftover darkness
       if (state.map && state.map.heroTestFocus) {
         state.selectedIds = [state.map.heroTestFocus];
         if (RTS.clearMacroGroups) RTS.clearMacroGroups(state);
@@ -156,6 +157,7 @@
   // endMatch is called by the simulation; expose globally.
   RTS.endMatch = function (s, result) {
     if (s.scene === 'won' || s.scene === 'lost') return;
+    if (RTS.Night) RTS.Night.reset(s);   // lift the night darkening off the end screen
     RTS.Game.scene(result);
     var won = result === 'won';
     var ov = $('overlay-end');
@@ -281,6 +283,11 @@
     if (creator) {
       creator.checked = !!(RTS.Config && RTS.Config.creatorMode);
       creator.addEventListener('change', function () { if (RTS.setCreatorMode) RTS.setCreatorMode(creator.checked); });
+    }
+    var night = $('set-nightmode');
+    if (night) {
+      night.checked = !!(RTS.Config && RTS.Config.nightMode);
+      night.addEventListener('change', function () { if (RTS.setNightMode) RTS.setNightMode(night.checked); });
     }
     // Collapsible macro unit-select (Thronefall look): toggle fans the chips
     // open; picking a type collapses it again.
