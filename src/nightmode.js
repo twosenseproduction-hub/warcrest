@@ -127,13 +127,17 @@
     return { x: cx + (Math.random() - 0.5) * 120, y: cy - radius * 0.4 };
   }
 
-  function spawnRisen(s, role, core, cfg) {
+  // role  = which base unit's COMBAT STATS the risen borrows ('warrior'/'archer').
+  // model = which Bitgem undead sub-model it renders as (render3d 'undead' race):
+  //         'warrior' | 'archer' | 'caster' | 'lancer' | 'king' | 'worker'.
+  function spawnRisen(s, role, model, core, cfg, hpMul) {
     if (!RTS.makeUnit) return null;
     var p = landPoint(s, core.x, core.y, cfg.spawnRadius);
     var u = RTS.makeUnit(s, role, TEAM.NEUTRAL, p.x, p.y, cfg.faction);
     if (!u) return null;
     u.isRisen = true;
-    u.maxHp = Math.round(u.maxHp * cfg.hpMul);
+    u.risenModel = model || role;   // read by render3d.makeUnitMesh
+    u.maxHp = Math.round(u.maxHp * (hpMul || cfg.hpMul));
     u.hp = u.maxHp;
     // relentless marchers: don't leash, keep hunting the core
     u.chaseRange = 99999;
@@ -159,9 +163,19 @@
     var core = RTS.playerCore && RTS.playerCore(s);
     if (!core) return;
     for (var i = 0; i < count; i++) {
-      var role = (Math.random() < cfg.archerFrac) ? 'archer' : 'warrior';
-      spawnRisen(s, role, core, cfg);
+      var isArcher = Math.random() < cfg.archerFrac;
+      var role = isArcher ? 'archer' : 'warrior';
+      spawnRisen(s, role, role, core, cfg);   // Risen Bowman / Risen Warrior
     }
+  }
+
+  // The Barrow King: a lone elite (undead_king rig) with a deep HP pool, leading
+  // the opening wave on every Nth night.
+  function spawnBarrowKing(s, cfg) {
+    var core = RTS.playerCore && RTS.playerCore(s);
+    if (!core) return;
+    var king = spawnRisen(s, 'warrior', 'king', core, cfg, cfg.kingHpMul);
+    if (king && RTS.log) RTS.log(s, 'The Barrow King rises — he leads the dead tonight', 'bad');
   }
 
   // --- Phase transitions ----------------------------------------------------
@@ -172,6 +186,9 @@
     n.waveCount = waveCount(cfg, n.number);
     n.spawnCd = cfg.spawnInterval;
     spawnBatch(s, n.waveCount, cfg);
+    if (cfg.kingEveryNights > 0 && n.number % cfg.kingEveryNights === 0) {
+      spawnBarrowKing(s, cfg);
+    }
     if (RTS.log) RTS.log(s, 'Night ' + n.number + ' falls — the risen march on your ' +
       (RTS.nameFor ? RTS.nameFor(s.playerFaction, 'core') : 'keep'), 'bad');
     if (RTS.toast) RTS.toast(s, '🌙 Night ' + n.number + ' — hold until dawn!');

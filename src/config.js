@@ -242,9 +242,15 @@
       countPerNight:   3,    // extra risen per subsequent night
       reinforceFrac: 0.55,   // reinforcement batch size = ceil(waveCount * this)
       archerFrac:    0.34,   // fraction of each batch that are Risen Bowmen (rest melee)
-      hpMul:         1.25,   // risen HP multiplier vs the base cinder unit
+      hpMul:         1.25,   // risen HP multiplier vs the base unit they borrow stats from
       spawnRadius:    780,   // distance from the player core the risen crawl in at
-      faction:    'cinder',  // reskin source for risen visuals (bone/green horde art)
+      // Risen render as the Bitgem undead roster (render3d 'undead' race) via
+      // u.isRisen; this faction only supplies their base COMBAT STATS.
+      faction:    'cinder',
+      // Barrow King elite: on every Nth night, one king leads the opening wave —
+      // the Bitgem undead_king rig with a big HP pool.
+      kingEveryNights: 3,
+      kingHpMul:       5,
     },
   };
 

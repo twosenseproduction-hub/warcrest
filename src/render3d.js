@@ -1067,6 +1067,22 @@
       registerUnitModel('elf:worker', { url: 'assets/models/rim_wisp.glb?v=20260630b', height: 40, yaw: -Math.PI / 2, glow: 0x9fe6ff, glowI: 0.45, glowSize: 1.1, hover: 16 });
       // Thoryn the Bladedrifter — bespoke Demon Hunter model (front = +X).
       registerUnitModel('hero:thoryn', { url: 'assets/models/demon_hunter.glb?v=20260630e', height: 74, yaw: -Math.PI / 2 });
+      // ── Bitgem undead roster (the Deepvein dead). Used by Night mode's risen
+      //    waves — see nightmode.js. Shared 'undead_units' rig with an embedded
+      //    texture; faces +Z (yaw 0). Clips: idle / run (→ walk) / attack (no
+      //    death). run carries baked forward motion → stripRootMotion plays it in
+      //    place. Keyed under the synthetic 'undead' race, which makeUnitMesh
+      //    selects when a unit is flagged u.isRisen (optionally u.risenModel picks
+      //    the sub-model: warrior / archer / caster / lancer / king / worker).
+      var UD = 'assets/models/undead_', UDV = '?v=20260717a';
+      var udAnims = { idle: 'idle', walk: 'run', attack: 'attack' };
+      registerUnitModel('undead:worker',  { url: UD + 'worker_anim.glb' + UDV,   height: 42, yaw: 0, anims: udAnims, stripRootMotion: true, attackRate: 1.0 });
+      registerUnitModel('undead:warrior', { url: UD + 'warrior_anim.glb' + UDV,  height: 54, yaw: 0, anims: udAnims, stripRootMotion: true, attackRate: 1.0 });
+      registerUnitModel('undead:archer',  { url: UD + 'archer_anim.glb' + UDV,   height: 54, yaw: 0, anims: udAnims, stripRootMotion: true, attackRate: 1.0 });
+      registerUnitModel('undead:caster',  { url: UD + 'mage_anim.glb' + UDV,     height: 54, yaw: 0, anims: udAnims, stripRootMotion: true, attackRate: 1.0 });
+      registerUnitModel('undead:lancer',  { url: UD + 'assassin_anim.glb' + UDV, height: 52, yaw: 0, anims: udAnims, stripRootMotion: true, attackRate: 1.0 });
+      registerUnitModel('undead:king',    { url: UD + 'king_anim.glb' + UDV,     height: 72, yaw: 0, anims: udAnims, stripRootMotion: true, attackRate: 1.0 });
+      registerUnitModel('undead:*',       { url: UD + 'warrior_anim.glb' + UDV,  height: 54, yaw: 0, anims: udAnims, stripRootMotion: true, attackRate: 1.0 });
       loadUnitModels().then(function (ok) { if (ok && R.enabled) rebuildUnitMeshes(); });
       return;
     }
@@ -1262,7 +1278,10 @@
     }
   }
   function makeUnitMesh(u) {
-    var race = raceOf(u.faction), role = mapRole(u);
+    // Night-mode risen render as the Bitgem undead roster regardless of the
+    // faction they borrow stats from; u.risenModel optionally picks the sub-model.
+    var race = u.isRisen ? 'undead' : raceOf(u.faction);
+    var role = (u.isRisen && u.risenModel) ? u.risenModel : mapRole(u);
     var entry = protoFor(race, role, u.heroId);
     if (entry) return makeModelMesh(entry, race, role, u);
     var tmpl = unitTemplate(race, role, u.heroId);
