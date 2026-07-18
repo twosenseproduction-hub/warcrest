@@ -1384,6 +1384,7 @@ function spawnGame(){
   const rk=(HERO_KIT[heroKind]&&RIGS[HERO_KIT[heroKind].rig])?HERO_KIT[heroKind].rig:(RIGS.queen?'queen':'thoryn');
   riggize(hero, rk);   // the chosen hero (Elf Queen default, or Paladin)
   hero.kit=heroKind; const _k=HERO_KIT[heroKind]||HERO_KIT.queen; hero.aMax=_k.a.cd; hero.spellMax=_k.spell.cd; hero.blinkMax=_k.blink.cd;
+  hero.range=_k.rng||3.6; hero.ranged=!!_k.ranged; hero.shot=_k.shot||'arrow';
   hero.isHero=true; hero.level=1; hero.xp=0; hero.baseHp=HERO_STAT.hp; hero.baseDmg=HERO_STAT.dmg; hero.attackType='hero'; hero.armorType='hero'; hero.baseArmor=2; hero.armor=2;   // progression
   refreshHeroAura();   // Warden moonlight aura (queen only)
   // muster just outside the base, facing into the map (toward the raider camp)
@@ -1453,7 +1454,7 @@ function groundBasis(){ const f=new THREE.Vector3(); cam.getWorldDirection(f); f
 function pickAtkClip(e){ if(!e||!e.act)return 'attack'; const a=['attack','attack2','attack3','attack4'].filter(n=>e.act[n]); return a.length?a[(Math.random()*a.length)|0]:'attack'; }
 // the Hit button: strike the nearest foe, but only if one is actually in reach (button is dimmed otherwise)
 function heroHit(){ if(!hero||!hero.alive||gameOver)return; const {t,d}=nearest(hero.px,hero.pz,foes());
-  if(t&&d<=hero.range+(t.big||0)+1){ if(hero.rigged){ hero.__atkClip=pickAtkClip(hero); hero.__atkT=0.55; } attack(hero,t); } }
+  if(t&&d<=hero.range+(t.big||0)+1){ if(hero.rigged){ hero.__atkClip=pickAtkClip(hero); hero.__atkT=0.55; } if(hero.ranged&&hero.cd<=0) shootFx(hero.px,hero.pz,t.px,t.pz,hero.shot||'arrow'); attack(hero,t); } }
 function warstomp(){ if(!hero||hero.aCd>0||gameOver)return; hero.aCd=5;
   for(const e of enemies){ if(!e.alive)continue; const d=Math.hypot(e.px-hero.px,e.pz-hero.pz);
     if(d<11){ damage(e,50,true,'hero'); const nx=e.px+(e.px-hero.px)/(d||1)*5, nz=e.pz+(e.pz-hero.pz)/(d||1)*5; if(onIsland(nx,nz))setP(e,nx,nz);} }
@@ -1605,7 +1606,8 @@ function blinkExplode(x,z){ const y=topY(x,z)+2.0, geo=new THREE.OctahedronGeome
   shockwave(x,z,0x9a5cff,7); }
 // apply the active hero's kit to the three ability buttons (icon/label) + per-slot cooldown maxes
 function applyHeroKit(){ const k=HERO_KIT[heroKind]||HERO_KIT.queen; if(hero)hero.kit=heroKind;
-  if(hero){ hero.aMax=k.a.cd; hero.spellMax=k.spell.cd; hero.blinkMax=k.blink.cd; }
+  if(hero){ hero.aMax=k.a.cd; hero.spellMax=k.spell.cd; hero.blinkMax=k.blink.cd;
+    hero.range=k.rng||3.6; hero.ranged=!!k.ranged; hero.shot=k.shot||'arrow'; }   // ranged heroes attack from afar
   const setBtn=(el,slot,cls)=>{ if(!el)return; const i=el.querySelector('.ic'), c=el.querySelector('.cap'); if(i)i.innerHTML=ic(slot.icon); if(c)c.textContent=slot.cap; };
   setBtn(abilEl,k.a); setBtn(boltEl,k.spell); setBtn(smiteEl,k.blink); KIND_NAME.hero=k.name; }
 function pickHero(kind){ if(!HERO_KIT[kind])kind='queen'; heroKind=kind; try{localStorage.setItem('wc_hero',kind);}catch(_){}
@@ -1756,10 +1758,10 @@ const ABIL_RANGE=26;   // hard cap on targeted-ability reach — inside hero sig
 let heroKind='queen', started=false, holyGrounds=[]; try{ heroKind=localStorage.getItem('wc_hero')||'queen'; }catch(_){}
 // per-hero ability kits — icon/label/cooldown per slot (a=AoE, spell=armed-target, blink=utility). Handlers dispatch on hero.kit.
 const HERO_KIT={
-  queen:  {name:'Elf Queen', rig:'queen', a:{icon:'fan',cap:'Fan',cd:6}, spell:{icon:'shadow',cap:'Strike',cd:8}, blink:{icon:'blink',cap:'Blink',cd:7}},
-  paladin:{name:'Paladin', rig:'paladin', a:{icon:'holy',cap:'Bless',cd:7}, spell:{icon:'hammer',cap:'Hammer',cd:8}, blink:{icon:'shield',cap:'Shield',cd:12}},
-  aelindra:{name:'Aelindra', rig:'aelindra', a:{icon:'fan',cap:'Volley',cd:7}, spell:{icon:'archer',cap:'Moonfire',cd:7}, blink:{icon:'blink',cap:'Windstep',cd:6}},
-  thoryn: {name:'Thoryn Greywarden', rig:'thoryn', a:{icon:'swords',cap:'Blade Dance',cd:6}, spell:{icon:'shadow',cap:'Root Lash',cd:8}, blink:{icon:'blink',cap:'Windstep',cd:7}},   // warden swordmaster — reuses the Warden handlers (nova / poison-strike / blink)
+  queen:  {name:'Elf Queen', rig:'queen', rng:9,  ranged:true,  shot:'shadow', a:{icon:'fan',cap:'Fan',cd:6}, spell:{icon:'shadow',cap:'Strike',cd:8}, blink:{icon:'blink',cap:'Blink',cd:7}},
+  paladin:{name:'Paladin', rig:'paladin', rng:4.2, ranged:false, a:{icon:'holy',cap:'Bless',cd:7}, spell:{icon:'hammer',cap:'Hammer',cd:8}, blink:{icon:'shield',cap:'Shield',cd:12}},
+  aelindra:{name:'Aelindra', rig:'aelindra', rng:12, ranged:true, shot:'arrow', a:{icon:'fan',cap:'Volley',cd:7}, spell:{icon:'archer',cap:'Moonfire',cd:7}, blink:{icon:'blink',cap:'Windstep',cd:6}},
+  thoryn: {name:'Thoryn Greywarden', rig:'thoryn', rng:4.2, ranged:false, a:{icon:'swords',cap:'Blade Dance',cd:6}, spell:{icon:'shadow',cap:'Root Lash',cd:8}, blink:{icon:'blink',cap:'Windstep',cd:7}},   // warden swordmaster — reuses the Warden handlers (nova / poison-strike / blink)
 };
 // each hero fields its own faction's army + buildings in skirmish (pbld='' elf, 'human_' Iron Crown, 'orc_' horde)
 const HERO_FACTION={
@@ -2176,7 +2178,7 @@ function updateGame(dt){
           puff(e.px+rr(-0.4,0.4), y+0.6+rr(0,0.8), e.pz+rr(-0.4,0.4), 0x5ad06a,0.28,0.4); } }
       if(e.poison.t<=0)e.poison=null; }
     if(hero.alive){ const {t,d}=nearest(hero.px,hero.pz,FO); heroHitTarget=(t&&d<=hero.range+(t.big||0)+1)?t:null; heroCanHit=!!heroHitTarget;
-      if(heroHitTarget){ if(hero.rigged&&hero.cd<=0){ hero.__atkClip=pickAtkClip(hero); hero.__atkT=0.55; } attack(hero,heroHitTarget); } }
+      if(heroHitTarget){ if(hero.cd<=0){ if(hero.rigged){ hero.__atkClip=pickAtkClip(hero); hero.__atkT=0.55; } if(hero.ranged) shootFx(hero.px,hero.pz,heroHitTarget.px,heroHitTarget.pz,hero.shot||'arrow'); } attack(hero,heroHitTarget); } }
     else { heroHitTarget=null; heroCanHit=false; }
     if(hero.alive && hero.rigged){ hero.mixer.update(dt); armRelax(hero); hero.__atkT=Math.max(0,(hero.__atkT||0)-dt);
       setAnim(hero, hero.__atkT>0?(hero.__atkClip||'attack'):(heroMoved?'run':'idle')); }
