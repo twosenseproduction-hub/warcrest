@@ -232,6 +232,19 @@ canvas{display:block}
 #selP .spX{width:28px;height:28px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;border-radius:7px;
   background:rgba(0,0,0,0.35);box-shadow:inset 0 0 0 1px var(--brassDk);color:#c9b58a;cursor:pointer}
 #selP .spX svg{width:14px;height:14px}
+/* weapon placement tuner (dev, #weapon) */
+#twPanel{position:fixed;top:0;right:0;width:300px;max-width:94vw;height:100%;z-index:99;overflow-y:auto;
+  background:rgba(18,24,32,.94);border-left:1px solid #3b4a59;padding:10px 12px;color:#dbe4ee;font:13px/1.35 system-ui;backdrop-filter:blur(4px)}
+#twPanel .twhd{display:flex;justify-content:space-between;align-items:center;font:700 15px system-ui;color:#fff;margin-bottom:6px}
+#twPanel .twhd button{background:#36475a;color:#fff;border:0;border-radius:6px;width:26px;height:26px;font-size:14px;cursor:pointer}
+#twPanel label{display:block;font:600 10px system-ui;letter-spacing:.05em;text-transform:uppercase;color:#8ba0b3;margin:8px 0 2px}
+#twPanel select{width:100%;padding:6px;background:#1a232e;color:#fff;border:1px solid #3b4a59;border-radius:6px;font-size:13px}
+#twPanel .twrow{display:flex;align-items:center;gap:7px;margin:3px 0}
+#twPanel .twrow .twn{width:34px;font-size:11px;color:#9fb0c0}
+#twPanel .twrow input[type=range]{flex:1;accent-color:#6fe3cf}
+#twPanel .twrow .twv{width:48px;text-align:right;font:12px monospace;color:#6fe3cf}
+#twPanel textarea{width:100%;background:#10171f;color:#9fe6cf;border:1px solid #3b4a59;border-radius:6px;font:11px/1.3 monospace;padding:7px;margin-top:8px;resize:vertical}
+#twPanel .twhot{width:100%;margin-top:8px;padding:9px;background:#6fe3cf;color:#0c1b18;border:0;border-radius:7px;font-weight:700;cursor:pointer}
 /* build toggle — hammer button that expands/collapses the build radial, sits above the ability radial */
 #buildBtn{position:fixed;z-index:7;right:calc(118px + var(--sr));bottom:calc(282px + var(--sb));width:60px;height:60px;border-radius:50%;
   display:none;align-items:center;justify-content:center;cursor:pointer;color:#2a1e0a;padding:0;border:0;

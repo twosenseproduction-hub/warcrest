@@ -2547,15 +2547,94 @@ async function boot(){
   let last=performance.now();
   (function loop(){ requestAnimationFrame(loop);
     const now=performance.now(); let dt=(now-last)/1000; last=now; if(dt>0.05)dt=0.05;
+    if(tunerActive){ _tFrame(dt); composer.render(); return; }   // weapon tuner takes over the frame
     updateGame(dt); followCam(dt); repositionRadial(); updateFires(dt); updateHeroAura(dt); updateAtmos(dt);
     if(++miniAcc%4===0){ drawMini(); updateSelPanel(); }   // ~15fps minimap + selection-card refresh
     if(miniAcc%6===0) updateFog();   // ~10fps fog recompute
     composer.render();
   })();
   window.__ready=true;
+  if(location.hash==='#weapon') setTimeout(openWeaponTuner, 400);   // deep-link the dev weapon tuner
+  addEventListener('hashchange',()=>{ if(location.hash==='#weapon'&&!tunerActive)openWeaponTuner(); });
 }
 // dev/debug bridge — the game body is module-scoped under Vite, so expose the internals
 // headless verification + the weapon tuner poke. Harmless in prod; gate behind a flag later.
+// ================= WEAPON PLACEMENT TUNER (dev tool) =================
+// Open with #weapon in the URL, or window.__wtune(). Reuses the game's real RIGS/PROPS/makeChar,
+// so the pos/rot/scl you dial drop straight into the WEAPONS map. Floats a preview in the sky;
+// view + transform driven entirely by sliders (no world-input plumbing).
+let tunerActive=false, _tPrev=null, _tProp=null, _tPanel=null;
+let _tCam={r:16, th:0.6}, _tAim=new THREE.Vector3(0,30,0);
+const _tState={rig:'warrior', file:null, bone:'hand_r', pos:[0,0,0], rot:[0,0,0], scl:1};
+const _R2D=180/Math.PI, _D2R=Math.PI/180;
+function _tBones(g){ const out=[]; g.traverse(o=>{ if(o.isBone) out.push(o.name); }); return [...new Set(out)].sort(); }
+function _tFindBone(name){ if(!_tPrev)return null; let b=null; _tPrev.g.traverse(o=>{ if(o.isBone && !b && (o.name===name||o.name.indexOf(name)===0)) b=o; }); return b; }
+function _tRebuild(){ if(_tPrev){ scene.remove(_tPrev.g); _tPrev=null; }
+  const c=makeChar(_tState.rig,{noWeapons:true}); if(!c)return;
+  c.g.position.set(0,30,0); scene.add(c.g); _tPrev=c;
+  const bs=_tBones(c.g), sel=_tPanel&&_tPanel.querySelector('#tw_bone');
+  if(sel){ sel.innerHTML=''; bs.forEach(n=>{ const o=document.createElement('option'); o.value=o.textContent=n; sel.appendChild(o); }); }
+  if(!bs.includes(_tState.bone)) _tState.bone = bs.find(n=>/hand_r/i.test(n))||bs.find(n=>/hand/i.test(n))||bs[0]||'hand_r';
+  if(sel) sel.value=_tState.bone;
+  _tAttach(); }
+function _tAttach(){ if(_tProp&&_tProp.parent)_tProp.parent.remove(_tProp); _tProp=null;
+  const prop=PROPS[_tState.file], bone=_tFindBone(_tState.bone);
+  if(!prop||!bone){ _tSnippet(); return; }
+  const p=prop.clone(true), tx=TEXS[_tState.rig];
+  if(tx) p.traverse(o=>{ if(o.isMesh) o.material=new THREE.MeshBasicMaterial({map:tx,side:THREE.DoubleSide}); });
+  bone.add(p); _tProp=p; _tApply(); }
+function _tApply(){ if(_tProp){ _tProp.position.fromArray(_tState.pos); _tProp.rotation.set(_tState.rot[0],_tState.rot[1],_tState.rot[2]); _tProp.scale.setScalar(_tState.scl); } _tSnippet(); }
+function _tSnippet(){ const f=n=>+(+n).toFixed(3); const o=_tPanel&&_tPanel.querySelector('#tw_out');
+  if(o) o.value=`{file:'${_tState.file}', bone:'${_tState.bone}', pos:[${_tState.pos.map(f)}], rot:[${_tState.rot.map(f)}], scl:${f(_tState.scl)}}`; }
+function _tSeedFrom(rig){ const w=(WEAPONS[rig]||[])[0];
+  if(w){ _tState.file=w.file; _tState.bone=w.bone; _tState.pos=w.pos.slice(); _tState.rot=w.rot.slice(); _tState.scl=w.scl; }
+  else { _tState.file=Object.keys(PROPS)[0]||null; _tState.bone='hand_r'; _tState.pos=[0,0,0]; _tState.rot=[0,0,0]; _tState.scl=1; } }
+function _tSync(){ if(!_tPanel)return; const q=s=>_tPanel.querySelector(s);
+  ['x','y','z'].forEach((ax,i)=>{ q('#tw_p'+ax).value=_tState.pos[i]; q('#tw_p'+ax+'v').textContent=(+_tState.pos[i]).toFixed(2);
+    q('#tw_r'+ax).value=Math.round(_tState.rot[i]*_R2D); q('#tw_r'+ax+'v').textContent=Math.round(_tState.rot[i]*_R2D); });
+  q('#tw_s').value=_tState.scl; q('#tw_sv').textContent=(+_tState.scl).toFixed(2);
+  const fsel=q('#tw_file'); if(fsel) fsel.value=_tState.file||''; }
+function _tFrame(dt){ if(_tPrev&&_tPrev.mixer)_tPrev.mixer.update(dt);
+  const c=_tCam; cam.position.set(_tAim.x+c.r*Math.cos(c.th), _tAim.y+2, _tAim.z+c.r*Math.sin(c.th)); cam.lookAt(_tAim); }
+function _tRow(label,id,min,max,step,val){ return '<div class="twrow"><span class="twn">'+label+'</span><input id="'+id+'" type="range" min="'+min+'" max="'+max+'" step="'+step+'" value="'+val+'"><span class="twv" id="'+id+'v">'+val+'</span></div>'; }
+function _tBuildPanel(){
+  const p=document.createElement('div'); p.id='twPanel'; _tPanel=p;
+  const rigOpts=RIG_SPECS.map(s=>s[0]).filter(k=>RIGS[k]).map(k=>'<option'+(k===_tState.rig?' selected':'')+'>'+k+'</option>').join('');
+  const propOpts=Object.keys(PROPS).map(f=>'<option>'+f+'</option>').join('');
+  p.innerHTML='<div class="twhd">Weapon Placement <button id="tw_close">✕</button></div>'+
+    '<label>Unit rig</label><select id="tw_rig">'+rigOpts+'</select>'+
+    '<label>Weapon prop</label><select id="tw_file">'+propOpts+'</select>'+
+    '<label>Attach bone</label><select id="tw_bone"></select>'+
+    '<label>Position</label>'+_tRow('X','tw_px',-16,16,0.05,0)+_tRow('Y','tw_py',-16,16,0.05,0)+_tRow('Z','tw_pz',-16,16,0.05,0)+
+    '<label>Rotation°</label>'+_tRow('X','tw_rx',-180,180,1,0)+_tRow('Y','tw_ry',-180,180,1,0)+_tRow('Z','tw_rz',-180,180,1,0)+
+    '<label>Scale</label>'+_tRow('S','tw_s',0.05,2,0.01,1)+
+    '<label>View</label>'+_tRow('Turn','tw_az',0,628,2,60)+_tRow('Zoom','tw_zm',6,40,0.5,16)+
+    '<textarea id="tw_out" readonly rows="3"></textarea>'+
+    '<button id="tw_copy" class="twhot">Copy snippet</button>';
+  document.body.appendChild(p);
+  const q=s=>p.querySelector(s);
+  q('#tw_close').onclick=closeWeaponTuner;
+  q('#tw_rig').onchange=e=>{ _tState.rig=e.target.value; _tSeedFrom(_tState.rig); _tRebuild(); _tSync(); };
+  q('#tw_file').onchange=e=>{ _tState.file=e.target.value; _tAttach(); };
+  q('#tw_bone').onchange=e=>{ _tState.bone=e.target.value; _tAttach(); };
+  ['x','y','z'].forEach((ax,i)=>{
+    q('#tw_p'+ax).oninput=e=>{ _tState.pos[i]=+e.target.value; q('#tw_p'+ax+'v').textContent=(+e.target.value).toFixed(2); _tApply(); };
+    q('#tw_r'+ax).oninput=e=>{ _tState.rot[i]=(+e.target.value)*_D2R; q('#tw_r'+ax+'v').textContent=e.target.value; _tApply(); }; });
+  q('#tw_s').oninput=e=>{ _tState.scl=+e.target.value; q('#tw_sv').textContent=(+e.target.value).toFixed(2); _tApply(); };
+  q('#tw_az').oninput=e=>{ _tCam.th=(+e.target.value)/100; };
+  q('#tw_zm').oninput=e=>{ _tCam.r=+e.target.value; };
+  q('#tw_copy').onclick=()=>{ const o=q('#tw_out'); o.select(); try{ navigator.clipboard.writeText(o.value); }catch(_){} document.execCommand&&document.execCommand('copy'); q('#tw_copy').textContent='Copied ✓'; setTimeout(()=>q('#tw_copy').textContent='Copy snippet',1200); };
+}
+function openWeaponTuner(){ if(tunerActive)return;
+  if(!RIGS[_tState.rig]){ const k=RIG_SPECS.map(s=>s[0]).find(k=>RIGS[k]); if(k)_tState.rig=k; }
+  if(!RIGS[_tState.rig]){ alert('Rigs still loading — try again in a moment.'); return; }
+  tunerActive=true;
+  document.querySelectorAll('body>*').forEach(e=>{ if(e.tagName!=='CANVAS') e.style.setProperty('display','none','important'); });
+  _tBuildPanel(); _tSeedFrom(_tState.rig); _tRebuild(); _tSync(); _tApply(); }
+function closeWeaponTuner(){ tunerActive=false; if(_tPrev){ scene.remove(_tPrev.g); _tPrev=null; } if(_tPanel){ _tPanel.remove(); _tPanel=null; }
+  document.querySelectorAll('body>*').forEach(e=>{ if(e.tagName!=='CANVAS') e.style.removeProperty('display'); }); if(location.hash==='#weapon')location.hash=''; }
+window.__wtune=openWeaponTuner; window.__wtuneClose=closeWeaponTuner;
+
 window.__dbg={
   get hero(){return hero}, get camAim(){return camAim}, get camF(){return camF}, get scene(){return scene}, get enemyBoss(){return enemyBoss}, grantXp:(...a)=>grantXp(...a),
   get enemies(){return enemies}, get allies(){return allies}, get waterMat(){return waterMat}, get motes(){return motes},
