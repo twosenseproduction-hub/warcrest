@@ -390,7 +390,8 @@
       hp: 340,
       speed: 158,        // light-footed — fast
       dmg: 24,
-      range: 190,        // moonfire longbow
+      range: 240,        // moonfire longbow — a true sniper: outranges every archer
+                         // (Bark 168 / Crossbow 150) and hero, into tower territory
       rof: 0.8,
       ranged: true,
       supply: 0,
