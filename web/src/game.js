@@ -1261,7 +1261,7 @@ function bakeStatic(o){ o.updateMatrixWorld(true); const parts=[]; let hadSkin=f
 const bakeProp=bakeStatic;   // back-compat alias for the weapon-prop loader
 function loadRig(){ return new Promise(res=>{
   const gl=new THREE.GLTFLoader(), fx=new THREE.FBXLoader(), tl=new THREE.TextureLoader();
-  const MDLV='?v=8';   // asset cache-buster — bump on any model/texture change so /assets max-age=86400 doesn't pin a stale rig (index.html revalidates, so a new ?v reaches clients at once)
+  const MDLV='?v=9';   // asset cache-buster — bump on any model/texture change so /assets max-age=86400 doesn't pin a stale rig (index.html revalidates, so a new ?v reaches clients at once)
   const propFiles=[...new Set(Object.values(WEAPONS).flat().map(w=>w.file))];
   let n=0, need=RIG_SPECS.length*2 + propFiles.length; const done=()=>{ if(++n>=need) res(); };   // body GLB + atlas per char, + each prop once
   RIG_SPECS.forEach(([k,f])=>{
