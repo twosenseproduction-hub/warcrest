@@ -397,6 +397,20 @@ function tagCombat(e){ const c=COMBAT[e.kind];
   if(c){ e.attackType=c.at; e.armorType=c.ar; e.baseArmor=c.av; e.armor=c.av; }
   else { e.attackType=e.magic?'magic':(e.ranged?'piercing':'normal'); e.armorType='medium'; e.baseArmor=1; e.armor=1; }
   return e; }
+// ===== per-faction identity (WC3 asymmetry) — same archetypes, different feel =====
+const FACTION_MOD={
+  elf:  {arm:-1, hp:0.88, dmg:1.12, spd:1.18, name:'Rimwalkers'},   // glassy, fast, hard-hitting
+  human:{arm: 1, hp:1.08, dmg:1.00, spd:1.00, name:'Iron Crown'},   // balanced, sturdy
+  orc:  {arm: 1, hp:1.22, dmg:1.10, spd:0.92, name:'Cinder Horde'}, // tanky bruisers, slow
+};
+function playerFaction(){ return BLDPFX==='human_'?'human':BLDPFX==='orc_'?'orc':'elf'; }
+// tweak a NON-hero unit's stats + armor to its faction; call after tagCombat + stats are set
+function applyFaction(e,fac){ const m=FACTION_MOD[fac]; if(!m||e.isHero)return; e.faction=fac;
+  e.armor=(e.baseArmor||0)+m.arm;
+  if(e.max){ const frac=e.max>0?e.hp/e.max:1; e.max=Math.max(1,Math.round(e.max*m.hp)); e.hp=Math.round(e.max*frac); }
+  if(e.dmg)e.dmg=Math.max(1,Math.round(e.dmg*m.dmg));
+  if(e.spd)e.spd*=m.spd;
+  return e; }
 // ===== Central combat balance table — every spawn path (player train, enemy AI, waves,
 // starting warband) reads its base stats from here, so tuning one number tunes the whole
 // game and player/enemy archetypes stay mirrored. dps = dmg/atk.
@@ -479,7 +493,7 @@ function queueUnit(p,def){ if(!p||p.cat!=='army')return; if(gold<def.gold)return
 function spawnTrained(p,q){ const b=UBAL[q.kind]||UBAL.warrior;
   const col = q.kind==='cleric'?C.cleric : q.kind==='archer'?C.teamBlue : q.kind==='drake'?0x9b6bd6 : C.teamBlueD;
   const e=mkFighter(col,1.0,'ally',{hp:b.hp,dmg:b.dmg,range:b.range,atkEvery:b.atk,spd:ALLY_SPD});
-  e.idx=allies.length; e.kind=q.kind; e.healCd=0; e.smiteCd=0; tagCombat(e); riggize(e, URIG[q.kind]||q.rig||q.kind); setP(e,p.x+rr(-2,2),p.z+rr(3,5)); allies.push(e); }
+  e.idx=allies.length; e.kind=q.kind; e.healCd=0; e.smiteCd=0; tagCombat(e); applyFaction(e,playerFaction()); riggize(e, URIG[q.kind]||q.rig||q.kind); setP(e,p.x+rr(-2,2),p.z+rr(3,5)); allies.push(e); }
 function upgradePlot(p){ if(!p.cat||p.level>=3)return; const cost=CAT[p.cat].cost[p.level], wcost=UP_WOOD[p.level];   // upgrades cost gold + wood
   if(gold<cost||wood<wcost)return; gold-=cost; wood-=wcost; p.level++; buildOnPlot(p); closeBuildMenu(); }
 function upgradeCore(){ if(!coreB||coreB.level>=3)return; const cost=CORE_UP[coreB.level], wcost=CORE_WOOD[coreB.level];
@@ -537,7 +551,7 @@ function mkOrc(rig){ const map={orcgrunt:'grunt', orcarcher:'archer', orcwarrior
   const kind=map[rig]||'grunt', b=UBAL[kind]||UBAL.grunt;
   const scl = rig==='orcwarrior'?1.1 : rig==='orcgrunt'?1.05 : 1.0;
   const e=mkFighter(C.enemyRed,scl,'enemy',{hp:b.hp,dmg:b.dmg,range:b.range,atkEvery:b.atk,spd:ENEMY_SPD}); riggize(e,rig);
-  e.kind=kind; if(kind==='archer'){e.ranged=true;} if(kind==='shaman'){e.ranged=true;e.magic=true;} if(rig==='orcwarrior')e.rad=1.8; tagCombat(e);
+  e.kind=kind; if(kind==='archer'){e.ranged=true;} if(kind==='shaman'){e.ranged=true;e.magic=true;} if(rig==='orcwarrior')e.rad=1.8; tagCombat(e); applyFaction(e,'orc');
   return e; }
 // ================= NEUTRAL CREEPS (ash-basin bestiary) + creep camps =================
 // Creeps live in the `enemies` array (so allies/towers/hero treat them as foes and the reaper
@@ -672,7 +686,7 @@ function setupRitual(){ ritualT=0; ritualDone=false; ritualCasters=[]; _ritWaves
   for(let i=0;i<(RITUAL.casters||2);i++){ const b=UBAL.cleric, a=i/Math.max(1,RITUAL.casters)*6.28;
     const p=findLand(sx+Math.cos(a)*4.5, sz+Math.sin(a)*4.5);
     const e=mkFighter(C.cleric,1.0,'ally',{hp:Math.round(b.hp*1.6),dmg:b.dmg,range:b.range,atkEvery:b.atk,spd:ALLY_SPD});
-    e.kind='cleric'; e.idx=allies.length; e.healCd=0; e.smiteCd=0; e.__caster=true; tagCombat(e); e.order={x:p.x,z:p.z};
+    e.kind='cleric'; e.idx=allies.length; e.healCd=0; e.smiteCd=0; e.__caster=true; tagCombat(e); applyFaction(e,playerFaction()); e.order={x:p.x,z:p.z};
     riggize(e, URIG.cleric||'priestess'); setP(e,p.x,p.z); allies.push(e); ritualCasters.push(e); }
   const ring=new THREE.Mesh(new THREE.RingGeometry(6,7.4,44), new THREE.MeshBasicMaterial({color:0x9dff4a,transparent:true,opacity:0.7,side:THREE.DoubleSide,depthWrite:false}));
   ring.rotation.x=-Math.PI/2; ring.position.set(sx,topY(sx,sz)+0.3,sz); scene.add(ring); _ritRing=ring; }
@@ -1365,7 +1379,7 @@ function spawnGame(){
   const COL={warrior:C.teamBlueD, archer:C.teamBlue, cleric:C.cleric};
   LVSTART.forEach((u,i)=>{ const kind=(u==='priestess')?'cleric':u, b=UBAL[kind]||UBAL.warrior;
     const e=mkFighter(COL[kind]||C.teamBlueD,1.0,'ally',{hp:b.hp,dmg:b.dmg,range:b.range,atkEvery:b.atk,spd:ALLY_SPD});
-    e.idx=i; e.kind=kind; e.healCd=0; e.smiteCd=0; tagCombat(e); riggize(e, URIG[kind]||u);
+    e.idx=i; e.kind=kind; e.healCd=0; e.smiteCd=0; tagCombat(e); applyFaction(e,playerFaction()); riggize(e, URIG[kind]||u);
     setP(e, hero.px+((i%3)-1)*3.2, hero.pz-2-Math.floor(i/3)*3); allies.push(e); });
   if(RAIDERS.type==='base'){
     const boss=mkFighter(C.enemyRed,1.6,'enemy',{hp:BOSS_STAT.hp,dmg:BOSS_STAT.dmg,range:BOSS_STAT.range,atkEvery:BOSS_STAT.atk,spd:BOSS_STAT.spd});
