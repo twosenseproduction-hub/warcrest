@@ -404,6 +404,20 @@ const FACTION_MOD={
   orc:  {arm: 1, hp:1.22, dmg:1.10, spd:0.92, name:'Cinder Horde'}, // tanky bruisers, slow
 };
 function playerFaction(){ return BLDPFX==='human_'?'human':BLDPFX==='orc_'?'orc':'elf'; }
+// smart acquisition: among candidates, prefer the foe this unit deals the most EFFECTIVE damage to
+// (armor/attack-type table), bias toward wounded (finish kills), mild proximity pull. Keeps the
+// counter system tactical without long chases (callers pre-filter to the engage window).
+function bestTarget(a, cands){ let best=null, bs=-1e30;
+  for(const t of cands){ if(!t||!t.alive)continue;
+    const eff=(a.dmg||10)*typeMult(a.attackType||'normal', t.armorType)*armorMult(t.armor||0);
+    const dist=Math.hypot(t.px-a.px, t.pz-a.pz), finish=(t.max?1-t.hp/t.max:0);
+    const score=eff*(1+0.6*finish) - dist*0.8;
+    if(score>bs){ bs=score; best=t; } }
+  return best; }
+// UI: which armor types this attack type is strong / weak against (drives the hub counter hint)
+function counterHint(at){ const row=DMG_TABLE[at||'normal']||DMG_TABLE.normal, strong=[], weak=[];
+  for(const k in row){ if(k==='hero')continue; if(row[k]>=1.25) strong.push(ARM_LABEL[k]); else if(row[k]<=0.7) weak.push(ARM_LABEL[k]); }
+  return {strong, weak}; }
 // tweak a NON-hero unit's stats + armor to its faction; call after tagCombat + stats are set
 function applyFaction(e,fac){ const m=FACTION_MOD[fac]; if(!m||e.isHero)return; e.faction=fac;
   e.armor=(e.baseArmor||0)+m.arm;
@@ -1796,12 +1810,13 @@ function updateSelPanel(){ if(!selPanelEl)return;
   selPanelEl.style.display='flex';
   const icEl=selPanelEl.querySelector('.spIc'), nmEl=selPanelEl.querySelector('.spNm'),
         barF=selPanelEl.querySelector('.spBarF'), barT=selPanelEl.querySelector('.spBarT'), stEl=selPanelEl.querySelector('.spSt'),
-        grid=selPanelEl.querySelector('.spGrid'), acts=selPanelEl.querySelector('.spActs'), allBtn=selPanelEl.querySelector('.spAll');
+        grid=selPanelEl.querySelector('.spGrid'), acts=selPanelEl.querySelector('.spActs'), allBtn=selPanelEl.querySelector('.spAll'),
+        ctrEl=selPanelEl.querySelector('.spCtr');
   const sel=[...selected].filter(u=>u.alive);
   if(!sel.length){                                                         // idle state: frame present, empty crest
     selPanelEl.classList.add('empty');
     icEl.innerHTML=ic('shield'); nmEl.textContent='No selection'; barF.style.width='0%'; barT.textContent='';
-    stEl.textContent='Tap or drag to select'; grid.style.display='none'; acts.style.display='none'; grid.__sig=null; return;
+    stEl.textContent='Tap or drag to select'; if(ctrEl)ctrEl.innerHTML=''; grid.style.display='none'; acts.style.display='none'; grid.__sig=null; return;
   }
   selPanelEl.classList.remove('empty');
   // group the selection by unit type (the hero is its own group)
@@ -1819,6 +1834,9 @@ function updateSelPanel(){ if(!selPanelEl)return;
   stEl.textContent = (primary.dmg!=null)
     ? (primary.dmg+' dmg · '+(ATK_LABEL[primary.attackType]||'Normal')+' · '+(ARM_LABEL[primary.armorType]||'Medium')+' '+(primary.armor||0)+' armor')
     : '';
+  if(ctrEl){ if(primary.dmg!=null && primary.attackType){ const c=counterHint(primary.attackType);   // teach the counters
+      ctrEl.innerHTML=(c.strong.length?'<span class="up">▲ '+c.strong.join(' · ')+'</span>':'')+(c.weak.length?'<span class="dn">▼ '+c.weak.join(' · ')+'</span>':''); }
+    else ctrEl.innerHTML=''; }
   // squad grid: one tappable cell per type (WC3-style), sub-selects that type
   grid.style.display='flex';
   const sig=order.map(k=>k+groups[k].length).join(',')+'|'+pk;
@@ -2171,9 +2189,9 @@ function updateGame(dt){
       if(e.forcedTarget){ e.target=e.forcedTarget; }                                     // manual focus-fire overrides leash & orders
       else {
         if(e.target && !e.order && heroDist>BREAK) e.target=null;                        // drop a fight only if unordered & hero left
-        if(!e.target){ const {t}=nearest(e.px,e.pz,FO);
-          if(t){ if(e.order){ if(Math.hypot(t.px-e.px,t.pz-e.pz)<12) e.target=t; }       // ordered: attack-move — engage foes en route
-                 else if(Math.hypot(t.px-hero.px,t.pz-hero.pz)<ENGAGE) e.target=t; } } } // following: engage foes near the hero
+        if(!e.target){                                                                   // acquire the best-countered foe inside the engage window
+          const cands=FO.filter(t=> t&&t.alive && (e.order ? Math.hypot(t.px-e.px,t.pz-e.pz)<12 : Math.hypot(t.px-hero.px,t.pz-hero.pz)<ENGAGE));
+          if(cands.length) e.target=bestTarget(e,cands); } }
       if(e.target){ const t=e.target, d=Math.hypot(t.px-e.px,t.pz-e.pz);                 // committed: fight until it dies
              if(d>e.range+(t.big||0)){ e.state='move'; moveTo(e,t.px,t.pz,dt); } else { e.state='attack'; faceTo(e,t.px-e.px,t.pz-e.pz);
                if(e.cd<=0 && e.kind!=='warrior' && e.kind!=='assassin') shootFx(e.px,e.pz,t.px,t.pz, e.kind==='cleric'?'arcane':'arrow'); attack(e,t); } }
@@ -2403,7 +2421,7 @@ function setupHUD(){
   selPanelEl.innerHTML='<div class="spPortrait"><div class="spIc"></div></div>'+
     '<div class="spInfo"><div class="spNm"></div>'+
       '<div class="spHpRow"><span class="spHeart">'+ic('heart')+'</span><div class="spBar"><div class="spBarF"></div><span class="spBarT"></span></div></div>'+
-      '<div class="spSt"></div></div>'+
+      '<div class="spSt"></div><div class="spCtr"></div></div>'+
     '<div class="spGrid"></div>'+
     '<div class="spActs"><div class="spAll" title="Select all">'+ic('roster')+'</div><div class="spX">'+ic('close')+'</div></div>';
   selPanelEl.addEventListener('pointerdown',ev=>ev.stopPropagation());
