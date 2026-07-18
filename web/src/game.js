@@ -369,6 +369,34 @@ const CAT={
 // WC3-style supply: the Throne seeds a base cap, each House raises it; units cost supply and gate training
 const BASE_SUPPLY=12, UNIT_SUP={warrior:3,archer:2,cleric:3,assassin:2,grunt:2,shaman:3,drake:6};
 let supplyCap=BASE_SUPPLY, supplyUsed=0;
+// ===== WC3-style combat: attack-type × armor-type multiplier table + armor-value mitigation =====
+const DMG_TABLE={
+  normal:  {unarmored:1.00, light:1.00, medium:1.50, heavy:1.00, fortified:0.70, hero:1.00},
+  piercing:{unarmored:1.50, light:2.00, medium:0.75, heavy:1.00, fortified:0.35, hero:0.50},
+  magic:   {unarmored:1.00, light:1.25, medium:0.75, heavy:2.00, fortified:0.35, hero:0.50},
+  siege:   {unarmored:1.00, light:1.00, medium:0.50, heavy:1.00, fortified:1.50, hero:0.50},
+  hero:    {unarmored:1.00, light:1.00, medium:1.00, heavy:1.00, fortified:0.50, hero:1.00},
+};
+// each armor point ≈ 6% less damage (WC3 formula); negative armor amplifies
+function armorMult(a){ a=a||0; return a>=0 ? 1-(0.06*a)/(1+0.06*a) : 2-Math.pow(0.94,-a); }
+function typeMult(at,dt){ const row=DMG_TABLE[at]||DMG_TABLE.normal; const m=row[dt||'medium']; return m==null?1:m; }
+// per-kind combat profile: attack type · armor type · base armor value
+const COMBAT={
+  warrior:{at:'normal',ar:'heavy',av:4},   archer:{at:'piercing',ar:'light',av:1},
+  cleric:{at:'magic',ar:'unarmored',av:0}, assassin:{at:'normal',ar:'medium',av:1},
+  grunt:{at:'normal',ar:'medium',av:2},    shaman:{at:'magic',ar:'unarmored',av:0}, drake:{at:'normal',ar:'heavy',av:5},
+  cinderhound:{at:'normal',ar:'medium',av:1}, direboar:{at:'normal',ar:'heavy',av:3},
+  emberspitter:{at:'magic',ar:'light',av:0}, moltenwisp:{at:'magic',ar:'light',av:0},
+  ashtreant:{at:'normal',ar:'heavy',av:4}, wyveling:{at:'piercing',ar:'light',av:1}, revenant:{at:'siege',ar:'fortified',av:4},
+  uworker:{at:'normal',ar:'unarmored',av:0}, uwarrior:{at:'normal',ar:'heavy',av:3}, uassassin:{at:'normal',ar:'medium',av:1},
+  uarcher:{at:'piercing',ar:'light',av:1}, umage:{at:'magic',ar:'unarmored',av:0}, uking:{at:'hero',ar:'hero',av:3},
+};
+const ARM_LABEL={unarmored:'Unarmored',light:'Light',medium:'Medium',heavy:'Heavy',fortified:'Fortified',hero:'Hero'};
+const ATK_LABEL={normal:'Normal',piercing:'Piercing',magic:'Magic',siege:'Siege',hero:'Hero'};
+function tagCombat(e){ const c=COMBAT[e.kind];
+  if(c){ e.attackType=c.at; e.armorType=c.ar; e.baseArmor=c.av; e.armor=c.av; }
+  else { e.attackType=e.magic?'magic':(e.ranged?'piercing':'normal'); e.armorType='medium'; e.baseArmor=1; e.armor=1; }
+  return e; }
 // ===== Central combat balance table — every spawn path (player train, enemy AI, waves,
 // starting warband) reads its base stats from here, so tuning one number tunes the whole
 // game and player/enemy archetypes stay mirrored. dps = dmg/atk.
@@ -419,7 +447,7 @@ function recomputeSupply(){ supplyCap=BASE_SUPPLY; for(const p of plots) if(p.ca
   supplyUsed=0; for(const e of allies) if(e.alive) supplyUsed+=(UNIT_SUP[e.kind]||2);
   for(const p of plots) if(p.cat==='army'&&p.queue) for(const q of p.queue) supplyUsed+=(UNIT_SUP[q.kind]||2); }   // queued units reserve supply
 function placeCore(x,z){ scene.add(courtyard(x,z,13));
-  coreB={x,z,px:x,pz:z,alive:true,level:1,hp:CORE_HP[0],max:CORE_HP[0],big:8,hitT:0,g:null,bar:makeBar(0x6fd0ff)};
+  coreB={x,z,px:x,pz:z,alive:true,level:1,hp:CORE_HP[0],max:CORE_HP[0],big:8,hitT:0,g:null,bar:makeBar(0x6fd0ff),kind:'core',armorType:'fortified',armor:5};
   const g=bldClone(BLDPFX+'throne1',CORE_H[0])||makeKeep(); g.position.set(x,topY(x,z),z); scene.add(g); coreB.g=g; }
 // marker state: built → hidden; unlocked empty → bright (cyan gen / orange turret) + plus; locked → dim grey, no plus
 function styleRing(p){ if(!p.ring)return; if(p.cat){ p.ring.visible=false; if(p.plus)p.plus.visible=false; return; }
@@ -451,7 +479,7 @@ function queueUnit(p,def){ if(!p||p.cat!=='army')return; if(gold<def.gold)return
 function spawnTrained(p,q){ const b=UBAL[q.kind]||UBAL.warrior;
   const col = q.kind==='cleric'?C.cleric : q.kind==='archer'?C.teamBlue : q.kind==='drake'?0x9b6bd6 : C.teamBlueD;
   const e=mkFighter(col,1.0,'ally',{hp:b.hp,dmg:b.dmg,range:b.range,atkEvery:b.atk,spd:ALLY_SPD});
-  e.idx=allies.length; e.kind=q.kind; e.healCd=0; e.smiteCd=0; riggize(e, URIG[q.kind]||q.rig||q.kind); setP(e,p.x+rr(-2,2),p.z+rr(3,5)); allies.push(e); }
+  e.idx=allies.length; e.kind=q.kind; e.healCd=0; e.smiteCd=0; tagCombat(e); riggize(e, URIG[q.kind]||q.rig||q.kind); setP(e,p.x+rr(-2,2),p.z+rr(3,5)); allies.push(e); }
 function upgradePlot(p){ if(!p.cat||p.level>=3)return; const cost=CAT[p.cat].cost[p.level], wcost=UP_WOOD[p.level];   // upgrades cost gold + wood
   if(gold<cost||wood<wcost)return; gold-=cost; wood-=wcost; p.level++; buildOnPlot(p); closeBuildMenu(); }
 function upgradeCore(){ if(!coreB||coreB.level>=3)return; const cost=CORE_UP[coreB.level], wcost=CORE_WOOD[coreB.level];
@@ -461,7 +489,7 @@ function upgradeCore(){ if(!coreB||coreB.level>=3)return; const cost=CORE_UP[cor
 function towerTick(p,dt){ p.cd-=dt; if(p.cd>0)return; let best=null,bd=p.range*p.range;
   // only target foes the player can actually SEE — no firing blind into the fog of war
   for(const en of enemies){ if(!en.alive)continue; if(!isVisible(en.px,en.pz))continue; const dd=(en.px-p.x)**2+(en.pz-p.z)**2; if(dd<bd){bd=dd;best=en;} }
-  if(best){ shootFx(p.x,p.z,best.px,best.pz,'arrow'); damage(best,p.dmg,false); p.cd=p.rof; } }
+  if(best){ shootFx(p.x,p.z,best.px,best.pz,'arrow'); damage(best,p.dmg,false,'piercing'); p.cd=p.rof; } }
 function barracksTick(p,dt){
   if(p.queue&&p.queue.length){ const q=p.queue[0]; q.t-=dt; if(q.t<=0){ spawnTrained(p,q); p.queue.shift(); recomputeSupply(); } }
   if(p.pbar){ if(p.queue&&p.queue.length){ const q=p.queue[0], f=Math.max(0,Math.min(1,(q.dur-q.t)/q.dur));   // training progress bar over the barracks
@@ -485,7 +513,7 @@ const BLD_HP=[220,340,480];   // per-level HP of an enemy plot building
 function updateStructBar(s,topH){ if(!s.bar)return; if(s.__vis===false){ s.bar.visible=false; return; } const f=Math.max(0,s.hp/s.max); s.bar.__fl.scale.x=f; s.bar.__fl.position.x=-(1-f)*s.bar.__w/2;
   s.bar.visible=true; s.bar.position.set(s.x,topY(s.x,s.z)+topH+2,s.z); s.bar.quaternion.copy(cam.quaternion); }
 function placeEnemyCore(x,z){ scene.add(courtyard(x,z,13));
-  enemyCore={x,z,px:x,pz:z,alive:true,level:1,hp:CORE_HP[0],max:CORE_HP[0],big:8,hitT:0,g:null,bar:makeBar(0xff6b5a),kind:'core'};
+  enemyCore={x,z,px:x,pz:z,alive:true,level:1,hp:CORE_HP[0],max:CORE_HP[0],big:8,hitT:0,g:null,bar:makeBar(0xff6b5a),kind:'core',armorType:'fortified',armor:5};
   const g=bldClone('orc_throne1',CORE_H[0])||makeKeep(); g.position.set(x,topY(x,z),z); g.rotation.y=2.4; scene.add(g); enemyCore.g=g;
   eStructs.push(enemyCore); }
 function makeEnemyPlot(x,z,tier,slot){ slot=slot||'gen'; scene.add(slot==='turret'?turretPad(x,z,3.4,PLOT_THEME.orc):hexPad(x,z,5.3,PLOT_THEME.orc));
@@ -509,7 +537,7 @@ function mkOrc(rig){ const map={orcgrunt:'grunt', orcarcher:'archer', orcwarrior
   const kind=map[rig]||'grunt', b=UBAL[kind]||UBAL.grunt;
   const scl = rig==='orcwarrior'?1.1 : rig==='orcgrunt'?1.05 : 1.0;
   const e=mkFighter(C.enemyRed,scl,'enemy',{hp:b.hp,dmg:b.dmg,range:b.range,atkEvery:b.atk,spd:ENEMY_SPD}); riggize(e,rig);
-  e.kind=kind; if(kind==='archer'){e.ranged=true;} if(kind==='shaman'){e.ranged=true;e.magic=true;} if(rig==='orcwarrior')e.rad=1.8;
+  e.kind=kind; if(kind==='archer'){e.ranged=true;} if(kind==='shaman'){e.ranged=true;e.magic=true;} if(rig==='orcwarrior')e.rad=1.8; tagCombat(e);
   return e; }
 // ================= NEUTRAL CREEPS (ash-basin bestiary) + creep camps =================
 // Creeps live in the `enemies` array (so allies/towers/hero treat them as foes and the reaper
@@ -535,7 +563,7 @@ const CREEP={
 };
 function mkCreep(kind,camp,home){ const b=CREEP[kind]||CREEP.cinderhound;
   const e=mkFighter(0x8a7d5a,1.0,'enemy',{hp:b.hp,dmg:b.dmg,range:b.range,atkEvery:b.atk,spd:b.spd});
-  e.kind=kind; e.creep=true; e.camp=camp; e.home={x:home.x,z:home.z}; e.aggro=false; e.returning=false;
+  e.kind=kind; e.creep=true; e.camp=camp; e.home={x:home.x,z:home.z}; e.aggro=false; e.returning=false; tagCombat(e);
   e.aggroR=camp?camp.aggroR:15; e.leashR=camp?camp.leashR:26; e.rad=b.rad||1.5; if(b.big)e.big=b.big;
   if(b.ranged)e.ranged=true; if(b.magic)e.magic=true; e.max=b.hp;
   riggize(e,kind); if(CREEP_VFX[kind]) e.vfx=makeCreepVfx(e,kind); return e; }
@@ -644,7 +672,7 @@ function setupRitual(){ ritualT=0; ritualDone=false; ritualCasters=[]; _ritWaves
   for(let i=0;i<(RITUAL.casters||2);i++){ const b=UBAL.cleric, a=i/Math.max(1,RITUAL.casters)*6.28;
     const p=findLand(sx+Math.cos(a)*4.5, sz+Math.sin(a)*4.5);
     const e=mkFighter(C.cleric,1.0,'ally',{hp:Math.round(b.hp*1.6),dmg:b.dmg,range:b.range,atkEvery:b.atk,spd:ALLY_SPD});
-    e.kind='cleric'; e.idx=allies.length; e.healCd=0; e.smiteCd=0; e.__caster=true; e.order={x:p.x,z:p.z};
+    e.kind='cleric'; e.idx=allies.length; e.healCd=0; e.smiteCd=0; e.__caster=true; tagCombat(e); e.order={x:p.x,z:p.z};
     riggize(e, URIG.cleric||'priestess'); setP(e,p.x,p.z); allies.push(e); ritualCasters.push(e); }
   const ring=new THREE.Mesh(new THREE.RingGeometry(6,7.4,44), new THREE.MeshBasicMaterial({color:0x9dff4a,transparent:true,opacity:0.7,side:THREE.DoubleSide,depthWrite:false}));
   ring.rotation.x=-Math.PI/2; ring.position.set(sx,topY(sx,sz)+0.3,sz); scene.add(ring); _ritRing=ring; }
@@ -662,7 +690,7 @@ function ritualTick(dt){ if(!RITUAL||ritualDone)return; ritualT+=dt;
   if(ritualT>=RITUAL.duration){ ritualDone=true; endGame(true); } }   // seal complete
 function eTowerTick(p,dt){ p.cd-=dt; if(p.cd>0)return; let best=null,bd=p.range*p.range;
   for(const t of [hero,...allies]){ if(!t||!t.alive)continue; const dd=(t.px-p.x)**2+(t.pz-p.z)**2; if(dd<bd){bd=dd;best=t;} }
-  if(best){ shootFx(p.x,p.z,best.px,best.pz,'arrow'); damage(best,p.dmg,false); p.cd=p.rof; } }
+  if(best){ shootFx(p.x,p.z,best.px,best.pz,'arrow'); damage(best,p.dmg,false,'piercing'); p.cd=p.rof; } }
 function eBarracksTick(p,dt){ p.mine=p.mine.filter(u=>u.alive); if(eSupplyUsed>=eSupplyCap)return; if(p.mine.length>=p.cap)return; p.spawnCd-=dt; if(p.spawnCd>0)return; p.spawnCd=p.every;
   const rig=['orcgrunt','orcarcher','orcwarrior'][p.mine.length % (p.level>=2?3:2)];
   const e=mkOrc(rig); setP(e,p.x+rr(-3,3),p.z+rr(3,5)); enemies.push(e); p.mine.push(e); }
@@ -1328,7 +1356,7 @@ function spawnGame(){
   const rk=(HERO_KIT[heroKind]&&RIGS[HERO_KIT[heroKind].rig])?HERO_KIT[heroKind].rig:(RIGS.queen?'queen':'thoryn');
   riggize(hero, rk);   // the chosen hero (Elf Queen default, or Paladin)
   hero.kit=heroKind; const _k=HERO_KIT[heroKind]||HERO_KIT.queen; hero.aMax=_k.a.cd; hero.spellMax=_k.spell.cd; hero.blinkMax=_k.blink.cd;
-  hero.isHero=true; hero.level=1; hero.xp=0; hero.baseHp=HERO_STAT.hp; hero.baseDmg=HERO_STAT.dmg;   // progression
+  hero.isHero=true; hero.level=1; hero.xp=0; hero.baseHp=HERO_STAT.hp; hero.baseDmg=HERO_STAT.dmg; hero.attackType='hero'; hero.armorType='hero'; hero.baseArmor=2; hero.armor=2;   // progression
   refreshHeroAura();   // Warden moonlight aura (queen only)
   // muster just outside the base, facing into the map (toward the raider camp)
   const outAng=Math.atan2(enemyBase.x-PBASE.x, enemyBase.z-PBASE.z);
@@ -1337,12 +1365,12 @@ function spawnGame(){
   const COL={warrior:C.teamBlueD, archer:C.teamBlue, cleric:C.cleric};
   LVSTART.forEach((u,i)=>{ const kind=(u==='priestess')?'cleric':u, b=UBAL[kind]||UBAL.warrior;
     const e=mkFighter(COL[kind]||C.teamBlueD,1.0,'ally',{hp:b.hp,dmg:b.dmg,range:b.range,atkEvery:b.atk,spd:ALLY_SPD});
-    e.idx=i; e.kind=kind; e.healCd=0; e.smiteCd=0; riggize(e, URIG[kind]||u);
+    e.idx=i; e.kind=kind; e.healCd=0; e.smiteCd=0; tagCombat(e); riggize(e, URIG[kind]||u);
     setP(e, hero.px+((i%3)-1)*3.2, hero.pz-2-Math.floor(i/3)*3); allies.push(e); });
   if(RAIDERS.type==='base'){
     const boss=mkFighter(C.enemyRed,1.6,'enemy',{hp:BOSS_STAT.hp,dmg:BOSS_STAT.dmg,range:BOSS_STAT.range,atkEvery:BOSS_STAT.atk,spd:BOSS_STAT.spd});
     boss.rad=2.8; boss.max=BOSS_STAT.hp; boss.isBoss=true; boss.hurlCd=4; boss.slamCd=7; boss.roarCd=10; riggize(boss,'chief'); setP(boss,enemyBase.x+8,enemyBase.z+8); enemies.push(boss);
-    boss.isHero=true; boss.level=1; boss.xp=0; boss.baseHp=BOSS_STAT.hp; boss.baseDmg=BOSS_STAT.dmg; boss.respawnT=0; enemyBoss=boss;   // the raider chieftain is the enemy commander — levels & revives
+    boss.isHero=true; boss.level=1; boss.xp=0; boss.baseHp=BOSS_STAT.hp; boss.baseDmg=BOSS_STAT.dmg; boss.respawnT=0; boss.attackType='hero'; boss.armorType='hero'; boss.baseArmor=3; boss.armor=3; enemyBoss=boss;   // the raider chieftain is the enemy commander — levels & revives
     for(const rig of ['orcgrunt','orcarcher']){ const e=mkOrc(rig); setP(e,enemyBase.x+rr(2,10),enemyBase.z+rr(2,10)); enemies.push(e); }
   } else if(RAIDERS.type==='camp'){   // tutorial raider camp: static guards defending a lone throne (razing it wins)
     (RAIDERS.guards||['orcgrunt','orcgrunt']).forEach((rig,i)=>{ const e=mkOrc(rig); const a=i/Math.max(1,(RAIDERS.guards||[]).length)*6.28;
@@ -1388,7 +1416,7 @@ function separate(){ const all=[hero,...allies,...enemies].filter(e=>e&&e.alive)
     if(wa){ const ax=a.px-dx*ov*(wa/tot), az=a.pz-dz*ov*(wa/tot); if(onIsland(ax,az)){a.px=ax;a.pz=az;} }
     if(wb){ const bx=b.px+dx*ov*(wb/tot), bz=b.pz+dz*ov*(wb/tot); if(onIsland(bx,bz)){b.px=bx;b.pz=bz;} }
   } }
-function attack(a,d){ if(a.cd>0)return; damage(d,a.dmg*(a.rageT>0?1.35:1),false); a.cd=a.atkEvery*(a.rageT>0?0.6:1); faceTo(a,d.px-a.px,d.pz-a.pz);
+function attack(a,d){ if(a.cd>0)return; damage(d,a.dmg*(a.rageT>0?1.35:1),false,a.attackType||'normal'); a.cd=a.atkEvery*(a.rageT>0?0.6:1); faceTo(a,d.px-a.px,d.pz-a.pz);
   if(!a.ranged){ sfx('melee'); const sc=(d.team==='enemy')?0xffcaa0:0xcfe8ff; puff(d.px+rr(-0.5,0.5),topY(d.px,d.pz)+(d.big?2.2:2.0),d.pz+rr(-0.5,0.5),sc,0.6,0.6); }   // melee impact spark
   if(a===hero) addShake(0.4); }
 function groundBasis(){ const f=new THREE.Vector3(); cam.getWorldDirection(f); f.y=0; f.normalize();
@@ -1400,7 +1428,7 @@ function heroHit(){ if(!hero||!hero.alive||gameOver)return; const {t,d}=nearest(
   if(t&&d<=hero.range+(t.big||0)+1){ if(hero.rigged){ hero.__atkClip=pickAtkClip(hero); hero.__atkT=0.55; } attack(hero,t); } }
 function warstomp(){ if(!hero||hero.aCd>0||gameOver)return; hero.aCd=5;
   for(const e of enemies){ if(!e.alive)continue; const d=Math.hypot(e.px-hero.px,e.pz-hero.pz);
-    if(d<11){ damage(e,50,true); const nx=e.px+(e.px-hero.px)/(d||1)*5, nz=e.pz+(e.pz-hero.pz)/(d||1)*5; if(onIsland(nx,nz))setP(e,nx,nz);} }
+    if(d<11){ damage(e,50,true,'hero'); const nx=e.px+(e.px-hero.px)/(d||1)*5, nz=e.pz+(e.pz-hero.pz)/(d||1)*5; if(onIsland(nx,nz))setP(e,nx,nz);} }
   const r=new THREE.Mesh(new THREE.RingGeometry(1,2,26),new THREE.MeshBasicMaterial({color:0xffd060,transparent:true,side:THREE.DoubleSide}));
   r.rotation.x=-Math.PI/2; r.position.set(hero.px,topY(hero.px,hero.pz)+0.5,hero.pz); scene.add(r);
   let t=0;(function an(){t+=0.05;r.scale.setScalar(1+t*11);r.material.opacity=Math.max(0,0.9-t);if(t<0.9)requestAnimationFrame(an);else scene.remove(r);})();
@@ -1431,7 +1459,7 @@ function nearestEnemyTo(x,z,maxd){ let b=null,bd=maxd*maxd;   // fog-gated: hidd
 function readyClerics(){ return allies.filter(e=>e.alive&&e.kind==='cleric'&&e.smiteCd<=0).length; }
 function smiteAt(en){ // smart cast: exactly one ready cleric (nearest) fires
   let best=null,bd=1e9; for(const e of allies){ if(!e.alive||e.kind!=='cleric'||e.smiteCd>0)continue; const d=(e.px-en.px)**2+(e.pz-en.pz)**2; if(d<bd){bd=d;best=e;} }
-  if(!best)return false; best.smiteCd=4; damage(en,45,true); smiteFx(en); addShake(0.8); return true; }
+  if(!best)return false; best.smiteCd=4; damage(en,45,true,'magic'); smiteFx(en); addShake(0.8); return true; }
 function healFx(t){ const r=new THREE.Mesh(new THREE.RingGeometry(0.4,1.1,16),new THREE.MeshBasicMaterial({color:0x8ef0a0,transparent:true,side:THREE.DoubleSide}));
   r.rotation.x=-Math.PI/2; scene.add(r); let a=0;(function an(){a+=0.06; r.position.set(t.px,topY(t.px,t.pz)+0.4+a*4.5,t.pz); r.material.opacity=Math.max(0,0.9-a); if(a<0.9)requestAnimationFrame(an); else scene.remove(r);})(); }
 function smiteFx(en){ const r=new THREE.Mesh(new THREE.RingGeometry(0.5,1.4,20),new THREE.MeshBasicMaterial({color:0xfff2c0,transparent:true,side:THREE.DoubleSide}));
@@ -1446,7 +1474,7 @@ function blink(){ if(!hero||!hero.alive||hero.blinkCd>0||gameOver)return; hero.b
   blinkImplode(hero.px,hero.pz); setP(hero,bx,bz); blinkExplode(bx,bz); addShake(0.4); sfx('blink'); }
 function fanOfKnives(){ if(!hero||!hero.alive||hero.aCd>0||gameOver)return; hero.aCd=6;                 // instant AoE glaive nova
   if(hero.rigged){ hero.__atkClip=pickAtkClip(hero); hero.__atkT=0.5; }
-  const R=15; for(const e of enemies){ if(!e.alive)continue; if(Math.hypot(e.px-hero.px,e.pz-hero.pz)<R) damage(e,44,true); }
+  const R=15; for(const e of enemies){ if(!e.alive)continue; if(Math.hypot(e.px-hero.px,e.pz-hero.pz)<R) damage(e,44,true,'hero'); }
   const N=18; for(let i=0;i<N;i++){ const a=i/N*6.28; bladeSpin(hero.px,hero.pz, hero.px+Math.sin(a)*R, hero.pz+Math.cos(a)*R, 0xbfe9ff, 0.34); }
   runeRingFlash(hero.px,hero.pz,0x9fe8ff,R); shockwave(hero.px,hero.pz,0xcdeeff,15);
   puff(hero.px,topY(hero.px,hero.pz)+2.2,hero.pz,0xdffbff,1.5,0.85); addShake(1.5); sfx('nova'); }
@@ -1455,7 +1483,7 @@ function shadowStrike(en){ if(!hero||!hero.alive||hero.spellCd>0||!en||!en.alive
   hero.spellCd=8; spellArmed=false;   // poisoned glaive: burst + DoT
   if(hero.rigged){ hero.__atkClip=pickAtkClip(hero); hero.__atkT=0.45; }
   faceTo(hero, en.px-hero.px, en.pz-hero.pz); shootFx(hero.px,hero.pz,en.px,en.pz,'shadow');
-  damage(en,48,true); en.poison={t:4, dps:11}; en.__pt=0.5; addShake(0.5); return true; }
+  damage(en,48,true,'magic'); en.poison={t:4, dps:11}; en.__pt=0.5; addShake(0.5); return true; }
 // ---------- Paladin kit (Human hero): Consecration · Hammer of Justice · Divine Shield ----------
 let HAMMER_PROTO=null;
 function hammerProto(){ if(HAMMER_PROTO)return HAMMER_PROTO; const g=new THREE.Group();
@@ -1475,10 +1503,10 @@ function hammerOfJustice(en){ if(!hero||!hero.alive||hero.spellCd>0||!en||!en.al
   if(Math.hypot(en.px-hero.px,en.pz-hero.pz)>ABIL_RANGE)return false;
   hero.spellCd=hero.spellMax||8; spellArmed=false;
   if(hero.rigged){ hero.__atkClip='attack'; hero.__atkT=0.5; } faceTo(hero,en.px-hero.px,en.pz-hero.pz);
-  hammerShot(hero.px,hero.pz,en.px,en.pz, ()=>{ if(en.alive){ damage(en,50,true); en.stunT=1.6; stunFx(en); sfx('stun'); } }); sfx('hammer'); addShake(0.5); return true; }
+  hammerShot(hero.px,hero.pz,en.px,en.pz, ()=>{ if(en.alive){ damage(en,50,true,'magic'); en.stunT=1.6; stunFx(en); sfx('stun'); } }); sfx('hammer'); addShake(0.5); return true; }
 function consecration(){ if(!hero||!hero.alive||hero.aCd>0||gameOver)return; hero.aCd=hero.aMax||7;
   if(hero.rigged){ hero.__atkClip='attack'; hero.__atkT=0.55; }
-  const R=13; for(const e of enemies){ if(!e.alive)continue; if(Math.hypot(e.px-hero.px,e.pz-hero.pz)<R) damage(e,30,true); }   // holy nova
+  const R=13; for(const e of enemies){ if(!e.alive)continue; if(Math.hypot(e.px-hero.px,e.pz-hero.pz)<R) damage(e,30,true,'magic'); }   // holy nova
   const ring=new THREE.Mesh(new THREE.RingGeometry(R-2.6,R,44),new THREE.MeshBasicMaterial({color:0xffdf8a,transparent:true,opacity:0.55,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending}));
   ring.rotation.x=-Math.PI/2; ring.position.set(hero.px,topY(hero.px,hero.pz)+0.2,hero.pz); scene.add(ring);
   holyGrounds.push({x:hero.px,z:hero.pz,r:R,t:3.5,next:0.5,ring});   // blessed ground: lingering DoT
@@ -1491,7 +1519,7 @@ function divineShield(){ if(!hero||!hero.alive||hero.blinkCd>0||gameOver)return;
   scene.add(dome); sfx('shield'); (function an(){ const iv=hero.__invuln||0; dome.position.set(hero.px,topY(hero.px,hero.pz)+2.2,hero.pz);
     dome.material.opacity=0.12+0.22*Math.max(0,iv/3)+0.06*Math.sin(iv*10); if(iv>0&&hero.alive)requestAnimationFrame(an); else scene.remove(dome); })(); }
 function tickHolyGrounds(dt){ for(let i=holyGrounds.length-1;i>=0;i--){ const g=holyGrounds[i]; g.t-=dt; g.next-=dt;
-    if(g.next<=0){ g.next=0.5; for(const e of enemies){ if(e.alive&&Math.hypot(e.px-g.x,e.pz-g.z)<g.r) damage(e,7,false); } }
+    if(g.next<=0){ g.next=0.5; for(const e of enemies){ if(e.alive&&Math.hypot(e.px-g.x,e.pz-g.z)<g.r) damage(e,7,false,'magic'); } }
     if(g.ring){ g.ring.material.opacity=0.14+0.24*Math.max(0,g.t/3.5)+0.08*Math.sin(g.t*8); g.ring.rotation.z+=dt*0.7; }
     if(g.t<=0){ if(g.ring)scene.remove(g.ring); holyGrounds.splice(i,1); } } }
 // ---------- Warden passive: Moonlight aura (code-driven, follows the hero) ----------
@@ -1774,7 +1802,9 @@ function updateSelPanel(){ if(!selPanelEl)return;
   if(sameType){ hp=sel.reduce((a,e)=>a+Math.max(0,e.hp),0); max=sel.reduce((a,e)=>a+e.max,0); }
   else { hp=Math.max(0,primary.hp); max=primary.max; }
   barF.style.width=(max?Math.max(0,Math.min(1,hp/max))*100:0)+'%'; barT.textContent=Math.ceil(hp)+' / '+max;
-  stEl.textContent = (primary.dmg!=null) ? (primary.dmg+' dmg · '+(+(primary.range||0).toFixed(1))+' rng · '+Math.round(primary.spd||0)+' spd') : '';
+  stEl.textContent = (primary.dmg!=null)
+    ? (primary.dmg+' dmg · '+(ATK_LABEL[primary.attackType]||'Normal')+' · '+(ARM_LABEL[primary.armorType]||'Medium')+' '+(primary.armor||0)+' armor')
+    : '';
   // squad grid: one tappable cell per type (WC3-style), sub-selects that type
   grid.style.display='flex';
   const sig=order.map(k=>k+groups[k].length).join(',')+'|'+pk;
@@ -1870,12 +1900,15 @@ function pingRing(x,z,col){ const r=new THREE.Mesh(new THREE.RingGeometry(0.5,1.
 function shockwave(x,z,col,mx){ const r=new THREE.Mesh(new THREE.RingGeometry(0.6,2.1,36),new THREE.MeshBasicMaterial({color:col||0xffd08a,transparent:true,opacity:0.95,side:THREE.DoubleSide,depthWrite:false}));
   r.rotation.x=-Math.PI/2; r.position.set(x,topY(x,z)+0.4,z); scene.add(r); let a=0;(function an(){a+=0.05; r.scale.setScalar(1+a*(mx||16)); r.material.opacity=Math.max(0,0.95-a*1.05); if(a<0.9)requestAnimationFrame(an); else scene.remove(r);})(); }
 // single choke-point for all combat damage — every hit flashes, punches (squash), and floats a number
-function damage(d,amt,heavy){ if(!d)return; if(d===hero && (hero.__invuln||0)>0){ pingRing(hero.px,hero.pz,0xffe6a0); return; }   // Divine Shield blocks all damage
+function damage(d,amt,heavy,atkType){ if(!d)return; if(d===hero && (hero.__invuln||0)>0){ pingRing(hero.px,hero.pz,0xffe6a0); return; }   // Divine Shield blocks all damage
+  const mult=typeMult(atkType||'normal', d.armorType)*armorMult(d.armor);   // WC3: attack-type vs armor-type, then armor value
+  amt=Math.max(1, amt*mult);
   d.hp-=amt; d.hitT=Math.max(d.hitT||0, heavy?0.3:0.14); squash(d);
   if(d.creep && d.camp) campAggro(d.camp);   // striking any camp member wakes the whole den
   const enemy=(d.team==='enemy'||d.kind==='core'||d.kind==='bld');
   if(enemy && !isVisible(d.px,d.pz))return;                 // don't leak hidden foes through the fog
-  const y=topY(d.px,d.pz)+(d.big?d.big*0.7+2:3.4); popDmg(d.px,y,d.pz, Math.round(amt), heavy?'big':''); }
+  const cls = mult>=1.2 ? 'bonus' : (mult<=0.8 ? 'resist' : (heavy?'big':''));   // green bonus / grey resisted
+  const y=topY(d.px,d.pz)+(d.big?d.big*0.7+2:3.4); popDmg(d.px,y,d.pz, Math.round(amt), cls); }
 function deathFx(e){ const x=e.px,z=e.pz,y=topY(x,z)+1.4;
   const col=(e.team==='enemy')?0xff7a4a : (e.kind==='bld'||e.kind==='core')?0xc7ccd2 : 0x7ad0ff;
   const n=(e.kind==='core')?18:(e.kind==='bld'?11:7);
@@ -1987,7 +2020,7 @@ function shootFx(sx,sz,tx,tz,kind){
     if(tick%2===0) puff(x,y,z,col,0.5,0.5);
     if(k<1)requestAnimationFrame(an); else { scene.remove(m); impactFx(tx,y1,tz,col); } })(); }
 function castBolt(gx,gz){ if(!hero||hero.spellCd>0)return false; hero.spellCd=6; spellArmed=false;
-  for(const e of enemies){ if(!e.alive)continue; if(Math.hypot(e.px-gx,e.pz-gz)<7){ damage(e,60,true); } }
+  for(const e of enemies){ if(!e.alive)continue; if(Math.hypot(e.px-gx,e.pz-gz)<7){ damage(e,60,true,'hero'); } }
   const r=new THREE.Mesh(new THREE.RingGeometry(0.6,1.6,26),new THREE.MeshBasicMaterial({color:0x74c0ff,transparent:true,side:THREE.DoubleSide}));
   r.rotation.x=-Math.PI/2; r.position.set(gx,topY(gx,gz)+0.5,gz); scene.add(r);
   let t=0;(function an(){t+=0.05;r.scale.setScalar(1+t*14);r.material.opacity=Math.max(0,0.95-t*1.1);if(t<0.9)requestAnimationFrame(an);else scene.remove(r);})();
@@ -2016,12 +2049,12 @@ function ragePulse(x,z){ const r=new THREE.Mesh(new THREE.RingGeometry(0.8,2.0,2
 // ---------- Orc Leader (chieftain) ability kit: Boulder Hurl · Seismic Slam · War Roar ----------
 function pFoes(){ const a=[]; if(hero&&hero.alive)a.push(hero); for(const e of allies)if(e.alive)a.push(e); if(coreB&&coreB.alive)a.push(coreB); return a; }
 function seismicSlam(b){ if(b.rigged){ b.__atkClip='attack'; b.__atkT=0.55; }
-  const R=13; for(const t of pFoes()){ const dd=Math.hypot(t.px-b.px,t.pz-b.pz); if(dd<R){ damage(t, t.kind==='core'?26:38, true);
+  const R=13; for(const t of pFoes()){ const dd=Math.hypot(t.px-b.px,t.pz-b.pz); if(dd<R){ damage(t, t.kind==='core'?26:38, true,'hero');
     if(t!==coreB){ const nx=t.px+(t.px-b.px)/(dd||1)*6, nz=t.pz+(t.pz-b.pz)/(dd||1)*6; if(onIsland(nx,nz))setP(t,nx,nz); } } }
   rockBurst(b.px,b.pz); shockwave(b.px,b.pz,0xb59060,16); for(let i=0;i<6;i++){ const a=rnd()*6.28; puff(b.px+Math.cos(a)*rr(1,4),topY(b.px,b.pz)+rr(0.2,1.6),b.pz+Math.sin(a)*rr(1,4),0xbfb49a,rr(0.7,1.3),0.5); }
   if(isVisible(b.px,b.pz))addShake(2.2); }
 function boulderHurl(b,t){ if(b.rigged){ b.__atkClip='attack'; b.__atkT=0.55; } const tx=t.px,tz=t.pz; faceTo(b,tx-b.px,tz-b.pz);
-  rockShot(b.px,b.pz,tx,tz, ()=>{ for(const q of pFoes()){ if(Math.hypot(q.px-tx,q.pz-tz)<6) damage(q, q.kind==='core'?24:32, true); }
+  rockShot(b.px,b.pz,tx,tz, ()=>{ for(const q of pFoes()){ if(Math.hypot(q.px-tx,q.pz-tz)<6) damage(q, q.kind==='core'?24:32, true,'siege'); }
     shockwave(tx,tz,0xb59060,12); if(isVisible(tx,tz))addShake(1.2); }); }
 function warRoar(b){ b.rageT=6; for(const e of enemies){ if(e.alive&&Math.hypot(e.px-b.px,e.pz-b.pz)<22) e.rageT=6; }   // rally the horde
   ragePulse(b.px,b.pz); if(isVisible(b.px,b.pz)){ addShake(0.8); sfx('roar'); } }
@@ -2105,7 +2138,7 @@ function updateGame(dt){
     const FO=foes();   // enemy units + attackable enemy structures (core/buildings) — the player's valid targets
     if(hero.alive && autoBolt && abilLevelOk('spell') && hero.spellCd<=0 && enemies.length){ const t=nearestEnemyTo(hero.px,hero.pz,26); if(t) shadowStrike(t); }   // AUTO = auto Shadow Strike nearest visible foe (once unlocked)
     for(const e of enemies){ if(!e.alive||!e.poison)continue; e.poison.t-=dt; e.__pt-=dt;   // Shadow Strike poison DoT — lingering green wisp
-      if(e.__pt<=0){ e.__pt=0.32; damage(e, e.poison.dps*0.32, false);
+      if(e.__pt<=0){ e.__pt=0.32; damage(e, e.poison.dps*0.32, false,'magic');
         if(isVisible(e.px,e.pz)){ const y=topY(e.px,e.pz)+2.2, ph=(e.__pw=(e.__pw||0)+0.8);   // orbiting wisp + rising drip
           puff(e.px+Math.cos(ph)*0.9, y+Math.sin(ph*1.7)*0.5, e.pz+Math.sin(ph)*0.9, 0x8ef07a,0.42,0.6);
           puff(e.px+rr(-0.4,0.4), y+0.6+rr(0,0.8), e.pz+rr(-0.4,0.4), 0x5ad06a,0.28,0.4); } }
