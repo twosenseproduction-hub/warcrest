@@ -1,0 +1,438 @@
+<title>Warcrest — The Living Hub (interactive)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+/* ============================================================================
+   Warcrest — The Living Hub · interactive prototype
+   Behaviors wired: tap-to-reform · idle-fade · shrink-on-move · cooldown sweep
+   Self-contained. Single game-world aesthetic (deliberately not theme-switched).
+   ========================================================================== */
+@property --p { syntax: "<percentage>"; inherits: false; initial-value: 0%; }
+
+:root{
+  --bg:#0f141b; --bg2:#161d27; --ink:#eaf1f8; --dim:#9fb0c2; --line:rgba(150,180,210,.14);
+  --teal:#23a6bb; --teal-hi:#3fd0e4; --gold:#f0c33a; --blue:#3f96e6; --purple:#7b3fb0;
+  --grass1:#7cc257; --grass2:#5c9a3f;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{ box-sizing:border-box; }
+body{ margin:0; background:
+  radial-gradient(1000px 560px at 80% -10%, rgba(35,166,187,.10), transparent 60%),
+  var(--bg); color:var(--ink); font-family:var(--sans); -webkit-font-smoothing:antialiased; }
+.wrap{ max-width:1040px; margin:0 auto; padding:26px 20px 60px; }
+.eyebrow{ font:700 11px/1 var(--sans); letter-spacing:.3em; text-transform:uppercase; color:var(--teal-hi);
+  display:inline-flex; gap:9px; align-items:center; margin:0 0 14px; }
+.eyebrow::before{ content:""; width:26px; height:2px; background:linear-gradient(90deg,transparent,var(--teal)); }
+h1{ font:800 clamp(26px,4.6vw,40px)/1.02 var(--sans); margin:0 0 12px; letter-spacing:-.01em; }
+.lede{ max-width:66ch; color:var(--dim); font-size:15.5px; margin:0 0 6px; }
+.lede b{ color:var(--ink); }
+
+/* ---- interactive stage ---- */
+.stage{ position:relative; width:100%; aspect-ratio:16/9; margin:22px 0 14px; border-radius:18px; overflow:hidden;
+  background:#6ab04a; box-shadow:0 24px 60px -24px rgba(0,0,0,.8), inset 0 0 0 1px rgba(0,0,0,.4);
+  user-select:none; -webkit-user-select:none; touch-action:none; }
+
+/* battlefield */
+.field{ position:absolute; inset:0; }
+.grass{ position:absolute; inset:0;
+  background:
+    repeating-linear-gradient(0deg, rgba(0,0,0,.04) 0 2px, transparent 2px 9px),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.03) 0 2px, transparent 2px 11px),
+    radial-gradient(130% 90% at 24% 18%, var(--grass1), var(--grass2) 62%, #4d8836); }
+.forest{ position:absolute; top:0; left:0; right:0; height:19%;
+  background:
+    radial-gradient(circle at 14px 24px,#2f7d3c 13px,transparent 14px),
+    radial-gradient(circle at 46px 12px,#37903f 15px,transparent 16px),
+    radial-gradient(circle at 80px 28px,#2b7238 14px,transparent 15px),
+    radial-gradient(circle at 116px 12px,#35893d 16px,transparent 17px);
+  background-size:150px 56px; filter:drop-shadow(0 6px 5px rgba(0,0,0,.26)); }
+.river{ position:absolute; left:-6%; top:30%; width:34%; height:44%;
+  background:radial-gradient(closest-side,#7 fd0e0,#4bb6cf 70%,transparent); background:radial-gradient(closest-side,#79d0e0,#4bb6cf 70%,transparent);
+  border-radius:50%; opacity:.5; filter:blur(1px); }
+/* corner vignette so the UI reads over bright grass */
+.vig{ position:absolute; inset:0; pointer-events:none;
+  background:radial-gradient(120% 90% at 88% 108%, rgba(6,10,16,.5), transparent 42%),
+            radial-gradient(90% 80% at 8% 108%, rgba(6,10,16,.4), transparent 40%); }
+
+.ent{ position:absolute; transform:translate(-50%,-50%); cursor:pointer; }
+.ent .tok{ width:26px; height:29px; border-radius:6px 6px 7px 7px; box-shadow:0 3px 0 rgba(0,0,0,.32), inset 0 4px 0 rgba(255,255,255,.28); }
+.ent.big .tok{ width:34px; height:38px; }
+.tok.grove{ background:linear-gradient(180deg,#63c76a,#2c7a34); }
+.tok.foe{ background:linear-gradient(180deg,#c8503f,#8f2f26); }
+.bldg{ width:44px; height:40px; border-radius:7px; background:linear-gradient(180deg,#b7c0cb,#7c8794);
+  box-shadow:0 4px 0 rgba(0,0,0,.32), inset 0 5px 0 rgba(255,255,255,.3); position:relative; }
+.bldg::after{ content:""; position:absolute; left:6px; right:6px; top:-8px; height:12px; background:#2f6d4a; clip-path:polygon(0 100%,50% 0,100% 100%); }
+.wisp .tok{ background:linear-gradient(180deg,#8fd0e0,#3f8aa6); }
+.ent .ring{ position:absolute; left:50%; top:54%; width:52px; height:52px; transform:translate(-50%,-50%);
+  border-radius:50%; border:2px dashed rgba(255,255,255,.5); opacity:0; transition:opacity .2s, transform .2s; }
+.ent.sel .ring{ opacity:1; border-style:solid; border-color:var(--teal-hi); box-shadow:0 0 14px rgba(63,208,228,.6); }
+.ore{ position:absolute; transform:translate(-50%,-50%); width:36px; height:28px;
+  background:radial-gradient(circle at 32% 34%,#ffe14a 6px,transparent 7px),radial-gradient(circle at 64% 30%,#ffd21f 7px,transparent 8px),radial-gradient(circle at 48% 64%,#f5b810 9px,transparent 10px);
+  filter:drop-shadow(0 2px 1px rgba(0,0,0,.45)); }
+
+/* ---- top readouts ---- */
+.top{ position:absolute; top:12px; left:0; right:0; display:flex; justify-content:center; gap:8px; z-index:20; pointer-events:none; }
+.pill{ display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:999px;
+  background:rgba(13,17,24,.62); box-shadow:inset 0 0 0 1.5px rgba(190,210,235,.22); backdrop-filter:blur(8px);
+  font:800 12px/1 var(--sans); font-variant-numeric:tabular-nums; }
+.pill svg{ width:13px; height:13px; }
+.mini{ position:absolute; top:12px; left:12px; width:74px; height:74px; border-radius:10px; z-index:20;
+  background:radial-gradient(circle at 28% 70%,#4bb6cf 9px,transparent 10px),linear-gradient(180deg,#2f7d3c,#245f2d);
+  box-shadow:inset 0 0 0 1.5px rgba(190,210,235,.22), 0 4px 12px rgba(0,0,0,.5); }
+.mini .b{ position:absolute; width:6px; height:6px; border-radius:2px; }
+.mini .me{ background:#6cf; box-shadow:0 0 5px #6cf; left:20px; top:46px; } .mini .en{ background:#f66; left:52px; top:20px; }
+
+/* =========================================================================
+   THE HUB
+   ========================================================================= */
+.hub{ position:absolute; inset:0; z-index:15; }
+.hub *{ -webkit-tap-highlight-color:transparent; }
+
+/* fixed action cluster, bottom-right */
+.fhub{ position:absolute; right:2.4%; bottom:3%; width:230px; height:196px;
+  transition:transform .26s cubic-bezier(.2,.7,.2,1); transform-origin:bottom right; }
+.hub.moving .fhub{ transform:scale(.78); opacity:.92; }
+.disc{ position:absolute; border-radius:50%; display:grid; place-items:center; }
+
+/* portrait */
+.fport{ right:8px; bottom:10px; width:88px; height:88px; cursor:pointer; overflow:hidden;
+  background:radial-gradient(circle at 50% 36%,#aab3bd,#6c737d);
+  box-shadow:0 6px 16px rgba(0,0,0,.6), inset 0 0 0 2px rgba(255,255,255,.16);
+  transition:transform .18s; }
+.fport:active{ transform:scale(.96); }
+.fport::after{ content:""; position:absolute; inset:-3px; border-radius:50%; border:2.5px solid var(--teal); opacity:.9;
+  box-shadow:0 0 14px rgba(35,166,187,.5); pointer-events:none; }
+.fport .art{ position:absolute; inset:0; }
+.fport .lvl{ position:absolute; top:4px; right:6px; z-index:4; min-width:17px; height:17px; padding:0 3px; border-radius:9px;
+  background:linear-gradient(180deg,var(--gold),#cf9c1e); color:#241607; font:800 10px/17px var(--sans); text-align:center;
+  box-shadow:0 0 0 2px rgba(0,0,0,.35); }
+.fport .plabel{ position:absolute; left:50%; bottom:5px; transform:translateX(-50%); z-index:4;
+  font:800 8px/1 var(--sans); color:#fff; text-shadow:0 1px 2px #000; background:rgba(8,10,14,.6); padding:3px 7px; border-radius:7px; white-space:nowrap; }
+/* portrait arts */
+.art.hero{ background:linear-gradient(180deg,#b3bcc6,#828d99); }
+.art.hero .hair{ position:absolute; left:15%; right:15%; top:12%; bottom:1%; border-radius:47% 47% 38% 38%;
+  background:linear-gradient(180deg,#93521f,#5f3016); }
+.art.hero .face{ position:absolute; left:31%; right:31%; top:23%; height:44%; background:#eecba6; border-radius:50% 50% 46% 46%;
+  box-shadow:inset 0 -4px 6px rgba(150,90,50,.25); }
+.art.hero .eye{ position:absolute; top:41%; width:5%; height:6%; background:#3a2a1c; border-radius:50%; }
+.art.hero .eye.l{ left:39%; } .art.hero .eye.r{ right:39%; }
+.art.hero .ear{ position:absolute; top:38%; width:12%; height:17%; background:#e7c197; }
+.art.hero .ear.l{ left:21%; transform:rotate(-20deg); border-radius:60% 20% 40% 40%; }
+.art.hero .ear.r{ right:21%; transform:rotate(20deg); border-radius:20% 60% 40% 40%; }
+.art.hero .collar{ position:absolute; left:19%; right:19%; bottom:0; height:22%; border-radius:44% 44% 0 0;
+  background:linear-gradient(180deg,#348156,#1f4d33); }
+.art.icon{ display:grid; place-items:center; }
+.art.icon svg{ width:50%; height:50%; filter:drop-shadow(0 2px 2px rgba(0,0,0,.5)); }
+.art.icon.grove{ background:radial-gradient(circle at 50% 38%,#7ec565,#37772f); } .art.icon.grove svg{ fill:#eafce0; }
+.art.icon.bldg{ background:radial-gradient(circle at 50% 38%,#a7afba,#5c636d); } .art.icon.bldg svg{ fill:#f2e8ca; }
+.art.icon.work{ background:radial-gradient(circle at 50% 38%,#8fd6e6,#3f8aa6); } .art.icon.work svg{ fill:#eafaff; }
+
+/* ability discs — glassy teal */
+.fabil{ width:40px; height:40px; color:#fff; font:800 16px/1 var(--sans); cursor:pointer;
+  background:radial-gradient(circle at 42% 32%,#a9d3c0,#4f7a66 80%);
+  box-shadow:inset 0 0 0 3px var(--teal), inset 0 2px 3px rgba(255,255,255,.45), inset 0 -4px 6px rgba(0,0,0,.35),
+             0 3px 8px rgba(0,0,0,.5), 0 0 14px rgba(35,166,187,.3);
+  transition:transform .16s; overflow:visible; }
+.fabil::before{ content:""; position:absolute; left:22%; top:12%; width:44%; height:34%; border-radius:50%;
+  background:radial-gradient(circle,rgba(255,255,255,.6),transparent 70%); pointer-events:none; }
+.fabil:active{ transform:scale(.93); }
+.fabil svg{ width:44%; height:44%; fill:#fff; position:relative; }
+.fabil .cd{ position:absolute; inset:-3px; border-radius:50%; pointer-events:none;
+  background:conic-gradient(rgba(4,10,14,.66) var(--p), transparent 0); opacity:0; }
+.fabil.cooling .cd{ opacity:1; animation:sweep var(--dur,4s) linear forwards; }
+@keyframes sweep{ from{ --p:100%; } to{ --p:0%; } }
+.fabil .cost{ position:absolute; right:-3px; bottom:-3px; min-width:16px; height:16px; padding:0 3px; border-radius:8px;
+  background:linear-gradient(180deg,#f0c855,#d69a1e); color:#241607; font:800 9px/16px var(--sans); text-align:center; box-shadow:0 0 0 2px rgba(255,255,255,.85); }
+.fabil.lock{ filter:grayscale(.5) brightness(.72); cursor:not-allowed; }
+.fabil .lk{ position:absolute; right:-4px; bottom:-3px; min-width:18px; height:16px; padding:0 3px; border-radius:8px;
+  background:#5b6470; color:#fff; font:800 9px/16px var(--sans); text-align:center; box-shadow:0 0 0 2px rgba(255,255,255,.5); }
+.fabil.shake{ animation:shake .32s; }
+@keyframes shake{ 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-3px)} 40%,80%{transform:translateX(3px)} }
+.fa1{ right:120px; bottom:108px; } .fa2{ right:84px; bottom:130px; } .fa3{ right:46px; bottom:116px; }
+
+/* warband cluster */
+.fcluster{ position:absolute; inset:0; transition:opacity .4s; }
+.hub.idle .fcluster{ opacity:.28; }
+.fwar{ width:44px; height:44px; color:#20252b; cursor:pointer;
+  background:radial-gradient(circle at 42% 30%,#aab0b8,#666a72 82%);
+  box-shadow:inset 0 2px 2px rgba(255,255,255,.3), inset 0 -4px 6px rgba(0,0,0,.4), 0 3px 8px rgba(0,0,0,.5);
+  transition:transform .18s, box-shadow .18s, opacity .25s; }
+.fwar::before{ content:""; position:absolute; left:20%; top:11%; width:46%; height:32%; border-radius:50%;
+  background:radial-gradient(circle,rgba(255,255,255,.55),transparent 70%); pointer-events:none; }
+.fwar.sm{ width:37px; height:37px; }
+.fwar svg{ width:50%; height:50%; position:relative; filter:drop-shadow(0 1px 1px rgba(255,255,255,.3)); }
+.fwar .cnt{ position:absolute; right:-4px; bottom:-4px; min-width:18px; height:18px; padding:0 3px; border-radius:9px;
+  background:linear-gradient(180deg,#4fb0f0,#2f7fd0); color:#fff; font:800 10px/18px var(--sans); text-align:center;
+  box-shadow:0 0 0 2px rgba(255,255,255,.92), 0 2px 3px rgba(0,0,0,.5); }
+.fwar .cnt.pur{ background:linear-gradient(180deg,#9a5fd0,#6a2fa0); }
+.fwar:active{ transform:scale(.93); }
+.fwar.dim{ opacity:.3; filter:grayscale(.6); }
+.fwar.hot{ transform:scale(1.14); box-shadow:0 0 0 3px var(--teal-hi), 0 0 18px rgba(63,208,228,.75), inset 0 2px 2px rgba(255,255,255,.35); }
+.fw1{ right:112px; bottom:82px; } .fw2{ right:148px; bottom:70px; } .fw3{ right:112px; bottom:42px; }
+.fw4{ right:148px; bottom:32px; } .fw5{ right:150px; bottom:3px; } .fw6{ right:112px; bottom:3px; }
+
+/* disc entrance pop */
+.pop{ animation:pop .28s cubic-bezier(.2,.8,.2,1.2); }
+@keyframes pop{ from{ transform:scale(.4); opacity:0; } to{ transform:scale(1); opacity:1; } }
+
+/* navigation (left hand) */
+.navpad{ position:absolute; left:2.4%; bottom:3%; width:74px; text-align:center; transition:opacity .4s; }
+.np-ring{ width:70px; height:70px; margin:0 auto; border-radius:50%; position:relative; display:grid; place-items:center; cursor:grab; touch-action:none;
+  background:radial-gradient(circle at 50% 36%, rgba(20,26,34,.55), rgba(8,11,16,.68)); box-shadow:inset 0 0 0 2px rgba(190,210,235,.26); }
+.np-ring:active{ cursor:grabbing; }
+.np-ring::before{ content:""; position:absolute; inset:8px; border-radius:50%; border:1.5px dashed rgba(200,220,245,.3); }
+.np-nub{ width:31px; height:31px; border-radius:50%; background:radial-gradient(circle at 40% 30%,#f2f6fc,#a7b4c4);
+  box-shadow:0 3px 6px rgba(0,0,0,.5), inset 0 2px 0 rgba(255,255,255,.5); }
+.np-cap{ font:800 7.5px/1 var(--sans); letter-spacing:.12em; text-transform:uppercase; color:#dce8f5; text-shadow:0 1px 2px #000; margin-top:5px; }
+.navcam{ position:absolute; left:3.2%; bottom:calc(3% + 84px); display:flex; flex-direction:column; gap:6px; transition:opacity .4s; }
+.hub.idle .navcam, .hub.idle .np-cap{ opacity:.4; }
+.navcam .c{ width:28px; height:28px; border-radius:50%; display:grid; place-items:center; cursor:pointer;
+  background:rgba(13,17,24,.6); box-shadow:inset 0 0 0 1.5px rgba(190,210,235,.26); }
+.navcam .c svg{ width:15px; height:15px; fill:#dce8f5; }
+
+/* status ribbon (shows which behavior is firing) */
+.status{ position:absolute; left:12px; bottom:12px; display:flex; gap:6px; z-index:30; pointer-events:none; }
+.tagb{ font:800 8.5px/1 var(--sans); letter-spacing:.1em; text-transform:uppercase; padding:5px 8px; border-radius:6px;
+  background:rgba(8,12,18,.6); color:#7f8c9b; box-shadow:inset 0 0 0 1px rgba(150,180,210,.15); transition:.2s; }
+.tagb.on{ color:#04252b; background:var(--teal-hi); box-shadow:0 0 12px rgba(63,208,228,.5); }
+
+/* hint */
+.hint{ position:absolute; left:50%; bottom:12px; transform:translateX(-50%); z-index:22; pointer-events:none;
+  font:700 11px/1.3 var(--sans); color:#eaf2fb; text-shadow:0 1px 2px #000; background:rgba(8,12,18,.55);
+  padding:6px 12px; border-radius:9px; opacity:.9; }
+
+/* control legend below stage */
+.controls{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:14px; }
+.controls .lab{ font:700 12px/1 var(--sans); color:var(--dim); letter-spacing:.02em; margin-right:2px; }
+.btn{ font:700 12.5px/1 var(--sans); padding:9px 14px; border-radius:10px; cursor:pointer; border:1px solid var(--line);
+  background:var(--bg2); color:var(--ink); transition:.15s; }
+.btn:hover{ border-color:rgba(63,208,228,.5); }
+.btn.on{ background:linear-gradient(180deg,var(--teal),#1a7f90); border-color:transparent; color:#04252b; }
+.btn:focus-visible{ outline:2px solid var(--teal-hi); outline-offset:2px; }
+.note{ margin-top:16px; color:var(--dim); font-size:13.5px; max-width:70ch; }
+.note b{ color:var(--ink); }
+.legend{ display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin-top:20px; }
+.lcard{ border:1px solid var(--line); border-radius:12px; padding:13px 15px; background:linear-gradient(180deg,var(--bg2),var(--bg)); }
+.lcard h4{ margin:0 0 4px; font:800 13px/1.2 var(--sans); color:var(--teal-hi); }
+.lcard p{ margin:0; font-size:12.5px; color:var(--dim); }
+@media (prefers-reduced-motion: reduce){ *{ animation-duration:.001s !important; transition-duration:.001s !important; } }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-move" viewBox="0 0 24 24"><path d="M12 2l3 4h-2v5h5V9l4 3-4 3v-2h-5v5h2l-3 4-3-4h2v-5H6v2l-4-3 4-3v2h5V6H9z"/></symbol>
+  <symbol id="i-atk" viewBox="0 0 24 24"><path d="M6.9 3L3 6.9l9 9-2 2 1.4 1.4 2-2 .7.7-1.4 1.4L14 20.8 20.8 14l-1.4-1.4-1.4 1.4-.7-.7 2-2-1.4-1.4-2 2-9-9zM17 3l-3 3 4 4 3-3V3z"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><path d="M8 3h8l5 5v8l-5 5H8l-5-5V8z"/></symbol>
+  <symbol id="i-patrol" viewBox="0 0 24 24"><path d="M5 3v18H3V3zm2 1h11l-2 3 2 3H7z"/></symbol>
+  <symbol id="i-hammer" viewBox="0 0 24 24"><path d="M13 3l7 4-2 3-2-1-3 3 5 5-2 2-5-5-4 4H4v-3l6-6-1-2z"/></symbol>
+  <symbol id="i-sword" viewBox="0 0 24 24"><path d="M20 3h-3l-8 8 3 3 8-8zM3 17l3-1 3 3-1 3-3 1-2-2 2-2-2-2z"/></symbol>
+  <symbol id="i-bow" viewBox="0 0 24 24"><path d="M4 3c8 2 14 8 16 16l-2 .5C16 12 11 6.5 3.5 5zM4 20l6-6 1.5 1.5-6 6z"/></symbol>
+  <symbol id="i-staff" viewBox="0 0 24 24"><path d="M12 2a3 3 0 013 3 3 3 0 01-2 2.8V10l4 10h-3l-2-6-2 6H5l4-10V7.8A3 3 0 017 5a3 3 0 013-3z"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm9 4l2 1.5-2 3.4-2.4-.6a7 7 0 01-1.6 1l-.4 2.4h-4l-.4-2.4a7 7 0 01-1.6-1l-2.4.6-2-3.4L4 12l-2-1.5 2-3.4 2.4.6a7 7 0 011.6-1L10.4 4h4l.4 2.4a7 7 0 011.6 1L18.8 7l2 3.4z"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 10v11h5v-6h6v6h5V10l-8-7z"/></symbol>
+  <symbol id="i-coin" viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 15h-2v-1.2c-1.4-.3-2.4-1.2-2.5-2.6h1.8c.1.7.6 1 1.7 1s1.6-.4 1.6-1c0-.7-.6-.9-2-1.2C10 11.6 8.8 11 8.8 9.4c0-1.2.9-2 2.2-2.3V6h2v1.1c1.3.3 2.1 1.2 2.2 2.4h-1.8c-.1-.6-.5-.9-1.4-.9s-1.4.4-1.4.9c0 .6.6.8 1.9 1.1 1.7.4 2.9 1 2.9 2.7 0 1.3-1 2.1-2.3 2.4z"/></symbol>
+  <symbol id="i-sup" viewBox="0 0 24 24"><path d="M6 2h12v14l-6-3-6 3zM8 18h8v4H8z"/></symbol>
+  <symbol id="i-mag" viewBox="0 0 24 24"><path d="M10 2a8 8 0 015.3 14l6 6-1.4 1.4-6-6A8 8 0 1110 2zm0 2a6 6 0 100 12 6 6 0 000-12z"/></symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 2c1 4-2 5-2 8a2 2 0 004 0c2 2 3 4 3 6a5 5 0 01-10 0c0-5 5-6 5-14z"/></symbol>
+  <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M20 4C10 4 4 10 4 20c8 0 14-2 16-10 0 0-4 1-7 4 2-5 5-8 7-10z"/></symbol>
+</svg>
+
+<div class="wrap">
+  <p class="eyebrow">Warcrest · HUD · Interactive Prototype</p>
+  <h1>The living hub — wired up.</h1>
+  <p class="lede">A working build of your reference hub. <b>Tap a warband disc, the hero, the barracks, or the worker</b> —
+    the portrait, ability arc and cluster re-form live. The cluster <b>fades when you're idle</b>, the whole action
+    side <b>shrinks while you drag the move nub</b>, and tapping an ability runs its <b>cooldown sweep</b>. Same clean
+    language as the current build, with the materials pushed further — glassy teal abilities, beveled discs, a framed portrait.</p>
+
+  <div class="stage" id="stage">
+    <div class="field">
+      <div class="grass"></div><div class="forest"></div><div class="river"></div>
+      <div class="vig"></div>
+      <div class="ore" style="left:44%;top:58%"></div>
+      <div class="ore" style="left:50%;top:63%"></div>
+      <!-- clickable entities -->
+      <div class="ent big sel" data-sel="hero" id="ent-hero" style="left:60%;top:62%" title="Your hero">
+        <div class="ring"></div><div class="tok grove"></div></div>
+      <div class="ent" data-sel="group:bow" style="left:47%;top:48%" title="Archers">
+        <div class="ring"></div><div class="tok grove"></div></div>
+      <div class="ent" data-sel="group:sword" style="left:54%;top:52%" title="Blades">
+        <div class="ring"></div><div class="tok grove"></div></div>
+      <div class="ent" data-sel="building" id="ent-bldg" style="left:30%;top:40%" title="Warden Lodge">
+        <div class="ring" style="width:64px;height:64px"></div><div class="bldg"></div></div>
+      <div class="ent wisp" data-sel="worker" style="left:24%;top:66%" title="Wisp (worker)">
+        <div class="ring"></div><div class="tok"></div></div>
+      <div class="ent" style="left:78%;top:30%"><div class="tok foe"></div></div>
+      <div class="ent" style="left:82%;top:34%"><div class="tok foe"></div></div>
+    </div>
+
+    <div class="top">
+      <span class="pill"><svg><use href="#i-coin"/></svg>245</span>
+      <span class="pill"><svg><use href="#i-sup"/></svg>0/12</span>
+      <span class="pill"><svg style="fill:var(--teal-hi)"><use href="#i-flame"/></svg>Wave 20s</span>
+    </div>
+    <div class="mini"><span class="b me"></span><span class="b en"></span></div>
+
+    <div class="hub" id="hub">
+      <div class="navcam">
+        <div class="c" title="Camera"><svg><use href="#i-mag"/></svg></div>
+        <div class="c" title="Home"><svg><use href="#i-home"/></svg></div>
+      </div>
+      <div class="navpad">
+        <div class="np-ring" id="npring"><div class="np-nub" id="npnub"></div></div>
+        <div class="np-cap">Move</div>
+      </div>
+
+      <div class="fhub">
+        <div class="fcluster" id="cluster"></div>
+        <div id="arc"></div>
+        <div class="disc fport" id="port" title="Select hero">
+          <div class="art hero" id="art"><div class="hair"></div><div class="ear l"></div><div class="ear r"></div><div class="face"></div><div class="eye l"></div><div class="eye r"></div><div class="collar"></div></div>
+          <span class="lvl">4</span>
+          <span class="plabel" id="plabel">Aelindra</span>
+        </div>
+      </div>
+
+      <div class="status">
+        <span class="tagb" id="tag-idle">Idle-fade</span>
+        <span class="tagb" id="tag-move">Move-shrink</span>
+      </div>
+      <div class="hint" id="hint">Tap a group · the hero · the barracks · the worker</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <span class="lab">Jump to a selection:</span>
+    <button class="btn on" data-jump="hero">Hero</button>
+    <button class="btn" data-jump="group:bow">Archers</button>
+    <button class="btn" data-jump="building">Warden Lodge</button>
+    <button class="btn" data-jump="worker">Wisp</button>
+  </div>
+
+  <p class="note"><b>What's wired:</b> selection re-forms the arc (abilities → orders → train → build) and swaps the portrait;
+    the warband cluster dims after ~3.5s idle and snaps back on any touch; dragging the move nub shrinks the action cluster
+    so the field opens up; abilities run a cooldown sweep and locked ones shake. The <b>Idle-fade</b> / <b>Move-shrink</b>
+    chips light when each behavior fires.</p>
+
+  <div class="legend">
+    <div class="lcard"><h4>Tap-to-reform</h4><p>One control surface, four jobs — hero abilities, group orders, building train list, worker build menu — chosen by what's highlighted.</p></div>
+    <div class="lcard"><h4>Idle-fade</h4><p>The warband cluster drops to 28% when you stop touching, so the field stays clean during lulls, then restores instantly.</p></div>
+    <div class="lcard"><h4>Shrink-on-move</h4><p>Driving the hero with the nub scales the action cluster down to 78% — maximum battlefield exactly when you need to see it.</p></div>
+    <div class="lcard"><h4>Elevated materials</h4><p>Glassy teal ability rings with gloss + glow, beveled grey warband discs, a rim-lit framed portrait, cooldown sweeps.</p></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var WARBAND = [
+    {id:'bow',   ic:'i-bow',   fill:'#4aa63f', count:3,  label:'Archers', pos:'fw1'},
+    {id:'star',  ic:'i-flame', fill:'#c9cdd3', count:6,  label:'Scouts',  pos:'fw2', sm:true},
+    {id:'sword', ic:'i-sword', fill:'#cfd3d9', count:2,  label:'Blades',  pos:'fw3'},
+    {id:'rally', ic:'i-atk',   fill:'#dfe3e8', count:21, label:'All',     pos:'fw4', pur:true},
+    {id:'shield',ic:'i-shield',fill:'#f0c33a', count:5,  label:'Guard',   pos:'fw5', sm:true},
+    {id:'staff', ic:'i-staff', fill:'#a98fe0', count:5,  label:'Casters', pos:'fw6'}
+  ];
+  var ARCS = {
+    hero:     [{n:'1'},{n:'2'},{lock:'L5'}],
+    group:    [{ic:'i-atk'},{ic:'i-stop'},{ic:'i-patrol'}],
+    building: [{ic:'i-sword',cost:120},{ic:'i-bow',cost:90},{ic:'i-staff',cost:140}],
+    worker:   [{ic:'i-home',cost:200},{ic:'i-shield',cost:90},{ic:'i-sup',cost:70}]
+  };
+  var CD = {'1':4,'2':7};
+  var POS = ['fa1','fa2','fa3'];
+
+  var hub=document.getElementById('hub'), arc=document.getElementById('arc'),
+      cluster=document.getElementById('cluster'), port=document.getElementById('port'),
+      art=document.getElementById('art'), plabel=document.getElementById('plabel'),
+      hint=document.getElementById('hint');
+  var sel={type:'hero',gid:null};
+  var ICON=function(id,fill){ return '<svg'+(fill?' style="fill:'+fill+'"':'')+'><use href="#'+id+'"/></svg>'; };
+
+  function renderArc(){
+    var list = sel.type==='group'?ARCS.group:ARCS[sel.type]||ARCS.hero;
+    arc.innerHTML = list.map(function(a,i){
+      var cls='disc fabil '+POS[i]+' pop'+(a.lock?' lock':'');
+      var inner = a.n ? a.n : (a.ic?ICON(a.ic):'');
+      var badge = a.lock?'<span class="lk">'+a.lock+'</span>':(a.cost?'<span class="cost">'+a.cost+'</span>':'');
+      return '<div class="'+cls+'" data-ab="'+(a.n||'')+'">'+inner+'<span class="cd"></span>'+badge+'</div>';
+    }).join('');
+  }
+  function renderCluster(){
+    cluster.innerHTML = WARBAND.map(function(w){
+      var cls='disc fwar '+w.pos+(w.sm?' sm':'');
+      if(sel.type==='group') cls += (sel.gid===w.id?' hot':' dim');
+      else if(sel.type==='building'||sel.type==='worker') cls += ' dim';
+      return '<div class="'+cls+' pop" data-id="'+w.id+'">'+ICON(w.ic,w.fill)+
+        '<span class="cnt'+(w.pur?' pur':'')+'">'+w.count+'</span></div>';
+    }).join('');
+  }
+  function renderPort(){
+    if(sel.type==='hero'){ art.className='art hero';
+      art.innerHTML='<div class="hair"></div><div class="ear l"></div><div class="ear r"></div><div class="face"></div><div class="eye l"></div><div class="eye r"></div><div class="collar"></div>';
+      plabel.textContent='Aelindra'; port.querySelector('.lvl').style.display='';
+    } else {
+      var map={group:'grove',building:'bldg',worker:'work'};
+      var ic ={group:(WARBAND.filter(function(w){return w.id===sel.gid;})[0]||{}).ic||'i-bow', building:'i-home', worker:'i-hammer'};
+      art.className='art icon '+map[sel.type];
+      art.innerHTML=ICON(ic[sel.type]);
+      port.querySelector('.lvl').style.display='none';
+      if(sel.type==='group'){ var g=WARBAND.filter(function(w){return w.id===sel.gid;})[0]; plabel.textContent=g.label+' ×'+g.count; }
+      else plabel.textContent = sel.type==='building'?'Warden Lodge':'Wisp ×2';
+    }
+  }
+  function render(){ renderPort(); renderArc(); renderCluster(); syncEnts(); }
+
+  function syncEnts(){
+    document.querySelectorAll('.ent[data-sel]').forEach(function(el){
+      var t=el.dataset.sel, on=false;
+      if(t==='hero'&&sel.type==='hero') on=true;
+      else if(t==='building'&&sel.type==='building') on=true;
+      else if(t==='worker'&&sel.type==='worker') on=true;
+      else if(t.indexOf('group:')===0 && sel.type==='group' && sel.gid===t.split(':')[1]) on=true;
+      el.classList.toggle('sel',on);
+    });
+  }
+
+  function select(t){
+    if(t==='hero') sel={type:'hero',gid:null};
+    else if(t==='building') sel={type:'building',gid:null};
+    else if(t==='worker') sel={type:'worker',gid:null};
+    else if(t.indexOf('group:')===0) sel={type:'group',gid:t.split(':')[1]};
+    hint.style.opacity='0';
+    document.querySelectorAll('.btn[data-jump]').forEach(function(b){ b.classList.toggle('on', b.dataset.jump===t || (t==='hero'&&b.dataset.jump==='hero')); });
+    render(); poke();
+  }
+
+  // clicks
+  cluster.addEventListener('click', function(e){ var d=e.target.closest('.fwar'); if(d) select('group:'+d.dataset.id); });
+  arc.addEventListener('click', function(e){ var d=e.target.closest('.fabil'); if(!d) return;
+    if(d.classList.contains('lock')){ d.classList.remove('shake'); void d.offsetWidth; d.classList.add('shake'); return; }
+    var ab=d.dataset.ab; if(!ab||d.classList.contains('cooling')) return;
+    d.style.setProperty('--dur',(CD[ab]||4)+'s'); d.classList.add('cooling');
+    d.addEventListener('animationend', function h(ev){ if(ev.animationName==='sweep'){ d.classList.remove('cooling'); d.removeEventListener('animationend',h);} });
+  });
+  port.addEventListener('click', function(){ select('hero'); });
+  document.querySelectorAll('.ent[data-sel]').forEach(function(el){ el.addEventListener('click', function(){ select(el.dataset.sel); }); });
+  document.querySelectorAll('.btn[data-jump]').forEach(function(b){ b.addEventListener('click', function(){ select(b.dataset.jump); }); });
+
+  // idle-fade
+  var idleT, tagIdle=document.getElementById('tag-idle');
+  function poke(){ hub.classList.remove('idle'); tagIdle.classList.remove('on'); clearTimeout(idleT);
+    idleT=setTimeout(function(){ hub.classList.add('idle'); tagIdle.classList.add('on'); }, 3500); }
+  ['pointerdown','pointermove'].forEach(function(ev){ document.getElementById('stage').addEventListener(ev, poke, true); });
+
+  // shrink-on-move joystick
+  (function(){
+    var ring=document.getElementById('npring'), nub=document.getElementById('npnub'), tagMove=document.getElementById('tag-move');
+    var active=false, cx=0, cy=0, R=22;
+    ring.addEventListener('pointerdown', function(e){ active=true; hub.classList.add('moving'); tagMove.classList.add('on');
+      var r=ring.getBoundingClientRect(); cx=r.left+r.width/2; cy=r.top+r.height/2; try{ring.setPointerCapture(e.pointerId);}catch(_){} mv(e); e.preventDefault(); });
+    ring.addEventListener('pointermove', function(e){ if(active) mv(e); });
+    ring.addEventListener('pointerup', end); ring.addEventListener('pointercancel', end);
+    function mv(e){ var dx=e.clientX-cx, dy=e.clientY-cy, d=Math.hypot(dx,dy); if(d>R){ dx=dx/d*R; dy=dy/d*R; } nub.style.transform='translate('+dx+'px,'+dy+'px)'; }
+    function end(){ active=false; hub.classList.remove('moving'); tagMove.classList.remove('on'); nub.style.transform=''; }
+  })();
+
+  render(); poke();
+})();
+</script>
