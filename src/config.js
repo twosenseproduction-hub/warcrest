@@ -435,11 +435,11 @@
       desc: 'Expansion base. Build beside an Ironstone field.',
     },
     conduit: {
-      type: 'conduit', label: 'Sheep Pen', w: 192, h: 192,
+      type: 'conduit', label: 'House', w: 192, h: 192,
       hp: 420, cost: 65, build: 16, isPasture: true,
       trains: ['_livestock'],
-      desc: 'Raise livestock to increase supply cap.',
-      /* Rimwalker Briar Fold: 3 levels each granting more population */
+      desc: 'Raise supply cap. (House / Hut / Briar / Ziggurat by race.)',
+      /* Rimwalker Briar: 3 levels each granting more population */
       supplyByLevel: [6, 12, 20],
       upgradeCosts:  [80, 130],   /* cost to go lvl1→2 and lvl2→3 */
       upgradeHp:     [560, 700],  /* maxHp at each upgraded level */
@@ -550,7 +550,7 @@
       passiveTrait: 'iron_discipline',
       units: ['pawn', 'lancer', 'archer', 'monk', 'warrior'],
       names: {
-        core: 'Citadel Keep', conduit: 'Sheep Pen', foundry: 'Barracks',
+        core: 'Citadel Keep', conduit: 'House', foundry: 'Barracks',
         forge: 'War Forge', chiefs_hall: "Chief's Hall", ancestor_shrine: 'Hall of Heroes',
         turret: 'Arrow Tower', outpost: 'Forward Bastion',
         pawn: 'Peasant', lancer: 'Knight', archer: 'Crossbowman',
@@ -573,7 +573,7 @@
       passiveTrait: 'blood_vigor',
       units: ['gnome', 'spear_goblin', 'gnoll', 'hex_shaman', 'troll'],
       names: {
-        core: 'Warren Maw', conduit: 'Pig Sty', foundry: 'War Pit',
+        core: 'Warren Maw', conduit: 'Hut', foundry: 'War Pit',
         forge: 'Skull Den', chiefs_hall: "Chief's Hall", ancestor_shrine: 'Ancestor Totem',
         turret: 'Bone Spire', outpost: 'Raider Camp',
         pawn: 'Gnome', lancer: 'Spear Goblin', archer: 'Gnoll',
@@ -605,7 +605,7 @@
       },
       names: {
         core:        'Roothold',
-        conduit:     'Briar Fold',
+        conduit:     'Briar',
         foundry:     'Warden Lodge',
         forge:       'Root Forge',
         chiefs_hall: 'Elder Sanctum',
@@ -618,6 +618,29 @@
         monk:        'Dryad',
         warrior:     'Druid',
         siege:       'Glaive Thrower',
+      },
+    },
+
+    undead: {
+      id: 'undead',
+      name: 'The Unveiled',
+      tagline: 'Bone · Blight · Undeath',
+      blurb: 'The risen dead of the Ashfen, raising Ziggurats over salted ground. ' +
+             'Cheap, relentless, and hard to keep down — a war of attrition made flesh. ' +
+             'Undeath: units slowly knit themselves back together a few seconds after leaving combat.',
+      primary:    '#8E7CC3',
+      secondary:  '#CFC7B0',
+      dark:       '#4A3B6B',
+      accent:     '#A9E5D6',
+      shapeStyle: 'angular',
+      passiveTrait: 'blood_vigor',
+      units: ['pawn', 'lancer', 'archer', 'monk', 'warrior'],
+      names: {
+        core: 'Necropolis', conduit: 'Ziggurat', foundry: 'Crypt',
+        forge: 'Slaughterhouse', chiefs_hall: 'Temple of the Damned', ancestor_shrine: 'Boneyard',
+        turret: 'Spirit Tower', outpost: 'Haunted Outpost',
+        pawn: 'Acolyte', lancer: 'Ghoul', archer: 'Skeleton Archer',
+        monk: 'Necromancer', warrior: 'Abomination',
       },
     },
   };
@@ -677,7 +700,7 @@
       var maxCore = cspec.tierByLevel ? cspec.tierByLevel.length : 1;
       return (b.level || 1) < maxCore;
     }
-    /* Briar Fold (Rimwalker conduit) upgrades through 3 levels */
+    /* Briar (Rimwalker conduit) upgrades through 3 levels */
     if (b.type === 'conduit' && b.faction === 'rimwalker') {
       var spec = RTS.Buildings.conduit;
       var maxLevel = spec.supplyByLevel ? spec.supplyByLevel.length : 1;

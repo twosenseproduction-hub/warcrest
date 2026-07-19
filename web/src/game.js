@@ -340,6 +340,13 @@ const BLD_GROUPS=[
       orc_mine1:'orc_mine_Lv1',     orc_mine2:'orc_mine_Lv2',     orc_mine3:'orc_mine_Lv3',
       orc_mill1:'orc_mill_Lv1',     orc_mill2:'orc_mill_Lv2',     orc_mill3:'orc_mill_Lv3',
       orc_barrack1:'orc_barrack_Lv1', orc_barrack2:'orc_barrack_Lv2', orc_barrack3:'orc_barrack_Lv3' } },
+  { tex:'/assets/models/undead_building_tex.png', files:{   // The Unveiled (undead) — 4th faction; house reads as the Ziggurat
+      undead_throne1:'undead_throne_Lv1', undead_throne2:'undead_throne_Lv2', undead_throne3:'undead_throne_Lv3',
+      undead_house1:'undead_house_Lv1',   undead_house2:'undead_house_Lv2',   undead_house3:'undead_house_Lv3',
+      undead_tower1:'undead_tower_Lv1',   undead_tower2:'undead_tower_Lv2',   undead_tower3:'undead_tower_Lv3',
+      undead_mine1:'undead_mine_Lv1',     undead_mine2:'undead_mine_Lv2',     undead_mine3:'undead_mine_Lv3',
+      undead_mill1:'undead_woodcutter_Lv1', undead_mill2:'undead_woodcutter_Lv2', undead_mill3:'undead_woodcutter_Lv3',
+      undead_barrack1:'undead_barrack_Lv1', undead_barrack2:'undead_barrack_Lv2', undead_barrack3:'undead_barrack_Lv3' } },
 ];
 function loadBuildings(){ return new Promise(res=>{
   const fx=new THREE.FBXLoader(), tl=new THREE.TextureLoader();
@@ -402,8 +409,9 @@ const FACTION_MOD={
   elf:  {arm:-1, hp:0.88, dmg:1.12, spd:1.18, name:'Rimwalkers'},   // glassy, fast, hard-hitting
   human:{arm: 1, hp:1.08, dmg:1.00, spd:1.00, name:'Iron Crown'},   // balanced, sturdy
   orc:  {arm: 1, hp:1.22, dmg:1.10, spd:0.92, name:'Cinder Horde'}, // tanky bruisers, slow
+  undead:{arm:0, hp:1.00, dmg:1.05, spd:1.02, name:'The Unveiled'}, // attrition — cheap, relentless, regen off-combat
 };
-function playerFaction(){ return BLDPFX==='human_'?'human':BLDPFX==='orc_'?'orc':'elf'; }
+function playerFaction(){ return BLDPFX==='human_'?'human':BLDPFX==='orc_'?'orc':BLDPFX==='undead_'?'undead':'elf'; }
 // smart acquisition: among candidates, prefer the foe this unit deals the most EFFECTIVE damage to
 // (armor/attack-type table), bias toward wounded (finish kills), mild proximity pull. Keeps the
 // counter system tactical without long chases (callers pre-filter to the engage window).
@@ -482,7 +490,7 @@ function styleRing(p){ if(!p.ring)return; if(p.cat){ p.ring.visible=false; if(p.
   p.ring.visible=true; if(p.plus)p.plus.visible=!p.locked;
   p.ring.material.color.setHex(p.locked?0x5a6a74 : (p.slot==='turret'?0xffb45c:((p.theme||PLOT_THEME.elf).ring)));
   p.ring.material.opacity=p.locked?0.26:0.55; }
-function playerTheme(){ return BLDPFX==='human_'?PLOT_THEME.human : BLDPFX==='orc_'?PLOT_THEME.orc : PLOT_THEME.elf; }
+function playerTheme(){ return BLDPFX==='human_'?PLOT_THEME.human : BLDPFX==='orc_'?PLOT_THEME.orc : BLDPFX==='undead_'?PLOT_THEME.undead : PLOT_THEME.elf; }
 function makePlot(x,z,tier,slot){ slot=slot||'gen'; const th=playerTheme(); scene.add(slot==='turret'?turretPad(x,z,3.4,th):hexPad(x,z,5.3,th));
   const ri=slot==='turret'?1.9:2.4, ro=slot==='turret'?2.5:3.1;
   const ring=new THREE.Mesh(new THREE.RingGeometry(ri,ro,26),new THREE.MeshBasicMaterial({color:th.ring,transparent:true,opacity:0.55,side:THREE.DoubleSide,depthWrite:false}));
@@ -832,6 +840,9 @@ const ICON={
 };
 function ic(n){ const p=ICON[n]; return p?('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+p+'</svg>'):''; }
 const catIcon={economy:'house',mine:'mine',lumber:'lumber',army:'barracks',defense:'tower'}, catName={economy:'House',mine:'Gold Mine',lumber:'Lumber Mill',army:'Barracks',defense:'Tower'};
+// Supply building reads per race: human House · orc Hut · elf Briar · undead Ziggurat.
+const SUPPLY_NAME={human:'House',orc:'Hut',elf:'Briar',undead:'Ziggurat'};
+function catLabel(k){ return k==='economy' ? (SUPPLY_NAME[playerFaction()]||'House') : catName[k]; }
 function catEffect(cat,lv){ const c=CAT[cat], i=lv-1;
   if(cat==='mine') return '+'+c.income[i]+' gold / sec';
   if(cat==='lumber') return '+'+c.woodInc[i]+' wood / sec';
@@ -859,7 +870,7 @@ function openPlotMenu(p){ if(!buildMenuEl||p.locked)return; menuPlot=p; menuAnch
   const sellItem=()=>({icon:ic('sell'), label:'Sell', cost:'+'+sellValue(p)+'g', cls:'sell', ok:true, fn:()=>sellPlot(p)});
   if(!p.cat){ let opts = p.slot==='turret' ? ['defense'] : ['economy','mine','lumber','army','defense'];   // turret spots are defense-only
     if(ALLOWED_BUILD) opts=opts.filter(k=>ALLOWED_BUILD.includes(k));   // early levels unlock only some buildings
-    items=opts.map(k=>{ const cost=CAT[k].cost[0]; return {icon:ic(catIcon[k]), label:catName[k], cost:cost+'g', ok:g>=cost, fn:()=>startBuild(p,k)}; });
+    items=opts.map(k=>{ const cost=CAT[k].cost[0]; return {icon:ic(catIcon[k]), label:catLabel(k), cost:cost+'g', ok:g>=cost, fn:()=>startBuild(p,k)}; });
     radialOpen(cx,cy,(p.slot==='turret'?'Turret spot · ':'Build · ')+g+'g · '+Math.round(supplyUsed)+'/'+supplyCap+' pop',items); }
   else if(p.cat==='army'){ items=TRAIN.filter(t=>t.minLvl<=p.level).map(t=>({icon:ic(t.icon), label:t.label, cost:t.gold+'g',
         ok: g>=t.gold && supplyUsed+t.sup<=supplyCap, fn:()=>queueUnit(p,t)}));   // train (gold + supply gated)
@@ -869,7 +880,7 @@ function openPlotMenu(p){ if(!buildMenuEl||p.locked)return; menuPlot=p; menuAnch
     radialOpen(cx,cy,'Barracks L'+p.level+q+' · '+Math.round(supplyUsed)+'/'+supplyCap+' pop',items); }
   else { items=[]; if(p.level<3) items.push(upItem()); else items.push({icon:ic('star'), label:'Max', ok:false});
     items.push(sellItem());
-    radialOpen(cx,cy,catName[p.cat]+' L'+p.level,items); } }
+    radialOpen(cx,cy,catLabel(p.cat)+' L'+p.level,items); } }
 function openCoreMenu(){ if(!buildMenuEl||!coreB)return; menuPlot=null; menuAnchor={x:coreB.x,z:coreB.z}; const g=Math.floor(gold), w=Math.floor(wood); const [cx,cy]=screenOf(coreB.x,coreB.z);
   const items=[]; if(coreB.level<3){ const gc=CORE_UP[coreB.level], wc=CORE_WOOD[coreB.level]; items.push({icon:ic('upgrade'), label:'Expand base', cost:gc+'g · '+wc+'w', ok:g>=gc&&w>=wc, fn:()=>upgradeCore()}); }
   else items.push({icon:ic('star'), label:'Max', ok:false});
@@ -1179,6 +1190,7 @@ let selected=new Set(), lcv, lctx, cmd={active:false,id:null,pts:[],moved:false}
 let spellArmed=false, autoBolt=false, orderMarkers=[], boltEl, autoEl, smiteArmed=false, smiteEl;
 let hitEl=null, heroCanHit=false, heroHitTarget=null;   // Wild-Rift attack button: active only when a foe is in the hero's reach
 let abilHandEl=null, cmdStripEl=null;                   // thumb-cluster no-command zones (taps here never issue a ground order)
+let heroNodeEl=null, warbandEl=null;                    // Living Hub: hero portrait anchor + warband-by-type cluster
 let keys={}, joy={active:false,nx:0,ny:0,id:null,sx:0,sy:0};
 let heroHpEl, heroLvEl, heroXpEl, waveEl, resultEl, abilEl, joyBase, joyKnob, supEl, woodEl, viewPop=null;
 const raycaster=new THREE.Raycaster(), groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
@@ -1764,6 +1776,7 @@ const HERO_KIT={
   paladin:{name:'Paladin', rig:'paladin', rng:4.2, ranged:false, a:{icon:'holy',cap:'Bless',cd:7}, spell:{icon:'hammer',cap:'Hammer',cd:8}, blink:{icon:'shield',cap:'Shield',cd:12}},
   aelindra:{name:'Aelindra', rig:'aelindra', rng:12, ranged:true, shot:'arrow', a:{icon:'fan',cap:'Volley',cd:7}, spell:{icon:'archer',cap:'Moonfire',cd:7}, blink:{icon:'blink',cap:'Windstep',cd:6}},
   thoryn: {name:'Thoryn Greywarden', rig:'thoryn', rng:4.2, ranged:false, a:{icon:'swords',cap:'Blade Dance',cd:6}, spell:{icon:'shadow',cap:'Root Lash',cd:8}, blink:{icon:'blink',cap:'Windstep',cd:7}},   // warden swordmaster — reuses the Warden handlers (nova / poison-strike / blink)
+  mordath:{name:'Mordath the Deathless', rig:'uking', rng:4.2, ranged:false, a:{icon:'swords',cap:'Bone Nova',cd:6}, spell:{icon:'shadow',cap:'Death Coil',cd:8}, blink:{icon:'blink',cap:'Deathstep',cd:7}},   // The Unveiled — reuses the non-paladin handlers (nova / strike / blink); rig falls back to queen if the undead king isn't loaded
 };
 // each hero fields its own faction's army + buildings in skirmish (pbld='' elf, 'human_' Iron Crown, 'orc_' horde)
 const HERO_FACTION={
@@ -1771,6 +1784,7 @@ const HERO_FACTION={
   aelindra: {pbld:'',       units:{warrior:'warrior',  archer:'archer', cleric:'priestess'}},   // Rimwalkers (Night Elf)
   paladin:  {pbld:'human_', units:{warrior:'hfootman', archer:'harcher', cleric:'hmage'}},        // Iron Crown (Human)
   thoryn:   {pbld:'',       units:{warrior:'warrior',  archer:'archer', cleric:'priestess'}},   // Rimwalkers (Night Elf) — Greywarden
+  mordath:  {pbld:'undead_', units:{warrior:'uwarrior', archer:'uarcher', cleric:'umage'}},     // The Unveiled (Undead) — Ziggurats, bone host
 };
 function applyHeroFaction(k){ const f=HERO_FACTION[k]; if(!f)return; BLDPFX=f.pbld; URIG={...f.units}; }
 function nearestAllyTo(x,z,maxd){ let b=null,bd=maxd*maxd;
@@ -1854,6 +1868,39 @@ function updateSelPanel(){ if(!selPanelEl)return;
   const showAll = restore.length>sel.length && sel.every(u=>restore.includes(u));
   acts.style.display='flex'; allBtn.style.display=showAll?'flex':'none';
   allBtn.onpointerdown=ev=>{ ev.stopPropagation(); if(restore.length) selectMany(restore); };
+}
+// Living Hub: portrait node hp/level + warband cluster (army grouped by kind, tap to select that type)
+function updateWarband(){
+  if(!warbandEl||!heroNodeEl)return;
+  if(!started){ warbandEl.style.display='none'; heroNodeEl.style.display='none'; return; }
+  heroNodeEl.style.display='block';
+  const face=heroNodeEl.querySelector('.hn-face'), lv=heroNodeEl.querySelector('.hn-lv'), hpr=heroNodeEl.querySelector('.hn-hp');
+  const hsig=(hero&&hero.rigKey||'')+'|'+(hero&&selected.has(hero)?1:0);
+  if(heroNodeEl.__sig!==hsig){ heroNodeEl.__sig=hsig; face.innerHTML=hero?unitFace(hero,'hero'):ic('sword'); heroNodeEl.classList.toggle('on', !!(hero&&selected.has(hero))); }
+  if(lv) lv.textContent=String((hero&&hero.level)||1);
+  if(hpr&&hero&&hero.max){ const f=Math.max(0,Math.min(1,hero.hp/hero.max)); hpr.style.background='conic-gradient('+(f<0.35?'#e8564a':'#6fe06a')+' '+(f*360)+'deg, rgba(0,0,0,.55) 0)'; }
+
+  warbandEl.style.display='flex';
+  const live=allies.filter(e=>e&&e.alive); const groups={}, order=[];
+  for(const u of live){ const k=u.kind; if(!groups[k]){groups[k]=[]; order.push(k);} groups[k].push(u); }
+  const sig=order.map(k=>k+groups[k].length).join(',');
+  if(warbandEl.__sig!==sig){ warbandEl.__sig=sig; warbandEl.innerHTML='';
+    if(!order.length){ warbandEl.classList.add('empty'); }
+    else{ warbandEl.classList.remove('empty');
+      const all=document.createElement('div'); all.className='wbDisc wbAll'; all.title='All';
+      all.innerHTML=ic('swords')+'<span class="wn">'+live.length+'</span>';
+      all.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); selectMany(allies.filter(e=>e&&e.alive)); }); warbandEl.appendChild(all);
+      for(const k of order){ const kind=k; const c=document.createElement('div'); c.className='wbDisc'; c.dataset.kind=k; c.title=KIND_NAME[k]||k;
+        c.innerHTML=unitFace(groups[k][0],k)+'<span class="wn">'+groups[k].length+'</span>';
+        c.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); selectMany(allies.filter(e=>e&&e.alive&&e.kind===kind)); }); warbandEl.appendChild(c); }
+    }
+  } else {
+    // keep counts live without rebuilding the DOM
+    let i=1; for(const k of order){ const cell=warbandEl.children[i++]; if(cell){ const n=cell.querySelector('.wn'); if(n)n.textContent=groups[k].length; } }
+    const a0=warbandEl.querySelector('.wbAll .wn'); if(a0)a0.textContent=live.length;
+  }
+  const selKinds=new Set([...selected].filter(u=>u&&u!==hero&&u.alive).map(u=>u.kind));
+  warbandEl.querySelectorAll('.wbDisc[data-kind]').forEach(c=>c.classList.toggle('hot', selKinds.has(c.dataset.kind)));
 }
 function selectInRect(x0,y0,x1,y1){ const lo=[Math.min(x0,x1),Math.min(y0,y1)], hi=[Math.max(x0,x1),Math.max(y0,y1)]; const got=[];
   for(const e of [hero,...allies]){ if(!e||!e.alive)continue; const [sx,sy]=screenOf(e.px,e.pz);
@@ -2345,6 +2392,14 @@ function setupHUD(){
   autoEl=document.createElement('div'); autoEl.className='pill'; autoEl.textContent='AUTO';   // rides on the Bolt button
   autoEl.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); autoBolt=!autoBolt; updateSpellUI(); }); boltEl.appendChild(autoEl);
   document.body.appendChild(hand); abilHandEl=hand;
+  // ===== Living Hub: hero portrait node (anchor) + warband cluster (army by type) =====
+  heroNodeEl=document.createElement('div'); heroNodeEl.id='heroNode';
+  heroNodeEl.innerHTML='<div class="hn-hp"></div><div class="hn-face"></div><div class="hn-lv">1</div>';
+  heroNodeEl.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); if(hero&&hero.alive){ selectOne(hero); sfx('ui'); } });
+  document.body.appendChild(heroNodeEl); abilHandEl.__cmdZone=true;
+  warbandEl=document.createElement('div'); warbandEl.id='warband'; document.body.appendChild(warbandEl);
+  { const poke=()=>{ if(!warbandEl)return; warbandEl.classList.remove('idle'); clearTimeout(warbandEl.__t); warbandEl.__t=setTimeout(()=>warbandEl&&warbandEl.classList.add('idle'),3500); };
+    window.addEventListener('pointerdown',poke,true); poke(); }
   dmgLayer=document.createElement('div'); dmgLayer.id='dmgLayer'; document.body.appendChild(dmgLayer);   // floating combat numbers
   respawnEl=document.createElement('div'); respawnEl.id='respawnBanner';
   respawnEl.style.cssText='position:fixed;left:50%;top:36%;transform:translateX(-50%);z-index:8;display:none;flex-direction:column;align-items:center;gap:5px;pointer-events:none;text-align:center';
@@ -2357,7 +2412,8 @@ function setupHUD(){
   const HEROES=[['queen','sword','Elf Queen','Rimwalkers · Night Elf — Blink · Fan of Knives · Shadow Strike. Fields an elven host.'],
                 ['paladin','shield','Paladin','Iron Crown · Human — Consecration · Hammer of Justice · Divine Shield. Fields footmen, crossbows & mages.'],
                 ['aelindra','archer','Aelindra Ashveil','Rimwalkers · Night Elf — Windstep · Volley · Moonfire. A fast, evasive archer; fields an elven host.'],
-                ['thoryn','swords','Thoryn Greywarden','Rimwalkers · Night Elf — Windstep · Blade Dance · Root Lash. A runeblade warden with a glowing greatblade; fields an elven host.']];
+                ['thoryn','swords','Thoryn Greywarden','Rimwalkers · Night Elf — Windstep · Blade Dance · Root Lash. A runeblade warden with a glowing greatblade; fields an elven host.'],
+                ['mordath','shadow','Mordath the Deathless','The Unveiled · Undead — Deathstep · Bone Nova · Death Coil. A risen deathlord who raises Ziggurats and fields a bone host.']];
   for(const [k,icn,nm,blurb] of HEROES){ const c=document.createElement('div'); c.className='hc';
     c.innerHTML='<div class="ic">'+ic(icn)+'</div><div class="nm">'+nm+'</div><div class="kit">'+blurb+'</div>';
     c.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); gameMode='skirmish'; activeMission=null; heroKind=k;
@@ -2585,7 +2641,8 @@ async function boot(){
     const now=performance.now(); let dt=(now-last)/1000; last=now; if(dt>0.05)dt=0.05;
     if(tunerActive){ _tFrame(dt); composer.render(); return; }   // weapon tuner takes over the frame
     updateGame(dt); followCam(dt); repositionRadial(); updateFires(dt); updateHeroAura(dt); updateAtmos(dt);
-    if(++miniAcc%4===0){ drawMini(); updateSelPanel(); }   // ~15fps minimap + selection-card refresh
+    document.body.classList.toggle('moving', !!(joy && joy.active));   // shrink-on-move: pull the action side in while driving
+    if(++miniAcc%4===0){ drawMini(); updateSelPanel(); updateWarband(); }   // ~15fps minimap + selection-card + warband refresh
     if(miniAcc%6===0) updateFog();   // ~10fps fog recompute
     composer.render();
   })();
