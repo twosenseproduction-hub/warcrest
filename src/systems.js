@@ -833,6 +833,15 @@
       syncBuilderLink(s, b);
       if (!b.builderId && RTS.assignBuilder) RTS.assignBuilder(s, b);
       b.hp = Math.max(b.hp, b.maxHp * (0.08 + 0.92 * b.progress));
+      // Under-construction dust/scaffold churn (re-spawned in bursts while work happens).
+      if (b.progress > 0.02 && b.progress < 1) {
+        b._buildFxT = (b._buildFxT || 0) - dt;
+        if (b._buildFxT <= 0) {
+          b._buildFxT = 0.55;
+          RTS.SkillVFX && RTS.SkillVFX.spawn(s, 'build_dust', b.x, b.y + b.h * 0.2,
+            { scale: Math.max(b.w || 48, b.h || 48) * 1.3 / 512, life: 0.7 });
+        }
+      }
       if (b.progress >= 1) {
         b.built = true; b.hp = b.maxHp; b.spawnFlash = 0.5;
         if (RTS.Buildings[b.type] && RTS.Buildings[b.type].isPasture) {
@@ -841,6 +850,8 @@
         b.builderId = null;
         RTS.markBuildingFootprint(s, b, true);
         RTS.spawnBuildingDust(s, b);
+        RTS.SkillVFX && RTS.SkillVFX.spawn(s, 'build_complete', b.x, b.y + b.h * 0.2,
+          { scale: Math.max(b.w || 48, b.h || 48) * 1.6 / 512, life: 0.75 });
         RTS.recalcSupply(s, b.team);
         if (b.team === TEAM.PLAYER) {
           RTS.log(s, RTS.nameFor(b.faction, b.type) + ' online', 'good');
@@ -1209,6 +1220,9 @@
       var boomY = e.y - e.h * 0.22;
       var boomSize = Math.max(e.w, e.h) * 0.75;
       RTS.spawnExplosion(s, e.x, boomY, boomSize, '#ffce6b');
+      // Rubble VFX — collapse dust cloud + flying embers over the footprint.
+      RTS.SkillVFX && RTS.SkillVFX.spawn(s, 'build_rubble', e.x, e.y + e.h * 0.2,
+        { scale: Math.max(e.w || 48, e.h || 48) * 1.7 / 512, life: 0.85 });
       s.screenShake = Math.max(s.screenShake, 7);
       if (e.team === TEAM.PLAYER) {
         s.ui.baseAlarm = 1.4; s.screenFlash = 0.4; s.flashColor = '#ff5555';
