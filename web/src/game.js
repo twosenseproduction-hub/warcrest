@@ -851,18 +851,9 @@ function catEffect(cat,lv){ const c=CAT[cat], i=lv-1;
   return c.dmg[i]+' dmg · '+Math.round(c.range[i])+' range'; }
 function sellValue(p){ let spent=0; for(let i=0;i<p.level;i++) spent+=CAT[p.cat].cost[i]; return Math.floor(spent*0.6); }
 // radial menu: options fan out around a screen point (cx,cy). items:{icon,label,cost,ok,fn,cls}
-function radialOpen(cx,cy,title,items){ if(!buildMenuEl)return;
-  cx=Math.max(120,Math.min(innerWidth-120,cx)); cy=Math.max(150,Math.min(innerHeight-150,cy));
-  buildMenuEl.className='radial'; buildMenuEl.innerHTML=''; buildMenuEl.style.left=cx+'px'; buildMenuEl.style.top=cy+'px';
-  const hub=document.createElement('div'); hub.className='rHub'; hub.textContent=title; buildMenuEl.appendChild(hub);
-  const n=items.length, R=94, step=Math.PI/3.2, span=(n-1)*step, start=-Math.PI/2-span/2;
-  items.forEach((it,i)=>{ const ang=n===1?-Math.PI/2:start+step*i, bx=Math.cos(ang)*R, by=Math.sin(ang)*R;
-    const b=document.createElement('div'); b.className='rBtn'+(it.cls?(' '+it.cls):'')+(it.ok===false?' no':(it.cost&&it.cls!=='sell'?' buy':''));
-    b.style.left=bx+'px'; b.style.top=by+'px';
-    b.innerHTML='<div class="ri">'+it.icon+'</div>'+(it.cost!=null?('<div class="rc">'+it.cost+'</div>'):'');
-    b.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); if(it.ok!==false&&it.fn)it.fn(); }); buildMenuEl.appendChild(b);
-    const lb=document.createElement('div'); lb.className='rLb'; lb.style.left=bx+'px'; lb.style.top=(by+36)+'px'; lb.textContent=it.label; buildMenuEl.appendChild(lb); });
-  bmBack.style.display='block'; buildMenuEl.style.display='block'; }
+// Build/train/upgrade menus route into the bottom-right warband cluster (living hub),
+// not a centre radial: the unit-type discs swap to the plot's options while it's selected.
+function radialOpen(cx,cy,title,items){ hubMenu={ title:title||'', items:items||[] }; if(typeof updateWarband==='function') updateWarband(); }
 function openPlotMenu(p){ if(!buildMenuEl||p.locked)return; menuPlot=p; menuAnchor={x:p.x,z:p.z}; const g=Math.floor(gold), w=Math.floor(wood); const [cx,cy]=screenOf(p.x,p.z); let items;
   // upgrade cost label + affordability (gold + wood)
   const upItem=()=>{ const gc=CAT[p.cat].cost[p.level], wc=UP_WOOD[p.level];
@@ -888,7 +879,7 @@ function openCoreMenu(){ if(!buildMenuEl||!coreB)return; menuPlot=null; menuAnch
 function sellPlot(p){ if(!p.cat)return; gold+=sellValue(p); if(p.g)scene.remove(p.g); p.g=null;
   p.cat=null; p.level=0; p.dmg=p.range=p.rof=p.every=p.cap=undefined; p.mine=[]; p.queue=[]; if(p.pbar)p.pbar.visible=false;
   styleRing(p); recomputeIncome(); recomputeSupply(); closeBuildMenu(); }
-function closeBuildMenu(){ if(buildMenuEl) buildMenuEl.style.display='none'; if(bmBack)bmBack.style.display='none'; menuPlot=null; menuAnchor=null; setBuildBtn(false); }
+function closeBuildMenu(){ if(buildMenuEl) buildMenuEl.style.display='none'; if(bmBack)bmBack.style.display='none'; menuPlot=null; menuAnchor=null; setBuildBtn(false); hubMenu=null; if(typeof updateWarband==='function') updateWarband(); }
 // ---- one-tap build entry: a hammer button that expands the nearest buildable plot's radial (and collapses it) ----
 function setBuildBtn(on){ if(buildBtnEl) buildBtnEl.classList.toggle('on',!!on); }
 function nearestBuildPlot(){ let best=null,bd=1e9; const ax=hero?hero.px:camAim.x, az=hero?hero.pz:camAim.z;
@@ -1190,7 +1181,8 @@ let selected=new Set(), lcv, lctx, cmd={active:false,id:null,pts:[],moved:false}
 let spellArmed=false, autoBolt=false, orderMarkers=[], boltEl, autoEl, smiteArmed=false, smiteEl;
 let hitEl=null, heroCanHit=false, heroHitTarget=null;   // Wild-Rift attack button: active only when a foe is in the hero's reach
 let abilHandEl=null, cmdStripEl=null;                   // thumb-cluster no-command zones (taps here never issue a ground order)
-let heroNodeEl=null, warbandEl=null;                    // Living Hub: hero portrait anchor + warband-by-type cluster
+let heroNodeEl=null, warbandEl=null, warbandTitleEl=null;   // Living Hub: hero portrait anchor + warband-by-type cluster (also hosts plot build/train menus)
+let hubMenu=null;                                          // when set, the warband cluster shows this plot's build/train options instead of army groups
 let keys={}, joy={active:false,nx:0,ny:0,id:null,sx:0,sy:0};
 let heroHpEl, heroLvEl, heroXpEl, waveEl, resultEl, abilEl, joyBase, joyKnob, supEl, woodEl, viewPop=null;
 const raycaster=new THREE.Raycaster(), groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
@@ -1880,6 +1872,20 @@ function updateWarband(){
   if(lv) lv.textContent=String((hero&&hero.level)||1);
   if(hpr&&hero&&hero.max){ const f=Math.max(0,Math.min(1,hero.hp/hero.max)); hpr.style.background='conic-gradient('+(f<0.35?'#e8564a':'#6fe06a')+' '+(f*360)+'deg, rgba(0,0,0,.55) 0)'; }
 
+  // ---- plot selected → the cluster becomes that plot's build/train menu ----
+  if(hubMenu){
+    warbandEl.style.display='flex';
+    if(warbandTitleEl){ warbandTitleEl.textContent=hubMenu.title||''; warbandTitleEl.style.display='block'; }
+    const sig='M|'+(hubMenu.title||'')+'|'+hubMenu.items.map(it=>it.label+':'+(it.cost||'')+(it.ok===false?'x':'')).join(',');
+    if(warbandEl.__sig!==sig){ warbandEl.__sig=sig; warbandEl.innerHTML='';
+      hubMenu.items.forEach(it=>{ const c=document.createElement('div');
+        c.className='wbDisc bld'+(it.cls==='sell'?' sell':'')+(it.ok===false?' dim':'');
+        c.innerHTML=it.icon+(it.cost!=null?('<span class="wc">'+it.cost+'</span>'):'')+'<span class="wl">'+(it.label||'')+'</span>';
+        c.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); if(it.ok!==false&&it.fn) it.fn(); });
+        warbandEl.appendChild(c); }); }
+    return;
+  }
+  if(warbandTitleEl) warbandTitleEl.style.display='none';
   warbandEl.style.display='flex';
   const live=allies.filter(e=>e&&e.alive); const groups={}, order=[];
   for(const u of live){ const k=u.kind; if(!groups[k]){groups[k]=[]; order.push(k);} groups[k].push(u); }
@@ -2488,6 +2494,8 @@ function setupHUD(){
     if(camEl){ camEl.id='camNav'; camEl.style.right='auto'; camEl.style.top='auto'; }
     // MOVE label under the joystick (foundry navpad, left-hand nav)
     const mv=document.createElement('div'); mv.id='moveLbl'; mv.textContent='Move'; document.body.appendChild(mv);
+    // title above the warband cluster (shows the plot name/pop when a build menu is open)
+    warbandTitleEl=document.createElement('div'); warbandTitleEl.id='warbandTitle'; warbandTitleEl.style.display='none'; document.body.appendChild(warbandTitleEl);
   })();
   // lasso overlay
   lcv=document.createElement('canvas'); lcv.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:4'; lcv.width=innerWidth; lcv.height=innerHeight; document.body.appendChild(lcv); lctx=lcv.getContext('2d');
