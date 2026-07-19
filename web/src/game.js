@@ -1810,10 +1810,10 @@ function refreshRadial(){ if(!abilEl)return;
 // context orders operate on the current selection only
 function moveOrder(list,gx,gz){ let k=0; for(const e of list){ if(!e.alive)continue;
     const col=((k%4)-1.5)*2.8, row=Math.floor(k/4)*2.8; k++;
-    if(e===hero){ e.order={x:gx,z:gz}; } else { e.order={x:gx+col,z:gz+row}; e.forcedTarget=null; e.target=null; e.following=false; } }
+    if(e===hero){ e.order={x:gx,z:gz}; e.forcedTarget=null; } else { e.order={x:gx+col,z:gz+row}; e.forcedTarget=null; e.target=null; e.following=false; } }
   rallyMarker.material.color.setHex(0x8df09b); rallyMarker.position.set(gx,topY(gx,gz)+0.3,gz); rallyMarker.visible=true; clearTimeout(rallyMarker.__to); rallyMarker.__to=setTimeout(()=>rallyMarker.visible=false,1800); pingRing(gx,gz,0x8df09b); }
 function attackOrder(list,en){ for(const e of list){ if(!e.alive)continue;
-    if(e===hero){ e.order={x:en.px,z:en.pz}; } else { e.forcedTarget=en; e.target=en; e.order=null; e.following=false; } }
+    if(e===hero){ e.forcedTarget=en; e.order=null; } else { e.forcedTarget=en; e.target=en; e.order=null; e.following=false; } }
   rallyMarker.material.color.setHex(0xff6a5a); rallyMarker.position.set(en.px,topY(en.px,en.pz)+0.3,en.pz); rallyMarker.visible=true; clearTimeout(rallyMarker.__to); rallyMarker.__to=setTimeout(()=>rallyMarker.visible=false,900); }
 const KIND_NAME={hero:'Elf Queen', warrior:'Warrior', archer:'Archer', cleric:'Priestess', drake:'Drake'};
 const KIND_ICON={hero:'sword', warrior:'warrior', archer:'archer', cleric:'cleric', assassin:'sword', drake:'drake'};
@@ -2200,8 +2200,8 @@ function updateGame(dt){
     else { if(keys['w']||keys['arrowup'])iy-=1; if(keys['s']||keys['arrowdown'])iy+=1; if(keys['a']||keys['arrowleft'])ix-=1; if(keys['d']||keys['arrowright'])ix+=1; }
     const B=groundBasis(); let mvx=B.f.x*(-iy)+B.r.x*ix, mvz=B.f.z*(-iy)+B.r.z*ix; const ml=Math.hypot(mvx,mvz);
     let heroMoved=false;
-    if(hero.alive && camLocked && ml>0.01){ // left stick drives the hero (follow mode); stick input cancels any tap order
-      hero.order=null; mvx/=ml;mvz/=ml; const nx=hero.px+mvx*hero.spd*dt, nz=hero.pz+mvz*hero.spd*dt; if(onIsland(nx,nz))setP(hero,nx,nz);
+    if(hero.alive && camLocked && ml>0.01){ // left stick drives the hero (follow mode); stick input cancels any tap order or focus
+      hero.order=null; hero.forcedTarget=null; mvx/=ml;mvz/=ml; const nx=hero.px+mvx*hero.spd*dt, nz=hero.pz+mvz*hero.spd*dt; if(onIsland(nx,nz))setP(hero,nx,nz);
       faceTo(hero,mvx,mvz); hero.movedThis=true; heroMoved=true; heroFwd.x+=(mvx-heroFwd.x)*Math.min(1,dt*6); heroFwd.z+=(mvz-heroFwd.z)*Math.min(1,dt*6); }
     else if(hero.alive && hero.order){ // RTS: tap-ordered hero walks to the point like any selected unit
       const d=Math.hypot(hero.order.x-hero.px,hero.order.z-hero.pz);
@@ -2210,6 +2210,13 @@ function updateGame(dt){
         const nx=hero.px+dx*hero.spd*dt, nz=hero.pz+dz*hero.spd*dt; if(onIsland(nx,nz))setP(hero,nx,nz); else hero.order=null;
         faceTo(hero,dx,dz); hero.movedThis=true; heroMoved=true;
         heroFwd.x+=(dx-heroFwd.x)*Math.min(1,dt*6); heroFwd.z+=(dz-heroFwd.z)*Math.min(1,dt*6); } }
+    else if(hero.alive && hero.forcedTarget && hero.forcedTarget.alive){ // focus-attack: chase the tapped foe until it's in reach
+      const tg=hero.forcedTarget, fd=Math.hypot(tg.px-hero.px,tg.pz-hero.pz), reach=hero.range+(tg.big||0)+0.4;
+      if(fd>reach){ const dx=(tg.px-hero.px)/(fd||1), dz=(tg.pz-hero.pz)/(fd||1);
+        const nx=hero.px+dx*hero.spd*dt, nz=hero.pz+dz*hero.spd*dt; if(onIsland(nx,nz))setP(hero,nx,nz);
+        faceTo(hero,dx,dz); hero.movedThis=true; heroMoved=true;
+        heroFwd.x+=(dx-heroFwd.x)*Math.min(1,dt*6); heroFwd.z+=(dz-heroFwd.z)*Math.min(1,dt*6); }
+      else faceTo(hero, tg.px-hero.px, tg.pz-hero.pz); }
     if(!camLocked && ml>0.001){ _camTouched=true; // camera stick: PROPORTIONAL pan (deflection^2 curve — fine control near centre,
       // fast at full tilt), not the hero's normalized fixed-speed movement — a camera, not a character
       const m=Math.min(1,ml), nx=mvx/ml, nz=mvz/ml, sp=110*Math.max(0.6,camF.dist/66)*m*m;
@@ -2226,7 +2233,12 @@ function updateGame(dt){
           puff(e.px+Math.cos(ph)*0.9, y+Math.sin(ph*1.7)*0.5, e.pz+Math.sin(ph)*0.9, 0x8ef07a,0.42,0.6);
           puff(e.px+rr(-0.4,0.4), y+0.6+rr(0,0.8), e.pz+rr(-0.4,0.4), 0x5ad06a,0.28,0.4); } }
       if(e.poison.t<=0)e.poison=null; }
-    if(hero.alive){ const {t,d}=nearest(hero.px,hero.pz,FO); heroHitTarget=(t&&d<=hero.range+(t.big||0)+1)?t:null; heroCanHit=!!heroHitTarget;
+    if(hero.alive){
+      if(hero.forcedTarget && !hero.forcedTarget.alive) hero.forcedTarget=null;
+      let ht,hd;                                                                       // focus target (tapped) wins; else auto-target nearest in reach
+      if(hero.forcedTarget){ ht=hero.forcedTarget; hd=Math.hypot(ht.px-hero.px,ht.pz-hero.pz); }
+      else { const nn=nearest(hero.px,hero.pz,FO); ht=nn.t; hd=nn.d; }
+      heroHitTarget=(ht&&hd<=hero.range+(ht.big||0)+1)?ht:null; heroCanHit=!!heroHitTarget;
       if(heroHitTarget){ if(hero.cd<=0){ if(hero.rigged){ hero.__atkClip=pickAtkClip(hero); hero.__atkT=0.55; } if(hero.ranged) shootFx(hero.px,hero.pz,heroHitTarget.px,heroHitTarget.pz,hero.shot||'arrow'); } attack(hero,heroHitTarget); } }
     else { heroHitTarget=null; heroCanHit=false; }
     if(hero.alive && hero.rigged){ hero.mixer.update(dt); armRelax(hero); hero.__atkT=Math.max(0,(hero.__atkT||0)-dt);
@@ -2380,7 +2392,7 @@ function setupHUD(){
     b.style.cssText='width:'+size+'px;height:'+size+'px;right:'+right+'px;bottom:'+bottom+'px';
     b.innerHTML='<div class="cd"></div><div class="ic">'+icon+'</div><div class="cap">'+cap+'</div>';
     b.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); _tutBtn=cls; sfx('ui'); fn(); }); hand.appendChild(b); return b; };
-  hitEl  =mkAbil('hit',ic('sword'),'Hit',76,12,12,()=>{ heroHit(); });                                            // basic attack — lights up only in range
+  // Hit button removed — the hero auto-attacks the nearest foe in reach; tapping an enemy (hero selected) focuses its attack.
   // inner ring — Warden abilities (spokes low→high: 14°, 51°, 88°)
   abilEl =mkAbil('stomp',ic('fan'),'Fan',56,121,47,()=>{ if(radialMode==='squad'){ stopSel(); return; } if(abilLocked('a'))return; if(hero.kit==='paladin')consecration(); else fanOfKnives(); });   // AoE slot / squad Stop
   boltEl =mkAbil('bolt',ic('shadow'),'Strike',56,86,101,()=>{ if(radialMode==='squad'){ holdSel(); return; } if(abilLocked('spell'))return; if(hero.spellCd<=0){ spellArmed=!spellArmed; } updateSpellUI(); });   // armed target / squad Hold
@@ -2479,8 +2491,10 @@ function setupHUD(){
     pop.addEventListener('pointerdown',ev=>ev.stopPropagation());
     gear.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); pop.classList.toggle('open'); });
     document.body.appendChild(gear); document.body.appendChild(pop);
-    // fold the camera toggle, perspective picker, and mute into the drawer (handlers kept)
-    for(const el of [camEl, viewEl, audEl]){ if(el){ el.style.right=''; el.style.top=''; el.style.left=''; el.style.bottom=''; el.style.position='static'; pop.appendChild(el); } }
+    // fold the perspective picker + mute into the drawer (handlers kept)
+    for(const el of [viewEl, audEl]){ if(el){ el.style.right=''; el.style.top=''; el.style.left=''; el.style.bottom=''; el.style.position='static'; pop.appendChild(el); } }
+    // the hero / free-roam camera toggle lives above the joystick (left-hand nav)
+    if(camEl){ camEl.id='camNav'; camEl.style.right='auto'; camEl.style.top='auto'; }
     // MOVE label under the joystick (foundry navpad, left-hand nav)
     const mv=document.createElement('div'); mv.id='moveLbl'; mv.textContent='Move'; document.body.appendChild(mv);
   })();
