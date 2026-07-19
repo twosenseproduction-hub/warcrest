@@ -145,7 +145,7 @@
   // Building sizes from config:
   //   core     256 × 192   (Citadel Keep / Warren Maw)
   //   outpost  128 × 128   (Forward Bastion / Raider Camp)
-  //   conduit  192 × 192   (Sheep Pen / Pig Sty)
+  //   conduit  192 × 192   (House / Hut / Briar)
   //   foundry  192 × 128   (Barracks / War Pit)
   //   forge / chiefs_hall  192 × 192   (War Forge / Skull Den · Chief's Hall)
   //   turret    64 × 128   (Arrow Tower / Bone Spire)

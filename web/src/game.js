@@ -832,6 +832,9 @@ const ICON={
 };
 function ic(n){ const p=ICON[n]; return p?('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+p+'</svg>'):''; }
 const catIcon={economy:'house',mine:'mine',lumber:'lumber',army:'barracks',defense:'tower'}, catName={economy:'House',mine:'Gold Mine',lumber:'Lumber Mill',army:'Barracks',defense:'Tower'};
+// Supply building reads per race: human House · orc Hut · elf Briar · undead Ziggurat.
+const SUPPLY_NAME={human:'House',orc:'Hut',elf:'Briar',undead:'Ziggurat'};
+function catLabel(k){ return k==='economy' ? (SUPPLY_NAME[playerFaction()]||'House') : catName[k]; }
 function catEffect(cat,lv){ const c=CAT[cat], i=lv-1;
   if(cat==='mine') return '+'+c.income[i]+' gold / sec';
   if(cat==='lumber') return '+'+c.woodInc[i]+' wood / sec';
@@ -859,7 +862,7 @@ function openPlotMenu(p){ if(!buildMenuEl||p.locked)return; menuPlot=p; menuAnch
   const sellItem=()=>({icon:ic('sell'), label:'Sell', cost:'+'+sellValue(p)+'g', cls:'sell', ok:true, fn:()=>sellPlot(p)});
   if(!p.cat){ let opts = p.slot==='turret' ? ['defense'] : ['economy','mine','lumber','army','defense'];   // turret spots are defense-only
     if(ALLOWED_BUILD) opts=opts.filter(k=>ALLOWED_BUILD.includes(k));   // early levels unlock only some buildings
-    items=opts.map(k=>{ const cost=CAT[k].cost[0]; return {icon:ic(catIcon[k]), label:catName[k], cost:cost+'g', ok:g>=cost, fn:()=>startBuild(p,k)}; });
+    items=opts.map(k=>{ const cost=CAT[k].cost[0]; return {icon:ic(catIcon[k]), label:catLabel(k), cost:cost+'g', ok:g>=cost, fn:()=>startBuild(p,k)}; });
     radialOpen(cx,cy,(p.slot==='turret'?'Turret spot · ':'Build · ')+g+'g · '+Math.round(supplyUsed)+'/'+supplyCap+' pop',items); }
   else if(p.cat==='army'){ items=TRAIN.filter(t=>t.minLvl<=p.level).map(t=>({icon:ic(t.icon), label:t.label, cost:t.gold+'g',
         ok: g>=t.gold && supplyUsed+t.sup<=supplyCap, fn:()=>queueUnit(p,t)}));   // train (gold + supply gated)
@@ -869,7 +872,7 @@ function openPlotMenu(p){ if(!buildMenuEl||p.locked)return; menuPlot=p; menuAnch
     radialOpen(cx,cy,'Barracks L'+p.level+q+' · '+Math.round(supplyUsed)+'/'+supplyCap+' pop',items); }
   else { items=[]; if(p.level<3) items.push(upItem()); else items.push({icon:ic('star'), label:'Max', ok:false});
     items.push(sellItem());
-    radialOpen(cx,cy,catName[p.cat]+' L'+p.level,items); } }
+    radialOpen(cx,cy,catLabel(p.cat)+' L'+p.level,items); } }
 function openCoreMenu(){ if(!buildMenuEl||!coreB)return; menuPlot=null; menuAnchor={x:coreB.x,z:coreB.z}; const g=Math.floor(gold), w=Math.floor(wood); const [cx,cy]=screenOf(coreB.x,coreB.z);
   const items=[]; if(coreB.level<3){ const gc=CORE_UP[coreB.level], wc=CORE_WOOD[coreB.level]; items.push({icon:ic('upgrade'), label:'Expand base', cost:gc+'g · '+wc+'w', ok:g>=gc&&w>=wc, fn:()=>upgradeCore()}); }
   else items.push({icon:ic('star'), label:'Max', ok:false});

@@ -1347,7 +1347,7 @@
       return;
     }
 
-    /* Other upgrades (e.g. Rimwalker Briar Fold) apply instantly. */
+    /* Other upgrades (e.g. Rimwalker Briar) apply instantly. */
     RTS.applyBuildingUpgrade(s, b);
   };
 
