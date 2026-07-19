@@ -1190,6 +1190,7 @@ let selected=new Set(), lcv, lctx, cmd={active:false,id:null,pts:[],moved:false}
 let spellArmed=false, autoBolt=false, orderMarkers=[], boltEl, autoEl, smiteArmed=false, smiteEl;
 let hitEl=null, heroCanHit=false, heroHitTarget=null;   // Wild-Rift attack button: active only when a foe is in the hero's reach
 let abilHandEl=null, cmdStripEl=null;                   // thumb-cluster no-command zones (taps here never issue a ground order)
+let heroNodeEl=null, warbandEl=null;                    // Living Hub: hero portrait anchor + warband-by-type cluster
 let keys={}, joy={active:false,nx:0,ny:0,id:null,sx:0,sy:0};
 let heroHpEl, heroLvEl, heroXpEl, waveEl, resultEl, abilEl, joyBase, joyKnob, supEl, woodEl, viewPop=null;
 const raycaster=new THREE.Raycaster(), groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
@@ -1868,6 +1869,39 @@ function updateSelPanel(){ if(!selPanelEl)return;
   acts.style.display='flex'; allBtn.style.display=showAll?'flex':'none';
   allBtn.onpointerdown=ev=>{ ev.stopPropagation(); if(restore.length) selectMany(restore); };
 }
+// Living Hub: portrait node hp/level + warband cluster (army grouped by kind, tap to select that type)
+function updateWarband(){
+  if(!warbandEl||!heroNodeEl)return;
+  if(!started){ warbandEl.style.display='none'; heroNodeEl.style.display='none'; return; }
+  heroNodeEl.style.display='block';
+  const face=heroNodeEl.querySelector('.hn-face'), lv=heroNodeEl.querySelector('.hn-lv'), hpr=heroNodeEl.querySelector('.hn-hp');
+  const hsig=(hero&&hero.rigKey||'')+'|'+(hero&&selected.has(hero)?1:0);
+  if(heroNodeEl.__sig!==hsig){ heroNodeEl.__sig=hsig; face.innerHTML=hero?unitFace(hero,'hero'):ic('sword'); heroNodeEl.classList.toggle('on', !!(hero&&selected.has(hero))); }
+  if(lv) lv.textContent=String((hero&&hero.level)||1);
+  if(hpr&&hero&&hero.max){ const f=Math.max(0,Math.min(1,hero.hp/hero.max)); hpr.style.background='conic-gradient('+(f<0.35?'#e8564a':'#6fe06a')+' '+(f*360)+'deg, rgba(0,0,0,.55) 0)'; }
+
+  warbandEl.style.display='flex';
+  const live=allies.filter(e=>e&&e.alive); const groups={}, order=[];
+  for(const u of live){ const k=u.kind; if(!groups[k]){groups[k]=[]; order.push(k);} groups[k].push(u); }
+  const sig=order.map(k=>k+groups[k].length).join(',');
+  if(warbandEl.__sig!==sig){ warbandEl.__sig=sig; warbandEl.innerHTML='';
+    if(!order.length){ warbandEl.classList.add('empty'); }
+    else{ warbandEl.classList.remove('empty');
+      const all=document.createElement('div'); all.className='wbDisc wbAll'; all.title='All';
+      all.innerHTML=ic('swords')+'<span class="wn">'+live.length+'</span>';
+      all.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); selectMany(allies.filter(e=>e&&e.alive)); }); warbandEl.appendChild(all);
+      for(const k of order){ const kind=k; const c=document.createElement('div'); c.className='wbDisc'; c.dataset.kind=k; c.title=KIND_NAME[k]||k;
+        c.innerHTML=unitFace(groups[k][0],k)+'<span class="wn">'+groups[k].length+'</span>';
+        c.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); selectMany(allies.filter(e=>e&&e.alive&&e.kind===kind)); }); warbandEl.appendChild(c); }
+    }
+  } else {
+    // keep counts live without rebuilding the DOM
+    let i=1; for(const k of order){ const cell=warbandEl.children[i++]; if(cell){ const n=cell.querySelector('.wn'); if(n)n.textContent=groups[k].length; } }
+    const a0=warbandEl.querySelector('.wbAll .wn'); if(a0)a0.textContent=live.length;
+  }
+  const selKinds=new Set([...selected].filter(u=>u&&u!==hero&&u.alive).map(u=>u.kind));
+  warbandEl.querySelectorAll('.wbDisc[data-kind]').forEach(c=>c.classList.toggle('hot', selKinds.has(c.dataset.kind)));
+}
 function selectInRect(x0,y0,x1,y1){ const lo=[Math.min(x0,x1),Math.min(y0,y1)], hi=[Math.max(x0,x1),Math.max(y0,y1)]; const got=[];
   for(const e of [hero,...allies]){ if(!e||!e.alive)continue; const [sx,sy]=screenOf(e.px,e.pz);
     if(sx>=lo[0]&&sx<=hi[0]&&sy>=lo[1]&&sy<=hi[1]) got.push(e); }
@@ -2358,6 +2392,14 @@ function setupHUD(){
   autoEl=document.createElement('div'); autoEl.className='pill'; autoEl.textContent='AUTO';   // rides on the Bolt button
   autoEl.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); autoBolt=!autoBolt; updateSpellUI(); }); boltEl.appendChild(autoEl);
   document.body.appendChild(hand); abilHandEl=hand;
+  // ===== Living Hub: hero portrait node (anchor) + warband cluster (army by type) =====
+  heroNodeEl=document.createElement('div'); heroNodeEl.id='heroNode';
+  heroNodeEl.innerHTML='<div class="hn-hp"></div><div class="hn-face"></div><div class="hn-lv">1</div>';
+  heroNodeEl.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); if(hero&&hero.alive){ selectOne(hero); sfx('ui'); } });
+  document.body.appendChild(heroNodeEl); abilHandEl.__cmdZone=true;
+  warbandEl=document.createElement('div'); warbandEl.id='warband'; document.body.appendChild(warbandEl);
+  { const poke=()=>{ if(!warbandEl)return; warbandEl.classList.remove('idle'); clearTimeout(warbandEl.__t); warbandEl.__t=setTimeout(()=>warbandEl&&warbandEl.classList.add('idle'),3500); };
+    window.addEventListener('pointerdown',poke,true); poke(); }
   dmgLayer=document.createElement('div'); dmgLayer.id='dmgLayer'; document.body.appendChild(dmgLayer);   // floating combat numbers
   respawnEl=document.createElement('div'); respawnEl.id='respawnBanner';
   respawnEl.style.cssText='position:fixed;left:50%;top:36%;transform:translateX(-50%);z-index:8;display:none;flex-direction:column;align-items:center;gap:5px;pointer-events:none;text-align:center';
@@ -2599,7 +2641,8 @@ async function boot(){
     const now=performance.now(); let dt=(now-last)/1000; last=now; if(dt>0.05)dt=0.05;
     if(tunerActive){ _tFrame(dt); composer.render(); return; }   // weapon tuner takes over the frame
     updateGame(dt); followCam(dt); repositionRadial(); updateFires(dt); updateHeroAura(dt); updateAtmos(dt);
-    if(++miniAcc%4===0){ drawMini(); updateSelPanel(); }   // ~15fps minimap + selection-card refresh
+    document.body.classList.toggle('moving', !!(joy && joy.active));   // shrink-on-move: pull the action side in while driving
+    if(++miniAcc%4===0){ drawMini(); updateSelPanel(); updateWarband(); }   // ~15fps minimap + selection-card + warband refresh
     if(miniAcc%6===0) updateFog();   // ~10fps fog recompute
     composer.render();
   })();
