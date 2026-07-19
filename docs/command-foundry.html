@@ -1,0 +1,354 @@
+<title>Warcrest — Command Foundry</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+/* ============================================================================
+   Warcrest — Command Foundry
+   Every button in the game, cast as one cohesive WC3-style command button:
+   ornate gold-over-stone frame + a custom "cast bronze relief" icon.
+   Self-contained. Single ornate world (deliberately not theme-switched).
+   ========================================================================== */
+:root{
+  --bg:#140e07; --bg2:#1d150c; --panel:#231a0e; --ink:#f4e7c9; --dim:#b9a577; --faint:#8a794f;
+  --gold-hi:#f9e3a0; --gold:#d8a942; --gold-mid:#b07f24; --gold-lo:#6c4c15; --stone:#1b140a; --stone-hi:#3a2e1a;
+  --line:rgba(216,169,66,.18);
+  /* category gems */
+  --c-order:#6ea8d8; --c-stance:#e0644e; --c-select:#38c3c3; --c-sys:#9aa4b0;
+  --c-build:#cfa86a; --c-unit:#84c85a; --c-manage:#f0b83a; --c-hero:#bb8ce8; --c-item:#e6c65e;
+  --sans:"Trebuchet MS","Segoe UI",system-ui,-apple-system,sans-serif;
+  --serif:"Iowan Old Style",Palatino,Georgia,"Times New Roman",serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{ box-sizing:border-box; }
+body{ margin:0; font-family:var(--sans); color:var(--ink);
+  background:radial-gradient(1100px 600px at 82% -8%, rgba(216,169,66,.10), transparent 60%), var(--bg);
+  -webkit-font-smoothing:antialiased; }
+.wrap{ max-width:1120px; margin:0 auto; padding:0 22px; }
+
+header.hero{ padding:66px 0 30px; }
+.eyebrow{ font:700 12px/1 var(--sans); letter-spacing:.32em; text-transform:uppercase; color:var(--gold);
+  display:inline-flex; align-items:center; gap:10px; margin:0 0 18px; }
+.eyebrow::before{ content:""; width:28px; height:2px; background:linear-gradient(90deg,transparent,var(--gold-lo)); }
+h1{ font:800 clamp(34px,6.5vw,60px)/1 var(--serif); margin:0; letter-spacing:-.01em; }
+h1 .g{ color:transparent; background:linear-gradient(180deg,var(--gold-hi),var(--gold) 45%,var(--gold-lo));
+  -webkit-background-clip:text; background-clip:text; filter:drop-shadow(0 2px 0 rgba(0,0,0,.4)); }
+.lede{ max-width:64ch; color:var(--dim); font-size:17px; margin:22px 0 0; }
+.lede b{ color:var(--ink); }
+.count{ display:inline-flex; gap:6px; align-items:center; margin-top:18px; font:800 12px/1 var(--sans);
+  letter-spacing:.06em; color:var(--gold-hi); background:rgba(216,169,66,.1); border:1px solid var(--line);
+  padding:8px 12px; border-radius:999px; }
+
+/* ---- section ---- */
+.sec{ padding:34px 0 8px; border-top:1px solid var(--line); margin-top:26px; }
+.sec:first-of-type{ border-top:0; }
+.sec-h{ display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin-bottom:4px; }
+.sec-h .dot{ width:11px; height:11px; border-radius:50%; box-shadow:0 0 8px currentColor, inset 0 0 0 1.5px rgba(0,0,0,.35); }
+.sec-h h2{ font:800 clamp(20px,2.6vw,26px)/1 var(--serif); margin:0; }
+.sec-h .n{ font:800 12px/1 var(--mono); color:var(--faint); }
+.sec-sub{ margin:0 0 20px; color:var(--faint); font-size:13.5px; }
+
+.grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(118px,1fr)); gap:16px 14px; }
+.cell{ display:flex; flex-direction:column; align-items:center; gap:8px; text-align:center; }
+
+/* ============================================================================
+   THE COMMAND BUTTON (cohesive WC3 frame)
+   ========================================================================== */
+.cmd{ --gem:var(--gold); position:relative; width:68px; height:68px; border-radius:10px; cursor:default;
+  background:
+    linear-gradient(180deg, rgba(255,240,200,.14), transparent 26%),
+    radial-gradient(120% 95% at 50% 16%, #40331d, #1a130a 82%);
+  box-shadow:
+    inset 0 0 0 2px var(--gold), inset 0 0 0 3.6px #0b0804,
+    inset 0 3px 5px rgba(255,236,180,.20), inset 0 -6px 9px rgba(0,0,0,.55),
+    0 3px 7px rgba(0,0,0,.5);
+  display:grid; place-items:center; transition:transform .12s, box-shadow .12s, filter .12s; }
+.cmd::before{ content:""; position:absolute; left:10%; top:7%; width:52%; height:30%; border-radius:50%;
+  background:radial-gradient(circle, rgba(255,245,210,.4), transparent 68%); pointer-events:none; }
+.cmd .ico{ width:60%; height:60%; fill:url(#relief); filter:drop-shadow(0 1.5px 0 rgba(0,0,0,.5)) drop-shadow(0 0 2px rgba(0,0,0,.4)); }
+.cmd .hot{ position:absolute; top:2px; left:4px; font:800 9px/1 var(--mono); color:var(--gold-hi); text-shadow:0 1px 1px #000; opacity:.9; }
+.cmd .gem{ position:absolute; top:-3px; right:-3px; width:11px; height:11px; border-radius:50%;
+  background:var(--gem); box-shadow:0 0 7px var(--gem), inset 0 1px 1px rgba(255,255,255,.5), 0 0 0 1.5px #0b0804; }
+.cmd .cost{ position:absolute; bottom:-5px; right:-4px; display:inline-flex; align-items:center; gap:2px;
+  padding:1px 5px 1px 4px; border-radius:8px; background:linear-gradient(180deg,#2b2114,#15100a);
+  box-shadow:inset 0 0 0 1.2px var(--gold-lo), 0 1px 2px rgba(0,0,0,.5);
+  font:800 9.5px/1.4 var(--mono); color:var(--gold-hi); }
+.cmd .cost i{ width:8px; height:8px; border-radius:50%; background:radial-gradient(circle at 35% 30%,var(--gold-hi),var(--gold-mid)); box-shadow:0 0 0 1px #0b0804; }
+.cmd .sup{ position:absolute; bottom:-5px; left:-4px; padding:1px 5px; border-radius:8px; background:linear-gradient(180deg,#2b2114,#15100a);
+  box-shadow:inset 0 0 0 1.2px var(--gold-lo); font:800 9px/1.5 var(--mono); color:#bfe0ff; }
+/* states */
+.cmd.hover, .cmd:hover{ filter:brightness(1.1); box-shadow:inset 0 0 0 2px var(--gold-hi), inset 0 0 0 3.6px #0b0804, inset 0 3px 5px rgba(255,236,180,.24), inset 0 -6px 9px rgba(0,0,0,.5), 0 3px 9px rgba(0,0,0,.5), 0 0 12px rgba(216,169,66,.35); }
+.cmd.press{ transform:translateY(1px) scale(.97); box-shadow:inset 0 0 0 2px var(--gold-mid), inset 0 0 0 3.6px #0b0804, inset 0 5px 9px rgba(0,0,0,.7); }
+.cmd.active{ box-shadow:inset 0 0 0 2px var(--gold-hi), inset 0 0 0 3.6px #0b0804, 0 0 0 2px rgba(249,227,160,.4), 0 0 16px rgba(240,198,74,.6); }
+.cmd.disabled{ filter:grayscale(.7) brightness(.5); }
+.cmd.disabled .gem{ display:none; }
+.cmd .cd{ position:absolute; inset:3.6px; border-radius:7px; background:conic-gradient(rgba(4,6,10,.68) 62%, transparent 0); pointer-events:none; }
+.cmd .lk{ position:absolute; inset:0; display:grid; place-items:center; font:800 12px/1 var(--mono); color:#cdb78a;
+  background:rgba(6,8,12,.5); border-radius:8px; }
+
+.lab{ font:700 12px/1.25 var(--sans); color:var(--ink); }
+.sub{ font:600 10.5px/1.35 var(--sans); color:var(--faint); max-width:15ch; }
+.sub b{ color:var(--dim); font-weight:700; }
+
+/* anatomy strip */
+.anat{ display:grid; grid-template-columns:auto 1fr; gap:26px; align-items:center; padding:18px 20px; margin:8px 0 6px;
+  border:1px solid var(--line); border-radius:14px; background:linear-gradient(180deg,var(--panel),var(--bg2)); }
+.anat .big{ transform:scale(1.7); transform-origin:center; margin:22px 28px; }
+.anat ul{ list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px 20px; }
+.anat li{ font-size:13px; color:var(--dim); } .anat li b{ color:var(--ink); }
+.states{ display:flex; gap:18px; flex-wrap:wrap; margin-top:8px; }
+.states .cell .lab{ font-size:11px; color:var(--faint); font-weight:700; }
+footer{ padding:40px 0 70px; color:var(--faint); font-size:12.5px; border-top:1px solid var(--line); margin-top:34px; }
+@media (prefers-reduced-motion: reduce){ *{ transition-duration:.001s !important; } }
+</style>
+
+<!-- ============================ ICON LIBRARY ============================ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="relief" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fbe7bb"/><stop offset=".45" stop-color="#e6c078"/>
+      <stop offset=".75" stop-color="#c2933f"/><stop offset="1" stop-color="#8a6222"/>
+    </linearGradient>
+  </defs>
+  <!-- ORDERS -->
+  <symbol id="ic-move" viewBox="0 0 24 24"><path d="M12 1l3.2 3.2h-2.1v6.6h6.6V8.7L23 12l-3.3 3.2v-2.1h-6.6v6.6h2.1L12 23l-3.2-3.3h2.1v-6.6H4.3v2.1L1 12l3.3-3.3v2.1h6.6V4.2H8.8z"/></symbol>
+  <symbol id="ic-stop" viewBox="0 0 24 24"><path d="M8 2.5h8L21.5 8v8L16 21.5H8L2.5 16V8zM9 8v8h2V8zm4 0v8h2V8z"/></symbol>
+  <symbol id="ic-hold" viewBox="0 0 24 24"><path d="M12 2l7 2.6v6c0 4.6-3 8.3-7 10-4-1.7-7-5.4-7-10v-6zM8 11l3 3 5-5-1.5-1.5L11 11l-1.5-1.5z"/></symbol>
+  <symbol id="ic-atkmove" viewBox="0 0 24 24"><path d="M18 2h4v4l-1.6 1.6-2.4-2.4zM3 15l9.5-9.5 3.1 3.1L6 18H3zm10 4h6l-2 2 1.4 1.4L23 19l-2.6-2.6L19 17l2 2h-8z"/></symbol>
+  <symbol id="ic-patrol" viewBox="0 0 24 24"><path d="M5 2h2v20H5zm3 1h11l-2.4 3.3L19 10H8zM8 13h11l-2.4 3.3L19 20H8z" opacity="1"/></symbol>
+  <symbol id="ic-rally" viewBox="0 0 24 24"><path d="M6 2h2v20H6zm3 1c5 0 5 3 10 1v8c-5 2-5-1-10-1z"/></symbol>
+  <symbol id="ic-recall" viewBox="0 0 24 24"><path d="M12 3a9 9 0 108.5 12h-2.3A6.7 6.7 0 1112 5.3V8l5-3.5L12 1z"/></symbol>
+  <symbol id="ic-attack" viewBox="0 0 24 24"><path d="M6.6 2.5L3 6.1l8.4 8.4-1.9 1.9 1.4 1.4 1.9-1.9.9.9L11.9 19 15.2 22.3l1.5-1.5-1.2-1.2 2.3-2.3-1.2-1.2 2.9-2.9L21 12l-14.4-9.5zM17.4 2.5L14 5.9l4 4 3.4-3.4V2.5z"/></symbol>
+  <!-- STANCES -->
+  <symbol id="ic-aggr" viewBox="0 0 24 24"><path d="M13 1l3 1-1 3 6.5 6.5-2.1 2.1L12 7.2 9.9 9.3 8 7.4 10.1 5.3 3.6 6.3 2.6 3.3 8.4 2 7 5.5 12 1zM4 16l6 6-2 2-6-6z"/></symbol>
+  <symbol id="ic-def" viewBox="0 0 24 24"><path d="M12 1.5l8 3v6.5c0 5-3.3 9.2-8 11-4.7-1.8-8-6-8-11V4.5zM12 5L7 7v3.7c0 3.3 2.1 6.2 5 7.6 2.9-1.4 5-4.3 5-7.6V7z"/></symbol>
+  <symbol id="ic-holdfire" viewBox="0 0 24 24"><path d="M11 1h2v11h-2zM7.5 12h9l-1 4.5c-.4 1.7-1.9 3-3.5 3s-3.1-1.3-3.5-3zM4 3.4L5.4 2l16.6 16.6L20.6 20z" opacity=".95"/></symbol>
+  <!-- SELECTION -->
+  <symbol id="ic-hero" viewBox="0 0 24 24"><path d="M12 1l2.2 3.9 4.4.9-3 3.3.5 4.5L12 15.9 7.9 17.6l.5-4.5-3-3.3 4.4-.9zM6 19h12v2l-6 2-6-2z"/></symbol>
+  <symbol id="ic-army" viewBox="0 0 24 24"><path d="M6 8a3 3 0 116 0 3 3 0 01-6 0zm-4 12c0-3 2-5 4.5-5S11 17 11 20zM15 9a2.6 2.6 0 115.2 0 2.6 2.6 0 01-5.2 0zM13 20c0-2.6 1.7-4.4 3.8-4.4S20.6 17.4 20.6 20z"/></symbol>
+  <symbol id="ic-workers" viewBox="0 0 24 24"><path d="M14.5 2c1.6 0 3 1 3.5 2.5L9 13l-2-2 8.5-8.5c-.3 0-.6-.5-1-.5zM6.5 12.5l2 2L4 19a1.4 1.4 0 01-2-2zM17 13l5 5-2 2-5-5z"/></symbol>
+  <symbol id="ic-melee" viewBox="0 0 24 24"><path d="M17 2h4v4l-9.5 9.5-3.1-3.1zM3 18l4-2 3 3-2 4-2-.6L5 20l2.2-.2.2-1.2-1.2.2L6 20l-1.4-1.4z"/></symbol>
+  <symbol id="ic-ranged" viewBox="0 0 24 24"><path d="M4 3c8 1.6 15 8.6 16.6 16.6l-2.4.6C16.7 13.6 10.4 7.3 3.4 5.4zM3 21l5.5-5.5 1.5 1.5L4.5 22.5zM15 3h6v6l-2-2-3 3-1.9-1.9 3-3z"/></symbol>
+  <symbol id="ic-caster" viewBox="0 0 24 24"><path d="M12 1a3 3 0 013 3 3 3 0 01-2 2.8V9c3 .5 5 2 5 4 0 2.5-3.6 4-6 4s-6-1.5-6-4c0-2 2-3.5 5-4V6.8A3 3 0 019 4a3 3 0 013-3zM7 19h10l-1.5 4h-7z"/></symbol>
+  <symbol id="ic-marquee" viewBox="0 0 24 24"><path d="M2 3h6v2.4H4.4V9H2zM16 3h6v6h-2.4V5.4H16zM2 15h2.4v3.6H8V21H2zM19.6 15H22v6h-6v-2.4h3.6zM10 8h4v8h-4z" opacity=".95"/></symbol>
+  <!-- SYSTEM -->
+  <symbol id="ic-home" viewBox="0 0 24 24"><path d="M2 11L12 3l10 8-1.5 1.8L19 11.5V21h-4v-6H9v6H5v-9.5l-1.5 1.3zM7 3h3v2L7 7z"/></symbol>
+  <symbol id="ic-camera" viewBox="0 0 24 24"><path d="M12 5V2L7 6l5 4V7a5 5 0 11-5 5H4a8 8 0 108-7z"/></symbol>
+  <symbol id="ic-zoom" viewBox="0 0 24 24"><path d="M10 2a8 8 0 015.3 14l6.2 6.2-2 2L13.3 18A8 8 0 1110 2zm0 3a5 5 0 100 10 5 5 0 000-10zm-1 2h2v2h2v2h-2v2H9v-2H7V9h2z"/></symbol>
+  <symbol id="ic-pause" viewBox="0 0 24 24"><path d="M6 3h4v18H6zm8 0h4v18h-4z"/></symbol>
+  <symbol id="ic-menu" viewBox="0 0 24 24"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm10 4l-2 1.6.5 2.6-2.4.9-1.6 2.1-2.5-.8-2.5.8L9.4 19l-2.4-.9.5-2.6L5.5 14 4 12l1.5-1.6L5 7.8l2.4-.9L9 4.8l2.5.8L14 4.8l1.6 2.1 2.4.9-.5 2.6z"/></symbol>
+  <symbol id="ic-mute" viewBox="0 0 24 24"><path d="M3 9h4l5-4v14l-5-4H3zM15 8.5l5 5m0-5l-5 5" fill="none" stroke="url(#relief)" stroke-width="2.2"/><path d="M3 9h4l5-4v14l-5-4H3z"/></symbol>
+  <!-- STRUCTURES -->
+  <symbol id="ic-keep" viewBox="0 0 24 24"><path d="M2 8h3V5h2v3h3V5h2v3h3V5h2v3h3v3h-2v10h-4v-5H8v5H4V11H2zM10 12h4v3h-4z"/></symbol>
+  <symbol id="ic-supply" viewBox="0 0 24 24"><path d="M4 21l8-18 8 18h-3.5L12 9l-4.5 12z"/></symbol>
+  <symbol id="ic-barracks" viewBox="0 0 24 24"><path d="M2 20l10-16 10 16v1H2zM8 8L6 5 4 8m14 0l-2-3-2 3M9.5 21v-5h5v5z"/></symbol>
+  <symbol id="ic-forge" viewBox="0 0 24 24"><path d="M4 6h9c3 0 3 4 6 4v3c-4 0-4-3-7-3H10l4 4v3H7v-3l3-2H4zM2 19h20v3H2z"/></symbol>
+  <symbol id="ic-tower" viewBox="0 0 24 24"><path d="M7 2h2v2h2V2h2v2h2V2h2v4h-1v14h-2v-6h-4v6H7V6H6V2zm3 6v3h4V8z"/></symbol>
+  <symbol id="ic-outpost" viewBox="0 0 24 24"><path d="M8 3h2v2h6l-2 2.5L16 10h-6v11H8zM4 21c0-4 2-7 4-8v8z"/></symbol>
+  <symbol id="ic-hall" viewBox="0 0 24 24"><path d="M12 2l10 5v2H2V7zM4 10h2v8H4zm5 0h2v8H9zm4 0h2v8h-2zm5 0h2v8h-2zM2 19h20v3H2z"/></symbol>
+  <symbol id="ic-merchant" viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 15h-2v-1.2c-1.4-.3-2.4-1.2-2.5-2.6h1.9c.1.7.5 1 1.6 1s1.6-.4 1.6-1c0-.6-.5-.9-2-1.2C10 11.6 8.9 11 8.9 9.5c0-1.2.8-2 2.1-2.3V6h2v1.2c1.2.3 2 1.1 2.1 2.3h-1.8c-.1-.6-.5-.9-1.3-.9-.9 0-1.4.4-1.4.9 0 .6.6.8 1.9 1.1 1.6.4 2.9 1 2.9 2.7 0 1.3-1 2.1-2.4 2.4z"/></symbol>
+  <!-- UNITS -->
+  <symbol id="ic-u-worker" viewBox="0 0 24 24"><path d="M12 2a3 3 0 013 3c0 1.7-1.3 3-3 3S9 6.7 9 5s1.3-3 3-3zM6 22c0-4 2.7-7 6-7s6 3 6 7zm10.5-13l4 4-1.5 1.5-4-4c-.6.2-1.2 0-1.6-.4-.6-.6-.5-1.5 0-2.1s1.5-.6 2.1 0c.4.4.6 1 .4 1.6z"/></symbol>
+  <symbol id="ic-u-skirm" viewBox="0 0 24 24"><path d="M12 1l2.3 2v3l3-1.2.7 2-3 1.4V22h-2v-6h-2v6H9V8.2L6 6.8l.7-2 3 1.2V3zM9 9v5h6V9z"/></symbol>
+  <symbol id="ic-u-archer" viewBox="0 0 24 24"><path d="M4 2c7 1.5 13 7.5 14.6 14.6l-2.2.5C15 11 9.7 5.7 3.5 4zM4 20l4-4 1.4 1.4-4 4zM14 2h6v6l-2-2-2.6 2.6-1.9-1.9L16.1 4z"/></symbol>
+  <symbol id="ic-u-mage" viewBox="0 0 24 24"><path d="M12 1l1.6 2.8L16.8 2l-1 3.4 3.2.9-2.6 2.2 2 2.8-3.3-.6L14 14l-2-2.9L10 14l-1.1-3.3-3.3.6 2-2.8L5 6.3l3.2-.9-1-3.4 3.2 1.8zM8 17h8l-1.5 5h-5z"/></symbol>
+  <symbol id="ic-u-heavy" viewBox="0 0 24 24"><path d="M12 1c3 0 5 2 5 5v3l3 2v3l-3-1v6h-4v-4h-2v4H7v-6l-3 1v-3l3-2V6c0-3 2-5 5-5zm-2 6h4V6a2 2 0 00-4 0z"/></symbol>
+  <symbol id="ic-u-siege" viewBox="0 0 24 24"><path d="M3 15h14l2-3 3 1.5-2 3.5H3zM5 17a2 2 0 100 4 2 2 0 000-4zm9 0a2 2 0 100 4 2 2 0 000-4zM6 14L4 6l3-1 2 8zm4 0l6-8 2 1.4-5.5 7.6z"/></symbol>
+  <!-- MANAGEMENT -->
+  <symbol id="ic-upgrade" viewBox="0 0 24 24"><path d="M12 2l7 8h-4v5h-6v-5H5zM8 17h8v2H8zm0 3h8v2H8z"/></symbol>
+  <symbol id="ic-cancel" viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zM7.8 6.4L12 10.6l4.2-4.2 1.6 1.6L13.4 12l4.4 4.2-1.6 1.6L12 13.4l-4.2 4.4-1.6-1.6L10.6 12 6.2 7.8z"/></symbol>
+  <symbol id="ic-cancelbuild" viewBox="0 0 24 24"><path d="M13 2l7 4-2 3-2-1-3 3 3 3-2 2-8-8-2 2H2v-3l6-6zM15.5 13L22 19.5 19.5 22 13 15.5z" opacity=".6"/><path d="M14 13l7 7-1.6 1.6-7-7z"/><path d="M13 2l7 4-2 3-2-1-3 3-3-3 3-3-1.5-1z"/></symbol>
+  <symbol id="ic-sell" viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 15h-2v-1.2c-1.4-.3-2.4-1.2-2.5-2.6h1.9c.1.7.5 1 1.6 1s1.6-.4 1.6-1c0-.6-.5-.9-2-1.2C10 11.6 8.9 11 8.9 9.5c0-1.2.8-2 2.1-2.3V6h2v1.2c1.2.3 2 1.1 2.1 2.3h-1.8c-.1-.6-.5-.9-1.3-.9-.9 0-1.4.4-1.4.9 0 .6.6.8 1.9 1.1 1.6.4 2.9 1 2.9 2.7 0 1.3-1 2.1-2.4 2.4z"/></symbol>
+  <symbol id="ic-automine" viewBox="0 0 24 24"><path d="M15 2l5 5-2 2-1.2-1.2-3 3-1.8-1.8 3-3L13 5zM3.5 13a8.5 8.5 0 0114-6.4l-1.5 1.7A6.3 6.3 0 105.8 13zM8 20l-4-4 4-4v2.5c3.4 0 6-2.2 6-5.5h2c0 4.4-3.6 7.5-8 7.5V20z"/></symbol>
+  <symbol id="ic-towerAU" viewBox="0 0 24 24"><path d="M7 3h2v2h2V3h2v2h2V3h2v4h-1v14h-2v-6h-4v6H7V7H6V3zM12 8l-3 4h6z" opacity=".55"/><path d="M12 7l4 6h-8z"/><path d="M11 12h2v9h-2z"/></symbol>
+  <symbol id="ic-towerSplash" viewBox="0 0 24 24"><path d="M7 3h2v2h2V3h2v2h2V3h2v4h-1v14h-2v-6h-4v6H7V7H6V3z" opacity=".55"/><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M18 6l-2 2M8 16l-2 2" fill="none" stroke="url(#relief)" stroke-width="1.8"/></symbol>
+  <!-- HERO KIT -->
+  <symbol id="ic-passive" viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 3a7 7 0 110 14 7 7 0 010-14zm0 3a4 4 0 100 8 4 4 0 000-8z"/></symbol>
+  <symbol id="ic-dash" viewBox="0 0 24 24"><path d="M2 8h9V4l8 8-8 8v-4H2v-2h7v-2H2v-2h7V8H2z" opacity=".55"/><path d="M13 4l8 8-8 8v-4l4-4-4-4z"/></symbol>
+  <symbol id="ic-blink" viewBox="0 0 24 24"><path d="M13 2L4 13h6l-3 9 11-13h-6z"/></symbol>
+  <symbol id="ic-volley" viewBox="0 0 24 24"><path d="M2 15L12 3l3 2.4L6.6 16zm5 3L15 8l3 2.4L10.6 19zM14 4h5v5l-1.6-1.6-2 2-1.8-1.8 2-2z"/></symbol>
+  <symbol id="ic-guard" viewBox="0 0 24 24"><path d="M12 1l9 3.3v6.7c0 5.5-3.8 10.3-9 12-5.2-1.7-9-6.5-9-12V4.3zm0 4L7 6.7v4.3c0 3.7 2.2 7 5 8.4 2.8-1.4 5-4.7 5-8.4V6.7z"/></symbol>
+  <symbol id="ic-heal" viewBox="0 0 24 24"><path d="M12 2c4 5 7 8 7 12a7 7 0 01-14 0c0-4 3-7 7-12zm-1 6v3H8v2h3v3h2v-3h3v-2h-3V8z"/></symbol>
+  <symbol id="ic-hex" viewBox="0 0 24 24"><path d="M12 2a7 7 0 00-5 11.9V17h1.5v2H8v2h2v-1h4v1h2v-2h-1.5v-2H16v-3.1A7 7 0 0012 2zM9.5 9a1.4 1.4 0 110 2.8 1.4 1.4 0 010-2.8zm5 0a1.4 1.4 0 110 2.8 1.4 1.4 0 010-2.8z"/></symbol>
+  <symbol id="ic-ult" viewBox="0 0 24 24"><path d="M12 1l2.9 6.2 6.8.8-5 4.6 1.4 6.7L12 20l-6.1 3.3L7.3 12.6l-5-4.6 6.8-.8z"/><circle cx="12" cy="11" r="2.4" fill="#1a130a"/></symbol>
+  <!-- ITEMS -->
+  <symbol id="ic-i-sword" viewBox="0 0 24 24"><path d="M18 2h4v4l-9 9-1-1-3 3 1.5 1.5-1.4 1.4L4 16.6l1.4-1.4L7 16.6l3-3-1-1zM4 18l2 2-2 2-2-2z"/></symbol>
+  <symbol id="ic-i-edge" viewBox="0 0 24 24"><path d="M20 2c-6 2-11 7-15 15l2 2 1.5-2.5 2 2 1.4-1.4-2-2C13 11 17 6 22 3zM3 19l2 2-2 2-2-2z"/></symbol>
+  <symbol id="ic-i-glaive" viewBox="0 0 24 24"><path d="M20 2c-3 0-8 2-10 8l-2-2-1.4 1.4 2 2c-3 3-4 6-4 9h2c0-4 3-9 7-12 0 0-1 3-3 5 4-1 9-6 9-11zM4 20l2 2-1.5 1.5L3 22z"/></symbol>
+  <symbol id="ic-i-saber" viewBox="0 0 24 24"><path d="M21 3c-8 0-14 5-16 13l2 1c1.5-6 6-10 12-11-4 2-7 5-9 10l2 .6C15 11 18 7 22 6zM4 19l2 2-2 2-2-2z"/></symbol>
+  <symbol id="ic-i-vest" viewBox="0 0 24 24"><path d="M8 2l4 2 4-2 4 3-3 3v11H7V8L4 5zm2 8v8h4v-8z"/></symbol>
+  <symbol id="ic-i-plate" viewBox="0 0 24 24"><path d="M4 4l8-2 8 2v8c0 5-4 8-8 10-4-2-8-5-8-10zm8 1L7 6v6c0 3 2 5 5 6.5V5z"/></symbol>
+  <symbol id="ic-i-livingmail" viewBox="0 0 24 24"><path d="M4 4l8-2 8 2v8c0 5-4 8-8 10-4-2-8-5-8-10zm9 2c-3 1-5 4-5 7 0 0 2-3 5-4-1 3-3 4-3 6 3-1 6-4 6-8 0-4-2-6-3-8z"/></symbol>
+  <symbol id="ic-i-gildedplate" viewBox="0 0 24 24"><path d="M4 4l8-2 8 2v8c0 5-4 8-8 10-4-2-8-5-8-10zm8-.5L6.5 5v7c0 3.5 2.6 6 5.5 7.6 2.9-1.6 5.5-4.1 5.5-7.6V5zm0 3l1.3 2.6 2.7.4-2 2 .5 2.8L12 15l-2.5 1.3.5-2.8-2-2 2.7-.4z"/></symbol>
+</svg>
+
+<header class="hero"><div class="wrap">
+  <p class="eyebrow">Warcrest · HUD · Command Foundry</p>
+  <h1>Every button, cast<br/><span class="g">from one mould.</span></h1>
+  <p class="lede">A full inventory of the game's commands — orders, stances, selection, build, train, management,
+    the hero kit, and gear — each struck as <b>one cohesive Warcraft-III-style command button</b>: a gold-over-stone
+    bevel around a hand-cut bronze-relief icon, with a category gem, hotkey, and cost. One frame, one icon language,
+    so any of them can drop straight into the command hub and read as a set.</p>
+  <span class="count">◆ 61 command buttons · 1 shared frame · 1 relief palette</span>
+</div></header>
+
+<main class="wrap">
+
+  <!-- anatomy -->
+  <div class="anat">
+    <div class="big">
+      <div class="cmd active"><span class="hot">E</span><span class="gem" style="--gem:var(--c-hero)"></span>
+        <svg class="ico"><use href="#ic-volley"/></svg><span class="cost"><i></i>90</span></div>
+    </div>
+    <ul>
+      <li><b>Gold-over-stone bevel.</b> The uniform WC3 frame — top-lit gold rim, dark stone well, inner gloss. Every button shares it.</li>
+      <li><b>Bronze-relief icon.</b> One gradient (<code>#relief</code>) casts every glyph as the same struck metal, so 58 icons read as one set.</li>
+      <li><b>Category gem</b> (top-right). Colour-codes the button's family at a glance without breaking the shared frame.</li>
+      <li><b>Hotkey</b> (top-left) &amp; <b>cost</b> (bottom-right, coin) — the WC3 command-card conventions, kept.</li>
+    </ul>
+  </div>
+  <div class="states">
+    <div class="cell"><div class="cmd"><svg class="ico"><use href="#ic-move"/></svg></div><div class="lab">Default</div></div>
+    <div class="cell"><div class="cmd hover"><svg class="ico"><use href="#ic-move"/></svg></div><div class="lab">Hover</div></div>
+    <div class="cell"><div class="cmd press"><svg class="ico"><use href="#ic-move"/></svg></div><div class="lab">Pressed</div></div>
+    <div class="cell"><div class="cmd active"><svg class="ico"><use href="#ic-def"/></svg></div><div class="lab">Active / on</div></div>
+    <div class="cell"><div class="cmd"><svg class="ico"><use href="#ic-dash"/></svg><span class="cd"></span></div><div class="lab">Cooldown</div></div>
+    <div class="cell"><div class="cmd disabled"><svg class="ico"><use href="#ic-ult"/></svg><span class="lk">L6</span></div><div class="lab">Locked</div></div>
+  </div>
+
+  <!-- ORDERS -->
+  <section class="sec">
+    <div class="sec-h"><span class="dot" style="color:var(--c-order)"></span><span class="n">A</span><h2>Orders &amp; Movement</h2></div>
+    <p class="sec-sub">The universal command row — issued to any selected unit or army. WC3's bottom-row grammar.</p>
+    <div class="grid">
+      <div class="cell"><div class="cmd"><span class="hot">M</span><span class="gem" style="--gem:var(--c-order)"></span><svg class="ico"><use href="#ic-move"/></svg></div><div class="lab">Move</div><div class="sub">Go to a point</div></div>
+      <div class="cell"><div class="cmd"><span class="hot">S</span><span class="gem" style="--gem:var(--c-order)"></span><svg class="ico"><use href="#ic-stop"/></svg></div><div class="lab">Stop</div><div class="sub">Halt &amp; clear orders</div></div>
+      <div class="cell"><div class="cmd"><span class="hot">H</span><span class="gem" style="--gem:var(--c-order)"></span><svg class="ico"><use href="#ic-hold"/></svg></div><div class="lab">Hold Position</div><div class="sub">Stand &amp; fight in place</div></div>
+      <div class="cell"><div class="cmd"><span class="hot">A</span><span class="gem" style="--gem:var(--c-order)"></span><svg class="ico"><use href="#ic-atkmove"/></svg></div><div class="lab">Attack-Move</div><div class="sub">Advance, engage on contact</div></div>
+      <div class="cell"><div class="cmd"><span class="hot">P</span><span class="gem" style="--gem:var(--c-order)"></span><svg class="ico"><use href="#ic-patrol"/></svg></div><div class="lab">Patrol</div><div class="sub">Loop between two points</div></div>
+      <div class="cell"><div class="cmd"><span class="hot">R</span><span class="gem" style="--gem:var(--c-order)"></span><svg class="ico"><use href="#ic-attack"/></svg></div><div class="lab">Attack</div><div class="sub">Focus a target</div></div>
+      <div class="cell"><div class="cmd"><span class="hot">T</span><span class="gem" style="--gem:var(--c-order)"></span><svg class="ico"><use href="#ic-rally"/></svg></div><div class="lab">Set Rally</div><div class="sub">Where new units gather</div></div>
+      <div class="cell"><div class="cmd"><span class="hot">Y</span><span class="gem" style="--gem:var(--c-order)"></span><svg class="ico"><use href="#ic-recall"/></svg></div><div class="lab">Recall Army</div><div class="sub">Call troops to the hero</div></div>
+    </div>
+  </section>
+
+  <!-- STANCES -->
+  <section class="sec">
+    <div class="sec-h"><span class="dot" style="color:var(--c-stance)"></span><span class="n">B</span><h2>Combat Stances</h2></div>
+    <p class="sec-sub">How the selection behaves when it isn't being micro'd. Cycled on the mode button today.</p>
+    <div class="grid">
+      <div class="cell"><div class="cmd active"><span class="gem" style="--gem:var(--c-stance)"></span><svg class="ico"><use href="#ic-aggr"/></svg></div><div class="lab">Aggressive</div><div class="sub">Chase &amp; engage nearby foes</div></div>
+      <div class="cell"><div class="cmd"><span class="gem" style="--gem:var(--c-stance)"></span><svg class="ico"><use href="#ic-def"/></svg></div><div class="lab">Defensive</div><div class="sub">Fight back, don't chase far</div></div>
+      <div class="cell"><div class="cmd"><span class="gem" style="--gem:var(--c-stance)"></span><svg class="ico"><use href="#ic-holdfire"/></svg></div><div class="lab">Hold / Passive</div><div class="sub">Never break position</div></div>
+    </div>
+  </section>
+
+  <!-- SELECTION -->
+  <section class="sec">
+    <div class="sec-h"><span class="dot" style="color:var(--c-select)"></span><span class="n">C</span><h2>Selection</h2></div>
+    <p class="sec-sub">Grab a unit, a group, the hero, or your whole army — the warband cluster in the living hub.</p>
+    <div class="grid">
+      <div class="cell"><div class="cmd"><span class="hot">Tab</span><span class="gem" style="--gem:var(--c-select)"></span><svg class="ico"><use href="#ic-hero"/></svg></div><div class="lab">Select Hero</div><div class="sub">Tap again to jump camera</div></div>
+      <div class="cell"><div class="cmd"><span class="hot">`</span><span class="gem" style="--gem:var(--c-select)"></span><svg class="ico"><use href="#ic-army"/></svg></div><div class="lab">Select Army</div><div class="sub">All fighters</div></div>
+      <div class="cell"><div class="cmd"><span class="hot">,</span><span class="gem" style="--gem:var(--c-select)"></span><svg class="ico"><use href="#ic-workers"/></svg></div><div class="lab">Select Workers</div><div class="sub">All harvesters</div></div>
+      <div class="cell"><div class="cmd"><span class="hot">1</span><span class="gem" style="--gem:var(--c-select)"></span><svg class="ico"><use href="#ic-melee"/></svg></div><div class="lab">Melee Group</div><div class="sub">Front-liners</div></div>
+      <div class="cell"><div class="cmd"><span class="hot">2</span><span class="gem" style="--gem:var(--c-select)"></span><svg class="ico"><use href="#ic-ranged"/></svg></div><div class="lab">Ranged Group</div><div class="sub">Archers &amp; shooters</div></div>
+      <div class="cell"><div class="cmd"><span class="hot">3</span><span class="gem" style="--gem:var(--c-select)"></span><svg class="ico"><use href="#ic-caster"/></svg></div><div class="lab">Caster Group</div><div class="sub">Support &amp; spell units</div></div>
+      <div class="cell"><div class="cmd"><span class="hot">B</span><span class="gem" style="--gem:var(--c-select)"></span><svg class="ico"><use href="#ic-marquee"/></svg></div><div class="lab">Box Select</div><div class="sub">Drag a marquee</div></div>
+    </div>
+  </section>
+
+  <!-- SYSTEM -->
+  <section class="sec">
+    <div class="sec-h"><span class="dot" style="color:var(--c-sys)"></span><span class="n">D</span><h2>Camera &amp; System</h2></div>
+    <p class="sec-sub">The always-present chrome around the field — not selection-contextual.</p>
+    <div class="grid">
+      <div class="cell"><div class="cmd"><span class="hot">Spc</span><span class="gem" style="--gem:var(--c-sys)"></span><svg class="ico"><use href="#ic-home"/></svg></div><div class="lab">Home / Keep</div><div class="sub">Jump to your core</div></div>
+      <div class="cell"><div class="cmd"><span class="hot">V</span><span class="gem" style="--gem:var(--c-sys)"></span><svg class="ico"><use href="#ic-camera"/></svg></div><div class="lab">Rotate View</div><div class="sub">Swing the camera</div></div>
+      <div class="cell"><div class="cmd"><span class="hot">Z</span><span class="gem" style="--gem:var(--c-sys)"></span><svg class="ico"><use href="#ic-zoom"/></svg></div><div class="lab">Zoom</div><div class="sub">Cycle zoom levels</div></div>
+      <div class="cell"><div class="cmd"><span class="hot">Esc</span><span class="gem" style="--gem:var(--c-sys)"></span><svg class="ico"><use href="#ic-pause"/></svg></div><div class="lab">Pause</div><div class="sub">Freeze the match</div></div>
+      <div class="cell"><div class="cmd"><span class="hot">O</span><span class="gem" style="--gem:var(--c-sys)"></span><svg class="ico"><use href="#ic-menu"/></svg></div><div class="lab">Menu / Settings</div><div class="sub">Options &amp; quit</div></div>
+      <div class="cell"><div class="cmd"><span class="gem" style="--gem:var(--c-sys)"></span><svg class="ico"><use href="#ic-mute"/></svg></div><div class="lab">Mute</div><div class="sub">Toggle audio</div></div>
+    </div>
+  </section>
+
+  <!-- STRUCTURES -->
+  <section class="sec">
+    <div class="sec-h"><span class="dot" style="color:var(--c-build)"></span><span class="n">E</span><h2>Structures — Build</h2></div>
+    <p class="sec-sub">The build menu. Names shown <b>Iron&nbsp;Crown / Raider&nbsp;Horde / Rimwalkers</b>; costs from <code>config.js</code>.</p>
+    <div class="grid">
+      <div class="cell"><div class="cmd"><span class="gem" style="--gem:var(--c-build)"></span><svg class="ico"><use href="#ic-keep"/></svg></div><div class="lab">Keep</div><div class="sub"><b>Citadel Keep / Warren Maw / Roothold</b></div></div>
+      <div class="cell"><div class="cmd"><span class="gem" style="--gem:var(--c-build)"></span><svg class="ico"><use href="#ic-supply"/></svg><span class="cost"><i></i>65</span></div><div class="lab">Supply Pen</div><div class="sub"><b>Sheep Pen / Pig Sty / Briar Fold</b> · +supply</div></div>
+      <div class="cell"><div class="cmd"><span class="gem" style="--gem:var(--c-build)"></span><svg class="ico"><use href="#ic-barracks"/></svg><span class="cost"><i></i>120</span></div><div class="lab">Barracks</div><div class="sub"><b>Barracks / War Pit / Warden Lodge</b></div></div>
+      <div class="cell"><div class="cmd"><span class="gem" style="--gem:var(--c-build)"></span><svg class="ico"><use href="#ic-forge"/></svg><span class="cost"><i></i>175</span></div><div class="lab">Forge</div><div class="sub"><b>War Forge / Skull Den / Root Forge</b></div></div>
+      <div class="cell"><div class="cmd"><span class="gem" style="--gem:var(--c-build)"></span><svg class="ico"><use href="#ic-tower"/></svg><span class="cost"><i></i>100</span></div><div class="lab">Tower</div><div class="sub"><b>Arrow Tower / Bone Spire / Canopy Spire</b></div></div>
+      <div class="cell"><div class="cmd"><span class="gem" style="--gem:var(--c-build)"></span><svg class="ico"><use href="#ic-hall"/></svg><span class="cost"><i></i>200</span></div><div class="lab">Hall of Heroes</div><div class="sub"><b>Chief's Hall / Ancestor Totem / Elder Sanctum</b></div></div>
+      <div class="cell"><div class="cmd"><span class="gem" style="--gem:var(--c-build)"></span><svg class="ico"><use href="#ic-outpost"/></svg><span class="cost"><i></i>320</span></div><div class="lab">Outpost</div><div class="sub"><b>Forward Bastion / Raider Camp / Grove Cache</b> · expand</div></div>
+      <div class="cell"><div class="cmd"><span class="gem" style="--gem:var(--c-build)"></span><svg class="ico"><use href="#ic-merchant"/></svg></div><div class="lab">Merchant</div><div class="sub">Neutral · buy hero gear</div></div>
+    </div>
+  </section>
+
+  <!-- UNITS -->
+  <section class="sec">
+    <div class="sec-h"><span class="dot" style="color:var(--c-unit)"></span><span class="n">F</span><h2>Units — Train</h2></div>
+    <p class="sec-sub">One command per role; the portrait reskins per faction. Costs shown for the Iron&nbsp;Crown.</p>
+    <div class="grid">
+      <div class="cell"><div class="cmd"><span class="gem" style="--gem:var(--c-unit)"></span><svg class="ico"><use href="#ic-u-worker"/></svg><span class="cost"><i></i>45</span><span class="sup">1</span></div><div class="lab">Worker</div><div class="sub"><b>Peasant / Gnome / Wisp</b></div></div>
+      <div class="cell"><div class="cmd"><span class="gem" style="--gem:var(--c-unit)"></span><svg class="ico"><use href="#ic-u-skirm"/></svg><span class="cost"><i></i>170</span><span class="sup">3</span></div><div class="lab">Skirmisher</div><div class="sub"><b>Knight / Spear Goblin / Huntress</b></div></div>
+      <div class="cell"><div class="cmd"><span class="gem" style="--gem:var(--c-unit)"></span><svg class="ico"><use href="#ic-u-archer"/></svg><span class="cost"><i></i>120</span><span class="sup">2</span></div><div class="lab">Archer</div><div class="sub"><b>Crossbowman / Gnoll / Bark Archer</b></div></div>
+      <div class="cell"><div class="cmd"><span class="gem" style="--gem:var(--c-unit)"></span><svg class="ico"><use href="#ic-u-mage"/></svg><span class="cost"><i></i>135</span><span class="sup">2</span></div><div class="lab">Caster</div><div class="sub"><b>Priest / Hex Shaman / Dryad</b></div></div>
+      <div class="cell"><div class="cmd"><span class="gem" style="--gem:var(--c-unit)"></span><svg class="ico"><use href="#ic-u-heavy"/></svg><span class="cost"><i></i>110</span><span class="sup">2</span></div><div class="lab">Heavy</div><div class="sub"><b>Footman / Troll / Druid</b></div></div>
+      <div class="cell"><div class="cmd"><span class="gem" style="--gem:var(--c-unit)"></span><svg class="ico"><use href="#ic-u-siege"/></svg><span class="cost"><i></i>165</span><span class="sup">3</span></div><div class="lab">Siege</div><div class="sub"><b>Glaive Thrower</b> · Rimwalkers</div></div>
+    </div>
+  </section>
+
+  <!-- MANAGEMENT -->
+  <section class="sec">
+    <div class="sec-h"><span class="dot" style="color:var(--c-manage)"></span><span class="n">G</span><h2>Building Management</h2></div>
+    <p class="sec-sub">Shown when a structure is selected — the top rows of its command card.</p>
+    <div class="grid">
+      <div class="cell"><div class="cmd"><span class="hot">U</span><span class="gem" style="--gem:var(--c-manage)"></span><svg class="ico"><use href="#ic-upgrade"/></svg></div><div class="lab">Upgrade</div><div class="sub">Next tier / keep level</div></div>
+      <div class="cell"><div class="cmd"><span class="hot">C</span><span class="gem" style="--gem:var(--c-manage)"></span><svg class="ico"><use href="#ic-cancel"/></svg></div><div class="lab">Cancel Last</div><div class="sub">Pull last from queue</div></div>
+      <div class="cell"><div class="cmd"><span class="hot">X</span><span class="gem" style="--gem:var(--c-manage)"></span><svg class="ico"><use href="#ic-cancelbuild"/></svg></div><div class="lab">Cancel Build</div><div class="sub">Stop &amp; refund</div></div>
+      <div class="cell"><div class="cmd"><span class="hot">Del</span><span class="gem" style="--gem:var(--c-manage)"></span><svg class="ico"><use href="#ic-sell"/></svg></div><div class="lab">Sell</div><div class="sub">Demolish for gold</div></div>
+      <div class="cell"><div class="cmd active"><span class="hot">G</span><span class="gem" style="--gem:var(--c-manage)"></span><svg class="ico"><use href="#ic-automine"/></svg></div><div class="lab">Auto-mine</div><div class="sub">New workers harvest</div></div>
+      <div class="cell"><div class="cmd"><span class="gem" style="--gem:var(--c-manage)"></span><svg class="ico"><use href="#ic-towerAU"/></svg><span class="cost"><i></i>90</span></div><div class="lab">Tower · Anti-Unit</div><div class="sub"><b>Arrow / Barb / Moonfire Spire</b> · long range</div></div>
+      <div class="cell"><div class="cmd"><span class="gem" style="--gem:var(--c-manage)"></span><svg class="ico"><use href="#ic-towerSplash"/></svg><span class="cost"><i></i>150</span></div><div class="lab">Tower · Siege</div><div class="sub"><b>Bombard / Skull Hurler / Thornwall</b> · splash</div></div>
+    </div>
+  </section>
+
+  <!-- HERO KIT -->
+  <section class="sec">
+    <div class="sec-h"><span class="dot" style="color:var(--c-hero)"></span><span class="n">H</span><h2>Hero Kit</h2></div>
+    <p class="sec-sub">A passive plus three actives and an ultimate per hero. Icons are the shared <b>archetypes</b>; each hero maps its kit onto them (e.g. Advance / Scatter Charge → Dash · Windstep / Vanishing Step → Blink · Arrowfall Line → Volley · The Last Wall → Bulwark · The Ashfall / Bedlam / Verdant Surge → Ultimate).</p>
+    <div class="grid">
+      <div class="cell"><div class="cmd"><span class="gem" style="--gem:var(--c-hero)"></span><svg class="ico"><use href="#ic-passive"/></svg></div><div class="lab">Passive</div><div class="sub">Always on · Ironwarden, Never Still…</div></div>
+      <div class="cell"><div class="cmd"><span class="hot">Q</span><span class="gem" style="--gem:var(--c-hero)"></span><svg class="ico"><use href="#ic-dash"/></svg></div><div class="lab">Dash</div><div class="sub">Advance · Scatter Charge</div></div>
+      <div class="cell"><div class="cmd"><span class="hot">W</span><span class="gem" style="--gem:var(--c-hero)"></span><svg class="ico"><use href="#ic-blink"/></svg></div><div class="lab">Blink</div><div class="sub">Windstep · Vanishing Step</div></div>
+      <div class="cell"><div class="cmd"><span class="hot">E</span><span class="gem" style="--gem:var(--c-hero)"></span><svg class="ico"><use href="#ic-volley"/></svg></div><div class="lab">Volley</div><div class="sub">Arrowfall Line · Ashfall Draw</div></div>
+      <div class="cell"><div class="cmd"><span class="hot">D</span><span class="gem" style="--gem:var(--c-hero)"></span><svg class="ico"><use href="#ic-guard"/></svg></div><div class="lab">Bulwark</div><div class="sub">The Last Wall · Iron Edict</div></div>
+      <div class="cell"><div class="cmd"><span class="hot">F</span><span class="gem" style="--gem:var(--c-hero)"></span><svg class="ico"><use href="#ic-heal"/></svg></div><div class="lab">Mend</div><div class="sub">Moonwell Shot · Verdant Surge</div></div>
+      <div class="cell"><div class="cmd"><span class="gem" style="--gem:var(--c-hero)"></span><svg class="ico"><use href="#ic-hex"/></svg></div><div class="lab">Hex</div><div class="sub">Grollusk · Death Coil</div></div>
+      <div class="cell"><div class="cmd"><span class="hot">R</span><span class="gem" style="--gem:var(--c-hero)"></span><svg class="ico"><use href="#ic-ult"/></svg></div><div class="lab">Ultimate</div><div class="sub">The Ashfall · Bedlam · Verdant Surge</div></div>
+    </div>
+  </section>
+
+  <!-- ITEMS -->
+  <section class="sec">
+    <div class="sec-h"><span class="dot" style="color:var(--c-item)"></span><span class="n">I</span><h2>Hero Gear — Merchant</h2></div>
+    <p class="sec-sub">Four weapons (+damage) and four armours (+armour); heroes carry up to four. Tier gem: iron · mithril · verdant · gilded.</p>
+    <div class="grid">
+      <div class="cell"><div class="cmd"><span class="gem" style="--gem:#b9c2cc"></span><svg class="ico"><use href="#ic-i-sword"/></svg></div><div class="lab">Iron Sword</div><div class="sub">+damage</div></div>
+      <div class="cell"><div class="cmd"><span class="gem" style="--gem:#6ea8d8"></span><svg class="ico"><use href="#ic-i-edge"/></svg></div><div class="lab">Mithril Edge</div><div class="sub">+damage</div></div>
+      <div class="cell"><div class="cmd"><span class="gem" style="--gem:#84c85a"></span><svg class="ico"><use href="#ic-i-glaive"/></svg></div><div class="lab">Verdant Glaive</div><div class="sub">+damage</div></div>
+      <div class="cell"><div class="cmd"><span class="gem" style="--gem:var(--c-item)"></span><svg class="ico"><use href="#ic-i-saber"/></svg></div><div class="lab">Gilded Saber</div><div class="sub">+damage</div></div>
+      <div class="cell"><div class="cmd"><span class="gem" style="--gem:#b9c2cc"></span><svg class="ico"><use href="#ic-i-vest"/></svg></div><div class="lab">Leather Vest</div><div class="sub">+armour</div></div>
+      <div class="cell"><div class="cmd"><span class="gem" style="--gem:#6ea8d8"></span><svg class="ico"><use href="#ic-i-plate"/></svg></div><div class="lab">Steel Plate</div><div class="sub">+armour</div></div>
+      <div class="cell"><div class="cmd"><span class="gem" style="--gem:#84c85a"></span><svg class="ico"><use href="#ic-i-livingmail"/></svg></div><div class="lab">Living Mail</div><div class="sub">+armour</div></div>
+      <div class="cell"><div class="cmd"><span class="gem" style="--gem:var(--c-item)"></span><svg class="ico"><use href="#ic-i-gildedplate"/></svg></div><div class="lab">Gilded Plate</div><div class="sub">+armour</div></div>
+    </div>
+  </section>
+
+</main>
+
+<footer><div class="wrap">
+  Warcrest — Command Foundry · every in-game button as one cohesive WC3-style command button · custom bronze-relief icons, shared frame · self-contained HTML/SVG · button set sourced from <code>config.js</code>, <code>heroes.js</code>, <code>items.js</code>, <code>hud.js</code>, and the <code>web/</code> control build.
+</div></footer>
