@@ -2367,19 +2367,10 @@ function setupHUD(){
   audEl.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); initAudio(); resumeAudio(); setAudio(!audioOn); audEl.textContent=audioOn?'🔊':'🔇'; }); document.body.appendChild(audEl);
   viewPop=document.createElement('div'); viewPop.id='viewPop';
   viewPop.addEventListener('pointerdown',ev=>ev.stopPropagation()); document.body.appendChild(viewPop);
-  // hero HP bar + objective, stacked top-centre in one framed cluster
-  const hp=document.createElement('div'); hp.className='hud';
-  hp.style.cssText+=';left:50%;top:calc(52px + var(--st));transform:translateX(-50%);width:min(240px,56vw);height:13px;background:rgba(10,14,20,0.5);border:1px solid var(--brd);border-radius:7px;overflow:hidden;box-shadow:none;backdrop-filter:blur(6px)';
-  heroHpEl=document.createElement('div'); heroHpEl.style.cssText='height:100%;width:100%;background:linear-gradient(#a6ec5e,#5cb43a)'; hp.appendChild(heroHpEl); document.body.appendChild(hp);
-  // hero level badge (round gold chip on the left end of the HP frame) + a thin XP bar tucked under it
-  heroLvEl=document.createElement('div'); heroLvEl.className='hud';
-  heroLvEl.style.cssText+=';left:calc(50% - min(120px,28vw) - 15px);top:calc(49px + var(--st));transform:translateX(-50%);width:26px;height:26px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#ffe9a8,#c8912f);border:1px solid #7a5410;color:#3a2600;font:900 12px system-ui;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.5)';
-  heroLvEl.textContent='1'; document.body.appendChild(heroLvEl);
-  const xpw=document.createElement('div'); xpw.className='hud';
-  xpw.style.cssText+=';left:50%;top:calc(66px + var(--st));transform:translateX(-50%);width:min(240px,56vw);height:4px;background:rgba(10,14,20,0.5);border:1px solid var(--brd);border-radius:3px;overflow:hidden;box-shadow:none';
-  heroXpEl=document.createElement('div'); heroXpEl.style.cssText='height:100%;width:0%;background:linear-gradient(#ffe27a,#e0a935)'; xpw.appendChild(heroXpEl); document.body.appendChild(xpw);
-  waveEl=document.createElement('div'); waveEl.className='hud';
-  waveEl.style.cssText+=';left:50%;top:calc(72px + var(--st));transform:translateX(-50%);font:800 12px system-ui;color:#ffd9d2;text-shadow:0 1px 3px #000;white-space:nowrap'; document.body.appendChild(waveEl);
+  // Top-centre hero HP/level/XP + the "Orc throne" objective readout were removed —
+  // the lower-right portrait node now carries the hero's health + level. The enemy
+  // throne keeps its floating 3D HP bar; campaign objectives show in the objective
+  // banner. heroHpEl/heroLvEl/heroXpEl/waveEl stay undefined; every updater is guarded.
   joyBase=document.createElement('div'); joyBase.id='joy';
   const jring=document.createElement('div'); jring.className='ring'; joyBase.appendChild(jring);
   joyKnob=document.createElement('div'); joyKnob.id='joyK'; joyBase.appendChild(joyKnob); document.body.appendChild(joyBase);
