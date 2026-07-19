@@ -1,15 +1,6 @@
-files/
-CONSOLIDATED_SOURCE.md
-CLAUDE_PROMPT.md
-CLAUDE_STANDALONE_PROMPT.md
-README.md
+node_modules
+dist
 .git
-.DS_Store
-# Editor source files — not needed at runtime
-*.aseprite
-*.ase
-*.psd
-tools/
-docs/
-scripts/
-.cursor/
+*.log
+.env
+.env.*

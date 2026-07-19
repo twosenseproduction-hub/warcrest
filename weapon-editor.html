@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Warcrest — Weapon Placement Editor</title>
+<style>
+  :root{ --bg:#222c38; --panel:#2b3643; --line:#3b4a59; --hot:#6fe3cf; --txt:#dbe4ee; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden}
+  #view{position:fixed;inset:0;touch-action:none}
+  #panel{position:fixed;top:0;right:0;width:330px;max-width:92vw;height:100%;background:rgba(20,26,34,.93);
+    border-left:1px solid var(--line);padding:12px 14px;overflow-y:auto;backdrop-filter:blur(4px)}
+  h1{font-size:15px;margin:0 0 2px;color:#fff} .sub{font-size:11px;color:#90a2b4;margin:0 0 10px}
+  label{display:block;font-size:11px;color:#9fb0c0;margin:9px 0 2px;text-transform:uppercase;letter-spacing:.04em}
+  select{width:100%;padding:7px;background:#1a232e;color:#fff;border:1px solid var(--line);border-radius:7px;font-size:13px}
+  .row{display:flex;align-items:center;gap:8px;margin:5px 0}
+  .row .nm{width:26px;font-size:12px;color:#9fb0c0}
+  .row input[type=range]{flex:1;accent-color:var(--hot)}
+  .row .vv{width:54px;text-align:right;font:12px monospace;color:var(--hot)}
+  .btns{display:flex;gap:8px;margin:10px 0}
+  button{flex:1;padding:9px;background:#36475a;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600}
+  button.hot{background:var(--hot);color:#0c1b18}
+  #out{width:100%;height:96px;background:#10171f;color:#9fe6cf;border:1px solid var(--line);border-radius:8px;
+    font:11px/1.35 monospace;padding:8px;margin-top:8px;resize:vertical}
+  .hint{font-size:11px;color:#7d8ea0;margin-top:6px}
+  #toggle{position:fixed;top:10px;left:10px;z-index:5;background:rgba(20,26,34,.9);border:1px solid var(--line)}
+  .chk{display:flex;align-items:center;gap:6px;margin:8px 0;font-size:12px;color:#cdd8e3}
+</style></head>
+<body>
+<canvas id="view"></canvas>
+<button id="toggle" onclick="document.getElementById('panel').classList.toggle('hidden')">☰</button>
+<div id="panel">
+  <h1>Weapon Placement</h1>
+  <p class="sub">Pick a unit + weapon, drag to orbit, dial it in, copy the snippet.</p>
+
+  <label>Unit body</label>
+  <select id="body"></select>
+  <label>Weapon</label>
+  <select id="weapon"></select>
+  <label>Attach to bone</label>
+  <select id="bone"></select>
+
+  <div class="chk"><input type="checkbox" id="play"><label for="play" style="margin:0;text-transform:none">play idle animation</label></div>
+  <div class="chk"><input type="checkbox" id="strip" checked><label for="strip" style="margin:0;text-transform:none">freeze legs (centaurs)</label></div>
+
+  <label>Position</label>
+  <div class="row"><span class="nm">X</span><input id="px" type="range" min="-0.6" max="0.6" step="0.005" value="0"><span class="vv" id="pxv">0</span></div>
+  <div class="row"><span class="nm">Y</span><input id="py" type="range" min="-0.6" max="0.6" step="0.005" value="0"><span class="vv" id="pyv">0</span></div>
+  <div class="row"><span class="nm">Z</span><input id="pz" type="range" min="-0.6" max="0.6" step="0.005" value="0"><span class="vv" id="pzv">0</span></div>
+  <label>Rotation (degrees)</label>
+  <div class="row"><span class="nm">X</span><input id="rx" type="range" min="-180" max="180" step="5" value="0"><span class="vv" id="rxv">0</span></div>
+  <div class="row"><span class="nm">Y</span><input id="ry" type="range" min="-180" max="180" step="5" value="0"><span class="vv" id="ryv">0</span></div>
+  <div class="row"><span class="nm">Z</span><input id="rz" type="range" min="-180" max="180" step="5" value="0"><span class="vv" id="rzv">0</span></div>
+  <label>Scale</label>
+  <div class="row"><span class="nm">S</span><input id="sc" type="range" min="0.05" max="1.5" step="0.01" value="0.5"><span class="vv" id="scv">0.5</span></div>
+
+  <hr style="border:none;border-top:1px solid var(--line);margin:14px 0 4px">
+  <label>Pose a bone (arm / hand / torso)</label>
+  <select id="posebone"></select>
+  <div class="row"><span class="nm">X</span><input id="brx" type="range" min="-180" max="180" step="3" value="0"><span class="vv" id="brxv">0</span></div>
+  <div class="row"><span class="nm">Y</span><input id="bry" type="range" min="-180" max="180" step="3" value="0"><span class="vv" id="bryv">0</span></div>
+  <div class="row"><span class="nm">Z</span><input id="brz" type="range" min="-180" max="180" step="3" value="0"><span class="vv" id="brzv">0</span></div>
+  <div class="btns"><button onclick="clearPose()">Clear all pose</button></div>
+  <p class="hint" id="posesummary">No bones posed yet. Pick a bone, rotate it — it holds on top of the animation.</p>
+
+  <hr style="border:none;border-top:1px solid var(--line);margin:14px 0 4px">
+  <label>Extra mounts (shield / quiver / 2nd weapon)</label>
+  <p class="hint">Dial in a prop above (weapon + bone + transform), then save it here to stack multiple on one unit.</p>
+  <div class="btns"><button onclick="saveMount()">＋ Save current as mount</button><button onclick="clearMounts()">Clear mounts</button></div>
+  <p class="hint" id="mountsummary">No extra mounts.</p>
+
+  <div class="btns"><button onclick="resetT()">Reset weapon</button><button class="hot" onclick="copyOut()">Copy snippet</button></div>
+  <textarea id="out" readonly></textarea>
+  <p class="hint">Send me the snippet (or just the pos / rot / scale numbers) and I'll wire it into the game.</p>
+</div>
+
+<script src="/vendor/three.min.js"></script>
+<script src="/vendor/GLTFLoader.js"></script>
+<script src="/vendor/SkeletonUtils.js"></script>
+<script>
+const BODIES = {
+  'Archer (rigged)':   'assets/models/rim_archer_rigged.glb',
+  'Druid (rigged)':    'assets/models/rim_druid.glb',
+  'Huntress (rigged)': 'assets/models/rim_huntress.glb',
+  'Dryad (rigged)':    'assets/models/rim_dryad.glb',
+  'Demon Hunter':      'assets/models/demon_hunter.glb',
+};
+const WEAPONS = {
+  'Longbow':        'assets/models/w_longbow.glb',
+  'Moon glaive':    'assets/models/w_moonglaive.glb',
+  'Ornate glaive':  'assets/models/w_glaive.glb',
+  'Moon staff':     'assets/models/w_moonstaff.glb',
+  'Leaf spear':     'assets/models/w_leafspear.glb',
+  'Bear claw':      'assets/models/w_bearclaw.glb',
+};
+const STRIP = /Thigh|Calf|Foot|Toe|Pelvis|Hip|Waist|Spine/i;
+
+const cv = document.getElementById('view');
+const renderer = new THREE.WebGLRenderer({canvas:cv, antialias:true});
+if (THREE.sRGBEncoding) renderer.outputEncoding = THREE.sRGBEncoding;
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x222c38);
+scene.add(new THREE.AmbientLight(0xffffff,0.85));
+const dl = new THREE.DirectionalLight(0xffffff,1.1); dl.position.set(2,4,3); scene.add(dl);
+scene.add(new THREE.GridHelper(4,8,0x44586a,0x33414f));
+const cam = new THREE.PerspectiveCamera(35, 1, 0.001, 100);
+
+// minimal orbit
+let camR=3, camTheta=0.6, camPhi=1.25, target=new THREE.Vector3(0,1,0);
+function applyCam(){ cam.position.set(
+  target.x + camR*Math.sin(camPhi)*Math.cos(camTheta),
+  target.y + camR*Math.cos(camPhi),
+  target.z + camR*Math.sin(camPhi)*Math.sin(camTheta)); cam.lookAt(target); }
+let drag=null, pinchD=0;
+cv.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};cv.setPointerCapture(e.pointerId)});
+cv.addEventListener('pointermove',e=>{ if(!drag)return; camTheta-=(e.clientX-drag.x)*0.01; camPhi=Math.max(0.15,Math.min(3.0,camPhi-(e.clientY-drag.y)*0.01)); drag={x:e.clientX,y:e.clientY}; });
+cv.addEventListener('pointerup',()=>drag=null);
+cv.addEventListener('wheel',e=>{camR=Math.max(0.4,Math.min(12,camR+e.deltaY*0.002));e.preventDefault();},{passive:false});
+
+const loader = new THREE.GLTFLoader();
+let bodyObj=null, mixer=null, idleClip=null, weaponNode=null, handBone=null, bodyGltf=null;
+const cache = {};
+function load(url){ return cache[url] || (cache[url] = new Promise(r=>loader.load(url, g=>r(g), undefined, ()=>r(null)))); }
+
+async function loadBody(){
+  if (bodyObj){ scene.remove(bodyObj); bodyObj=null; }
+  mixer=null; idleClip=null; weaponNode=null;
+  const g = await load(document.getElementById('body').value);
+  if (!g){ return; }
+  bodyGltf = g;
+  bodyObj = THREE.SkeletonUtils ? THREE.SkeletonUtils.clone(g.scene) : g.scene.clone();
+  bodyObj.traverse(o=>{ if(o.isMesh){ (Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{ if(!m)return; if('metalness'in m)m.metalness=0; if('roughness'in m)m.roughness=1; }); } });
+  scene.add(bodyObj);
+  // frame camera
+  const box=new THREE.Box3().setFromObject(bodyObj); const c=box.getCenter(new THREE.Vector3()); const s=box.getSize(new THREE.Vector3());
+  target.copy(c); camR=Math.max(s.x,s.y,s.z)*2.0;
+  // bones
+  const bsel=document.getElementById('bone'); bsel.innerHTML='';
+  const bones=[]; bodyObj.traverse(o=>{ if(o.isBone||/hand|arm|clav|spine|head|pelvis/i.test(o.name||'')) bones.push(o.name); });
+  const uniq=[...new Set(bones)].filter(Boolean);
+  (uniq.length?uniq:['(no bones — static)']).forEach(n=>{ const o=document.createElement('option'); o.value=n; o.textContent=n; bsel.appendChild(o); });
+  // default to R_Hand
+  const rh=[...bsel.options].find(o=>/R_Hand/i.test(o.value)) || [...bsel.options].find(o=>/Hand/i.test(o.value));
+  if (rh) bsel.value=rh.value;
+  // pose bones + mounts
+  poseMap = {}; fillPoseBones(); updatePoseSummary();
+  mounts = []; updateMountSummary();
+  // anim
+  idleClip = g.animations && (THREE.AnimationClip.findByName(g.animations,'NlaTrack')||g.animations[0]);
+  if (idleClip){ mixer=new THREE.AnimationMixer(bodyObj); }
+  applyAnim();
+  await attach();
+}
+function applyAnim(){
+  if (!mixer||!idleClip) return;
+  mixer.stopAllAction();
+  let clip=idleClip;
+  if (document.getElementById('strip').checked){ const tr=idleClip.tracks.filter(t=>!STRIP.test(t.name)); clip=new THREE.AnimationClip(idleClip.name,idleClip.duration,tr); }
+  const a=mixer.clipAction(clip); a.play();
+  if (!document.getElementById('play').checked){ mixer.update(1.0); a.paused=true; }
+}
+async function attach(){
+  if (weaponNode && weaponNode.parent) weaponNode.parent.remove(weaponNode);
+  const g=await load(document.getElementById('weapon').value); if(!g||!bodyObj) return;
+  const boneName=document.getElementById('bone').value;
+  handBone = bodyObj.getObjectByName(boneName) || bodyObj;
+  weaponNode=new THREE.Group();
+  const wm = THREE.SkeletonUtils ? THREE.SkeletonUtils.clone(g.scene) : g.scene.clone();
+  wm.traverse(o=>{ if(o.isMesh){ (Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{ if(!m)return; if('metalness'in m)m.metalness=0; if('roughness'in m)m.roughness=1; }); } });
+  weaponNode.add(wm); handBone.add(weaponNode); updateT();
+}
+function val(id){ return parseFloat(document.getElementById(id).value); }
+function updateT(){
+  if (!weaponNode) return;
+  weaponNode.position.set(val('px'),val('py'),val('pz'));
+  weaponNode.rotation.set(val('rx')*Math.PI/180, val('ry')*Math.PI/180, val('rz')*Math.PI/180);
+  weaponNode.scale.setScalar(val('sc'));
+  ['px','py','pz','rx','ry','rz','sc'].forEach(id=>document.getElementById(id+'v').textContent=document.getElementById(id).value);
+  writeOut();
+}
+function writeOut(){
+  const r=x=>Math.round(val(x)*1000)/1000;
+  const rad=x=>Math.round(val(x)*Math.PI/180*1000)/1000;
+  const wf=document.getElementById('weapon').value.split('/').pop();
+  const bn=document.getElementById('bone').value;
+  const pos=[r('px'),r('py'),r('pz')], rot=[rad('rx'),rad('ry'),rad('rz')];
+  let s=`weapon: { url: 'assets/models/${wf}', `;
+  if (bn && !bn.startsWith('(')) s+=`bone: '${bn}', `;
+  if (pos.some(v=>v!==0)) s+=`pos: [${pos.join(', ')}], `;
+  if (rot.some(v=>v!==0)) s+=`rot: [${rot.join(', ')}], `;
+  s+=`scale: ${r('sc')} }`;
+  const pk=Object.keys(poseMap);
+  if (pk.length){
+    const ps=pk.map(n=>`'${n}': [${poseMap[n].map(v=>Math.round(v*1000)/1000).join(', ')}]`).join(', ');
+    s+=`,\npose: { ${ps} }`;
+  }
+  if (mounts.length){ s+=`,\nattachments: [ ${mounts.map(specStr).join(', ')} ]`; }
+  document.getElementById('out').value = s;
+}
+function resetT(){ ['px','py','pz','rx','ry','rz'].forEach(id=>document.getElementById(id).value=0); document.getElementById('sc').value=0.5; updateT(); }
+function copyOut(){ const t=document.getElementById('out'); t.select(); document.execCommand('copy'); }
+
+// ---- arm/hand posing ----
+let poseMap = {};
+function poseBoneNames(){ const ns=[]; if(bodyObj) bodyObj.traverse(o=>{ if(/clav|arm|hand|spine|neck|head/i.test(o.name||'')) ns.push(o.name); }); return [...new Set(ns)].filter(Boolean); }
+function fillPoseBones(){ const sel=document.getElementById('posebone'); sel.innerHTML=''; const ns=poseBoneNames();
+  if(!ns.length){ const o=document.createElement('option'); o.textContent='(no bones — static model)'; sel.appendChild(o); return; }
+  ns.forEach(n=>{ const o=document.createElement('option'); o.value=n; o.textContent=n; sel.appendChild(o); });
+  const ru=[...sel.options].find(o=>/R_Upperarm/i.test(o.value)); if(ru) sel.value=ru.value;
+  loadPoseSliders(); }
+function loadPoseSliders(){ const name=document.getElementById('posebone').value; const b=bodyObj&&bodyObj.getObjectByName(name); if(!b) return;
+  const e = poseMap[name] || [b.rotation.x,b.rotation.y,b.rotation.z];
+  document.getElementById('brx').value=Math.round(e[0]*180/Math.PI);
+  document.getElementById('bry').value=Math.round(e[1]*180/Math.PI);
+  document.getElementById('brz').value=Math.round(e[2]*180/Math.PI);
+  ['brx','bry','brz'].forEach(id=>document.getElementById(id+'v').textContent=document.getElementById(id).value); }
+function updatePose(){ const name=document.getElementById('posebone').value; if(!name||name.startsWith('(')) return;
+  poseMap[name]=[val('brx')*Math.PI/180, val('bry')*Math.PI/180, val('brz')*Math.PI/180];
+  ['brx','bry','brz'].forEach(id=>document.getElementById(id+'v').textContent=document.getElementById(id).value);
+  updatePoseSummary(); writeOut(); }
+function updatePoseSummary(){ const ks=Object.keys(poseMap); document.getElementById('posesummary').textContent = ks.length ? ('Posed: '+ks.join(', ')) : 'No bones posed yet. Pick a bone, rotate it — it holds on top of the animation.'; }
+function clearPose(){ poseMap={}; updatePoseSummary(); loadPoseSliders(); writeOut(); }
+function applyPose(){ if(!bodyObj) return; for(const name in poseMap){ const b=bodyObj.getObjectByName(name); if(b) b.rotation.set(poseMap[name][0],poseMap[name][1],poseMap[name][2]); } }
+
+// ---- extra mount points ----
+let mounts = [];
+function curSpec(){ const r=x=>Math.round(val(x)*1000)/1000; const rad=x=>Math.round(val(x)*Math.PI/180*1000)/1000;
+  const o={ url:'assets/models/'+document.getElementById('weapon').value.split('/').pop() };
+  const bn=document.getElementById('bone').value; if(bn && !bn.startsWith('(')) o.bone=bn;
+  const pos=[r('px'),r('py'),r('pz')], rot=[rad('rx'),rad('ry'),rad('rz')];
+  if(pos.some(v=>v!==0)) o.pos=pos; if(rot.some(v=>v!==0)) o.rot=rot; o.scale=r('sc'); return o; }
+function specStr(o){ let s="{ url: '"+o.url+"'"; if(o.bone) s+=", bone: '"+o.bone+"'"; if(o.pos) s+=", pos: ["+o.pos.join(', ')+"]"; if(o.rot) s+=", rot: ["+o.rot.join(', ')+"]"; s+=", scale: "+o.scale+" }"; return s; }
+function saveMount(){ mounts.push(curSpec()); updateMountSummary(); writeOut(); }
+function clearMounts(){ mounts=[]; updateMountSummary(); writeOut(); }
+function updateMountSummary(){ document.getElementById('mountsummary').textContent = mounts.length ? (mounts.length+' mount(s): '+mounts.map(m=>m.url.split('/').pop()+' @ '+(m.bone||'root')).join(' · ')) : 'No extra mounts.'; }
+
+// populate dropdowns
+const bs=document.getElementById('body'); Object.keys(BODIES).forEach(k=>{const o=document.createElement('option');o.value=BODIES[k];o.textContent=k;bs.appendChild(o);});
+const ws=document.getElementById('weapon'); Object.keys(WEAPONS).forEach(k=>{const o=document.createElement('option');o.value=WEAPONS[k];o.textContent=k;ws.appendChild(o);});
+// sensible defaults: Druid + Bear claw
+bs.value=BODIES['Druid (rigged)']; ws.value=WEAPONS['Bear claw'];
+bs.onchange=loadBody; ws.onchange=attach; document.getElementById('bone').onchange=attach;
+document.getElementById('play').onchange=applyAnim; document.getElementById('strip').onchange=applyAnim;
+['px','py','pz','rx','ry','rz','sc'].forEach(id=>document.getElementById(id).oninput=updateT);
+document.getElementById('posebone').onchange=loadPoseSliders;
+['brx','bry','brz'].forEach(id=>document.getElementById(id).oninput=updatePose);
+
+let last=performance.now();
+function resize(){ const w=innerWidth,h=innerHeight; renderer.setSize(w,h); cam.aspect=w/h; cam.updateProjectionMatrix(); }
+addEventListener('resize',resize); resize();
+function tick(){ requestAnimationFrame(tick); const now=performance.now(); const dt=(now-last)/1000; last=now;
+  if (mixer && document.getElementById('play').checked) mixer.update(dt);
+  applyPose();
+  applyCam(); renderer.render(scene,cam); }
+tick();
+loadBody();
+</script>
+</body></html>

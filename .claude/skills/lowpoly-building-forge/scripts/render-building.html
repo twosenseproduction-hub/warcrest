@@ -1,0 +1,74 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>lowpoly-building-forge — render harness</title>
+<style>html,body{margin:0;height:100%;background:#232733;overflow:hidden}#c{display:block}</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script src="vendor/three.min.js"></script>
+<script src="vendor/BufferGeometryUtils.js"></script>
+<script src="vendor/GLTFExporter.js"></script>
+<script src="vendor/pp/CopyShader.js"></script>
+<script src="vendor/pp/LuminosityHighPassShader.js"></script>
+<script src="vendor/pp/EffectComposer.js"></script>
+<script src="vendor/pp/RenderPass.js"></script>
+<script src="vendor/pp/ShaderPass.js"></script>
+<script src="vendor/pp/MaskPass.js"></script>
+<script src="vendor/pp/UnrealBloomPass.js"></script>
+<script src="lib/materials.js"></script>
+<script src="lib/parts.js"></script>
+<script src="lib/lighting.js"></script>
+<script src="lib/kit-parts.js"></script>
+<script src="lib/build-building.js"></script>
+<script>
+(function () {
+  var qs = new URLSearchParams(location.search);
+  var faction = qs.get('faction') || 'human';
+  var kind = qs.get('kind') || 'house';
+  var night = qs.get('night') === '1';
+  var W = +(qs.get('w') || 760), H = +(qs.get('h') || 760);
+
+  var renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true, preserveDrawingBuffer: true });
+  renderer.setSize(W, H, false); renderer.setPixelRatio(1);
+  var scene = new THREE.Scene(); scene.background = new THREE.Color(night ? 0x18223c : 0x232733);
+  var camera = new THREE.PerspectiveCamera(34, W / H, 0.1, 200);
+  LPF.lighting.rig(scene, renderer);
+  renderer.toneMappingExposure = night ? 0.7 : 0.82;
+  var ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.ShadowMaterial({ opacity: 0.22 }));
+  ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+
+  var model = LPF.buildBuilding(faction, kind, +(qs.get('tier') || 1));
+  if (LPF.setNight) LPF.setNight(model, night);
+  scene.add(model);
+  var box = new THREE.Box3().setFromObject(model); var size = new THREE.Vector3(); box.getSize(size);
+  var center = new THREE.Vector3(); box.getCenter(center);
+  var radius = Math.max(size.x, size.z) * 1.5 + size.y * 0.3;
+
+  var composer = null;
+  if (THREE.EffectComposer && THREE.UnrealBloomPass) {
+    composer = new THREE.EffectComposer(renderer);
+    composer.addPass(new THREE.RenderPass(scene, camera));
+    composer.addPass(new THREE.UnrealBloomPass(new THREE.Vector2(W, H), night ? 0.7 : 0.4, 0.5, 0.9));
+  }
+  var angleDeg = +(qs.get('angle') || 35);
+  function place() { var a = angleDeg * Math.PI / 180;
+    camera.position.set(Math.sin(a) * radius, center.y + size.y * 0.7 + radius * 0.5, Math.cos(a) * radius);
+    camera.lookAt(center.x, center.y * 0.7, center.z); }
+  function frame() { place(); if (composer) composer.render(); else renderer.render(scene, camera); requestAnimationFrame(frame); }
+  place(); frame();
+  function exportGLB() {
+    return new Promise(function (res, rej) {
+      new THREE.GLTFExporter().parse(model, function (glb) {
+        var b = new Uint8Array(glb), s = '';
+        for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+        res(btoa(s));
+      }, function (e) { rej(e); }, { binary: true });
+    });
+  }
+  window.LPF_VIEW = { setAngle: function (d) { angleDeg = d; }, ready: true, exportGLB: exportGLB };
+})();
+</script>
+</body>
+</html>

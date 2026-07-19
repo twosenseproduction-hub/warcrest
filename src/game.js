@@ -30,6 +30,14 @@
 
       wireMenus();
       window.addEventListener('resize', function () { RTS.Render.resize(state); });
+      // Orientation flips don't always fire a timely 'resize', and innerWidth can
+      // lag the event — re-fit a few times so a portrait→landscape rotate doesn't
+      // leave a half-width canvas with dead input on the right.
+      window.addEventListener('orientationchange', function () {
+        RTS.Render.resize(state);
+        setTimeout(function () { RTS.Render.resize(state); }, 120);
+        setTimeout(function () { RTS.Render.resize(state); }, 360);
+      });
       this.scene('menu');
 
       if (RTS.Assets) {
@@ -47,7 +55,17 @@
       // Scene.update/postrender (seen on some CANVAS + Scale.NONE setups).
       RTS.Game._step = loop;
       (function rafDrive() {
-        RTS.Game._step(performance.now());
+        // Never let a single frame's exception kill the rAF chain (hard freeze).
+        // Log it, surface it once so it can be reported, and keep the loop alive.
+        try {
+          RTS.Game._step(performance.now());
+        } catch (e) {
+          if (window.console) console.error('[loop] frame error:', e);
+          if (!RTS.Game._loopErrShown) {
+            RTS.Game._loopErrShown = true;
+            try { RTS.toast && RTS.toast(state, 'Render error: ' + (e && e.message || e)); } catch (_) {}
+          }
+        }
         requestAnimationFrame(rafDrive);
       })();
     },
@@ -57,6 +75,7 @@
       if (name === 'menu' || name === 'factionselect' || name === 'mapselect' || name === 'howto' || name === 'settings') {
         document.body.classList.remove('player-aurex', 'player-cinder');
         if (RTS.Audio && RTS.Audio.setFaction) RTS.Audio.setFaction('default');
+        if (name === 'menu' && RTS.Audio && RTS.Audio.stopAmbient) RTS.Audio.stopAmbient();
         var meta = document.querySelector('meta[name="theme-color"]');
         if (meta) meta.setAttribute('content', '#1565c0');
       }
@@ -107,7 +126,11 @@
       RTS.log(state, 'Lead the ' + RTS.Factions[factionId].name + ' — destroy the ' +
         RTS.nameFor(state.enemyFaction, 'core'), 'info');
       RTS.Audio.resume();
+      if (RTS.Audio.startAmbient) RTS.Audio.startAmbient();
       lastT = performance.now();
+
+      // Enable the 3D engine on match start if the player persisted the choice.
+      if (RTS.Config.render3d && RTS.Render3D) RTS.Render3D.enable(state);
 
       var heroTestArena = state.mapId === 'aelindra_test' || state.mapId === 'aelindra_duel'
         || state.mapId === 'aelindra_grove' || state.mapId === 'verdant_reach'
@@ -241,6 +264,34 @@
     if (health) { health.addEventListener('change', function () { state.settings.showHealthAlways = health.checked; }); }
     if (vol) { vol.addEventListener('input', function () {
       state.settings.sfxVolume = +vol.value; RTS.Audio.setVolume(+vol.value); }); }
+    // Thronefall look toggle — reflects the persisted flag and applies live.
+    var tf = $('set-tflook');
+    if (tf) {
+      tf.checked = !!(RTS.Config && RTS.Config.tfLook);
+      tf.addEventListener('change', function () { if (RTS.setTfLook) RTS.setTfLook(tf.checked); });
+    }
+    // 3D engine toggle — reflects the persisted flag and swaps the renderer live.
+    var r3d = $('set-render3d');
+    if (r3d) {
+      r3d.checked = !!(RTS.Config && RTS.Config.render3d);
+      r3d.addEventListener('change', function () { if (RTS.setRender3D) RTS.setRender3D(r3d.checked); });
+    }
+    // Creator mode (sandbox) toggle — reflects the persisted flag, applies live.
+    var creator = $('set-creator');
+    if (creator) {
+      creator.checked = !!(RTS.Config && RTS.Config.creatorMode);
+      creator.addEventListener('change', function () { if (RTS.setCreatorMode) RTS.setCreatorMode(creator.checked); });
+    }
+    // Collapsible macro unit-select (Thronefall look): toggle fans the chips
+    // open; picking a type collapses it again.
+    var selToggle = $('tf-sel-toggle');
+    if (selToggle) selToggle.addEventListener('click', function () {
+      document.body.classList.toggle('tf-sel-open');
+    });
+    var typeSel = $('type-select');
+    if (typeSel) typeSel.addEventListener('click', function (e) {
+      if (e.target.closest && e.target.closest('.ts-chip')) document.body.classList.remove('tf-sel-open');
+    });
   }
 
   function prevSceneForSettings() {
@@ -270,7 +321,11 @@
     var inGame = state.scene === 'playing' || state.scene === 'paused'
       || state.scene === 'won' || state.scene === 'lost';
     if (inGame) {
-      if (RTS._phaserWorldLayer && RTS._phaserWorldLayer.refresh) {
+      // 3D engine takes over the world view when enabled; the 2D world canvas
+      // is hidden underneath. The HUD (DOM) + minimap still render normally.
+      if (RTS.Config.render3d && RTS.Render3D && RTS.Render3D.isEnabled()) {
+        RTS.Render3D.render(state);
+      } else if (RTS._phaserWorldLayer && RTS._phaserWorldLayer.refresh) {
         RTS._phaserWorldLayer.refresh(state);
       } else if (RTS.Render && RTS.Render.frame) {
         RTS.Render.frame(state);

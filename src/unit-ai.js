@@ -106,7 +106,9 @@
 
   function unitCanAutoAcquire(s, u) {
     if (u._heroTestPassive) return false;
-    if (u.heal > 0 || u.role === 'monk') return false;
+    // Healers/casters that also carry an attack (dmg > 0) may engage; pure
+    // healers (dmg 0) still hang back and only heal.
+    if ((u.heal > 0 || u.role === 'monk') && !(u.dmg > 0)) return false;
     if (u.commandMode === 'attackMove') return true;
     if (u.commandMode === 'guard' || u.commandMode === 'hold') return true;
     if (u.commandMode === 'retaliate') return true;
@@ -152,6 +154,8 @@
       if (candidate.target === u.id || candidate.lastThreatId === u.id) score += 80;
       if (candidate.hp < candidate.maxHp * 0.35) score += 28;
       if (candidate.role === 'archer' || candidate.role === 'monk') score += 18;
+      // Taunt — a frontline guard yanks aggro from anyone inside its taunt radius
+      if (candidate.tauntRadius && candidate.traits && candidate.traits.indexOf('taunt') >= 0 && d <= candidate.tauntRadius) score += 120;
     }
 
     if (candidate.kind === 'building') {
@@ -177,18 +181,19 @@
   }
 
   function collectEnemies(s, u, maxR) {
-    var foeTeam = u.team === TEAM.PLAYER ? TEAM.ENEMY : TEAM.PLAYER;
+    // Any different team is hostile — this is what lets neutral creeps fight
+    // both sides, and both sides fight the creeps.
     var pad = (RTS.Config.combat && RTS.Config.combat.buildingAcquirePad) || 12;
     var list = [];
     var i;
     for (i = 0; i < s.entities.units.length; i++) {
       var eu = s.entities.units[i];
-      if (!RTS.canBeAttacked(eu) || eu.team !== foeTeam) continue;
+      if (!RTS.canBeAttacked(eu) || eu.team === u.team) continue;
       if (targetDist(s, u, eu) <= maxR) list.push(eu);
     }
     for (i = 0; i < s.entities.buildings.length; i++) {
       var b = s.entities.buildings[i];
-      if (b.dead || b.team !== foeTeam) continue;
+      if (b.dead || b.team === u.team || b.team === TEAM.NEUTRAL) continue;
       if (!canAttackBuilding(b)) continue;
       if (targetDist(s, u, b) <= maxR + pad) list.push(b);
     }

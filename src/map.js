@@ -66,6 +66,24 @@
     return out;
   }
 
+  // Natural ground detail — sparse grass tufts, flowers, and small pebbles on
+  // land. Pure decoration (no collision); rides the offscreen decor cache.
+  function groundDetail(grid, seed, count, worldW, worldH, avoid) {
+    var rnd = mulberry(seed), out = [], placed = [], T = RTS.Terrain, tries = 0;
+    while (out.length < count && tries < count * 10) {
+      tries++;
+      var x = 90 + rnd() * (worldW - 180), y = 90 + rnd() * (worldH - 180);
+      if (T && T.isWater && T.isWater(grid, x, y)) continue;
+      if (!clearOfPoints(x, y, avoid, 130)) continue;
+      if (!clearOfPoints(x, y, placed, 48)) continue;
+      var roll = rnd();
+      var kind = roll < 0.5 ? 'grass' : (roll < 0.8 ? 'flower' : 'pebble');
+      out.push({ x: x, y: y, r: RTS.SizeRef.decorWorldR(kind), kind: kind });
+      placed.push({ x: x, y: y });
+    }
+    return out;
+  }
+
   function clearOfPoints(x, y, spots, minDist) {
     if (!spots || !spots.length) return true;
     for (var i = 0; i < spots.length; i++) {
@@ -414,11 +432,27 @@
     var cols = meta.pathGridCols;
     var rows = meta.pathGridRows;
     var grid = meta.pathGrid;
-    var BLOCK_RATIO = 0.55;
+    var BLOCK_RATIO = 0.6;
+
+    // Dedicated tree-only collision grid. The shared pathGrid mixes terrain,
+    // buildings and trees; this grid lets the movement integrator push units
+    // out of trees specifically (see RTS.isTreeBlocked / resolveTreeCollision)
+    // without fighting the building/water collision passes.
+    var tb = new Uint8Array(cols * rows);
+    meta.treeBlocked = tb;
+    meta.treeBlockedCols = cols;
+    meta.treeBlockedRows = rows;
 
     meta.decor.forEach(function (d) {
       if (d.kind !== 'tree' && d.kind !== 'grove_tree') return;
       if (d.forestWall) return; // terrain mask already covers these
+      // Always block the trunk's own cell so a tree is reliably solid even when
+      // its blocking circle is smaller than a tile.
+      var tc = Math.floor(d.x / TILE), tr = Math.floor(d.y / TILE);
+      if (tc >= 0 && tc < cols && tr >= 0 && tr < rows) {
+        grid[tr][tc] = 1;
+        tb[tr * cols + tc] = 1;
+      }
       var blockR = d.r * BLOCK_RATIO;
       // Clamp search to the bounding box of the blocking circle
       var cMinC = Math.max(0, Math.floor((d.x - blockR) / TILE));
@@ -432,11 +466,70 @@
           cy = r * TILE + TILE * 0.5;
           if (dist(cx, cy, d.x, d.y) < blockR) {
             grid[r][c] = 1;
+            tb[r * cols + c] = 1;
           }
         }
       }
     });
   }
+
+  // True if the world point falls on a tree-blocked cell. Used by the movement
+  // integrator so units treat trees as solid obstacles.
+  RTS.isTreeBlocked = function (s, x, y) {
+    var m = s && s.map;
+    if (!m || !m.treeBlocked) return false;
+    var TILE = RTS.TILE || 64;
+    var c = Math.floor(x / TILE), r = Math.floor(y / TILE);
+    if (c < 0 || r < 0 || c >= m.treeBlockedCols || r >= m.treeBlockedRows) return false;
+    return m.treeBlocked[r * m.treeBlockedCols + c] === 1;
+  };
+
+  /* Build cliff walls: a plateau (HIGH) is solid — the only way up or down is a
+   * ramp. We realise this on the path grid by blocking each LOW (flat) cell that
+   * sits at the foot of a cliff (4-adjacent to a HIGH cell), except ramp cells.
+   * That gives a 1-tile impassable wall around every plateau with ramp gaps. */
+  function markCliffsOnPathGrid(meta) {
+    var terrain = meta.terrainGrid;
+    if (!meta.pathGrid || !terrain || !terrain.heights || !RTS.Terrain) return;
+    var TILE = RTS.TILE || 64;
+    var cols = meta.pathGridCols, rows = meta.pathGridRows;
+    var grid = meta.pathGrid;
+    var HIGH = RTS.Terrain.HIGH;
+    var hcols = terrain.cols, hrows = terrain.rows, hgt = terrain.heights;
+    var ramp = terrain.ramp;
+    function hAt(c, r) {
+      if (c < 0 || r < 0 || c >= hcols || r >= hrows) return -1;
+      return hgt[c + r * hcols];
+    }
+    function isRamp(c, r) {
+      return ramp && c >= 0 && r >= 0 && c < hcols && r < hrows && ramp[c + r * hcols] === 1;
+    }
+    var cb = new Uint8Array(cols * rows);
+    meta.cliffBlocked = cb;
+    meta.cliffBlockedCols = cols;
+    meta.cliffBlockedRows = rows;
+    for (var r = 0; r < rows; r++) {
+      for (var c = 0; c < cols; c++) {
+        if (hAt(c, r) !== RTS.Terrain.FLAT) continue;  // walls live on flat ground
+        if (isRamp(c, r)) continue;                     // ramp = passable gap
+        if (hAt(c, r - 1) === HIGH || hAt(c, r + 1) === HIGH ||
+            hAt(c - 1, r) === HIGH || hAt(c + 1, r) === HIGH) {
+          grid[r][c] = 1;
+          cb[r * cols + c] = 1;
+        }
+      }
+    }
+  }
+
+  // True if the world point falls on a cliff-wall cell (solid plateau edge).
+  RTS.isCliffBlocked = function (s, x, y) {
+    var m = s && s.map;
+    if (!m || !m.cliffBlocked) return false;
+    var TILE = RTS.TILE || 64;
+    var c = Math.floor(x / TILE), r = Math.floor(y / TILE);
+    if (c < 0 || r < 0 || c >= m.cliffBlockedCols || r >= m.cliffBlockedRows) return false;
+    return m.cliffBlocked[r * m.cliffBlockedCols + c] === 1;
+  };
 
   function syncMapBuildingFootprints(s) {
     if (!s.map || !s.map.pathGrid) return;
@@ -449,8 +542,22 @@
   function finishMap(s, meta) {
     meta.w = meta.w || W();
     meta.h = meta.h || H();
+    // Sync the active world bounds to THIS map so the camera clamp + minimap use
+    // the real map size (was a fixed 3072x1920, which cut off larger maps).
+    if (RTS.Config && RTS.Config.world) { RTS.Config.world.w = meta.w; RTS.Config.world.h = meta.h; }
     if (meta.terrainDef && RTS.Terrain) {
       meta.terrainGrid = RTS.Terrain.buildGrid(meta.w, meta.h, meta.terrainDef);
+      // Attach the ramp grid so cliff rendering + collision can see ramp gaps.
+      if (meta.ramp && meta.terrainGrid &&
+          meta.terrainGrid.cols * meta.terrainGrid.rows === meta.ramp.length) {
+        meta.terrainGrid.ramp = meta.ramp;
+      }
+      // Attach the shallow-water ford grid so the terrain renderer can draw
+      // those walkable FLAT tiles as wadeable shallow water.
+      if (meta.shallow && meta.terrainGrid &&
+          meta.terrainGrid.cols * meta.terrainGrid.rows === meta.shallow.length) {
+        meta.terrainGrid.shallow = meta.shallow;
+      }
       var avoid = meta.avoidDecor || [];
       if (meta.coastalRing) {
         meta.decor = (meta.decor || []).concat(
@@ -481,11 +588,20 @@
         meta.decor = (meta.decor || []).concat(
           forestWallTrees(meta.terrainGrid, meta.forestWallSeed || 8801));
       }
+      // sparse natural ground detail (grass/flowers/pebbles) on every non-grove map
+      if (meta.groundDetail !== false && meta.theme !== 'grove') {
+        var detailN = meta.detailCount != null
+          ? meta.detailCount : Math.round((meta.w * meta.h) / 90000);
+        meta.decor = (meta.decor || []).concat(
+          groundDetail(meta.terrainGrid, meta.detailSeed || 7723, detailN, meta.w, meta.h, avoid));
+      }
       initPathGrid(meta);
       markTreesOnPathGrid(meta);
+      markCliffsOnPathGrid(meta);
     } else {
       initPathGrid(meta);
       markTreesOnPathGrid(meta);
+      markCliffsOnPathGrid(meta);
     }
     s.map = meta;
     syncMapBuildingFootprints(s);
@@ -496,6 +612,26 @@
 
   function mine(s, x, y, isStarting) {
     RTS.makeResource(s, x, y, mineAmount(!!isStarting));
+  }
+
+  // A small neutral camp guarding an expansion mine. Units cluster just off the
+  // mine, biased toward the map centre so they sit on the approach.
+  function spawnCreepCamp(s, gx, gy, faction) {
+    var W = (RTS.Config.world && RTS.Config.world.w) || 3072;
+    var H = (RTS.Config.world && RTS.Config.world.h) || 1920;
+    var toCx = (gx < W / 2) ? 1 : -1;          // push toward horizontal centre
+    var toCy = (gy < H / 2) ? 1 : -1;
+    var cx = gx + toCx * 70, cy = gy + toCy * 70;
+    var camp = { x: cx, y: cy };
+    var spots = [[-44, 0], [44, 0], [0, 40]];
+    var roles = ['warrior', 'warrior', 'archer'];
+    for (var i = 0; i < spots.length; i++) {
+      var x = cx + spots[i][0], y = cy + spots[i][1];
+      if (RTS.Terrain && RTS.Terrain.isWater && RTS.Terrain.isWater(s.map && s.map.terrainGrid, x, y)) {
+        x = gx; y = gy;   // fall back onto the mine tile (always land)
+      }
+      RTS.makeCreep(s, roles[i], x, y, faction || 'cinder', camp);
+    }
   }
 
   function spawnBase(s, team, cx, cy, faction, isEnemy, opts) {
@@ -546,8 +682,8 @@
     var rallyDx = meta.rallyDx != null ? meta.rallyDx : 130;
     var rallyDy = meta.rallyDy != null ? meta.rallyDy : 90;
 
-    spawnBase(s, RTS.TEAM.PLAYER, px, py, pf, false, { rallyDx: rallyDx, rallyDy: rallyDy });
-    spawnBase(s, RTS.TEAM.ENEMY, ex, ey, ef, true, { rallyDx: -rallyDx, rallyDy: rallyDy });
+    spawnBase(s, RTS.TEAM.PLAYER, px, py, pf, false, { rallyDx: rallyDx, rallyDy: rallyDy, workers: 5 });
+    spawnBase(s, RTS.TEAM.ENEMY, ex, ey, ef, true, { rallyDx: -rallyDx, rallyDy: rallyDy, workers: 5 });
 
     mg.gold.forEach(function (g) { mine(s, g.x, g.y, isHomeGoldOnMap(mg, g)); });
 
@@ -563,6 +699,12 @@
       decor: [],
       avoidDecor: decorAvoid,
       mapgenForest: true,
+      ramp: mg.ramp,   // ramp tiles (passable cliff gaps) from the .tmj
+      shallow: mg.shallow,   // wadeable shallow-water ford tiles from the .tmj
+      // TerraformZones holds hardcoded corridor/forest-wall data authored for
+      // one specific map; let an authored map opt out so its walls aren't
+      // stamped onto an unrelated layout (Tideland sets this false).
+      terraformForestWalls: meta.terraformForestWalls,
       shoreSeed: meta.shoreSeed != null ? meta.shoreSeed : 4207,
       waterRocks: meta.waterRocks !== false,
       rockSeed: meta.rockSeed != null ? meta.rockSeed : 9105,
@@ -570,11 +712,102 @@
         theme: meta.theme || 'grass',
         tileset: 'color1',
         terrainMask: { cols: mg.cols, rows: mg.rows, heights: mg.heights },
+        // TerraformZones rewrites heights from another map's authored data —
+        // let a map opt out so its own plateaus/cliffs survive intact.
+        applyTerraform: meta.applyTerraform,
       },
       intro: meta.intro,
       win: meta.win,
       lose: meta.lose,
     });
+
+    // After the terrain grid exists, guard each auxiliary (non-main) mine with
+    // a neutral creep camp — clear it to expand safely (WC3-style). Never spawn
+    // a camp near a START base, even if that mine isn't the single closest one
+    // (a second home-adjacent mine would otherwise drop creeps onto the base).
+    if (meta.creepCamps !== false && RTS.makeCreep) {
+      var SAFE = (meta.creepSafeRadius != null ? meta.creepSafeRadius : 9) * 64; // px
+      mg.gold.forEach(function (g) {
+        if (isHomeGoldOnMap(mg, g)) return;
+        if (dist(g.x, g.y, px, py) < SAFE || dist(g.x, g.y, ex, ey) < SAFE) return;
+        spawnCreepCamp(s, g.x, g.y, meta.creepFaction);
+      });
+    }
+  }
+
+  RTS._buildAuthoredTMJ = buildFromAuthoredTMJ;   // exposed for headless map previews
+
+  function buildTideland(s) {
+    // Ensure the map data is available even if the scene parse hasn't run.
+    if (!RTS.CurrentMapgen && RTS._mapJSON && RTS._mapJSON.tideland_crossing && RTS.parseMapTMJ) {
+      RTS.CurrentMapgen = RTS.parseMapTMJ(RTS._mapJSON.tideland_crossing);
+    }
+    buildFromAuthoredTMJ(s, {
+      id: 'tideland_crossing',
+      name: 'Tideland Crossing',
+      theme: 'grass',
+      rallyDx: 120,
+      rallyDy: 90,
+      // Tideland authors its own sparse forest + plateaus in gen_tideland.py —
+      // don't let the global TerraformZones (authored for another map) stamp its
+      // forest walls OR rewrite our heights/cliffs.
+      terraformForestWalls: false,
+      applyTerraform: false,
+      intro: 'Tideland Crossing — island holds joined by land bridges. Clear the guarded mines to expand.',
+      win: 'Tideland Crossing is yours — the tides bow to your banner.',
+      lose: 'Your hold has slipped beneath the tides.',
+    });
+
+    // Neutral centre structures sit on the southern land bridge (the only route
+    // between the two sides): merchant just south of the gulf, mercenaries at the
+    // very bottom centre — rows 36 / 45 on the 72x50 board, matching the 'o'
+    // markers in gen_tideland.py.
+    var cw = (RTS.Config.world && RTS.Config.world.w) || 4608;
+    var mt = RTS.makeBuilding(s, 'merchant', RTS.TEAM.NEUTRAL, cw / 2, 39 * 64 + 32, s.playerFaction, true);
+    var mb = RTS.makeBuilding(s, 'mercenary', RTS.TEAM.NEUTRAL, cw / 2, 46 * 64 + 32, s.playerFaction, true);
+    if (RTS.markBuildingFootprint) {
+      if (mt) RTS.markBuildingFootprint(s, mt, true);
+      if (mb) RTS.markBuildingFootprint(s, mb, true);
+    }
+
+    // Thronefall-style fixed BUILD PLOTS on the player's plateau — tap a plot to
+    // raise a structure there (only shown/active in the Thronefall preview).
+    s.map.buildPlots = [[17, 9], [21, 9], [24, 13], [8, 15], [16, 15], [13, 6]]
+      .map(function (t) { return { x: t[0] * 64 + 32, y: t[1] * 64 + 32, used: false }; });
+  }
+
+  /* ---- Sundered Isles — WC3 island-archipelago melee map ------------------- */
+  function buildSunderedIsles(s) {
+    // Ensure the map data is available even if the scene parse hasn't run.
+    if (!RTS.CurrentMapgen && RTS._mapJSON && RTS._mapJSON.sundered_isles && RTS.parseMapTMJ) {
+      RTS.CurrentMapgen = RTS.parseMapTMJ(RTS._mapJSON.sundered_isles);
+    }
+    buildFromAuthoredTMJ(s, {
+      id: 'sundered_isles',
+      name: 'Sundered Isles',
+      theme: 'grass',
+      rallyDx: 120,
+      rallyDy: 90,
+      // The map authors its own isle forests + flat shoreline — don't let the
+      // global TerraformZones (authored for another map) stamp walls on it.
+      terraformForestWalls: false,
+      applyTerraform: false,
+      intro: 'Sundered Isles — eight isles adrift on open sea, joined by narrow land bridges. Clear the guarded mines to expand.',
+      win: 'The Sundered Isles are yours — every shore bows to your banner.',
+      lose: 'Cut off from the gold, your hold slips beneath the tide.',
+    });
+
+    // Neutral structures on the central-spine isles (the 'o' markers in
+    // gen_archipelago.py): a merchant on the contested central isle and a
+    // mercenary camp on the bottom-centre isle. The top-centre isle is now a
+    // sealed forest wall, not a camp.
+    var cw = (RTS.Config.world && RTS.Config.world.w) || 4864;
+    var mt = RTS.makeBuilding(s, 'merchant', RTS.TEAM.NEUTRAL, cw / 2, 27 * 64 + 32, s.playerFaction, true);
+    var mb = RTS.makeBuilding(s, 'mercenary', RTS.TEAM.NEUTRAL, cw / 2, 42 * 64 + 32, s.playerFaction, true);
+    if (RTS.markBuildingFootprint) {
+      if (mt) RTS.markBuildingFootprint(s, mt, true);
+      if (mb) RTS.markBuildingFootprint(s, mb, true);
+    }
   }
 
   function buildRunicClearing(s) {
@@ -642,8 +875,8 @@
     var pf = s.playerFaction, ef = s.enemyFaction;
     var midY = h * 0.5;
 
-    spawnBase(s, RTS.TEAM.PLAYER, 280, midY, pf, false, { rallyDx: 120, rallyDy: 0 });
-    spawnBase(s, RTS.TEAM.ENEMY, w - 280, midY, ef, true, { rallyDx: -120, rallyDy: 0 });
+    spawnBase(s, RTS.TEAM.PLAYER, 280, midY, pf, false, { rallyDx: 120, rallyDy: 0, workers: 5 });
+    spawnBase(s, RTS.TEAM.ENEMY, w - 280, midY, ef, true, { rallyDx: -120, rallyDy: 0, workers: 5 });
 
     var playerSpawn = { x: 280, y: midY };
     var enemySpawn = { x: w - 280, y: midY };
@@ -690,8 +923,8 @@
     var midX = w * 0.5;
     var py = h - 280, ey = 280;
 
-    spawnBase(s, RTS.TEAM.PLAYER, midX, py, pf, false, { rallyDx: 0, rallyDy: -120 });
-    spawnBase(s, RTS.TEAM.ENEMY, midX, ey, ef, true, { rallyDx: 0, rallyDy: 120 });
+    spawnBase(s, RTS.TEAM.PLAYER, midX, py, pf, false, { rallyDx: 0, rallyDy: -120, workers: 5 });
+    spawnBase(s, RTS.TEAM.ENEMY, midX, ey, ef, true, { rallyDx: 0, rallyDy: 120, workers: 5 });
 
     var playerSpawn = { x: midX, y: py };
     var enemySpawn = { x: midX, y: ey };
@@ -739,8 +972,8 @@
     var px = 320, py = 320;
     var ex = w - 320, ey = h - 320;
 
-    spawnBase(s, RTS.TEAM.PLAYER, px, py, pf, false, { rallyDx: 110, rallyDy: 110 });
-    spawnBase(s, RTS.TEAM.ENEMY, ex, ey, ef, true, { rallyDx: -110, rallyDy: -110 });
+    spawnBase(s, RTS.TEAM.PLAYER, px, py, pf, false, { rallyDx: 110, rallyDy: 110, workers: 5 });
+    spawnBase(s, RTS.TEAM.ENEMY, ex, ey, ef, true, { rallyDx: -110, rallyDy: -110, workers: 5 });
 
     var bases = [{ x: px, y: py }, { x: ex, y: ey }];
     // Starting mines pushed outward ~100px further from core on each side
@@ -1321,10 +1554,24 @@
       blurb: 'A vast sacred clearing ringed by ancient trees. Stone circle, crumbled ruins, and five waiting goblins.',
       build: buildVerdantReach,
     },
+    tideland_crossing: {
+      id: 'tideland_crossing',
+      name: 'Tideland Crossing',
+      tagline: '1v1 · island holds & guarded mines',
+      blurb: 'Symmetric two-player isles joined by land bridges over shallow seas. Mains are safe; every expansion mine is guarded by a creep camp.',
+      build: buildTideland,
+    },
+    sundered_isles: {
+      id: 'sundered_isles',
+      name: 'Sundered Isles',
+      tagline: '1v1 · island archipelago',
+      blurb: 'A Warcraft 3-style island archipelago: eight grass-and-forest isles adrift on open sea, stitched by narrow land bridges. Corner mains, edge gold, a contested creep spine through the centre.',
+      build: buildSunderedIsles,
+    },
   };
 
   /* Visible in map select */
-  RTS.MapList = ['fairy_clearing'];
+  RTS.MapList = ['fairy_clearing', 'tideland_crossing', 'sundered_isles'];
 
   RTS.buildMap = function (s, mapId) {
     mapId = mapId || s.mapId || 'fairy_clearing';

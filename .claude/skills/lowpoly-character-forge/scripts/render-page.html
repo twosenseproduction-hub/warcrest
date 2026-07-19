@@ -1,0 +1,96 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>lowpoly-character-forge — render harness</title>
+<style>html,body{margin:0;height:100%;background:#232733;overflow:hidden}#c{display:block}</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<!-- core + addons (all UMD, attach to global THREE; r144) -->
+<script src="vendor/three.min.js"></script>
+<script src="vendor/BufferGeometryUtils.js"></script>
+<script src="vendor/MarchingCubes.js"></script>
+<script src="vendor/GLTFExporter.js"></script>
+<script src="vendor/pp/CopyShader.js"></script>
+<script src="vendor/pp/LuminosityHighPassShader.js"></script>
+<script src="vendor/pp/EffectComposer.js"></script>
+<script src="vendor/pp/RenderPass.js"></script>
+<script src="vendor/pp/ShaderPass.js"></script>
+<script src="vendor/pp/MaskPass.js"></script>
+<script src="vendor/pp/UnrealBloomPass.js"></script>
+<!-- skill modules -->
+<script src="lib/materials.js"></script>
+<script src="lib/parts.js"></script>
+<script src="lib/lighting.js"></script>
+<script src="lib/build-character.js"></script>
+<script>
+(function () {
+  var qs = new URLSearchParams(location.search);
+  var which = qs.get('build') || 'elf';
+  var useBloom = qs.get('bloom') !== '0';
+  var W = +(qs.get('w') || 720), H = +(qs.get('h') || 900);
+
+  var canvas = document.getElementById('c');
+  var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, preserveDrawingBuffer: true });
+  renderer.setSize(W, H, false); renderer.setPixelRatio(1);
+  // Dark bg so ONLY the bright emissive blade exceeds the bloom threshold —
+  // a light bg would itself bloom and blow out the whole frame.
+  var scene = new THREE.Scene(); scene.background = new THREE.Color(0x232733);
+  var camera = new THREE.PerspectiveCamera(35, W / H, 0.1, 100);
+
+  LPF.lighting.rig(scene, renderer);
+  // ground shadow catcher
+  var ground = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.ShadowMaterial({ opacity: 0.22 }));
+  ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+
+  var role = qs.get('role') || 'warrior';
+  var model = LPF.buildCharacter(which, { role: role });
+  scene.add(model);
+  var box = new THREE.Box3().setFromObject(model); var size = new THREE.Vector3(); box.getSize(size);
+  var center = new THREE.Vector3(); box.getCenter(center);
+  var radius = Math.max(size.x, size.y) * 1.7;
+  var camY = center.y;
+  // elev = camera height as a fraction of radius (0.18 ~ near-level, 0.7 ~ top-down iso)
+  var elev = +(qs.get('elev') || 0.18);
+
+  var composer = null;
+  if (useBloom && THREE.EffectComposer && THREE.UnrealBloomPass) {
+    composer = new THREE.EffectComposer(renderer);
+    composer.addPass(new THREE.RenderPass(scene, camera));
+    var bloom = new THREE.UnrealBloomPass(new THREE.Vector2(W, H), 0.45, 0.5, 0.96); // strength, radius, threshold
+    composer.addPass(bloom);
+  }
+
+  var angleDeg = +(qs.get('angle') || 25);
+  function place() {
+    var a = angleDeg * Math.PI / 180;
+    camera.position.set(Math.sin(a) * radius, camY + radius * elev, Math.cos(a) * radius);
+    camera.lookAt(center.x, camY, center.z);
+  }
+  function frame() {
+    place();
+    if (composer) composer.render(); else renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+  place(); frame();
+
+  // control API used by the orchestrator (playwright/puppeteer)
+  window.LPF_VIEW = {
+    setAngle: function (d) { angleDeg = d; },
+    ready: true,
+    exportGLB: function () {
+      return new Promise(function (res, rej) {
+        var ex = new THREE.GLTFExporter();
+        ex.parse(model, function (glb) {
+          var bytes = glb instanceof ArrayBuffer ? new Uint8Array(glb) : new TextEncoder().encode(JSON.stringify(glb));
+          var bin = ''; for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+          res(btoa(bin));
+        }, function (e) { rej(e); }, { binary: true });
+      });
+    },
+  };
+})();
+</script>
+</body>
+</html>

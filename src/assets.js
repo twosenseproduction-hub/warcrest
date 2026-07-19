@@ -56,32 +56,25 @@
     return null;
   }
 
+  // Each faction now has a full custom building set under its own base dir,
+  // named uniformly <type>.png (core/outpost/conduit/foundry/forge/turret).
+  var FACTION_BUILDING_BASE = {
+    aurex:     IRON_CROWN_BASE,
+    rimwalker: RIMWALKER_BASE,
+    cinder:    RAIDER_BASE,
+  };
+  var FACTION_BUILDING_TYPES = ['core', 'outpost', 'conduit', 'foundry', 'forge', 'turret'];
+
   function preloadFactionAssets(factionIds) {
     (factionIds || []).forEach(function (fid) {
-      if (fid === 'aurex') {
-        loadImg(SHEPHERDS_HUT, KINGDOM_CUSTOM_BASE);
-        loadImg('castle.png', IRON_CROWN_BASE);
-        loadImg('farm.png',   IRON_CROWN_BASE);
-        loadImg('keep.png',   IRON_CROWN_BASE);
-        loadImg('pavilion.png', IRON_CROWN_BASE);
+      var base = FACTION_BUILDING_BASE[fid];
+      if (base) {
+        FACTION_BUILDING_TYPES.forEach(function (t) { loadImg(t + '.png', base); });
       }
+      if (fid === 'aurex') loadImg(SHEPHERDS_HUT, KINGDOM_CUSTOM_BASE);
       if (fid === 'cinder') {
-        loadImg('Warren_Maw.png', RAIDER_BASE);
-        loadImg(PIG_STY, RAIDER_BASE);
-        loadImg(WAR_PIT, RAIDER_BASE);
-        loadImg(SKULL_DEN, RAIDER_BASE);
-        loadImg(CHIEFS_HALL, RAIDER_BASE);
-        loadImg(BONE_SPIRE, RAIDER_BASE);
+        loadImg(CHIEFS_HALL, RAIDER_BASE);   // Horde champion hall keeps its own art
         loadImg(GNOLL_BONE, ENEMY_BASE);
-      }
-      if (fid === 'rimwalker') {
-        loadImg('roothold.png',     RIMWALKER_BASE);
-        loadImg('briar_fold_1.png', RIMWALKER_BASE);
-        loadImg('briar_fold_2.png', RIMWALKER_BASE);
-        loadImg('briar_fold_3.png', RIMWALKER_BASE);
-        loadImg('warden_lodge.png', RIMWALKER_BASE);
-        loadImg('root_forge.png',   RIMWALKER_BASE);
-        loadImg('canopy_spire.png', RIMWALKER_BASE);
       }
     });
   }
@@ -139,6 +132,7 @@
     Bone_Spire:   { l: 0.148, r: 0.120, t: 0.065, b: 0.038 },
     Skull_Den:    { l: 0.031, r: 0.031, t: 0.057, b: 0.044 },
     Chiefs_Hall:  { l: 0.014, r: 0.015, t: 0.028, b: 0.025 },
+    Ancestor_Shrine: { l: 0.035, r: 0.035, t: 0.000, b: 0.059 },
     ShepherdsHut: { l: 0.06, r: 0.06, t: 0.10, b: 0.05 },
     House3:   { l: 0.023, r: 0.023, t: 0.193, b: 0.104 },
     Tower:    { l: 0.031, r: 0.031, t: 0.180, b: 0.102 },
@@ -189,18 +183,24 @@
       'Terrain/Decorations/Bushes/Bushe3.png',
       'Terrain/Decorations/Bushes/Bushe4.png',
     ],
-    tree: [
-      'Terrain/Resources/Wood/Trees/Tree1.png',
-      'Terrain/Resources/Wood/Trees/Tree2.png',
-      'Terrain/Resources/Wood/Trees/Tree3.png',
-      'Terrain/Resources/Wood/Trees/Tree4.png',
-    ],
+    // Static trees: the FIRST FRAME of the high-res Tiny Swords tree sheets,
+    // pre-cropped to alpha bounds (assets/decor/). High-res so they downscale
+    // smoothly (the old hand-sliced 31x63 nature-tileset trees upscaled ~3x and
+    // looked choppy); static so there's no per-frame animation cost — the decor
+    // cache bakes them once.
+    tree: ['ts_tree1.png', 'ts_tree2.png', 'ts_tree3.png', 'ts_tree4.png'],
     rock: [
       'Terrain/Decorations/Rocks in the Water/Water Rocks_01.png',
       'Terrain/Decorations/Rocks in the Water/Water Rocks_02.png',
       'Terrain/Decorations/Rocks in the Water/Water Rocks_03.png',
     ],
+    // Ground-detail props sliced from the nature tileset (assets/decor/),
+    // static single images — see DECOR2_BASE.
+    grass:  ['grass1.png', 'grass2.png'],
+    flower: ['flower1.png', 'flower2.png'],
+    pebble: ['pebble1.png', 'pebble2.png', 'pebble3.png'],
   };
+  var DECOR2_BASE = 'assets/decor/';   // base for the static ground-detail props
 
   var ARROW = 'Units/Blue Units/Archer/Arrow.png';
   var GNOLL_BONE = 'Enemies/Gnoll/Gnoll_Bone.png';
@@ -307,6 +307,7 @@
     if (b.type === 'foundry' && b.faction === 'cinder') return 'War_Pit';
     if (b.type === 'forge' && b.faction === 'cinder') return 'Skull_Den';
     if (b.type === 'chiefs_hall' && b.faction === 'cinder') return 'Chiefs_Hall';
+    if (b.type === 'ancestor_shrine') return 'Ancestor_Shrine';
     if (b.type === 'conduit' && b.faction === 'cinder') return 'PigSty';
     if (b.type === 'turret' && b.faction === 'cinder') return 'Bone_Spire';
     if (b.type === 'core'    && b.faction === 'aurex') return 'IronCrown_Castle';
@@ -324,52 +325,23 @@
     return BUILDING_TYPE_TO_INSET_KEY[b.type] || 'House1';
   }
 
+  var NEUTRAL_BUILDING_BASE = 'assets/buildings/neutral/';
+  var SHARED_BUILDING_BASE = 'assets/buildings/shared/';
+
   function buildingAsset(b) {
-    if (b.type === 'core' && b.faction === 'cinder') {
-      return { base: RAIDER_BASE, rel: 'Warren_Maw.png', frames: 1 };
+    // Neutral map structures — faction-agnostic art.
+    if (b.type === 'merchant') return { base: NEUTRAL_BUILDING_BASE, rel: 'merchant.png', frames: 1 };
+    if (b.type === 'mercenary') return { base: NEUTRAL_BUILDING_BASE, rel: 'mercenary.png', frames: 1 };
+    // Ancestor's Shrine — one shared hero-summoning structure for every faction.
+    if (b.type === 'ancestor_shrine') return { base: SHARED_BUILDING_BASE, rel: 'ancestor_shrine.png', frames: 1 };
+    // Per-faction custom building set: <type>.png under the faction's base dir.
+    var base = FACTION_BUILDING_BASE[b.faction];
+    if (base && FACTION_BUILDING_TYPES.indexOf(b.type) >= 0) {
+      return { base: base, rel: b.type + '.png', frames: 1 };
     }
-    if (b.type === 'conduit' && b.faction === 'cinder') {
-      return { base: RAIDER_BASE, rel: PIG_STY, frames: 1 };
-    }
-    if (b.type === 'foundry' && b.faction === 'cinder') {
-      return { base: RAIDER_BASE, rel: WAR_PIT, frames: 1 };
-    }
-    if (b.type === 'forge' && b.faction === 'cinder') {
-      return { base: RAIDER_BASE, rel: SKULL_DEN, frames: 1 };
-    }
+    // Horde champion hall has no entry in the standard set — keep its own art.
     if (b.type === 'chiefs_hall' && b.faction === 'cinder') {
       return { base: RAIDER_BASE, rel: CHIEFS_HALL, frames: 1 };
-    }
-    if (b.type === 'turret' && b.faction === 'cinder') {
-      return { base: RAIDER_BASE, rel: BONE_SPIRE, frames: 1 };
-    }
-    if (b.type === 'core'    && b.faction === 'aurex') {
-      return { base: IRON_CROWN_BASE, rel: 'castle.png', frames: 1 };
-    }
-    if (b.type === 'conduit' && b.faction === 'aurex') {
-      return { base: IRON_CROWN_BASE, rel: 'farm.png', frames: 1 };
-    }
-    if (b.type === 'foundry' && b.faction === 'aurex') {
-      return { base: IRON_CROWN_BASE, rel: 'keep.png', frames: 1 };
-    }
-    if (b.type === 'forge' && b.faction === 'aurex') {
-      return { base: IRON_CROWN_BASE, rel: 'pavilion.png', frames: 1 };
-    }
-    if (b.faction === 'rimwalker') {
-      var rwFiles = {
-        core:    'roothold.png',
-        outpost: 'roothold.png',
-        foundry: 'warden_lodge.png',
-        forge:   'root_forge.png',
-        turret:  'canopy_spire.png',
-      };
-      if (b.type === 'conduit') {
-        var lv = (b.level && b.level > 1) ? b.level : 1;
-        return { base: RIMWALKER_BASE, rel: 'briar_fold_' + lv + '.png', frames: 1 };
-      }
-      if (rwFiles[b.type]) {
-        return { base: RIMWALKER_BASE, rel: rwFiles[b.type], frames: 1 };
-      }
     }
     var file = BUILDING_FILES[b.type] || BUILDING_FILES.foundry;
     return {
@@ -418,8 +390,14 @@
       paths.push({ base: KINGDOM_BASE, rel: p.replace('.png', '_Highlight.png') });
     });
     DECOR_SPRITES.bush.forEach(function (p) { paths.push({ base: KINGDOM_BASE, rel: p }); });
-    DECOR_SPRITES.tree.forEach(function (p) { paths.push({ base: KINGDOM_BASE, rel: p }); });
     DECOR_SPRITES.rock.forEach(function (p) { paths.push({ base: KINGDOM_BASE, rel: p }); });
+    // Static nature-tileset props (trees + ground detail) all live under
+    // DECOR2_BASE. imgSync is a pure cache lookup that never triggers a load,
+    // so every decor sprite the renderer may pick MUST be preloaded here or it
+    // silently never appears and the offscreen decor cache never goes ready.
+    ['tree', 'grass', 'flower', 'pebble'].forEach(function (kind) {
+      DECOR_SPRITES[kind].forEach(function (p) { paths.push({ base: DECOR2_BASE, rel: p }); });
+    });
     Object.keys(LIVESTOCK_CLIPS).forEach(function (species) {
       Object.keys(LIVESTOCK_CLIPS[species]).forEach(function (clipName) {
         paths.push({ base: LIVESTOCK_BASE, rel: species + '/' + LIVESTOCK_CLIPS[species][clipName].file });
@@ -480,16 +458,30 @@
     var h = hashId((d.x | 0) * 73856093 ^ (d.y | 0) * 19349663);
     var t = RTS._renderT || 0;
     var rm = RTS.Config.reducedMotion;
-    var list, idx, frameW, frameCount, frameH, targetH, footRatio;
+    var list, idx, frameW, frameCount, frameH, targetH, footRatio, base;
 
-    if (d.kind === 'tree') {
-      list = DECOR_SPRITES.tree;
+    // Static ground-detail props (no animation) — grass / flowers / pebbles
+    // and the static nature-tileset trees (replaced the animated Tiny Swords
+    // trees that were the lag source). All draw from DECOR2_BASE as single
+    // images with no frame stepping.
+    if (d.kind === 'grass' || d.kind === 'flower' || d.kind === 'pebble' || d.kind === 'tree') {
+      list = DECOR_SPRITES[d.kind];
+      base = DECOR2_BASE;
       idx = h % list.length;
-      frameW = 192;
-      frameCount = 8;
-      targetH = RTS.SizeRef.decorDrawHeight('tree', idx);
-      footRatio = 0.9;
-    } else if (d.kind === 'rock' || ((theme === 'volcanic' || theme === 'amber') && d.kind !== 'bush')) {
+      targetH = RTS.SizeRef.decorDrawHeight(d.kind, idx);
+      footRatio = d.kind === 'tree' ? 0.92 : 0.6;
+      var gimg = imgSync(list[idx], base);
+      if (!gimg) return;
+      var grid0 = s && s.map && s.map.terrainGrid;
+      var fy = grid0 && RTS.Terrain ? RTS.Terrain.groundY(grid0, d.x, d.y) : d.y;
+      var gsc = targetH / Math.max(gimg.height, 1);
+      var gw = gimg.width * gsc, gh = gimg.height * gsc;
+      if (d.kind === 'tree') RTS.Art.drawShadow(ctx, d.x, fy + gh * 0.06, d.r * 0.9, 0.25);
+      ctx.drawImage(gimg, d.x - gw / 2, fy - gh * footRatio, gw, gh);
+      return;
+    }
+
+    if (d.kind === 'rock' || ((theme === 'volcanic' || theme === 'amber') && d.kind !== 'bush')) {
       list = DECOR_SPRITES.rock;
       idx = h % list.length;
       frameW = 128;
@@ -505,12 +497,12 @@
       targetH = RTS.SizeRef.decorDrawHeight('bush');
       footRatio = 0.78;
     } else if (h % 5 === 0) {
+      // Static nature-tileset tree (no frame stepping) — drawn from DECOR2_BASE.
       list = DECOR_SPRITES.tree;
+      base = DECOR2_BASE;
       idx = h % list.length;
-      frameW = 192;
-      frameCount = 8;
       targetH = RTS.SizeRef.decorDrawHeight('tree', idx);
-      footRatio = 0.9;
+      footRatio = 0.92;
     } else {
       list = DECOR_SPRITES.bush;
       idx = h % list.length;
@@ -520,7 +512,7 @@
       footRatio = 0.78;
     }
 
-    var img = imgSync(list[idx]);
+    var img = imgSync(list[idx], base);
     if (!img) return;
     var grid = s && s.map && s.map.terrainGrid;
     var footY = grid && RTS.Terrain ? RTS.Terrain.groundY(grid, d.x, d.y) : d.y;
@@ -543,12 +535,57 @@
     var w = img.width * sc;
     var ht = img.height * sc;
     RTS.Art.drawShadow(ctx, d.x, footY + ht * 0.08, d.r * 0.9, 0.25);
-    ctx.drawImage(img, d.x - w / 2, footY - ht * 0.85, w, ht);
+    ctx.drawImage(img, d.x - w / 2, footY - ht * (footRatio || 0.85), w, ht);
   }
 
   /* Draw ONLY the map decorations (trees / rocks / bushes), independent of the
    * terrain tiles. Used when Phaser owns terrain rendering but the decoration
    * sprites still draw on the canvas overlay in render.frame. */
+  // Map decor (trees/rocks/foliage) is static, but redrawing ~90 large scaled
+  // sprites every frame was the dominant draw cost. Bake the whole decor layer
+  // into one offscreen canvas once, then blit just the visible region per frame.
+  function decorCacheReady(s, theme) {
+    if (theme === 'grove') return !!(RTS.FairyForest && RTS.FairyForest.isReady());
+    // DECOR_SPRITES holds path strings; resolve each via imgSync (lazy-loads).
+    // Cache is only committed once every variant the decor can pick has loaded.
+    var ok = [DECOR_SPRITES.rock, DECOR_SPRITES.bush].every(function (L) {
+      return L && L.length && L.every(function (path) { return !!imgSync(path); });
+    });
+    // ground-detail props AND the static trees live under DECOR2_BASE; require
+    // them too (these imgSync calls also trigger the lazy load).
+    var ok2 = [DECOR_SPRITES.tree, DECOR_SPRITES.grass, DECOR_SPRITES.flower, DECOR_SPRITES.pebble].every(function (L) {
+      return L && L.length && L.every(function (path) { return !!imgSync(path, DECOR2_BASE); });
+    });
+    return ok && ok2;
+  }
+
+  var DECOR_CACHE_PAD = 256;   // vertical headroom so tall trees near y=0 aren't clipped
+
+  function ensureDecorCache(s, theme) {
+    if (s.map._decorCache) return s.map._decorCache;
+    if (s.map._decorCacheFail) return null;
+    if (!decorCacheReady(s, theme)) return null;
+    var W = RTS.Config.world.w, H = RTS.Config.world.h;
+    if (!W || !H || W * H > 16000000) { s.map._decorCacheFail = true; return null; }
+    var off, octx;
+    try {
+      off = document.createElement('canvas');
+      off.width = W; off.height = H + DECOR_CACHE_PAD;
+      octx = off.getContext('2d');
+    } catch (e) { s.map._decorCacheFail = true; return null; }
+    if (!octx) { s.map._decorCacheFail = true; return null; }
+    octx.imageSmoothingEnabled = false;
+    var savedT = RTS._renderT; RTS._renderT = 0;            // freeze decor animation
+    octx.save();
+    octx.translate(0, DECOR_CACHE_PAD);
+    s.map.decor.forEach(function (d) { drawDecorSprite(octx, d, theme, s); });
+    octx.restore();
+    RTS._renderT = savedT;
+    s.map._decorCache = off;
+    s.map._decorCacheOffY = DECOR_CACHE_PAD;
+    return off;
+  }
+
   function drawDecorLayer(s, ctx) {
     if (!ready || !s.map || !s.map.decor) return false;
     var theme = (s.map && s.map.theme) || 'grass';
@@ -557,6 +594,18 @@
     var vx = cam.x - 8, vy = cam.y - 8;
     vw += 16; vh += 16;
     var pad = 80;
+
+    var cache = ensureDecorCache(s, theme);
+    if (cache) {
+      var offY = s.map._decorCacheOffY || 0;
+      var bx = Math.max(0, vx - pad), by = Math.max(0, vy - pad);
+      var bw = Math.min(cache.width - bx, vw + pad * 2);
+      var bh = Math.min(cache.height - offY - by, vh + pad * 2);
+      if (bw > 0 && bh > 0) ctx.drawImage(cache, bx, by + offY, bw, bh, bx, by, bw, bh);
+      return true;
+    }
+
+    // Fallback (cache not ready / unavailable): draw culled decor live.
     s.map.decor.forEach(function (d) {
       if (d.x < vx - pad || d.x > vx + vw + pad || d.y < vy - pad || d.y > vy + vh + pad) return;
       drawDecorSprite(ctx, d, theme, s);
@@ -748,7 +797,7 @@
       capL: 49, capLW: 15, capR: 256, capRW: 15,
       midX: 128, midW: 64, texH: 64,
       fillY: 30, fillH: 3,
-      displayH: 8,
+      displayH: 12,
     },
     big: {
       base: 'UI Elements/UI Elements/Bars/BigBar_Base.png',

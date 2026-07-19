@@ -37,6 +37,8 @@
       range: 48,       // melee
       ranged: false,
       supply: 0,        // heroes do not cost supply
+      trainCost: 240,   // summoned at the Ancestor's Shrine
+      trainTime: 26,
 
       // Passive — always active
       passive: {
@@ -107,6 +109,8 @@
       range: 130,
       ranged: true,
       supply: 0,
+      trainCost: 220,
+      trainTime: 26,
 
       passive: {
         id: 'resonance_field',
@@ -175,6 +179,8 @@
       range: 112,
       ranged: true,
       supply: 0,
+      trainCost: 220,
+      trainTime: 24,
 
       passive: {
         id: 'chaos_tax',
@@ -310,6 +316,8 @@
       range: 52,        // melee
       ranged: false,
       supply: 0,
+      trainCost: 230,
+      trainTime: 26,
 
       // Passive — always active
       passive: {
@@ -369,46 +377,55 @@
       faction: 'rimwalker',
       name: 'Aelindra Ashveil',
       shortName: 'Aelindra',
-      class: 'Tendkeeper',
+      class: 'Moonfire Warden',
       role: 'hero',
-      quote: 'I watched the Spine fall. I have been patient ever since.',
+      quote: 'I watched the Spine fall. Every arrow since has been an answer.',
       lore: 'The oldest living Rimwalker. She was a young Sylhen during the Ashfall and ' +
-            'carries the memory of the Verdant Spine like a wound. She does not enter wars. ' +
-            'Until now.',
-      playable: true,  // test arena map; Rimwalker faction not in skirmish yet
+            'carries the memory of the Verdant Spine like a wound. She does not enter wars — ' +
+            'until now. She walks the ash on foot and light, loosing moonfire arrows from ' +
+            'the treeline, never still long enough to be answered.',
+      playable: true,
       portraitFile: 'Aelindra_Idle.png',
 
-      hp: 380,
-      speed: 72,
-      dmg: 14,
-      range: 160,
-      ranged: false,
+      hp: 340,
+      speed: 158,        // light-footed — fast
+      dmg: 24,
+      range: 190,        // moonfire longbow
+      rof: 0.8,
+      ranged: true,
       supply: 0,
+      trainCost: 230,
+      trainTime: 28,
 
       passive: {
-        id: 'ancient_root',
-        name: 'Ancient Root',
-        desc: 'Aelindra cannot be moved or knocked back. Vision radius +4 tiles.',
+        id: 'never_still',
+        name: 'Never Still',
+        desc: 'Aelindra reads a blow before it lands and gives ground: she cannot be ' +
+              'knocked back, sees 3 tiles farther, and arrows loosed from beyond 120px ' +
+              'strike for +25% — reward for hit-and-run kiting.',
         knockbackImmune: true,
-        visionBonus: 4,
+        visionBonus: 3,
+        longshotPx: 120,
+        longshotBonus: 0.25,
       },
 
       abilities: [
         {
           id: 'thornwall',
-          name: 'Thornwall',
+          name: 'Arrowfall Line',
           unlockLevel: 1,
           cooldown: 14,
-          desc: 'Grows a line of roots blocking unit movement for 8s.',
+          desc: 'Rakes a line of moonfire shafts into the ground, blocking unit movement for 8s.',
           wallLength: 240,
           duration: 8,
         },
         {
           id: 'verdant_pulse',
-          name: 'Verdant Pulse',
+          name: 'Moonwell Shot',
           unlockLevel: 3,
           cooldown: 20,
-          desc: 'Heals all friendly units in 300px for 45hp. Damages enemies for 45.',
+          desc: 'Looses a moon-blessed arrow skyward; its falling light heals allies in 300px ' +
+                'for 45hp and sears enemies for 45.',
           radius: 300,
           healAmt: 45,
           dmgAmt: 45,
@@ -418,7 +435,7 @@
           name: 'The Ashfall',
           unlockLevel: 5,
           cooldown: 55,
-          desc: 'Massive AoE silence and damage across 240px. 3s cast time. ' +
+          desc: 'Calls down a sky-blackening moonfire arrow-storm across 240px. 3s to draw. ' +
                 'Named after the catastrophe that made Aelindra what she is.',
           radius: 240,
           castTime: 3.0,
@@ -433,8 +450,10 @@
   // Helpers
   RTS.getHero = function (id) { return RTS.Heroes[id] || null; };
   RTS.isHeroRole = function (role) { return !!RTS.getHero(role); };
-  RTS.trainSpec = function (role) {
-    return RTS.getHero(role) || RTS.Units[role] || null;
+  RTS.trainSpec = function (role, factionId) {
+    return RTS.getHero(role) ||
+      (RTS.resolveUnitSpec && RTS.resolveUnitSpec(role, factionId)) ||
+      RTS.Units[role] || null;
   };
   RTS.hasLivingHero = function (s, team, heroId) {
     return s.entities.units.some(function (u) {

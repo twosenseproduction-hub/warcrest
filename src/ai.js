@@ -42,8 +42,115 @@
         s.timers.waveNumber++;
         s.timers.nextWave = s.timers.gameTime + cfg.waveInterval;
       }
+
+      updateEnemyHero(s, dt);   // summon + pilot the enemy champion
     },
   };
+
+  // ---- Enemy champion: summon, pilot like a MOBA hero, and revive on death. --
+  function livingEnemyHeroes(s) {
+    return enemyUnits(s).filter(function (u) { return u.heroId; });
+  }
+
+  function updateEnemyHero(s, dt) {
+    var cfg = RTS.Config.ai;
+    if (cfg.spawnHero === false || !RTS.makeHero || !RTS.getHeroesForFaction) return;
+
+    var heroes = livingEnemyHeroes(s);
+    if (heroes.length) {
+      s.ai._heroDeadAt = null;
+      heroes.forEach(function (h) {
+        s.ai._heroLevel = h.level || 1; s.ai._heroXp = h.xp || 0;     // remember for revive
+        pilotHero(s, h);
+      });
+      return;
+    }
+
+    var core = enemyCastle(s); if (!core) return;
+    if (!s.ai._heroSpawned) {
+      var heroAt = cfg.heroAt != null ? cfg.heroAt : 80;
+      if (s.timers.gameTime < heroAt || !enemyBuilding(s, 'foundry')) return;
+      summonChampion(s, core, false);
+    } else {
+      // fallen — revive at home after a delay, keeping its level (Wild Rift style)
+      if (s.ai._heroDeadAt == null) s.ai._heroDeadAt = s.timers.gameTime;
+      var delay = cfg.heroRespawnDelay != null ? cfg.heroRespawnDelay : 42;
+      if (s.timers.gameTime >= s.ai._heroDeadAt + delay) summonChampion(s, core, true);
+    }
+  }
+
+  function summonChampion(s, core, revive) {
+    var roster = RTS.getHeroesForFaction(s.enemyFaction);
+    if (!roster.length) return;
+    var def = (s.ai._heroId && RTS.getHero && RTS.getHero(s.ai._heroId)) || roster[0];
+    var h = RTS.makeHero(s, def.id, TEAM.ENEMY, core.x + 44, core.y + 44, s.enemyFaction);
+    if (!h) return;
+    s.ai._heroSpawned = true; s.ai._heroId = def.id; s.ai._heroDeadAt = null;
+    var lvl = revive ? (s.ai._heroLevel || 1) : 1;
+    if (lvl > 1) {                                       // restore earned power on revive
+      var dl = lvl - 1;
+      h.level = lvl; h.xp = s.ai._heroXp || 0;
+      h.maxHp += 40 * dl; h.hp = h.maxHp; h.dmg += 2 * dl;
+      if (h._baseStats) { h._baseStats.maxHp += 40 * dl; h._baseStats.dmg += 2 * dl;
+        if (RTS.applyHeroItems) RTS.applyHeroItems(h); }
+    }
+    RTS.log(s, RTS.Factions[s.enemyFaction].name + ' champion ' + (def.shortName || def.name) +
+      (revive ? ' returns to the field' : ' takes the field'), 'bad');
+  }
+
+  // Pilot one champion: focus-fire the juiciest target, retreat/kite when hurt.
+  function pilotHero(s, h) {
+    if (h.dead || h._channel) return;
+    var cfg = RTS.Config.ai;
+    var core = enemyCastle(s);
+    var hpRatio = h.hp / Math.max(1, h.maxHp);
+    var retreatHp = cfg.heroRetreatHp != null ? cfg.heroRetreatHp : 0.3;
+    if (hpRatio < retreatHp) h._retreating = true;
+    else if (hpRatio > 0.55) h._retreating = false;
+
+    // best target: enemy hero first, then the weakest nearby foe, nearer = better
+    var best = null, bestScore = -Infinity, foes = 0, arr = s.entities.units;
+    for (var i = 0; i < arr.length; i++) {
+      var e = arr[i];
+      if (e.dead || e.kind !== 'unit' || e.team === h.team || e.team === TEAM.NEUTRAL) continue;
+      var d = RTS.dist(e.x, e.y, h.x, h.y);
+      if (d > 360) continue;
+      foes++;
+      var score = (e.isHero ? 400 : 0) + (1 - e.hp / Math.max(1, e.maxHp)) * 220 - d * 0.4;
+      if (score > bestScore) { bestScore = score; best = e; }
+    }
+
+    if (h._retreating && core) {
+      // disengage toward home; a ranged champion keeps loosing while it kites
+      if (RTS.UnitAI) RTS.UnitAI.setCommand(h, 'move', { pos: { x: core.x, y: core.y } });
+      else { h.attackMove = false; h.commandMode = 'move'; h.moveTo = { x: core.x, y: core.y }; }
+      h.target = (h.ranged && best) ? best.id : null;
+      aiHeroCast(s, h, foes, true);                      // a survival/escape pop is still welcome
+      return;
+    }
+    if (best) h.target = best.id;                        // focus-fire the priority target
+    if (foes) aiHeroCast(s, h, foes, false);
+  }
+
+  // Spend one ability per cadence: highest unlocked + ready, ultimate held for a
+  // cluster. Targeted spells follow h.target set by pilotHero (focus-fire).
+  function aiHeroCast(s, h, foes, retreating) {
+    if (h._channel) return;
+    var now = s.timers.gameTime;
+    if ((h._aiCastCd || 0) > now) return;
+    var hero = RTS.getHero && RTS.getHero(h.heroId);
+    if (!hero || !hero.abilities || !foes) return;
+    for (var k = hero.abilities.length - 1; k >= 0; k--) {
+      var ab = hero.abilities[k];
+      if (ab.unlockLevel && (h.level || 1) < ab.unlockLevel) continue;
+      if (h._abilityCd && (h._abilityCd[ab.id] || 0) > now) continue;
+      if (k === 2 && foes < 2 && !retreating) continue;  // save the ultimate for 2+ targets
+      if (RTS.triggerHeroAbility && RTS.triggerHeroAbility(s, h.id, k)) {
+        h._aiCastCd = now + (retreating ? 3.2 : 2.0);
+        return;
+      }
+    }
+  }
 
   function initAiState(s) {
     if (!s.ai) {
@@ -568,8 +675,19 @@
       tryAiBuild(s, 'foundry');
     }
 
+    // Tech up to a Keep (tier 2) so elite units (Knight/Priest) unlock.
+    if (enemyBuilding(s, 'foundry') && core.type === 'core' &&
+        (core.level || 1) < 2 && !core.upgrading &&
+        s.timers.gameTime > 60 &&
+        RTS.Config.upgradeCost &&
+        RTS.canAfford(s, TEAM.ENEMY, RTS.Config.upgradeCost(core))) {
+      RTS.upgradeBuilding(s, core.id);
+    }
+
+    // War Forge — worth building once we have (or are getting) a Keep.
     if (enemyBuilding(s, 'foundry') && !enemyBuildingAny(s, 'forge') &&
-        s.timers.gameTime > 45 &&
+        ((core.level || 1) >= 2 || core.upgrading) &&
+        s.timers.gameTime > 60 &&
         RTS.canAfford(s, TEAM.ENEMY, RTS.Buildings.forge.cost)) {
       tryAiBuild(s, 'forge');
     }
@@ -629,21 +747,21 @@
 
     var foundry = enemyBuilding(s, 'foundry');
     var forge = enemyBuilding(s, 'forge');
+    var tier2 = RTS.Config.teamTier ? RTS.Config.teamTier(s, TEAM.ENEMY) >= 2 : false;
     var pick = s.ai.composition++ % 8;
     var role, bldg;
-    if (forge && s.timers.gameTime > 50 && pick === 7) {
-      role = 'warrior';
+    // Elite tier-2 units from the War Forge once the Keep is up.
+    if (forge && !forge.upgrading && tier2 && (pick === 6 || pick === 7)) {
       bldg = forge;
+      role = pick === 7 ? 'lancer' : 'monk';   // Knight / Priest
     } else if (foundry) {
       bldg = foundry;
-      if (pick < 4) role = 'lancer';
-      else if (pick < 6) role = 'archer';
-      else role = 'monk';
+      role = pick < 5 ? 'warrior' : 'archer';   // Footman / Crossbowman
     } else {
       return;
     }
 
-    if (bldg && bldg.queue.length < 2) RTS.train(s, bldg, role);
+    if (bldg && !bldg.upgrading && bldg.queue.length < 2) RTS.train(s, bldg, role);
   }
 
 })(window.RTS = window.RTS || {});

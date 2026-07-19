@@ -225,18 +225,54 @@
     return true;
   };
 
-  // Type-select bar: Worker | Melee | Ranged | Caster.
+  // Select only the player's hero and snap the camera to it (WC3 F1 / MOBA
+  // hero-focus). Double duty: pick the hero out of a mob AND locate it.
+  RTS.playerHero = function (s) {
+    return s.entities.units.find(function (u) {
+      return u.team === RTS.TEAM.PLAYER && !u.dead && u.heroId;
+    }) || null;
+  };
+  // opts.center (default true) pans the camera to the hero. The hero-jump button
+  // passes center:false on a single tap (select only) and centers on double-tap.
+  RTS.selectHero = function (s, opts) {
+    var h = RTS.playerHero(s);
+    if (!h) {
+      if (RTS.toast) RTS.toast(s, 'No hero on the field');
+      if (RTS.Audio) RTS.Audio.play('deny');
+      return false;
+    }
+    RTS.clearMacroGroups && RTS.clearMacroGroups(s);
+    if (s.ui) s.ui.selectionFilter = 'all';
+    s.selectedIds = [h.id];
+    if (RTS.BuildingMenu) RTS.BuildingMenu.close(s);
+    RTS.refreshMode(s);
+    if ((!opts || opts.center !== false)) RTS.centerOnHero(s, h);
+    RTS.HUD.sync(s);
+    if (RTS.Audio) RTS.Audio.play('ready');
+    return true;
+  };
+  // Pan the camera to the hero without touching the selection (double-tap jump).
+  RTS.centerOnHero = function (s, h) {
+    h = h || RTS.playerHero(s);
+    if (!h || !RTS.Cam) return false;
+    if (RTS.Cam.panTo) RTS.Cam.panTo(s, h.x, h.y, true);
+    else if (RTS.Cam.centerOn) RTS.Cam.centerOn(s, h.x, h.y);
+    return true;
+  };
+
+  // Type-select bar: Worker | Melee | Ranged | Caster. (The hero gets its own
+  // dedicated button, so it is not folded into 'caster' here.)
   RTS.CATEGORY_ROLES = {
     worker: ['pawn'],
     melee:  ['lancer', 'warrior'],
     ranged: ['archer'],
-    caster: ['monk', 'hero'],
+    caster: ['monk'],
   };
   RTS.unitsOfCategory = function (s, cat) {
     var roles = RTS.CATEGORY_ROLES[cat] || [];
     return s.entities.units.filter(function (u) {
-      return u.team === RTS.TEAM.PLAYER && !u.dead &&
-        (roles.indexOf(u.role) >= 0 || (cat === 'caster' && u.heroId));
+      return u.team === RTS.TEAM.PLAYER && !u.dead && !u.heroId &&
+        roles.indexOf(u.role) >= 0;
     });
   };
   RTS.selectByCategory = function (s, cat) {
@@ -465,16 +501,57 @@
   RTS.applyUnitCommand = applyUnitCommand;
 
   // ---- Orders --------------------------------------------------------------
-  RTS.orderMove = function (s, units, x, y, attackMove) {
-    var n = units.length, idx = 0;
-    var mode = attackMove ? 'attackMove' : 'move';
-    units.forEach(function (u) {
-      u.patrol = null;
-      var off = spread(idx++, n);
-      var tx = x + off.x, ty = y + off.y;
+  // Front-to-back rank for formation ordering: melee lead, ranged behind,
+  // casters backmost (so a group arrives with its front line facing the move).
+  function roleRank(u) {
+    var r = u.role;
+    if (r === 'warrior' || r === 'lancer') return 0;
+    if (r === 'archer') return 2;
+    if (r === 'monk' || r === 'caster' || r === 'priest') return 3;
+    return 1;   // pawn / hero / other
+  }
+
+  // Lay the selected group out in a block oriented to the move direction: ranks
+  // run perpendicular to travel, the front rank (melee) leads toward the target,
+  // ranged/casters fall to the rear. Every member marches at the slowest pace.
+  function formationMove(s, units, x, y, attackMove) {
+    var n = units.length, mode = attackMove ? 'attackMove' : 'move';
+    if (n <= 1) {
+      units.forEach(function (u) {
+        u.patrol = null; u._grpSpeed = 0;
+        applyUnitCommand(u, mode, { pos: { x: x, y: y }, guardOrigin: { x: u.x, y: u.y } });
+        if (RTS.Pathfind) RTS.Pathfind.clearNav(u);
+      });
+      return;
+    }
+    var cx = 0, cy = 0, minSpd = Infinity;
+    units.forEach(function (u) { cx += u.x; cy += u.y; if ((u.speed || 60) < minSpd) minSpd = u.speed || 60; });
+    cx /= n; cy /= n;
+    var dx = x - cx, dy = y - cy, dl = Math.sqrt(dx * dx + dy * dy) || 1;
+    var fx = dx / dl, fy = dy / dl;        // forward (toward destination)
+    var pxx = -fy, pyy = fx;               // perpendicular (rank width)
+    var cols = Math.max(1, Math.round(Math.sqrt(n))), rows = Math.ceil(n / cols), gap = 34;
+    // sort by rank, tie-break by current side-position so left/right order holds
+    var order = units.slice().sort(function (a, b) {
+      var ra = roleRank(a), rb = roleRank(b);
+      if (ra !== rb) return ra - rb;
+      return ((a.x - cx) * pxx + (a.y - cy) * pyy) - ((b.x - cx) * pxx + (b.y - cy) * pyy);
+    });
+    order.forEach(function (u, i) {
+      var row = Math.floor(i / cols), col = i % cols;
+      var rowCount = Math.min(cols, n - row * cols);
+      var colOff = (col - (rowCount - 1) / 2) * gap;
+      var rowOff = ((rows - 1) / 2 - row) * gap;   // row 0 (melee) leads, deeper ranks trail
+      var tx = x + fx * rowOff + pxx * colOff;
+      var ty = y + fy * rowOff + pyy * colOff;
+      u.patrol = null; u._grpSpeed = minSpd;       // march together at the slowest pace
       applyUnitCommand(u, mode, { pos: { x: tx, y: ty }, guardOrigin: { x: u.x, y: u.y } });
       if (RTS.Pathfind) RTS.Pathfind.clearNav(u);
     });
+  }
+
+  RTS.orderMove = function (s, units, x, y, attackMove) {
+    formationMove(s, units, x, y, attackMove);
     if (attackMove) RTS.Audio.play('attack');
     else RTS.Audio.play('move');
   };
@@ -497,7 +574,7 @@
     var target = RTS.getById(s, targetId);
     if (!target || !RTS.canBeAttacked(target)) return;
     units.forEach(function (u) {
-      u.patrol = null;
+      u.patrol = null; u._grpSpeed = 0;
       applyUnitCommand(u, 'attackTarget', { targetId: targetId, guardOrigin: { x: u.x, y: u.y } });
       if (RTS.Pathfind) RTS.Pathfind.clearNav(u);
     });
@@ -506,7 +583,7 @@
 
   RTS.orderStop = function (s, units) {
     units.forEach(function (u) {
-      u.patrol = null;
+      u.patrol = null; u._grpSpeed = 0;
       applyUnitCommand(u, 'idle');
       if (RTS.Pathfind) RTS.Pathfind.clearNav(u);
       u.vx = 0; u.vy = 0;
@@ -516,6 +593,7 @@
   RTS.orderHarvest = function (s, worker, nodeId, opts) {
     opts = opts || {};
     if (worker.role !== 'pawn') return;
+    worker._grpSpeed = 0;   // drop any group-march pace cap when sent to gather
     var carry = worker.harvest && worker.harvest.carry > 0 ? worker.harvest.carry : 0;
     var depositId = carry > 0 && worker.harvest ? worker.harvest.depositId : null;
     var node = RTS.getById(s, nodeId);
@@ -610,9 +688,25 @@
       return true;
     }
 
-    var spec = RTS.trainSpec ? RTS.trainSpec(role) : RTS.Units[role];
+    var spec = RTS.trainSpec ? RTS.trainSpec(role, building.faction) : RTS.Units[role];
     if (!building.built) { if (team === RTS.TEAM.PLAYER) RTS.toast(s, 'Building not finished'); return false; }
     if (!spec) { if (team === RTS.TEAM.PLAYER) RTS.toast(s, 'Cannot train that unit'); return false; }
+
+    if (building.upgrading) {
+      if (team === RTS.TEAM.PLAYER) { RTS.toast(s, 'Busy upgrading'); RTS.Audio.play('deny'); }
+      return false;
+    }
+
+    // ---- Tech-tree gate: tier-2 units need an upgraded Town Hall (Keep) -----
+    var needTier = spec.tier || 1;
+    if (needTier > 1 && RTS.Config.teamTier && RTS.Config.teamTier(s, team) < needTier) {
+      if (team === RTS.TEAM.PLAYER) {
+        RTS.toast(s, RTS.nameFor(building.faction, role) + ' needs a Keep — upgrade your Town Hall');
+        RTS.log(s, 'Tier locked — upgrade the Town Hall to a Keep', 'warn');
+        RTS.Audio.play('deny');
+      }
+      return false;
+    }
 
     if (RTS.isHeroRole && RTS.isHeroRole(role)) {
       if (RTS.hasLivingHero && RTS.hasLivingHero(s, team, role)) {
@@ -642,7 +736,7 @@
     s.res[team].halcite -= cost;
     var trainTime = (RTS.isHeroRole && RTS.isHeroRole(role) && spec.trainTime != null)
       ? spec.trainTime
-      : baseTrain(role);
+      : baseTrain(role, building.faction);
     building.queue.push({ role: role, remaining: trainTime, total: trainTime });
     if (!building.train) building.train = building.queue[0];
     if (team === RTS.TEAM.PLAYER) {
@@ -652,18 +746,22 @@
     return true;
   };
 
-  function baseTrain(role) {
+  function baseTrain(role, factionId) {
     if (RTS.isHeroRole && RTS.isHeroRole(role)) {
       var hero = RTS.getHero(role);
       if (hero && hero.trainTime != null) return hero.trainTime;
     }
+    // Explicit per-faction trainTime override wins if present.
+    var spec = RTS.resolveUnitSpec && RTS.resolveUnitSpec(role, factionId);
+    if (spec && spec.trainTime != null) return spec.trainTime;
+    // WC3-ish baseline: basic units ~20s, elite/casters ~28-30s, workers ~14s.
     switch (role) {
-      case 'pawn': return 7;
-      case 'lancer': return 8;
-      case 'archer': return 9;
-      case 'monk': return 12;
-      case 'warrior': return 16;
-      default: return 10;
+      case 'pawn': return 14;
+      case 'archer': return 20;
+      case 'warrior': return 22;
+      case 'lancer': return 30;
+      case 'monk': return 28;
+      default: return 20;
     }
   }
   RTS.baseTrain = baseTrain;
@@ -1030,7 +1128,7 @@
     if (job.role === '_livestock') {
       refund = RTS.Config.livestock.trainCost;
     } else {
-      var spec = RTS.trainSpec ? RTS.trainSpec(job.role) : RTS.Units[job.role];
+      var spec = RTS.trainSpec ? RTS.trainSpec(job.role, b.faction) : RTS.Units[job.role];
       if (!spec) return false;
       refund = spec.trainCost != null ? spec.trainCost : spec.cost;
     }
@@ -1222,15 +1320,79 @@
     var b = (s.entities.buildings || []).find(function (x) { return x.id === buildingId; });
     if (!b || !b.built) return;
     if (!RTS.Config.canUpgrade || !RTS.Config.canUpgrade(b)) return;
+    var team = b.team;
+    var isPlayer = team === RTS.TEAM.PLAYER;
     var cost = RTS.Config.upgradeCost ? RTS.Config.upgradeCost(b) : 0;
-    if (!RTS.canAfford(s, RTS.TEAM.PLAYER, cost)) {
-      RTS.toast(s, 'Not enough ' + RTS.resourceLabel(s.playerFaction));
-      if (RTS.Audio) RTS.Audio.play('deny');
+    if (!RTS.canAfford(s, team, cost)) {
+      if (isPlayer) {
+        RTS.toast(s, 'Not enough ' + RTS.resourceLabel(b.faction));
+        if (RTS.Audio) RTS.Audio.play('deny');
+      }
       return;
     }
-    s.res.player.halcite -= cost;
+    s.res[team].halcite -= cost;
+
+    /* Town Hall tier research is timed — it ticks down in the systems loop and
+       blocks production until it completes (see applyBuildingUpgrade). */
+    var spec = RTS.Buildings[b.type];
+    if (b.type === 'core') {
+      var lv = (b.level || 1) - 1;
+      var time = (spec.upgradeTime && spec.upgradeTime[lv]) || 45;
+      b.upgrading = { remaining: time, total: time };
+      if (isPlayer) {
+        RTS.toast(s, 'Upgrading to ' + ((spec.tierName && spec.tierName[lv + 1]) || 'Keep') + '…');
+        if (RTS.Audio) RTS.Audio.play('click');
+        if (RTS.HUD) RTS.HUD.sync(s);
+      }
+      return;
+    }
+
+    /* Other upgrades (e.g. Rimwalker Briar Fold) apply instantly. */
+    RTS.applyBuildingUpgrade(s, b);
+  };
+
+  /* Start specialising a base Arrow Tower into an Arrow Tower or a Bombard. */
+  RTS.upgradeTower = function (s, buildingId, variant) {
+    var b = (s.entities.buildings || []).find(function (x) { return x.id === buildingId; });
+    if (!b || !b.built || b.type !== 'turret' || b.towerType || b.upgrading) return;
+    var ups = RTS.towerUpgradesFor && RTS.towerUpgradesFor(b.faction);
+    var def = ups && ups[variant];
+    if (!def) return;
+    var team = b.team, isPlayer = team === RTS.TEAM.PLAYER;
+    if (!RTS.canAfford(s, team, def.cost)) {
+      if (isPlayer) { RTS.toast(s, 'Not enough ' + RTS.resourceLabel(b.faction)); if (RTS.Audio) RTS.Audio.play('deny'); }
+      return;
+    }
+    s.res[team].halcite -= def.cost;
+    b.upgrading = { remaining: def.time, total: def.time, toTower: variant };
+    if (isPlayer) {
+      RTS.toast(s, 'Upgrading to ' + def.label + '…');
+      if (RTS.Audio) RTS.Audio.play('click');
+      if (RTS.HUD) RTS.HUD.sync(s);
+    }
+  };
+
+  /* Commit a completed tower specialisation — applies its combat stats + sprite. */
+  RTS.applyTowerUpgrade = function (s, b) {
+    var variant = b.upgrading && b.upgrading.toTower;
+    var ups = RTS.towerUpgradesFor && RTS.towerUpgradesFor(b.faction);
+    var def = ups && ups[variant];
+    b.upgrading = null;
+    if (!def) return;
+    b.towerType = variant;
+    b.dmg = def.dmg; b.range = def.range; b.rof = def.rof;
+    b.splash = def.splash || 0; b.buildingDmgBonus = def.buildingDmgBonus || 0;
+    if (b.team === RTS.TEAM.PLAYER) {
+      RTS.log(s, RTS.nameFor(s.playerFaction, 'turret') + ' → ' + def.label, 'good');
+      if (RTS.Audio) RTS.Audio.play('ready');
+      if (RTS.HUD) RTS.HUD.sync(s);
+    }
+  };
+
+  /* Commit a level-up — shared by instant upgrades and completed timed research. */
+  RTS.applyBuildingUpgrade = function (s, b) {
     b.level = (b.level || 1) + 1;
-    /* Restore HP proportionally at new level */
+    b.upgrading = null;
     var spec = RTS.Buildings[b.type];
     if (spec && spec.upgradeHp) {
       var newMax = spec.upgradeHp[b.level - 2] || spec.hp;
@@ -1238,10 +1400,14 @@
       b.hp = Math.min(b.hp + Math.floor(newMax * 0.25), newMax);
     }
     RTS.recalcSupply(s, b.team);
-    var lvName = ['', '', 'II', 'III'][b.level] || ('Lv' + b.level);
-    RTS.log(s, RTS.nameFor(s.playerFaction, b.type) + ' upgraded to ' + lvName, 'good');
-    if (RTS.Audio) RTS.Audio.play('ready');
-    if (RTS.HUD) RTS.HUD.sync(s);
+    if (b.team === RTS.TEAM.PLAYER) {
+      var label = (b.type === 'core' && spec.tierName)
+        ? (spec.tierName[b.level - 1] || 'Keep')
+        : (['', '', 'II', 'III'][b.level] || ('Lv' + b.level));
+      RTS.log(s, RTS.nameFor(s.playerFaction, b.type) + ' → ' + label, 'good');
+      if (RTS.Audio) RTS.Audio.play('ready');
+      if (RTS.HUD) RTS.HUD.sync(s);
+    }
   };
 
 })(window.RTS = window.RTS || {});

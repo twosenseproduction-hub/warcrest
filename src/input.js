@@ -24,12 +24,29 @@
       var cv = RTS.canvas;
       return { w: cv.clientWidth / s.camera.zoom, h: cv.clientHeight / s.camera.zoom };
     },
+    // HUD overlays (top bar + bottom command deck) cover the canvas edges.
+    // Cache their heights, recomputed only when the window size changes.
+    _insets: function () {
+      var key = window.innerWidth + 'x' + window.innerHeight;
+      if (this._insetKey !== key || !this._insetVal) {
+        this._insetKey = key;
+        function h(id) { var e = document.getElementById(id); return e && e.offsetHeight ? e.offsetHeight : 0; }
+        this._insetVal = { top: h('topbar'), bottom: h('command-deck') };
+      }
+      return this._insetVal;
+    },
     clamp: function (s) {
       var c = s.camera, cv = RTS.canvas;
       var vw = cv.clientWidth / c.zoom, vh = cv.clientHeight / c.zoom;
       var W = RTS.Config.world.w, H = RTS.Config.world.h;
       if (vw >= W) c.x = (W - vw) / 2; else c.x = Math.max(0, Math.min(W - vw, c.x));
-      if (vh >= H) c.y = (H - vh) / 2; else c.y = Math.max(0, Math.min(H - vh, c.y));
+      // Let the map scroll past the canvas edges by the HUD overlay heights so the
+      // map's top can clear the top bar and its bottom can rise above the deck.
+      var ins = RTS.Cam._insets();
+      var topPad = ins.top / c.zoom, botPad = ins.bottom / c.zoom;
+      var lo = -topPad, hi = (H - vh) + botPad;
+      if (hi < lo) c.y = (H - vh) / 2;           // map shorter than the visible band
+      else c.y = Math.max(lo, Math.min(hi, c.y));
     },
     centerOn: function (s, wx, wy) {
       var cv = RTS.canvas;
@@ -52,18 +69,61 @@
       }
     },
     updatePan: function (s, dt) {
-      var pt = s.camera.panTarget;
-      if (!pt) return;
-      var c = s.camera;
-      var t = Math.min(1, dt * 9);
-      c.x += (pt.x - c.x) * t;
-      c.y += (pt.y - c.y) * t;
-      RTS.Cam.clamp(s);
-      if (Math.abs(pt.x - c.x) < 1.5 && Math.abs(pt.y - c.y) < 1.5) {
-        c.x = pt.x;
-        c.y = pt.y;
-        c.panTarget = null;
+      // Left-edge joystick: push the stick a direction and the camera scrolls that
+      // way continuously (push right → camera moves right), velocity ∝ deflection.
+      var joy = s.camera.joystick;
+      if (joy && (joy.x || joy.y)) {
+        var jc = s.camera;
+        var spd = (RTS.Config.camera && RTS.Config.camera.joySpeed) || 1200;
+        jc.x += joy.x * spd * dt / jc.zoom;
+        jc.y += joy.y * spd * dt / jc.zoom;
+        jc.panTarget = null;
+        RTS.Cam.clamp(s);
       }
+      var pt = s.camera.panTarget;
+      if (pt) {
+        var c = s.camera;
+        var t = Math.min(1, dt * 9);
+        c.x += (pt.x - c.x) * t;
+        c.y += (pt.y - c.y) * t;
+        RTS.Cam.clamp(s);
+        if (Math.abs(pt.x - c.x) < 1.5 && Math.abs(pt.y - c.y) < 1.5) {
+          c.x = pt.x;
+          c.y = pt.y;
+          c.panTarget = null;
+        }
+        return;
+      }
+      // Inertial glide: after a drag-pan flick, keep coasting and ease to a stop.
+      // Suppressed while a finger is actively panning or the joystick is engaged.
+      var v = s.camera._panVel;
+      var actping = s.ui.pointer && s.ui.pointer.panning;
+      if (v && !actping && !s.camera.joystick) {
+        var cc = s.camera;
+        cc.x += v.x * dt;                            // v is already in world px/s
+        cc.y += v.y * dt;
+        var fr = Math.pow(0.0022, dt);               // friction → smooth ~0.6s stop
+        v.x *= fr; v.y *= fr;
+        RTS.Cam.clamp(s);
+        if (Math.abs(v.x) < 3 && Math.abs(v.y) < 3) s.camera._panVel = null;
+      }
+    },
+    // Thronefall-style perspective toggle: cycle between tactical (zoomed out)
+    // and close zoom levels, keeping the view centre fixed. Ignores camera.lock
+    // (which only disables pinch/wheel). The 3D renderer pulls the camera in/out
+    // because its framing is derived from camera.zoom.
+    cycleZoom: function (s) {
+      var levels = (RTS.Config.camera && RTS.Config.camera.zoomLevels) || [0.5, 0.92];
+      var c = s.camera, cv = RTS.canvas;
+      var idx = 0, best = Infinity;
+      for (var i = 0; i < levels.length; i++) { var d = Math.abs(levels[i] - c.zoom); if (d < best) { best = d; idx = i; } }
+      var next = levels[(idx + 1) % levels.length];
+      var cx = c.x + (cv.clientWidth / c.zoom) / 2, cy = c.y + (cv.clientHeight / c.zoom) / 2;
+      c.zoom = next;
+      c.x = cx - (cv.clientWidth / c.zoom) / 2;
+      c.y = cy - (cv.clientHeight / c.zoom) / 2;
+      c.panTarget = null;
+      RTS.Cam.clamp(s);
     },
     zoomAt: function (s, factor, cssX, cssY) {
       if (RTS.Config.camera && RTS.Config.camera.lock) return;
@@ -255,6 +315,29 @@
     var combat = ctx.combat;
     var workers = ctx.workers;
 
+    // Armed ability target cursor — next tap casts on the chosen foe/point.
+    if (s.pendingAbility) {
+      var pa = s.pendingAbility;
+      if (pa.cast === 'enemy') {
+        if (hit && hit.team === TEAM.ENEMY && RTS.canBeAttacked(hit)) {
+          return { type: 'castAbility', uid: pa.uid, abId: pa.abId, targetId: hit.id, x: wx, y: wy };
+        }
+        return { type: 'noop' };   // mis-tap keeps the cursor armed
+      }
+      return { type: 'castAbility', uid: pa.uid, abId: pa.abId, x: wx, y: wy };  // point-cast
+    }
+
+    // Thronefall preview: tapping an unused build plot opens the build menu
+    // anchored to that plot. Small target, so it's an intentional tap.
+    if ((RTS.Config.tfLook || RTS.Config.render3d) && s.map && s.map.buildPlots && !additive) {
+      for (var pi = 0; pi < s.map.buildPlots.length; pi++) {
+        var bp = s.map.buildPlots[pi];
+        if (bp.used) continue;
+        var pdx = wx - bp.x, pdy = wy - bp.y;
+        if (pdx * pdx + pdy * pdy <= 46 * 46) return { type: 'buildPlot', plot: bp };
+      }
+    }
+
     if (s.pendingOrder === 'move' &&
         (!hit || hit.kind === 'resource' || isBareGround(hit))) {
       if (!combat.length) {
@@ -269,6 +352,10 @@
     }
     if (hit && hit.kind === 'resource' && workers.length) {
       return { type: 'harvest', nodeId: hit.id, workers: workers };
+    }
+    if (hit && hit.kind === 'building' && hit.team === TEAM.NEUTRAL && hit.built && !additive &&
+        (hit.type === 'merchant' || hit.type === 'mercenary')) {
+      return { type: 'openShop', shopType: hit.type, buildingId: hit.id };
     }
     if (hit && hit.kind === 'building' && hit.team === TEAM.PLAYER && hit.built && !additive) {
       return { type: 'selectBuilding', buildingId: hit.id };
@@ -299,6 +386,23 @@
 
   function executeTapIntent(s, intent, additive) {
     switch (intent.type) {
+      case 'buildPlot':
+        s.ui.buildPlot = intent.plot;
+        s.ui.buildPanelOpen = true;
+        s.ui.shopOpen = null;
+        RTS.Audio.play('click');
+        RTS.toast(s, 'Choose a structure to raise here');
+        RTS.HUD.sync(s);
+        break;
+      case 'openShop':
+        s.ui.shopOpen = intent.shopType;
+        s.ui.buildPanelOpen = false;
+        RTS.Audio.play('click');
+        RTS.toast(s, intent.shopType === 'merchant'
+          ? 'Merchant — select a hero, then buy gear'
+          : 'Mercenary Camp (coming soon)');
+        RTS.HUD.sync(s);
+        break;
       case 'smartMine': {
         var nw = nearestWorker(s, intent.x, intent.y);
         if (!nw) return;
@@ -352,6 +456,17 @@
         RTS.log(s, 'Engaging target', 'info');
         haptic(12);
         break;
+      case 'castAbility': {
+        var caster = RTS.getById(s, intent.uid);
+        var tgt = intent.targetId ? RTS.getById(s, intent.targetId) : { x: intent.x, y: intent.y };
+        var ok = caster && RTS.castAbility && RTS.castAbility(s, caster, intent.abId, tgt);
+        s.pendingAbility = null;
+        if (ok) { flash(s, intent.x, intent.y, '#c79bff'); haptic(10); }
+        else { RTS.Audio.play('deny'); }
+        RTS.refreshMode && RTS.refreshMode(s);
+        RTS.HUD.sync(s);
+        break;
+      }
       case 'moveCombat':
         if (intent.patrol) {
           RTS.orderPatrol(s, intent.units, intent.x, intent.y);
@@ -374,7 +489,10 @@
         haptic(8);
         break;
       case 'clearOrClose':
-        if (RTS.BuildingMenu && RTS.BuildingMenu.isOpen()) {
+        if (s.ui.shopOpen) {
+          s.ui.shopOpen = null;
+          RTS.HUD.sync(s);
+        } else if (RTS.BuildingMenu && RTS.BuildingMenu.isOpen()) {
           RTS.BuildingMenu.close(s);
           RTS.HUD.sync(s);
         } else {
@@ -541,6 +659,7 @@
   // ---- Init / event wiring -------------------------------------------------
   RTS.Input = {
     ensureHeroTestSelection: ensureHeroTestSelection,
+    tapWorld: function (s, wx, wy, additive) { return tapWorld(s, wx, wy, additive); },
     init: function (canvas, getState) {
       var DRAG = (RTS.Config.touch && RTS.Config.touch.dragPx) || 12;
       var UIBLOCK = (RTS.Config.touch && RTS.Config.touch.uiBlockMs) || 320;
@@ -580,8 +699,19 @@
           Math.hypot(cssX - lastTap.x, cssY - lastTap.y) < tapSlop();
       }
 
+      // Left-edge camera joystick zone (both orientations): the leftmost strip
+      // where a drag scrolls the camera even with units selected. Tunable via
+      // Config.touch.leftPanZone (fraction) / -Max (px).
+      function inLeftPanZone(cssX, cssY) {
+        var W = window.innerWidth;
+        var t = (RTS.Config && RTS.Config.touch) || {};
+        var frac = t.leftPanZone != null ? t.leftPanZone : 0.18;
+        var max = t.leftPanZoneMax != null ? t.leftPanZoneMax : 150;
+        return cssX <= Math.min(W * frac, max);
+      }
+
       // --- single-pointer (mouse or 1 touch) ---
-      function down(cssX, cssY, shift) {
+      function down(cssX, cssY, shift, isTouch) {
         var s = st();
         if (!s || !active() || (uiBlocked(s) && s.pendingOrder !== 'move')) return;
         if (RTS.RadialMenu && RTS.RadialMenu.isOpen()) {
@@ -602,12 +732,18 @@
         var armyDouble = secondTap && isBareGround(hit) && lastTap.empty;
         var buildingDouble = secondTap && isFriendlyBuilding(hit) && lastTap.hitKind === 'building';
         var pawnDouble = secondTap && isFriendlyPawn(hit) && lastTap.hitKind === 'pawn';
+        // Left-edge camera-pan zone (landscape): a drag starting here ALWAYS pans
+        // the camera, even with units selected — so you can scroll the field with
+        // your left thumb without issuing a move. A tap (no drag) still selects.
+        s.camera.joystick = null;   // fresh press resets any prior joystick deflection
+        s.camera._panVel = null;    // touching down halts any inertial camera glide
+        var leftPan = isTouch && !boxArmed && s.inputMode !== 'place-building' && inLeftPanZone(cssX, cssY);
         s.ui.pointer = {
           cssX: cssX, cssY: cssY, startX: cssX, startY: cssY,
           wx: w.x, wy: w.y, moved: false, panning: false, boxing: false,
           longPressFired: false, lpReady: false, menuHoldFired: false, secondTap: secondTap,
           armyDouble: armyDouble, buildingDouble: buildingDouble, pawnDouble: pawnDouble,
-          onEmpty: onEmpty, useBox: onEmpty && boxArmed, shift: !!shift,
+          onEmpty: onEmpty, useBox: onEmpty && boxArmed, shift: !!shift, leftPan: leftPan,
           hitId: hit ? hit.id : null, hit: hit, menuHoldTimer: null,
         };
         if (s.inputMode === 'place-building') { updateGhost(s, w.x, w.y); return; }
@@ -621,7 +757,7 @@
               haptic(14);
             }
           }, MENU_HOLD);
-        } else if (!secondTap && !boxArmed &&
+        } else if (!leftPan && !secondTap && !boxArmed &&
             (isBareGround(hit) || unfinishedPlayerBuilding(buildHit || hit))) {
           startLongPress(s, w.x, w.y, cssX, cssY, buildHit || hit);
         }
@@ -655,6 +791,18 @@
         clearPendingTap();
         clearMenuHold(p);
 
+        // Left-edge joystick: deflection from the touch origin sets a scroll
+        // direction (push right → camera moves right); held steady keeps scrolling.
+        // Takes precedence over box-select / move-on-drag.
+        if (p.leftPan) {
+          p.panning = true;
+          var maxR = (RTS.Config.touch && RTS.Config.touch.joyRadiusPx) || 70;
+          var nx = Math.max(-1, Math.min(1, (cssX - p.startX) / maxR));
+          var ny = Math.max(-1, Math.min(1, (cssY - p.startY) / maxR));
+          s.camera.joystick = { x: nx, y: ny };
+          return;
+        }
+
         // Long-press completed (ring filled) → dragging draws a selection box.
         if (p.lpReady) {
           p.boxing = true;
@@ -677,9 +825,17 @@
         if (p.onEmpty && !RTS.activeCombatUnits(s).length) {
           p.panning = true;
           var prev = RTS.Cam.screenToWorld(s, p.cssX, p.cssY);
-          s.camera.x -= (w.x - prev.x);
-          s.camera.y -= (w.y - prev.y);
+          var ddx = w.x - prev.x, ddy = w.y - prev.y;   // world drag delta (camera moves opposite)
+          s.camera.x -= ddx;
+          s.camera.y -= ddy;
           RTS.Cam.clamp(s);
+          // track fling velocity (world px/s) so the camera can glide on release
+          var nowP = (RTS.now ? RTS.now() : Date.now());
+          var dtp = Math.max(0.008, (nowP - (p._panT || nowP)) / 1000);
+          var iv = { x: -ddx / dtp, y: -ddy / dtp };
+          var pv = s.camera._panVel;
+          s.camera._panVel = pv ? { x: pv.x * 0.35 + iv.x * 0.65, y: pv.y * 0.35 + iv.y * 0.65 } : iv;
+          p._panT = nowP;
         }
         p.cssX = cssX; p.cssY = cssY;
       }
@@ -711,6 +867,8 @@
         var p = s.ui.pointer; s.ui.pointer = null;
         if (!p) return;
         clearMenuHold(p);
+        // A camera pan (incl. left-edge joystick) must not also fire a move/select.
+        if (p.panning) { s.selectionBox = null; s.camera.joystick = null; return; }
         if (p.boxing && s.selectionBox) {
           var b = s.selectionBox;
           RTS.selectBox(s, b.x1, b.y1, b.x2, b.y2, p.shift);
@@ -854,7 +1012,7 @@
         var s = st(); if (!s || !active()) return;
         var r = rect();
         if (e.touches.length === 2) {
-          clearLongPress(s); s.ui.pointer = null; s.selectionBox = null;
+          clearLongPress(s); s.ui.pointer = null; s.selectionBox = null; s.camera.joystick = null;
           if (RTS.RadialMenu && RTS.RadialMenu.isOpen()) RTS.RadialMenu.close();
           var fp = fingerPair(e, r);
           twoFinger = {
@@ -866,7 +1024,7 @@
         twoFinger = null;
         pinch = null;
         var t = e.touches[0];
-        down(t.clientX - r.left, t.clientY - r.top, false);
+        down(t.clientX - r.left, t.clientY - r.top, false, true);
       }, { passive: false });
 
       canvas.addEventListener('touchmove', function (e) {
@@ -915,7 +1073,7 @@
       canvas.addEventListener('touchcancel', function () {
         var s = st(); if (!s) { pinch = null; twoFinger = null; return; }
         clearPendingTap();
-        clearLongPress(s); s.ui.pointer = null; s.selectionBox = null;
+        clearLongPress(s); s.ui.pointer = null; s.selectionBox = null; s.camera.joystick = null;
         pinch = null; twoFinger = null;
         if (RTS.RadialMenu && RTS.RadialMenu.isOpen()) RTS.RadialMenu.close();
       }, { passive: true });
@@ -956,6 +1114,12 @@
           if (RTS.activeCombatUnits(s).length) RTS.toast(s, 'Click ground to move');
         }
         if (e.key === 's' || e.key === 'S') { RTS.orderStop(s, RTS.activeSelectedUnits(s)); }
+        // Hero focus: select the hero + jump the camera (WC3 F1). Tap H twice to
+        // re-center if already selected — selectHero always pans here.
+        if (e.key === 'F1' || e.key === 'h' || e.key === 'H') {
+          e.preventDefault();
+          if (RTS.selectHero) RTS.selectHero(s);
+        }
       });
     },
   };

@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Warcrest — Auto-Rigger</title>
+<style>
+  :root{--bg:#222c38;--panel:#2b3643;--line:#3b4a59;--hot:#6fe3cf;--txt:#dbe4ee;--warn:#ff9d76}
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden}
+  #view{position:fixed;inset:0;touch-action:none}
+  #panel{position:fixed;top:0;right:0;width:340px;max-width:93vw;height:100%;background:rgba(20,26,34,.94);border-left:1px solid var(--line);padding:12px 14px;overflow-y:auto}
+  #panel.hidden{display:none}
+  h1{font-size:15px;margin:0 0 2px;color:#fff}.sub{font-size:11px;color:#90a2b4;margin:0 0 10px}
+  label{display:block;font-size:11px;color:#9fb0c0;margin:9px 0 2px;text-transform:uppercase;letter-spacing:.04em}
+  select,input[type=text]{width:100%;padding:7px;background:#1a232e;color:#fff;border:1px solid var(--line);border-radius:7px;font-size:13px}
+  .row{display:flex;align-items:center;gap:8px;margin:4px 0}.row .nm{width:24px;font-size:12px;color:#9fb0c0}
+  .row input[type=range]{flex:1;accent-color:var(--hot)}.row .vv{width:52px;text-align:right;font:12px monospace;color:var(--hot)}
+  .btns{display:flex;gap:8px;margin:9px 0}button{flex:1;padding:9px;background:#36475a;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600}
+  button.hot{background:var(--hot);color:#0c1b18}
+  #jlist{max-height:132px;overflow-y:auto;border:1px solid var(--line);border-radius:7px;margin-top:4px}
+  .jitem{padding:5px 8px;font-size:12px;border-bottom:1px solid #26313d;display:flex;justify-content:space-between;cursor:pointer}
+  .jitem.sel{background:#20505a;color:#dffaf3}.jitem small{color:#7d8ea0}
+  .hint{font-size:11px;color:#7d8ea0;margin:6px 0}#toggle{position:fixed;top:10px;left:10px;z-index:5;background:rgba(20,26,34,.9);border:1px solid var(--line);width:auto}
+  .step{font-size:11px;color:#9fb0c0;font-weight:700;letter-spacing:.04em;margin:14px 0 2px;text-transform:uppercase}
+  .mode{display:flex;gap:6px;margin:6px 0}.mode button{padding:7px}
+</style></head>
+<body>
+<canvas id="view"></canvas>
+<button id="toggle" onclick="document.getElementById('panel').classList.toggle('hidden')">☰</button>
+<div id="panel">
+  <h1>Auto-Rigger</h1>
+  <p class="sub">Mark a few points on the body, build a skeleton with the animation-pack bone names, auto-skin, export a rigged .glb.</p>
+
+  <div class="step">1 · Model</div>
+  <select id="model"></select>
+  <label>…or upload your own (.glb / .gltf / .fbx)</label>
+  <input type="file" id="file" accept=".glb,.gltf,.fbx" style="font-size:12px">
+
+  <div class="step">2 · Mark the body</div>
+  <p class="hint" id="mkhint">Tap the model right on each point it asks for — the dot lands exactly where you tap. Tap a list row to re-place or fine-tune it.</p>
+  <label style="display:flex;align-items:center;gap:7px;text-transform:none;margin:4px 0"><input type="checkbox" id="mirror" checked onchange="startMarkers()"> Mirror left → right (place one side only)</label>
+  <div class="btns"><button class="hot" onclick="startMarkers()">↻ Restart markers</button></div>
+  <div id="mklist" style="font-size:12px;line-height:1.7"></div>
+  <div id="mknudge" style="display:none;margin-top:6px">
+    <label style="margin-top:0">Fine-tune</label>
+    <div class="row"><span class="nm">X</span><input id="mkx" type="range"><span class="vv" id="mkxv">0</span></div>
+    <div class="row"><span class="nm">Y</span><input id="mky" type="range"><span class="vv" id="mkyv">0</span></div>
+    <div class="row"><span class="nm">Z</span><input id="mkz" type="range"><span class="vv" id="mkzv">0</span></div>
+  </div>
+
+  <div class="step">3 · Build skeleton</div>
+  <div class="btns"><button class="hot" onclick="buildFromMarkers()">🦴 Build skeleton</button></div>
+  <div id="jlist"></div>
+
+  <div class="step">4 · Skin</div>
+  <label style="display:flex;align-items:center;gap:7px;text-transform:none;margin-top:6px"><input type="checkbox" id="rigid"> Rigid — cut at joints (parts swing without bending; best for low-poly)</label>
+  <label style="display:flex;align-items:center;gap:7px;text-transform:none;margin-top:6px"><input type="checkbox" id="ghost" onchange="setGhost()"> Ghost the original as a mold (see where a pose clips through the body)</label>
+  <div class="btns"><button class="hot" onclick="doSkin()">🖇 Auto-skin</button></div>
+  <p class="hint" id="skinstatus">Build the skeleton first, then Auto-skin to bind the mesh.</p>
+
+  <div class="step">5 · Preview</div>
+  <div class="mode" id="animbtns">
+    <button onclick="setAnim('idle')">Idle</button>
+    <button onclick="setAnim('walk')">Walk</button>
+    <button onclick="setAnim('attack')">Attack</button>
+    <button onclick="setAnim(null)">■ Stop</button>
+  </div>
+  <p class="hint">Procedural preview on the standard bones — works regardless of the model's rest pose.</p>
+
+  <div class="step">6 · Export</div>
+  <div class="btns"><button class="hot" onclick="doExport()">⬇ Export rigged .glb</button></div>
+  <p class="hint">After export, send me the .glb — I'll drop it into the game with your bone names ready to animate.</p>
+</div>
+
+<script src="/vendor/three.min.js"></script>
+<script src="/vendor/GLTFLoader.js"></script>
+<script src="/vendor/GLTFExporter.js"></script>
+<script src="/vendor/fflate.min.js"></script>
+<script src="/vendor/NURBSCurve.js"></script>
+<script src="/vendor/NURBSUtils.js"></script>
+<script src="/vendor/FBXLoader.js"></script>
+<script>
+const ASSETS = {
+  'Bitgem Elf Archer (FBX)':'assets/models/elf_archer.fbx',
+  'Dryad body (unrigged)':'assets/models/rim_dryad.glb',
+  'Huntress body':'assets/models/rim_huntress.glb',
+  'Archer body':'assets/models/rim_archer_rigged.glb',
+  'Demon Hunter':'assets/models/demon_hunter.glb',
+  'Wisp':'assets/models/rim_wisp.glb',
+  'Glaive Thrower':'assets/models/rim_glaive_thrower.glb',
+};
+const fbxLoader=new THREE.FBXLoader();
+const cv=document.getElementById('view');
+const renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true}); if(THREE.sRGBEncoding)renderer.outputEncoding=THREE.sRGBEncoding;
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0x222c38);
+scene.add(new THREE.AmbientLight(0xffffff,0.9)); const dl=new THREE.DirectionalLight(0xffffff,1.1); dl.position.set(2,4,3); scene.add(dl);
+scene.add(new THREE.GridHelper(4,8,0x44586a,0x33414f));
+const cam=new THREE.PerspectiveCamera(35,1,0.001,100);
+let camR=3,camTheta=0.7,camPhi=1.2,target=new THREE.Vector3(0,1,0);
+function applyCam(){cam.position.set(target.x+camR*Math.sin(camPhi)*Math.cos(camTheta),target.y+camR*Math.cos(camPhi),target.z+camR*Math.sin(camPhi)*Math.sin(camTheta));cam.lookAt(target);}
+
+let modelRoot=null, mesh=null, meshes=[], joints=[], jointVis=[], sel=-1, mode='markers', skinnedGroup=null, rigBones=[], modelR=1;
+const loader=new THREE.GLTFLoader();
+
+function clearModel(){ if(modelRoot){scene.remove(modelRoot);} if(skinnedGroup){scene.remove(skinnedGroup);}
+  modelRoot=null;mesh=null;meshes=[];skinnedGroup=null;rigBones=[];
+  joints=[]; jointVis.forEach(v=>scene.remove(v)); jointVis=[]; sel=-1; renderJList();
+  clearMkVis(); hideNudge(); document.getElementById('skinstatus').textContent='Build the skeleton first, then Auto-skin.'; }
+
+function loadModel(url, isBlob, fbx){
+  clearModel();
+  const fin=root=>{ onModel(root); if(isBlob) URL.revokeObjectURL(url); };
+  if(fbx) fbxLoader.load(url, o=>fin(o), undefined, e=>alert('load failed '+e));
+  else loader.load(url, g=>fin(g.scene), undefined, e=>alert('load failed '+e));
+}
+function onModel(root){
+  modelRoot=root; scene.add(modelRoot);
+  // clay look (like Mixamo) — a clean light material makes the markers easy to see and place.
+  // Collect EVERY mesh (models like the elf are built from 7 separate skinned parts) so we can
+  // raycast + skin the whole body, not just the first part the traversal happens to hit.
+  meshes=[]; modelRoot.traverse(o=>{ if(o.isMesh){ o.material=new THREE.MeshLambertMaterial({color:0xc2ccd6}); meshes.push(o); } });
+  mesh=meshes[0]||null;
+  // normalize huge (FBX cm-scale) or tiny models to ~2 units tall so the tool's camera frames them
+  { const b0=new THREE.Box3().setFromObject(modelRoot); const h0=b0.getSize(new THREE.Vector3()).y||1;
+    if(h0>8||h0<0.25){ modelRoot.scale.setScalar(2/h0); modelRoot.updateMatrixWorld(true); } }
+  const box=new THREE.Box3().setFromObject(modelRoot); const c=box.getCenter(new THREE.Vector3()); const s=box.getSize(new THREE.Vector3());
+  target.copy(c); camR=Math.max(s.x,s.y,s.z)*2.0; modelR=Math.max(s.x,s.y,s.z);
+  startMarkers();   // ready to place immediately — tapping the body drops the next marker
+}
+function jointSphere(){ const m=new THREE.Mesh(new THREE.SphereGeometry(0.03,10,8), new THREE.MeshBasicMaterial({color:0xffd24b})); m.renderOrder=999; m.material.depthTest=false; return m; }
+function boneLine(a,b){ const g=new THREE.BufferGeometry().setFromPoints([a,b]); const l=new THREE.Line(g,new THREE.LineBasicMaterial({color:0x6fe3cf,depthTest:false})); l.renderOrder=998; return l; }
+
+// read-only view of the built skeleton
+function rebuildVis(){
+  jointVis.forEach(v=>scene.remove(v)); jointVis=[];
+  joints.forEach((j,i)=>{ const s=jointSphere(); s.position.copy(j.pos); scene.add(s); jointVis.push(s);
+    if(j.parent>=0){ const l=boneLine(joints[j.parent].pos,j.pos); scene.add(l); jointVis.push(l);} });
+}
+function select(i){ sel=i; renderJList(); }
+function renderJList(){ const el=document.getElementById('jlist'); if(!el)return; el.innerHTML='';
+  joints.forEach((j,i)=>{ const d=document.createElement('div'); d.className='jitem'+(i===sel?' sel':''); d.onclick=()=>select(i);
+    d.innerHTML='<span>'+j.name+'</span><small>'+(j.parent>=0?'↳'+joints[j.parent].name:'root')+'</small>'; el.appendChild(d); }); }
+
+// point-to-segment distance
+function distSeg(p,a,b){ const ab=b.clone().sub(a); const t=Math.max(0,Math.min(1, p.clone().sub(a).dot(ab)/(ab.lengthSq()||1e-6))); return p.distanceTo(a.clone().add(ab.multiplyScalar(t))); }
+
+// compute skinIndex/skinWeight for one source geometry against the built joints
+function skinGeometry(src, rigid, adj){
+  const geo=src.geometry.clone();
+  // de-quantize every vertex attribute to Float32 (game models use KHR_mesh_quantization ints,
+  // which the exporter can't emit) — getX/Y/Z/W applies the normalized decode.
+  ['position','normal','uv','uv2','tangent','color'].forEach(name=>{ const a=geo.attributes[name];
+    if(a && !(a.array instanceof Float32Array)){ const f=new Float32Array(a.count*a.itemSize);
+      for(let i=0;i<a.count;i++){ f[i*a.itemSize]=a.getX(i); if(a.itemSize>1)f[i*a.itemSize+1]=a.getY(i); if(a.itemSize>2)f[i*a.itemSize+2]=a.getZ(i); if(a.itemSize>3)f[i*a.itemSize+3]=a.getW(i);}
+      geo.setAttribute(name,new THREE.BufferAttribute(f,a.itemSize)); } });
+  src.updateWorldMatrix(true,false); geo.applyMatrix4(src.matrixWorld);   // bake to the joints' world space
+  const pos=geo.attributes.position; const si=[],sw=[];
+  for(let v=0; v<pos.count; v++){ const p=new THREE.Vector3().fromBufferAttribute(pos,v);
+    const dist=joints.map((j,i)=>{ const a=j.pos, b=j.parent>=0?joints[j.parent].pos:j.pos; return distSeg(p,a,b); });
+    let best=0; for(let i=1;i<joints.length;i++) if(dist[i]<dist[best]) best=i;
+    const cand = rigid ? [best] : [best, ...adj[best]];
+    cand.sort((x,y)=>dist[x]-dist[y]); const top=cand.slice(0,4);
+    let ws = rigid ? [1] : top.map(i=>1/(dist[i]*dist[i]+1e-4)); const sum=ws.reduce((a,b)=>a+b,0)||1; ws=ws.map(w=>w/sum);
+    const ix=[0,0,0,0],wt=[0,0,0,0]; top.forEach((i,k)=>{ix[k]=i;wt[k]=ws[k];}); si.push(...ix); sw.push(...wt); }
+  geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si,4));
+  geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw,4));
+  return geo;
+}
+function doSkin(){
+  if(!meshes.length){alert('Load a model first');return;} if(joints.length<1){alert('Build the skeleton first (step 3)');return;}
+  // one shared bone hierarchy for every body part
+  const bones=joints.map(()=>new THREE.Bone());
+  joints.forEach((j,i)=>{ bones[i].name=j.name;
+    if(j.parent>=0){ bones[i].position.copy(j.pos.clone().sub(joints[j.parent].pos)); bones[j.parent].add(bones[i]); }
+    else bones[i].position.copy(j.pos); });
+  rigBones=bones;
+  const rigid=document.getElementById('rigid').checked;
+  // adjacency: each joint may only share weight with its parent + direct children —
+  // stops "snake constriction" where a torso vertex borrows weight from the far arm/leg.
+  const adj=joints.map(()=>[]);
+  joints.forEach((j,i)=>{ if(j.parent>=0){ adj[i].push(j.parent); adj[j.parent].push(i); } });
+  if(skinnedGroup){scene.remove(skinnedGroup);}
+  skinnedGroup=new THREE.Group();
+  joints.forEach((j,i)=>{ if(j.parent<0) skinnedGroup.add(bones[i]); });
+  scene.add(skinnedGroup); skinnedGroup.updateMatrixWorld(true);
+  const skel=new THREE.Skeleton(bones);   // shared across every skinned part
+  meshes.forEach(src=>{ const geo=skinGeometry(src,rigid,adj); const sm=new THREE.SkinnedMesh(geo, src.material);
+    skinnedGroup.add(sm); sm.updateMatrixWorld(true); sm.bind(skel); });
+  setGhost();
+  document.getElementById('skinstatus').textContent='Skinned ✓  ('+meshes.length+' parts, '+bones.length+' bones) — hit a Preview button to check the bends, then Export.';
+  setAnim('idle');
+}
+// The original mesh doubles as a "mold": frozen in its rest shape, shown faintly behind the
+// skinned mesh, so any pose that pushes a limb through the body pokes out past the ghost.
+let ghostMat=null;
+function setGhost(){ if(!meshes.length) return; const on=document.getElementById('ghost').checked;
+  if(on && !ghostMat){ ghostMat=new THREE.MeshBasicMaterial({color:0x7fb2ff,transparent:true,opacity:0.22,depthWrite:false,side:THREE.DoubleSide}); }
+  meshes.forEach(m=>{ if(on){ if(!m.userData._origMat) m.userData._origMat=m.material; m.material=ghostMat; m.visible=true; m.renderOrder=-1; }
+    else { if(m.userData._origMat) m.material=m.userData._origMat; m.visible=!skinnedGroup; } });
+}
+function doExport(){
+  const obj = skinnedGroup || modelRoot; if(!obj){alert('Nothing to export');return;}
+  rigBones.forEach(b=>b.rotation.set(0,0,0));   // reset preview pose → clean bind
+  const exp=new THREE.GLTFExporter();
+  exp.parse(obj, res=>{ const blob=new Blob([res],{type:'model/gltf-binary'}); const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob); a.download=(document.getElementById('model').selectedOptions[0]?.textContent||'rigged').replace(/[^a-z0-9]+/gi,'_')+'_rigged.glb'; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+  }, err=>alert('export error '+err), {binary:true});
+}
+
+// ---- Mixamo-style guided auto-rig ----
+const MARKERS_ALL=['chin','groin','wrist_L','wrist_R','elbow_L','elbow_R','knee_L','knee_R'];
+function placeList(){ return document.getElementById('mirror').checked ? ['chin','groin','wrist_L','elbow_L','knee_L'] : MARKERS_ALL; }
+let mk={}, mkIdx=-1, mkSph={}, nudgeName=null;
+function mkSphere(color){ const s=new THREE.Mesh(new THREE.SphereGeometry(0.035,10,8),new THREE.MeshBasicMaterial({color:color,depthTest:false})); s.renderOrder=1000; scene.add(s); return s; }
+// place / replace one marker + its dot (replaces any existing dot for that name)
+function setMk(name,p,color){ mk[name]=p.clone(); if(mkSph[name])scene.remove(mkSph[name]); const s=mkSphere(color); s.position.copy(p); mkSph[name]=s; }
+function clearMkVis(){ Object.values(mkSph).forEach(s=>scene.remove(s)); mkSph={}; }
+function mirrorPt(p){ const m=mk.chin.clone().add(mk.groin).multiplyScalar(0.5); const r=p.clone();   // reflect across the chin↔groin midline, along whichever axis the limb is more offset
+  if(Math.abs(p.x-m.x)>=Math.abs(p.z-m.z)) r.x=2*m.x-p.x; else r.z=2*m.z-p.z; return r; }
+function reMirror(name){ if(document.getElementById('mirror').checked && /_L$/.test(name) && mk.chin && mk.groin) setMk(name.replace('_L','_R'), mirrorPt(mk[name]), 0x5ab0ff); }
+function reMirrorAll(){ placeList().forEach(m=>{ if(/_L$/.test(m)&&mk[m]) reMirror(m); }); }   // chin/groin moved → refresh every mirror
+function startMarkers(){ mk={}; mkIdx=0; mode='markers'; clearMkVis(); hideNudge(); renderMk(); }
+function renderMk(){ const PL=placeList(), mir=document.getElementById('mirror').checked, el=document.getElementById('mklist');
+  el.innerHTML=PL.map((m,i)=>'<div style="cursor:pointer;color:'+(mk[m]?'#6fe3cf':(i===mkIdx?'#fff':'#7d8ea0'))+'" onclick="selectMk('+i+')">'+(mk[m]?'✓':(i===mkIdx?'▶':'○'))+' '+m.replace('_',' ')+(mir&&/_L$/.test(m)?'  ⇄ (mirrored)':'')+(mk[m]?'  ✎':'')+'</div>').join('');
+  document.getElementById('mkhint').textContent = (mkIdx>=0&&mkIdx<PL.length&&!mk[PL[mkIdx]])?('Tap the model at:  '+PL[mkIdx].replace('_',' ').toUpperCase()) : (PL.every(m=>mk[m])?'All placed — tap a row to re-place / ✎ fine-tune, then Build skeleton.':'Tap a row to place it.'); }
+// tap a list row: (re)arm that marker for placing AND, if already placed, open its fine-tune sliders
+function selectMk(i){ const PL=placeList(); if(i<0||i>=PL.length)return; mkIdx=i; renderMk(); if(mk[PL[i]]) showNudge(PL[i]); else hideNudge(); }
+function placeMarker(p){ const PL=placeList(); if(mkIdx<0||mkIdx>=PL.length)return; const name=PL[mkIdx]; setMk(name,p,0xff5aa0); reMirror(name);
+  let n=mkIdx+1; while(n<PL.length&&mk[PL[n]])n++; mkIdx=n; renderMk(); if(mkIdx<PL.length&&!mk[PL[mkIdx]])hideNudge(); }
+// ---- fine-tune sliders for the selected marker ----
+function showNudge(name){ nudgeName=name; const p=mk[name]; document.getElementById('mknudge').style.display='block';
+  document.querySelector('#mknudge label').textContent='Fine-tune: '+name.replace('_',' ');
+  [['mkx','x'],['mky','y'],['mkz','z']].forEach(([id,ax])=>{ const el=document.getElementById(id);
+    el.min=(target[ax]-modelR).toFixed(3); el.max=(target[ax]+modelR).toFixed(3); el.step=(modelR/400).toFixed(4);
+    el.value=p[ax]; document.getElementById(id+'v').textContent=p[ax].toFixed(2); }); }
+function hideNudge(){ nudgeName=null; document.getElementById('mknudge').style.display='none'; }
+['mkx','mky','mkz'].forEach((id,ax)=>document.getElementById(id).oninput=()=>{ if(!nudgeName||!mk[nudgeName])return; const k=['x','y','z'][ax];
+  mk[nudgeName][k]=+document.getElementById(id).value; if(mkSph[nudgeName])mkSph[nudgeName].position.copy(mk[nudgeName]);
+  document.getElementById(id+'v').textContent=mk[nudgeName][k].toFixed(2);
+  if(/_L$/.test(nudgeName)) reMirror(nudgeName); else if(nudgeName==='chin'||nudgeName==='groin') reMirrorAll(); });
+
+function buildFromMarkers(){
+  if(!mesh){alert('Load a model first');return;}
+  for(const m of MARKERS_ALL) if(!mk[m]){ alert('Place all markers first — missing: '+m.replace('_',' ')); return; }
+  const box=new THREE.Box3().setFromObject(modelRoot); const minY=box.min.y;
+  const V=(a,b,t)=>a.clone().lerp(b,t);
+  const chin=mk.chin, gr=mk.groin, wL=mk.wrist_L, wR=mk.wrist_R, eL=mk.elbow_L, eR=mk.elbow_R, kL=mk.knee_L, kR=mk.knee_R;
+  const center=new THREE.Vector3((gr.x+chin.x)/2,0,(gr.z+chin.z)/2);
+  const shY=(eL.y+eR.y)/2 + (chin.y-(eL.y+eR.y)/2)*0.35;
+  const neck=new THREE.Vector3(center.x,shY,center.z);
+  const hips=gr.clone(); hips.y+=(chin.y-gr.y)*0.04;
+  const head=new THREE.Vector3(chin.x,chin.y+(chin.y-shY)*0.35,chin.z);
+  const shL=new THREE.Vector3(center.x+(eL.x-center.x)*0.5,shY,center.z+(eL.z-center.z)*0.5);
+  const shR=new THREE.Vector3(center.x+(eR.x-center.x)*0.5,shY,center.z+(eR.z-center.z)*0.5);
+  const hipL=new THREE.Vector3(hips.x+(kL.x-hips.x)*0.35,hips.y,hips.z+(kL.z-hips.z)*0.35);
+  const hipR=new THREE.Vector3(hips.x+(kR.x-hips.x)*0.35,hips.y,hips.z+(kR.z-hips.z)*0.35);
+  const footL=new THREE.Vector3(kL.x,minY,kL.z), footR=new THREE.Vector3(kR.x,minY,kR.z);
+  joints=[]; sel=-1;
+  const J=(n,p,par)=>{ joints.push({name:n,pos:p.clone(),parent:par}); return joints.length-1; };
+  // names match the Quaternius / Unreal "Standard" skeleton the animation pack uses
+  const hi=J('pelvis',hips,-1);
+  const s1=J('spine_01',V(hips,neck,0.33),hi), s2=J('spine_02',V(hips,neck,0.62),s1), s3=J('spine_03',V(hips,neck,0.85),s2);
+  const nk=J('neck_01',neck,s3); J('head',head,nk);
+  const clL=J('clavicle_l',V(neck,shL,0.4),s3), uL=J('upperarm_l',shL,clL), loL=J('lowerarm_l',eL,uL); J('hand_l',wL,loL);
+  const clR=J('clavicle_r',V(neck,shR,0.4),s3), uR=J('upperarm_r',shR,clR), loR=J('lowerarm_r',eR,uR); J('hand_r',wR,loR);
+  const tL=J('thigh_l',hipL,hi), cL=J('calf_l',kL,tL); J('foot_l',footL,cL);
+  const tR=J('thigh_r',hipR,hi), cR=J('calf_r',kR,tR); J('foot_r',footR,cR);
+  rebuildVis(); renderJList(); select(0);
+  clearMkVis(); hideNudge(); mode='built';
+  document.getElementById('skinstatus').textContent='Skeleton built ('+joints.length+' bones) — hit 🖇 Auto-skin.';
+}
+// ---- procedural animation preview ----
+let animMode=null, animT=0;
+function setAnim(m){ if(m&&!skinnedGroup){alert('Auto-skin first');return;} animMode=m; animT=0;
+  if(!m&&skinnedGroup) rigBones.forEach(b=>b.rotation.set(0,0,0)); }
+function boneByName(n){ const i=joints.findIndex(j=>j.name===n); return (i>=0&&rigBones[i])?rigBones[i]:null; }
+function animTick(dt){ if(!animMode||!skinnedGroup)return; animT+=dt;
+  rigBones.forEach(b=>b.rotation.set(0,0,0));
+  const t=animT, S=Math.sin, set=(n,x,y,z)=>{const b=boneByName(n); if(b)b.rotation.set(x||0,y||0,z||0);};
+  if(animMode==='idle'){ const b=S(t*2)*0.05; set('spine_01',b*0.3); set('spine_02',b*0.2); set('upperarm_l',0,0,-0.08-b); set('upperarm_r',0,0,0.08+b); set('head',S(t*1.3)*0.04); }
+  if(animMode==='walk'){ const w=S(t*6); set('thigh_l',0,0,w*0.6); set('thigh_r',0,0,-w*0.6);
+    set('calf_l',0,0,Math.max(0,w)*0.7); set('calf_r',0,0,Math.max(0,-w)*0.7);
+    set('upperarm_l',0,0,-0.1-w*0.5); set('upperarm_r',0,0,0.1-w*0.5); set('spine_01',0,w*0.1); }
+  if(animMode==='attack'){ const a=S(t*7); set('upperarm_r',0,0,1.0+a*0.8); set('lowerarm_r',0,0,0.6); set('spine_01',0,-0.2+a*0.2); }
+}
+
+// raycast tap-to-place — a tap is a press with little total travel (finger-friendly),
+// anything more is treated as a camera orbit drag.
+const ray=new THREE.Raycaster(); const ndc=new THREE.Vector2();
+let down=null,travel=0;
+cv.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};travel=0;cv.setPointerCapture(e.pointerId);});
+cv.addEventListener('pointermove',e=>{ if(!down)return; const dx=e.clientX-down.x,dy=e.clientY-down.y; travel+=Math.hypot(dx,dy);
+  camTheta-=dx*0.01; camPhi=Math.max(0.15,Math.min(3.0,camPhi-dy*0.01)); down={x:e.clientX,y:e.clientY}; });
+cv.addEventListener('pointerup',e=>{ if(down&&travel<12&&mode==='markers'&&modelRoot){ ndc.x=(e.clientX/innerWidth)*2-1; ndc.y=-(e.clientY/innerHeight)*2+1; ray.setFromCamera(ndc,cam);
+    const hits=ray.intersectObject(modelRoot,true);   // hit ANY body part, not just the first mesh
+    // surface-accurate: the dot lands exactly where you tap (front face) — the chin, not the mid-skull.
+    if(hits.length) placeMarker(hits[0].point.clone());
+  } down=null; });
+cv.addEventListener('wheel',e=>{camR=Math.max(0.3,Math.min(14,camR+e.deltaY*0.002));e.preventDefault();},{passive:false});
+
+// dropdowns + file
+const msel=document.getElementById('model'); Object.keys(ASSETS).forEach(k=>{const o=document.createElement('option');o.value=ASSETS[k];o.textContent=k;msel.appendChild(o);});
+msel.onchange=()=>loadModel(msel.value,false,/\.fbx$/i.test(msel.value));
+document.getElementById('file').onchange=e=>{ const f=e.target.files[0]; if(f) loadModel(URL.createObjectURL(f),true,/\.fbx$/i.test(f.name)); };
+
+// debug/validation hooks (harmless)
+window.__rig={ count:()=>joints.length, skinned:()=>!!skinnedGroup, bones:()=>rigBones.length,
+  hasSkin:()=>{ let ok=false; if(skinnedGroup) skinnedGroup.traverse(o=>{ if(o.isSkinnedMesh&&o.geometry.attributes.skinIndex&&o.geometry.attributes.skinWeight) ok=true; }); return ok; },
+  parts:()=>meshes.length,
+  doSkin:()=>doSkin(),
+  ghost:(on)=>{ document.getElementById('ghost').checked=!!on; setGhost(); },
+  setBone:(i,x,y,z)=>{ if(rigBones[i]) rigBones[i].rotation.set(x,y,z); },
+  clean:()=>{ jointVis.forEach(v=>v.visible=false); scene.traverse(o=>{ if(o.type==='GridHelper') o.visible=false; }); },
+  exportTest:()=>new Promise(r=>{ const obj=skinnedGroup||modelRoot; new THREE.GLTFExporter().parse(obj,res=>{
+    new THREE.GLTFLoader().parse(res,'',g=>{ let sk=0,bn=0; g.scene.traverse(o=>{if(o.isSkinnedMesh){sk++;bn=o.skeleton.bones.length;}}); r({bytes:res.byteLength,skinnedMeshes:sk,bones:bn}); }, e=>r({parseErr:String(e)})); },e=>r({err:String(e)}),{binary:true}); }) };
+function resize(){renderer.setSize(innerWidth,innerHeight);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();}
+addEventListener('resize',resize); resize();
+let _last=performance.now();
+function tick(){requestAnimationFrame(tick); const now=performance.now(); const dt=Math.min(0.05,(now-_last)/1000); _last=now; animTick(dt); applyCam(); renderer.render(scene,cam);} tick();
+loadModel(msel.value,false,/\.fbx$/i.test(msel.value));
+</script>
+</body></html>

@@ -6,6 +6,7 @@
 (function (RTS) {
   'use strict';
   var D = {}; var getState;
+  var _lpTimer = null, _lpFired = false, _tipHideTimer = null, _bannerClock = 0;
 
   // WC3-style command card: 4 columns x 3 rows. Bottom row (r3) holds the
   // movement/combat commands; upper rows hold abilities / build / management.
@@ -54,22 +55,79 @@
     if (img.getAttribute('src') !== url) img.setAttribute('src', url);
   }
 
+  // Top-centre emblem follows the player's faction.
+  function syncFactionCrest(s) {
+    var img = D['tb-crest'];
+    if (!img || !s) return;
+    var fid = s.playerFaction || 'aurex';
+    var url = 'assets/ui/crests/' + fid + '.png?v=20260626b';
+    if (img.getAttribute('src') !== url) img.setAttribute('src', url);
+  }
+
   RTS.HUD = {
     init: function (getStateFn) {
       getState = getStateFn;
-      ['res-halcite', 'res-supply', 'timer', 'btn-pause', 'command-deck', 'bottom-hub',
+      ['res-halcite', 'res-supply', 'timer', 'btn-pause', 'btn-zoom', 'command-deck', 'bottom-hub',
        'selpanel', 'squad-chips', 'squad-block', 'cmd-grid', 'command-card',
        'event-log', 'toast', 'gesture-hint', 'wave-timer',
        'btn-rail-army', 'btn-rail-pawns', 'btn-rail-base',
        'btn-combat-stop', 'btn-combat-mode', 'btn-combat-atk',
        'btn-hero-i1', 'btn-hero-i2', 'btn-hero-i3',
-       'btn-build-hammer', 'build-panel', 'build-panel-grid', 'map-tools',
-       'hub-minimap', 'hub-right', 'hub-hero', 'hub-action-grid', 'minimap'].forEach(function (id) {
+       'btn-build-hammer', 'build-panel', 'build-panel-grid', 'map-tools', 'tb-crest',
+       'shop-panel', 'shop-grid', 'shop-head',
+       'hub-minimap', 'hub-right', 'hub-hero', 'hub-action-grid', 'minimap', 'hero-banner', 'hero-tip',
+       'btn-hero-select'].forEach(function (id) {
         D[id] = $(id);
       });
 
+      // Hero jump: a single tap selects only the hero (no camera move); a quick
+      // second tap jumps the camera to it (WC3 portrait convention). pointerup
+      // only, so the pointerdown→click pair isn't mistaken for a double-tap.
+      (function () {
+        var el = D['btn-hero-select']; if (!el) return;
+        var lastAt = 0;
+        el.addEventListener('pointerdown', markUi, true);
+        el.addEventListener('pointerup', function (e) {
+          if (e.pointerType === 'mouse' && e.button !== 0) return;
+          var s = getState(); if (!s) return;
+          var now = performance.now();
+          if (now - lastAt < 340) { lastAt = 0; RTS.centerOnHero && RTS.centerOnHero(s); }   // double tap → jump
+          else { lastAt = now; RTS.selectHero && RTS.selectHero(s, { center: false }); }      // single tap → select
+        });
+      })();
+
+      // Hero banner ability slots cast through the same path as the I-row buttons.
+      // A long-press that opened a tooltip is swallowed so it doesn't also cast.
+      wireDelegatedTap($('hero-banner'), '[data-act="hero-ability"]', function (e, btn) {
+        if (_lpFired) { _lpFired = false; scheduleTipHide(2200); return; }
+        hideHeroTip();
+        var st = getState(); if (!st) return;
+        var units = RTS.activeSelectedUnits ? RTS.activeSelectedUnits(st) : [];
+        if (units.length === 1 && units[0].heroId) {
+          var ok = RTS.triggerHeroAbility && RTS.triggerHeroAbility(st, units[0].id, +btn.dataset.idx);
+          RTS.Audio.play(ok ? 'click' : 'deny');
+          RTS.HUD.sync(st);
+        }
+      });
+
+      // Long-press an ability or the passive chip to inspect its full text.
+      (function () {
+        var banner = $('hero-banner'); if (!banner) return;
+        banner.addEventListener('pointerdown', function (e) {
+          var card = e.target.closest('.hb-abil, .hb-passive'); if (!card) return;
+          clearTimeout(_lpTimer); _lpFired = false;
+          _lpTimer = setTimeout(function () {
+            _lpFired = true;
+            var st = getState(); if (st) showHeroTip(st, card);
+          }, 330);
+        });
+        ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) {
+          banner.addEventListener(ev, function () { clearTimeout(_lpTimer); });
+        });
+      })();
+
       ['cmd-grid', 'selpanel', 'squad-chips', 'squad-block', 'hub-action-grid', 'topbar', 'command-deck',
-       'bottom-hub', 'map-tools', 'build-panel', 'btn-build-hammer', 'hub-minimap', 'type-select'].forEach(function (id) {
+       'bottom-hub', 'map-tools', 'build-panel', 'btn-build-hammer', 'hub-minimap', 'type-select', 'hero-banner', 'btn-hero-select'].forEach(function (id) {
         var el = document.getElementById(id);
         if (!el) return;
         el.addEventListener('pointerdown', markUi, true);
@@ -82,6 +140,9 @@
         if (st) RTS.selectByCategory(st, btn.dataset.cat);
       });
       D['btn-pause'] && D['btn-pause'].addEventListener('click', function () { RTS.Game.togglePause(); });
+      D['btn-zoom'] && D['btn-zoom'].addEventListener('click', function () {
+        var st = getState(); if (st && RTS.Cam && RTS.Cam.cycleZoom) { RTS.Cam.cycleZoom(st); RTS.Audio.play('click'); }
+      });
 
       wireRail('btn-rail-army', function (s) { RTS.selectAllArmy(s); RTS.Audio.play('click'); });
       wireRail('btn-rail-pawns', function (s) {
@@ -95,13 +156,15 @@
         if (core) { RTS.Cam.panTo(s, core.x, core.y, true); RTS.Audio.play('click'); }
       });
 
-      wireRail('btn-hero-i1', function (s) {
-        var units = RTS.activeSelectedUnits ? RTS.activeSelectedUnits(s) : [];
-        if (units.length === 1 && units[0].heroId) {
-          RTS.triggerHeroAbility && RTS.triggerHeroAbility(s, units[0].id);
-          RTS.Audio.play('click');
-          RTS.HUD.sync(s);
-        }
+      ['btn-hero-i1', 'btn-hero-i2', 'btn-hero-i3'].forEach(function (bid, idx) {
+        wireRail(bid, function (s) {
+          var units = RTS.activeSelectedUnits ? RTS.activeSelectedUnits(s) : [];
+          if (units.length === 1 && units[0].heroId) {
+            var ok = RTS.triggerHeroAbility && RTS.triggerHeroAbility(s, units[0].id, idx);
+            RTS.Audio.play(ok ? 'click' : 'deny');
+            RTS.HUD.sync(s);
+          }
+        });
       });
 
       wireRail('btn-combat-stop', function (s) {
@@ -123,12 +186,18 @@
         var s = getState();
         if (!s || s.scene !== 'playing') return;
         s.ui.buildPanelOpen = !s.ui.buildPanelOpen;
-        if (s.ui.buildPanelOpen && RTS.BuildingMenu) RTS.BuildingMenu.close(s);
+        s.ui.buildPlot = null;   // the hammer is free-placement, not a fixed plot
+        if (s.ui.buildPanelOpen) { s.ui.shopOpen = null; if (RTS.BuildingMenu) RTS.BuildingMenu.close(s); }
         RTS.Audio.play('click');
         RTS.HUD.sync(s);
       });
 
       wireDelegatedTap(D['build-panel-grid'], '[data-act]', function (e, btn) {
+        if (btn.classList.contains('disabled')) { RTS.Audio.play('deny'); return; }
+        handleAction(getState(), btn.dataset);
+      });
+
+      wireDelegatedTap(D['shop-grid'], '[data-act]', function (e, btn) {
         if (btn.classList.contains('disabled')) { RTS.Audio.play('deny'); return; }
         handleAction(getState(), btn.dataset);
       });
@@ -180,9 +249,12 @@
     sync: function (s) {
       syncResources(s);
       syncRailBaseIcon(s);
+      syncFactionCrest(s);
 
       if (D['btn-combat-atk']) D['btn-combat-atk'].classList.toggle('active', !!s.attackMoveArmed);
       syncAbilitySlots(s);
+      syncHeroBanner(s);
+      syncHeroJump(s);
 
       if (D['btn-build-hammer']) {
         D['btn-build-hammer'].classList.toggle('active', !!s.ui.buildPanelOpen);
@@ -194,6 +266,7 @@
       if (D['btn-rail-pawns']) D['btn-rail-pawns'].classList.toggle('hidden', quickRail);
 
       renderBuildPanel(s);
+      renderShopPanel(s);
       syncPawnSelectButtons(s);
       updateLayout(s);
       updateGestureHint(s);
@@ -217,6 +290,11 @@
 
     tick: function (s, dt) {
       syncResources(s);
+      // keep the hero banner's cooldown/XP readouts live (sync is event-driven)
+      _bannerClock += dt;
+      if (_bannerClock >= 0.25) { _bannerClock = 0;
+        if (D['hero-banner'] && !D['hero-banner'].classList.contains('hidden')) syncHeroBanner(s);
+        syncHeroJump(s); }
       if (RTS.Cam && RTS.Cam.updatePan) RTS.Cam.updatePan(s, dt);
       if (D['timer']) D['timer'].textContent = fmtTime(s.timers.gameTime);
       if (D['wave-timer']) {
@@ -591,6 +669,7 @@
       uid: opts.uid,
       cost: opts.cost,
       role: opts.role,
+      abId: opts.abId,
     };
   }
 
@@ -615,6 +694,7 @@
       html += '<button class="' + cls + '" data-slot="' + sid + '" data-act="' + (sl.act || '') + '"' +
         (sl.bid ? ' data-bid="' + sl.bid + '"' : '') +
         (sl.uid ? ' data-uid="' + sl.uid + '"' : '') +
+        (sl.abId ? ' data-abid="' + sl.abId + '"' : '') +
         (sl.role ? ' data-role="' + sl.role + '"' : '') +
         cdStyle +
         (sl.disabled ? ' disabled' : '') +
@@ -668,7 +748,15 @@
   }
 
   function buildBuildingCommands(s, b, model) {
-    if (!b.built) return model;
+    // Under-construction building: only offer a Cancel (refunds resources).
+    if (!b.built) {
+      if (b.team === RTS.TEAM.PLAYER) {
+        model['r3c1'] = slot('cancel-build', UI().iconUrl('cancel') || '', {
+          slotId: 'r3c1', label: 'Cancel construction (refund)', bid: b.id,
+        });
+      }
+      return model;
+    }
     var fid = s.playerFaction || 'aurex';
 
     // ── Buildable units (top rows) — what this building produces. ──
@@ -691,10 +779,26 @@
     model['r3c1'] = slot('cancel-train', UI().iconUrl('cancel') || '', {
       slotId: 'r3c1', label: 'Cancel last from queue', bid: b.id, disabled: !hasQueue,
     });
-    if (RTS.Config.canUpgrade && RTS.Config.canUpgrade(b)) {
+    // A base guard tower can specialise into ONE of its faction's two lines
+    // (an anti-unit long-range line and an anti-building splash line).
+    if (b.type === 'turret' && !b.towerType && !b.upgrading && RTS.towerUpgradesFor) {
+      var ups = RTS.towerUpgradesFor(b.faction), vkeys = Object.keys(ups);
+      ['r3c2', 'r3c3'].forEach(function (slotId, i) {
+        var key = vkeys[i]; if (!key) return; var def = ups[key];
+        model[slotId] = slot('upgrade-tower', UI().iconUrl('upgrade') || '', {
+          slotId: slotId, label: def.label, bid: b.id, variant: key, cost: def.cost,
+          disabled: s.res.player.halcite < def.cost,
+        });
+      });
+    } else if (RTS.Config.canUpgrade && RTS.Config.canUpgrade(b)) {
       var upCost = RTS.Config.upgradeCost ? RTS.Config.upgradeCost(b) : 0;
+      var upLabel = 'Upgrade';
+      if (b.type === 'core') {
+        var cspec = RTS.Buildings.core;
+        upLabel = 'Build ' + ((cspec.tierName && cspec.tierName[(b.level || 1)]) || 'Keep');
+      }
       model['r3c2'] = slot('upgrade', UI().iconUrl('upgrade') || '', {
-        slotId: 'r3c2', label: 'Upgrade', bid: b.id, cost: upCost,
+        slotId: 'r3c2', label: upLabel, bid: b.id, cost: upCost,
         disabled: s.res.player.halcite < upCost,
       });
     }
@@ -732,6 +836,28 @@
           });
         });
       }
+    }
+    // Regular-unit abilities (autocast toggles) — top row, after any hero kit.
+    if (units.length === 1 && !units[0].heroId && RTS.abilityList) {
+      var au = units[0];
+      var abs = RTS.abilityList(au);
+      var abSlots = ['r1c1', 'r1c2', 'r1c3'];
+      abs.slice(0, 3).forEach(function (ab, i) {
+        var ready = (au.mana || 0) >= ab.manaCost;
+        var cdLeft = au._abilityCd && au._abilityCd[ab.id]
+          ? Math.max(0, au._abilityCd[ab.id] - (s.timers.gameTime || 0)) : 0;
+        var manual = ab.cast === 'enemy' || ab.cast === 'point';
+        var armed = manual && s.pendingAbility && s.pendingAbility.uid === au.id && s.pendingAbility.abId === ab.id;
+        model[abSlots[i]] = slot('unit-ability', ab.icon || '', {
+          slotId: abSlots[i],
+          label: ab.name + (manual ? '' : (ab.autocastDefault ? ' (autocast)' : '')),
+          uid: au.id, abId: ab.id,
+          autocast: manual ? false : RTS.autocastOn(au, ab.id),
+          targeting: !!armed,
+          cooldown: cdLeft > 0 ? cdLeft / ab.cooldown : 0,
+          disabled: !ready && cdLeft <= 0,
+        });
+      });
     }
     // Pawn build shortcut
     if (units.some(function (u) { return u.role === 'pawn'; })) {
@@ -813,6 +939,43 @@
     }).join('');
   }
 
+  function selectedHero(s) {
+    var units = RTS.activeSelectedUnits ? RTS.activeSelectedUnits(s) : [];
+    for (var i = 0; i < units.length; i++) if (units[i].heroId) return units[i];
+    return null;
+  }
+
+  function renderShopPanel(s) {
+    var panel = D['shop-panel'], grid = D['shop-grid'];
+    if (!panel || !grid) return;
+    var open = !!s.ui.shopOpen;
+    panel.classList.toggle('hidden', !open);
+    panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+    if (!open) { grid.innerHTML = ''; return; }
+
+    if (s.ui.shopOpen === 'mercenary') {
+      grid.innerHTML = '<div style="padding:10px;opacity:.8">Mercenaries — coming soon.</div>';
+      if (D['shop-head']) D['shop-head'].textContent = 'Mercenary Camp';
+      return;
+    }
+    var hero = selectedHero(s);
+    var slotsUsed = hero ? (hero.items || []).length : 0;
+    if (D['shop-head']) {
+      D['shop-head'].textContent = hero
+        ? ('Merchant — ' + RTS.nameFor(hero.faction, hero.heroId) + '  (' + slotsUsed + '/' + RTS.Items.MAX_SLOTS + ' slots)')
+        : 'Merchant — select a hero to equip';
+    }
+    var gold = s.res.player.halcite;
+    grid.innerHTML = (RTS.ItemShopOrder || []).map(function (id) {
+      var it = RTS.Items[id]; if (!it) return '';
+      var afford = hero && gold >= it.cost && slotsUsed < RTS.Items.MAX_SLOTS;
+      return '<button class="cmd-slot' + (afford ? '' : ' disabled') + '" data-act="buy-item" data-item="' + id + '" ' +
+        'title="' + it.name + ' — ' + it.desc + '">' +
+        '<img class="slot-icon" src="' + it.icon + '" alt="' + it.name + '" />' +
+        '<span class="slot-cost">' + it.cost + '</span></button>';
+    }).join('');
+  }
+
   // ---- Pawn select sync ----------------------------------------------------
   function syncPawnSelectButtons(s) {
     var btns = document.querySelectorAll('[data-act="select-pawns"]');
@@ -822,28 +985,148 @@
 
   // ---- Ability slot (I-row) sync -------------------------------------------
   function syncAbilitySlots(s) {
-    var i1 = D['btn-hero-i1'];
-    if (!i1) return;
+    var slotIds = ['btn-hero-i1', 'btn-hero-i2', 'btn-hero-i3'];
     var units = RTS.activeSelectedUnits ? RTS.activeSelectedUnits(s) : [];
-    var hero = units.length === 1 && units[0].heroId && RTS.getHero
-      ? RTS.getHero(units[0].heroId) : null;
-    if (hero && hero.ability && RTS.UI && RTS.UI.iconUrl) {
-      var cd = hero.abilityCooldown || 0;
-      var img = i1.querySelector('img') || document.createElement('img');
-      img.className = 'ic-ts'; img.alt = hero.ability;
-      img.src = RTS.UI.iconUrl(hero.ability) || '';
-      if (!i1.contains(img)) i1.appendChild(img);
-      i1.disabled = cd > 0;
-      i1.classList.toggle('act-slot-ability', cd > 0);
-      i1.classList.remove('act-slot-empty');
-      i1.setAttribute('aria-label', hero.ability);
-    } else {
-      i1.innerHTML = '';
-      i1.disabled = true;
-      i1.className = 'act-slot act-slot-empty ts-round-btn';
-      i1.setAttribute('aria-label', '');
-    }
+    var sel = units.length === 1 && units[0].heroId ? units[0] : null;
+    var hero = sel && RTS.getHero ? RTS.getHero(sel.heroId) : null;
+    var abilities = (hero && hero.abilities) ? hero.abilities : [];
+    var now = (s.timers && s.timers.gameTime) || 0;
+    slotIds.forEach(function (bid, i) {
+      var btn = D[bid];
+      if (!btn) return;
+      var ab = abilities[i];
+      if (sel && ab) {
+        var iconUrl = 'assets/heroes/' + hero.faction + '/' + hero.id + '/abilities/' + ab.id + '.png';
+        var img = btn.querySelector('img') || document.createElement('img');
+        img.className = 'ic-ts'; img.alt = ab.name; img.src = iconUrl;
+        if (!btn.contains(img)) btn.appendChild(img);
+        var cdLeft = (sel._abilityCd && sel._abilityCd[ab.id])
+          ? Math.max(0, sel._abilityCd[ab.id] - now) : 0;
+        var busy = !!sel._channel;
+        var locked = ab.unlockLevel && (sel.level || 1) < ab.unlockLevel;
+        btn.disabled = locked || cdLeft > 0 || busy;
+        btn.classList.toggle('act-slot-ability', cdLeft > 0);
+        btn.classList.toggle('act-slot-locked', !!locked);
+        btn.classList.remove('act-slot-empty');
+        btn.setAttribute('aria-label', locked
+          ? (ab.name + ' (locks until level ' + ab.unlockLevel + ')')
+          : (ab.name + (cdLeft > 0 ? (' (' + Math.ceil(cdLeft) + 's)') : '')));
+      } else {
+        btn.innerHTML = '';
+        btn.disabled = true;
+        btn.className = 'act-slot act-slot-empty ts-round-btn';
+        btn.setAttribute('aria-label', '');
+      }
+    });
   }
+
+  // ---- Hero banner: identity + level/XP + tappable ability bar --------------
+  function syncHeroBanner(s) {
+    var el = D['hero-banner']; if (!el) return;
+    var units = RTS.activeSelectedUnits ? RTS.activeSelectedUnits(s) : [];
+    var u = units.length === 1 && units[0].heroId ? units[0] : null;
+    var hero = u && RTS.getHero ? RTS.getHero(u.heroId) : null;
+    if (!hero) { el.classList.add('hidden'); el.setAttribute('aria-hidden', 'true'); el.innerHTML = ''; hideHeroTip(); return; }
+
+    var prog = RTS.heroProgress ? RTS.heroProgress(u) : { level: u.level || 1, max: 5, atMax: false, pct: 0 };
+    var now = (s.timers && s.timers.gameTime) || 0;
+
+    var pips = '';
+    for (var i = 1; i <= prog.max; i++) pips += '<i class="' + (i <= prog.level ? 'on' : '') + '"></i>';
+    var xpHtml = prog.atMax
+      ? '<span class="hb-max">MAX</span>'
+      : '<span class="hb-xp" title="' + prog.xp + ' / ' + prog.next + ' XP"><b style="width:' + Math.round(prog.pct * 100) + '%"></b></span>';
+
+    // glyph sits behind the portrait; if the portrait PNG 404s, onerror removes it
+    // and the glyph shows through — every hero gets a clean badge either way.
+    var initial = esc((hero.shortName || hero.name || '?').charAt(0));
+    var pimg = (UI().heroPortraitHtml ? UI().heroPortraitHtml(hero.id) : '').replace('<img ', '<img onerror="this.remove()" ');
+    var portrait = '<span class="hb-glyph hb-pglyph">' + initial + '</span>' + pimg;
+
+    var abils = (hero.abilities || []).slice(0, 3).map(function (ab, idx) {
+      var cd = (u._abilityCd && u._abilityCd[ab.id]) ? Math.max(0, u._abilityCd[ab.id] - now) : 0;
+      var locked = ab.unlockLevel && (u.level || 1) < ab.unlockLevel;
+      var busy = !!u._channel;
+      var cls = 'hb-abil' + (locked ? ' hb-locked' : '') + (cd > 0 ? ' hb-cd' : '');
+      var dis = (locked || cd > 0 || busy) ? ' disabled' : '';
+      var style = cd > 0 && ab.cooldown ? ' style="--cd:' + (cd / ab.cooldown) + '"' : '';
+      return '<button class="' + cls + '"' + style + dis + ' data-act="hero-ability" data-idx="' + idx + '" aria-label="' + esc(ab.name) + '">' +
+        '<span class="hb-glyph">' + esc((ab.name || '?').charAt(0)) + '</span>' +
+        (locked ? '<span class="hb-badge">L' + ab.unlockLevel + '</span>' : (cd > 0 ? '<span class="hb-badge">' + Math.ceil(cd) + '</span>' : '')) +
+        '<span class="hb-cap">' + esc(ab.name) + '</span>' +
+      '</button>';
+    }).join('');
+
+    var passive = hero.passive && hero.passive.name
+      ? '<span class="hb-passive" title="' + esc(hero.passive.desc || '') + '">✦ ' + esc(hero.passive.name) + '</span>' : '';
+
+    el.className = 'hero-banner fac-' + (hero.faction || 'aurex');
+    el.setAttribute('aria-hidden', 'false');
+    el.innerHTML =
+      '<div class="hb-portrait unit-portrait-fill">' + portrait + '</div>' +
+      '<div class="hb-mid">' +
+        '<div class="hb-name">' + esc(hero.name || hero.shortName || 'Hero') + '</div>' +
+        '<div class="hb-sub">' + esc(hero.class || 'Hero') + passive + '</div>' +
+        '<div class="hb-lvl"><span class="hb-pips">' + pips + '</span>' + xpHtml + '</div>' +
+      '</div>' +
+      '<div class="hb-abils">' + abils + '</div>';
+  }
+  function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  // Always-visible hero jump button: portrait + level, lit when the hero is the
+  // current selection. Tap selects only the hero and pans the camera to it.
+  function syncHeroJump(s) {
+    var el = D['btn-hero-select']; if (!el) return;
+    var h = RTS.playerHero ? RTS.playerHero(s) : null;
+    if (!h) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+    var hero = RTS.getHero && RTS.getHero(h.heroId);
+    var sel = s.selectedIds && s.selectedIds.length === 1 && s.selectedIds[0] === h.id;
+    if (el._heroId !== h.id) {                    // rebuild portrait only when the hero changes
+      el._heroId = h.id;
+      var initial = esc(((hero && (hero.shortName || hero.name)) || '?').charAt(0));
+      var pimg = (UI().heroPortraitHtml ? UI().heroPortraitHtml(h.heroId) : '').replace('<img ', '<img onerror="this.remove()" ');
+      el.innerHTML = '<span class="hj-glyph">' + initial + '</span>' + pimg + '<span class="hj-lvl"></span>';
+    }
+    var lv = el.querySelector('.hj-lvl'); if (lv) lv.textContent = h.level || 1;
+    var hpPct = Math.max(0, Math.min(1, h.hp / Math.max(1, h.maxHp)));
+    el.style.setProperty('--hp', hpPct);
+    el.classList.toggle('low', hpPct < 0.35);
+    el.classList.toggle('active', !!sel);
+    el.classList.remove('hidden');
+  }
+
+  // Long-press tooltip for a hero ability / passive — full effect text + meta.
+  function showHeroTip(s, card) {
+    var tip = D['hero-tip']; if (!tip || !card) return;
+    var units = RTS.activeSelectedUnits ? RTS.activeSelectedUnits(s) : [];
+    var u = units.length === 1 && units[0].heroId ? units[0] : null;
+    var hero = u && RTS.getHero ? RTS.getHero(u.heroId) : null;
+    if (!hero) return;
+
+    var title, meta = '', desc;
+    if (card.classList.contains('hb-passive')) {
+      var p = hero.passive || {};
+      title = '✦ ' + (p.name || 'Passive'); meta = 'Passive — always active'; desc = p.desc || '';
+    } else {
+      var ab = (hero.abilities || [])[+card.dataset.idx]; if (!ab) return;
+      title = ab.name || 'Ability';
+      var bits = [];
+      if (ab.cooldown) bits.push(Math.round(ab.cooldown) + 's cooldown');
+      if (ab.unlockLevel) bits.push((u.level || 1) < ab.unlockLevel ? ('Unlocks at level ' + ab.unlockLevel) : ('Level ' + ab.unlockLevel));
+      if (ab.castTime) bits.push(ab.castTime + 's cast');
+      meta = bits.join(' · '); desc = ab.desc || '';
+    }
+    tip.className = 'hero-tip fac-' + (hero.faction || 'aurex');
+    tip.innerHTML =
+      '<div class="ht-title">' + esc(title) + '</div>' +
+      (meta ? '<div class="ht-meta">' + esc(meta) + '</div>' : '') +
+      '<div class="ht-desc">' + esc(desc) + '</div>';
+    tip.classList.remove('hidden');
+    scheduleTipHide(4500);                 // safety auto-dismiss (e.g. passive long-press)
+    RTS.Audio && RTS.Audio.play && RTS.Audio.play('click');
+  }
+  function hideHeroTip() { var tip = D['hero-tip']; if (tip) tip.classList.add('hidden'); clearTimeout(_tipHideTimer); }
+  function scheduleTipHide(ms) { clearTimeout(_tipHideTimer); _tipHideTimer = setTimeout(hideHeroTip, ms || 2600); }
 
   // ---- Combat mode icon sync -----------------------------------------------
   function syncCombatModeIcon(s) {
@@ -872,6 +1155,9 @@
       RTS.trainUnit && RTS.trainUnit(s, data.bid, data.role);
     } else if (act === 'sell' && data.bid) {
       RTS.sellBuilding && RTS.sellBuilding(s, data.bid);
+    } else if (act === 'cancel-build' && data.bid) {
+      if (RTS.cancelConstruction) RTS.cancelConstruction(s, data.bid);
+      else RTS.Audio.play('deny');
     } else if (act === 'cancel-train' && data.bid) {
       var cb = (s.entities.buildings || []).find(function (x) { return x.id === data.bid; });
       if (cb && cb.queue && cb.queue.length && RTS.cancelTrainQueueItem) {
@@ -881,6 +1167,8 @@
       }
     } else if (act === 'upgrade' && data.bid) {
       RTS.upgradeBuilding && RTS.upgradeBuilding(s, data.bid);
+    } else if (act === 'upgrade-tower' && data.bid) {
+      RTS.upgradeTower && RTS.upgradeTower(s, data.bid, data.variant);
     } else if (act === 'toggle-automine' && data.bid) {
       RTS.toggleAutomine && RTS.toggleAutomine(s, data.bid);
     } else if (act === 'move') {
@@ -912,11 +1200,45 @@
       RTS.refreshMode && RTS.refreshMode(s);
     } else if (act === 'hero-ability' && data.uid) {
       RTS.triggerHeroAbility && RTS.triggerHeroAbility(s, data.uid);
+    } else if (act === 'unit-ability' && data.uid && data.abid) {
+      var ab = RTS.Abilities && RTS.Abilities[data.abid];
+      if (ab && (ab.cast === 'enemy' || ab.cast === 'point')) {
+        // arm a target cursor; the next world tap casts it (see input.js)
+        if (s.pendingAbility && s.pendingAbility.abId === data.abid) {
+          s.pendingAbility = null;                     // tap again to cancel
+        } else {
+          s.pendingAbility = { uid: +data.uid, abId: data.abid, cast: ab.cast };
+          s.attackMoveArmed = false; s.patrolArmed = false;
+          RTS.toast && RTS.toast(s, 'Pick a target for ' + ab.name);
+        }
+        RTS.refreshMode && RTS.refreshMode(s);
+      } else {
+        RTS.toggleAutocast && RTS.toggleAutocast(s, +data.uid, data.abid);
+      }
+
     } else if (act === 'open-build') {
       s.ui.buildPanelOpen = true;
     } else if (act === 'place' && data.btype) {
-      RTS.beginPlacement && RTS.beginPlacement(s, data.btype);
-      s.ui.buildPanelOpen = false;
+      if (s.ui.buildPlot) {
+        // Thronefall fixed-plot build: construct straight onto the tapped plot.
+        var bp = s.ui.buildPlot;
+        if (RTS.placeBuilding && RTS.placeBuilding(s, data.btype, bp.x, bp.y)) bp.used = true;
+        s.ui.buildPlot = null;
+        s.ui.buildPanelOpen = false;
+      } else {
+        RTS.beginPlacement && RTS.beginPlacement(s, data.btype);
+        s.ui.buildPanelOpen = false;
+      }
+    } else if (act === 'buy-item' && data.item) {
+      var hero = selectedHero(s);
+      if (!hero) { RTS.toast(s, 'Select a hero first'); RTS.Audio.play('deny'); }
+      else {
+        var res = RTS.buyItemForHero(s, hero, data.item);
+        if (res.ok) { RTS.toast(s, 'Equipped ' + res.item.name); RTS.Audio.play('click'); }
+        else { RTS.toast(s, res.msg); RTS.Audio.play('deny'); }
+      }
+    } else if (act === 'close-shop') {
+      s.ui.shopOpen = null;
     }
     RTS.HUD.sync(s);
   }
