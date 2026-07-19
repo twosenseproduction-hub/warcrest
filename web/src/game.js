@@ -1261,13 +1261,15 @@ function bakeStatic(o){ o.updateMatrixWorld(true); const parts=[]; let hadSkin=f
 const bakeProp=bakeStatic;   // back-compat alias for the weapon-prop loader
 function loadRig(){ return new Promise(res=>{
   const gl=new THREE.GLTFLoader(), fx=new THREE.FBXLoader(), tl=new THREE.TextureLoader();
-  const MDLV='?v=12';   // asset cache-buster — bump on any model/texture change so /assets max-age=86400 doesn't pin a stale rig (index.html revalidates, so a new ?v reaches clients at once)
+  const MDLV='?v=13';   // asset cache-buster — bump on any model/texture change so /assets max-age=86400 doesn't pin a stale rig (index.html revalidates, so a new ?v reaches clients at once)
   const propFiles=[...new Set(Object.values(WEAPONS).flat().map(w=>w.file))];
   let n=0, need=RIG_SPECS.length*2 + propFiles.length; const done=()=>{ if(++n>=need) res(); };   // body GLB + atlas per char, + each prop once
   RIG_SPECS.forEach(([k,f])=>{
     gl.load('/assets/models/'+f+'_anim.glb'+MDLV, g=>{
       if(k==='thoryn'||k==='drake'||k==='aelindra'||CREEP_KEYS.includes(k)) g.scene.traverse(o=>{ if(!o.isMesh||!o.material)return;   // Tripo/PBR (metallic) renders black in our unlit look — flatten to Basic like every other unit
-        const flat=m=>{ const t=m&&m.map; if(!t)return m; if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; return new THREE.MeshBasicMaterial({map:t,side:THREE.DoubleSide}); };
+        const flat=m=>{ const t=m&&m.map; if(t){ if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; return new THREE.MeshBasicMaterial({map:t,side:THREE.DoubleSide}); }
+          if(o.geometry&&o.geometry.attributes&&o.geometry.attributes.color) return new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide});   // Aelindra: painted per-vertex palette (no texture) — lit Lambert like every other unit
+          return m; };
         o.material = Array.isArray(o.material) ? o.material.map(flat) : flat(o.material); });
       RIGS[k]={scene:g.scene,anims:g.animations}; done(); }, undefined, ()=>done());
     tl.load('/assets/models/'+f+'_tex.png'+MDLV, t=>{ t.flipY=true; t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter; t.generateMipmaps=false; if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace; TEXS[k]=t; done(); }, undefined, ()=>done());
