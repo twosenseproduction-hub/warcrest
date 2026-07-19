@@ -2472,6 +2472,18 @@ function setupHUD(){
   buildBtnEl=document.createElement('button'); buildBtnEl.id='buildBtn'; buildBtnEl.setAttribute('aria-label','Build');
   buildBtnEl.innerHTML=ic('hammer'); buildBtnEl.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); toggleBuildMenu(); });
   document.body.appendChild(buildBtnEl);
+  // ===== Living Hub v2: settings drawer (Camera / View / Sound) + MOVE label =====
+  (function(){
+    const gear=document.createElement('div'); gear.id='settingsBtn'; gear.textContent='⚙';   // ⚙
+    const pop=document.createElement('div'); pop.id='settingsPop';
+    pop.addEventListener('pointerdown',ev=>ev.stopPropagation());
+    gear.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); pop.classList.toggle('open'); });
+    document.body.appendChild(gear); document.body.appendChild(pop);
+    // fold the camera toggle, perspective picker, and mute into the drawer (handlers kept)
+    for(const el of [camEl, viewEl, audEl]){ if(el){ el.style.right=''; el.style.top=''; el.style.left=''; el.style.bottom=''; el.style.position='static'; pop.appendChild(el); } }
+    // MOVE label under the joystick (foundry navpad, left-hand nav)
+    const mv=document.createElement('div'); mv.id='moveLbl'; mv.textContent='Move'; document.body.appendChild(mv);
+  })();
   // lasso overlay
   lcv=document.createElement('canvas'); lcv.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:4'; lcv.width=innerWidth; lcv.height=innerHeight; document.body.appendChild(lcv); lctx=lcv.getContext('2d');
   addEventListener('resize',()=>{ lcv.width=innerWidth; lcv.height=innerHeight; });
