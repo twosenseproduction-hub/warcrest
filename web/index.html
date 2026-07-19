@@ -338,6 +338,30 @@ canvas{display:block}
   background:linear-gradient(180deg,#4fb0f0,#2f7fd0); color:#fff; font:800 10px/18px system-ui; text-align:center; box-shadow:0 0 0 2px rgba(255,255,255,.9),0 2px 3px rgba(0,0,0,.5); }
 /* shrink-on-move: while driving the hero, the action side pulls in so the field opens up */
 body.moving .abilHand, body.moving #warband, body.moving #heroNode{ transform:scale(.82); transform-origin:bottom right; transition:transform .18s; }
+
+/* ===================== LIVING HUB v2: declutter + left nav ===================== */
+/* drop the redundant rectangle selection panel (portrait node covers it) and the build hammer (plots build by tap) */
+#selP{ display:none !important; }
+#buildBtn{ display:none !important; }
+/* right ability cluster: smaller + tucked toward the portrait node */
+.abilHand{ bottom:calc(88px + var(--sb)) !important; transform:scale(.8); transform-origin:bottom right; }
+body.moving .abilHand{ transform:scale(.66) !important; }
+/* settings drawer (top-right) — folds Camera + View + Sound out of the field */
+#settingsBtn{ position:fixed; z-index:8; right:calc(14px + var(--sr)); top:calc(14px + var(--st)); width:44px; height:44px; border-radius:12px;
+  display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:20px; color:#f4e7c9;
+  background:radial-gradient(120% 95% at 50% 18%,#2c2114,#15100a);
+  box-shadow:inset 0 0 0 1.5px var(--f-gold-lo),inset 0 1px 0 rgba(255,236,180,.18),0 2px 6px rgba(0,0,0,.5); }
+#settingsBtn:active{ filter:brightness(1.12); }
+#settingsPop{ position:fixed; z-index:8; right:calc(14px + var(--sr)); top:calc(66px + var(--st)); display:flex; flex-direction:column; gap:8px;
+  padding:10px; border-radius:14px; background:radial-gradient(140% 120% at 80% 0,#2c2114,#140d06);
+  box-shadow:inset 0 0 0 2px var(--f-gold-lo),0 12px 28px rgba(0,0,0,.6);
+  opacity:0; transform:translateY(-6px) scale(.96); transform-origin:top right; pointer-events:none; transition:opacity .15s, transform .15s; }
+#settingsPop.open{ opacity:1; transform:none; pointer-events:auto; }
+#settingsPop .hchip{ position:static !important; right:auto !important; top:auto !important; left:auto !important; bottom:auto !important; width:100%; min-width:132px; justify-content:flex-start !important; }
+/* joystick → foundry navpad + MOVE label (left-hand nav, matching the prototype) */
+#joy{ background:radial-gradient(circle at 50% 40%, rgba(22,15,8,.5), rgba(10,7,4,.62)) !important; }
+#moveLbl{ position:fixed; z-index:6; left:calc(12px + var(--sl)); bottom:calc(2px + var(--sb)); width:98px; text-align:center; pointer-events:none;
+  font:800 8px/1 system-ui; letter-spacing:.14em; text-transform:uppercase; color:#dce8f5; text-shadow:0 1px 2px #000; }
 </style>
 </head>
 <body>
