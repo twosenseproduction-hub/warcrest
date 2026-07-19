@@ -362,6 +362,27 @@ body.moving .abilHand{ transform:scale(.66) !important; }
 #joy{ background:radial-gradient(circle at 50% 40%, rgba(22,15,8,.5), rgba(10,7,4,.62)) !important; }
 #moveLbl{ position:fixed; z-index:6; left:calc(12px + var(--sl)); bottom:calc(2px + var(--sb)); width:98px; text-align:center; pointer-events:none;
   font:800 8px/1 system-ui; letter-spacing:.14em; text-transform:uppercase; color:#dce8f5; text-shadow:0 1px 2px #000; }
+/* camera / free-roam toggle above the joystick (left-hand nav) */
+#camNav{ position:fixed !important; z-index:6; left:calc(12px + var(--sl)) !important; bottom:calc(120px + var(--sb)) !important; right:auto !important; top:auto !important;
+  width:98px; min-height:0 !important; padding:8px 0 !important; gap:5px; justify-content:center !important; border-radius:11px !important; font:800 11px/1 system-ui !important;
+  background:radial-gradient(120% 95% at 50% 18%,#2c2114,#15100a) !important;
+  box-shadow:inset 0 0 0 1.5px var(--f-gold-lo),inset 0 1px 0 rgba(255,236,180,.18),0 2px 6px rgba(0,0,0,.5) !important; }
+/* Hit button removed → tuck the ability cluster in against the portrait node */
+.abilHand{ bottom:calc(44px + var(--sb)) !important; }
+/* a selected plot turns the warband cluster into its build/train menu */
+.wbDisc.bld{ color:#f6e2ac; background:radial-gradient(120% 95% at 50% 18%,#2c2114,#15100a); overflow:visible;
+  box-shadow:inset 0 0 0 2px var(--f-gold-lo),inset 0 1px 0 rgba(255,236,180,.18),0 3px 8px rgba(0,0,0,.5); }
+.wbDisc.bld svg{ stroke:currentColor !important; }
+.wbDisc.bld.sell{ color:#f0b48f; box-shadow:inset 0 0 0 2px #7a3a2c,inset 0 1px 0 rgba(255,200,180,.18),0 3px 8px rgba(0,0,0,.5); }
+.wbDisc.bld.dim{ opacity:.42; filter:grayscale(.5); }
+.wbDisc .wc{ position:absolute; bottom:-6px; left:50%; transform:translateX(-50%); white-space:nowrap;
+  padding:1px 6px; border-radius:8px; font:800 9px/1.55 system-ui; color:#241607;
+  background:linear-gradient(180deg,var(--f-gold-hi),#d69a1e); box-shadow:0 0 0 1.5px #0b0804; }
+.wbDisc.bld.sell .wc{ background:linear-gradient(180deg,#8fd06a,#4e9c37); color:#0c1b08; }
+.wbDisc .wl{ position:absolute; bottom:100%; left:50%; transform:translateX(-50%); margin-bottom:4px; white-space:nowrap; pointer-events:none;
+  font:800 8px/1 system-ui; letter-spacing:.02em; color:#f4e7c9; text-shadow:0 1px 2px #000; }
+#warbandTitle{ position:fixed; z-index:7; right:calc(104px + var(--sr)); bottom:calc(104px + var(--sb)); text-align:right; max-width:56vw;
+  font:800 11px/1.2 system-ui; color:var(--f-gold-hi); text-shadow:0 1px 3px #000; pointer-events:none; }
 </style>
 </head>
 <body>
