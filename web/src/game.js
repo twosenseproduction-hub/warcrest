@@ -340,6 +340,13 @@ const BLD_GROUPS=[
       orc_mine1:'orc_mine_Lv1',     orc_mine2:'orc_mine_Lv2',     orc_mine3:'orc_mine_Lv3',
       orc_mill1:'orc_mill_Lv1',     orc_mill2:'orc_mill_Lv2',     orc_mill3:'orc_mill_Lv3',
       orc_barrack1:'orc_barrack_Lv1', orc_barrack2:'orc_barrack_Lv2', orc_barrack3:'orc_barrack_Lv3' } },
+  { tex:'/assets/models/undead_building_tex.png', files:{   // The Unveiled (undead) — 4th faction; house reads as the Ziggurat
+      undead_throne1:'undead_throne_Lv1', undead_throne2:'undead_throne_Lv2', undead_throne3:'undead_throne_Lv3',
+      undead_house1:'undead_house_Lv1',   undead_house2:'undead_house_Lv2',   undead_house3:'undead_house_Lv3',
+      undead_tower1:'undead_tower_Lv1',   undead_tower2:'undead_tower_Lv2',   undead_tower3:'undead_tower_Lv3',
+      undead_mine1:'undead_mine_Lv1',     undead_mine2:'undead_mine_Lv2',     undead_mine3:'undead_mine_Lv3',
+      undead_mill1:'undead_woodcutter_Lv1', undead_mill2:'undead_woodcutter_Lv2', undead_mill3:'undead_woodcutter_Lv3',
+      undead_barrack1:'undead_barrack_Lv1', undead_barrack2:'undead_barrack_Lv2', undead_barrack3:'undead_barrack_Lv3' } },
 ];
 function loadBuildings(){ return new Promise(res=>{
   const fx=new THREE.FBXLoader(), tl=new THREE.TextureLoader();
@@ -402,8 +409,9 @@ const FACTION_MOD={
   elf:  {arm:-1, hp:0.88, dmg:1.12, spd:1.18, name:'Rimwalkers'},   // glassy, fast, hard-hitting
   human:{arm: 1, hp:1.08, dmg:1.00, spd:1.00, name:'Iron Crown'},   // balanced, sturdy
   orc:  {arm: 1, hp:1.22, dmg:1.10, spd:0.92, name:'Cinder Horde'}, // tanky bruisers, slow
+  undead:{arm:0, hp:1.00, dmg:1.05, spd:1.02, name:'The Unveiled'}, // attrition — cheap, relentless, regen off-combat
 };
-function playerFaction(){ return BLDPFX==='human_'?'human':BLDPFX==='orc_'?'orc':'elf'; }
+function playerFaction(){ return BLDPFX==='human_'?'human':BLDPFX==='orc_'?'orc':BLDPFX==='undead_'?'undead':'elf'; }
 // smart acquisition: among candidates, prefer the foe this unit deals the most EFFECTIVE damage to
 // (armor/attack-type table), bias toward wounded (finish kills), mild proximity pull. Keeps the
 // counter system tactical without long chases (callers pre-filter to the engage window).
@@ -482,7 +490,7 @@ function styleRing(p){ if(!p.ring)return; if(p.cat){ p.ring.visible=false; if(p.
   p.ring.visible=true; if(p.plus)p.plus.visible=!p.locked;
   p.ring.material.color.setHex(p.locked?0x5a6a74 : (p.slot==='turret'?0xffb45c:((p.theme||PLOT_THEME.elf).ring)));
   p.ring.material.opacity=p.locked?0.26:0.55; }
-function playerTheme(){ return BLDPFX==='human_'?PLOT_THEME.human : BLDPFX==='orc_'?PLOT_THEME.orc : PLOT_THEME.elf; }
+function playerTheme(){ return BLDPFX==='human_'?PLOT_THEME.human : BLDPFX==='orc_'?PLOT_THEME.orc : BLDPFX==='undead_'?PLOT_THEME.undead : PLOT_THEME.elf; }
 function makePlot(x,z,tier,slot){ slot=slot||'gen'; const th=playerTheme(); scene.add(slot==='turret'?turretPad(x,z,3.4,th):hexPad(x,z,5.3,th));
   const ri=slot==='turret'?1.9:2.4, ro=slot==='turret'?2.5:3.1;
   const ring=new THREE.Mesh(new THREE.RingGeometry(ri,ro,26),new THREE.MeshBasicMaterial({color:th.ring,transparent:true,opacity:0.55,side:THREE.DoubleSide,depthWrite:false}));
@@ -1767,6 +1775,7 @@ const HERO_KIT={
   paladin:{name:'Paladin', rig:'paladin', rng:4.2, ranged:false, a:{icon:'holy',cap:'Bless',cd:7}, spell:{icon:'hammer',cap:'Hammer',cd:8}, blink:{icon:'shield',cap:'Shield',cd:12}},
   aelindra:{name:'Aelindra', rig:'aelindra', rng:12, ranged:true, shot:'arrow', a:{icon:'fan',cap:'Volley',cd:7}, spell:{icon:'archer',cap:'Moonfire',cd:7}, blink:{icon:'blink',cap:'Windstep',cd:6}},
   thoryn: {name:'Thoryn Greywarden', rig:'thoryn', rng:4.2, ranged:false, a:{icon:'swords',cap:'Blade Dance',cd:6}, spell:{icon:'shadow',cap:'Root Lash',cd:8}, blink:{icon:'blink',cap:'Windstep',cd:7}},   // warden swordmaster — reuses the Warden handlers (nova / poison-strike / blink)
+  mordath:{name:'Mordath the Deathless', rig:'uking', rng:4.2, ranged:false, a:{icon:'swords',cap:'Bone Nova',cd:6}, spell:{icon:'shadow',cap:'Death Coil',cd:8}, blink:{icon:'blink',cap:'Deathstep',cd:7}},   // The Unveiled — reuses the non-paladin handlers (nova / strike / blink); rig falls back to queen if the undead king isn't loaded
 };
 // each hero fields its own faction's army + buildings in skirmish (pbld='' elf, 'human_' Iron Crown, 'orc_' horde)
 const HERO_FACTION={
@@ -1774,6 +1783,7 @@ const HERO_FACTION={
   aelindra: {pbld:'',       units:{warrior:'warrior',  archer:'archer', cleric:'priestess'}},   // Rimwalkers (Night Elf)
   paladin:  {pbld:'human_', units:{warrior:'hfootman', archer:'harcher', cleric:'hmage'}},        // Iron Crown (Human)
   thoryn:   {pbld:'',       units:{warrior:'warrior',  archer:'archer', cleric:'priestess'}},   // Rimwalkers (Night Elf) — Greywarden
+  mordath:  {pbld:'undead_', units:{warrior:'uwarrior', archer:'uarcher', cleric:'umage'}},     // The Unveiled (Undead) — Ziggurats, bone host
 };
 function applyHeroFaction(k){ const f=HERO_FACTION[k]; if(!f)return; BLDPFX=f.pbld; URIG={...f.units}; }
 function nearestAllyTo(x,z,maxd){ let b=null,bd=maxd*maxd;
@@ -2360,7 +2370,8 @@ function setupHUD(){
   const HEROES=[['queen','sword','Elf Queen','Rimwalkers · Night Elf — Blink · Fan of Knives · Shadow Strike. Fields an elven host.'],
                 ['paladin','shield','Paladin','Iron Crown · Human — Consecration · Hammer of Justice · Divine Shield. Fields footmen, crossbows & mages.'],
                 ['aelindra','archer','Aelindra Ashveil','Rimwalkers · Night Elf — Windstep · Volley · Moonfire. A fast, evasive archer; fields an elven host.'],
-                ['thoryn','swords','Thoryn Greywarden','Rimwalkers · Night Elf — Windstep · Blade Dance · Root Lash. A runeblade warden with a glowing greatblade; fields an elven host.']];
+                ['thoryn','swords','Thoryn Greywarden','Rimwalkers · Night Elf — Windstep · Blade Dance · Root Lash. A runeblade warden with a glowing greatblade; fields an elven host.'],
+                ['mordath','shadow','Mordath the Deathless','The Unveiled · Undead — Deathstep · Bone Nova · Death Coil. A risen deathlord who raises Ziggurats and fields a bone host.']];
   for(const [k,icn,nm,blurb] of HEROES){ const c=document.createElement('div'); c.className='hc';
     c.innerHTML='<div class="ic">'+ic(icn)+'</div><div class="nm">'+nm+'</div><div class="kit">'+blurb+'</div>';
     c.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); gameMode='skirmish'; activeMission=null; heroKind=k;

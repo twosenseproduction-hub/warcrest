@@ -620,6 +620,29 @@
         siege:       'Glaive Thrower',
       },
     },
+
+    undead: {
+      id: 'undead',
+      name: 'The Unveiled',
+      tagline: 'Bone · Blight · Undeath',
+      blurb: 'The risen dead of the Ashfen, raising Ziggurats over salted ground. ' +
+             'Cheap, relentless, and hard to keep down — a war of attrition made flesh. ' +
+             'Undeath: units slowly knit themselves back together a few seconds after leaving combat.',
+      primary:    '#8E7CC3',
+      secondary:  '#CFC7B0',
+      dark:       '#4A3B6B',
+      accent:     '#A9E5D6',
+      shapeStyle: 'angular',
+      passiveTrait: 'blood_vigor',
+      units: ['pawn', 'lancer', 'archer', 'monk', 'warrior'],
+      names: {
+        core: 'Necropolis', conduit: 'Ziggurat', foundry: 'Crypt',
+        forge: 'Slaughterhouse', chiefs_hall: 'Temple of the Damned', ancestor_shrine: 'Boneyard',
+        turret: 'Spirit Tower', outpost: 'Haunted Outpost',
+        pawn: 'Acolyte', lancer: 'Ghoul', archer: 'Skeleton Archer',
+        monk: 'Necromancer', warrior: 'Abomination',
+      },
+    },
   };
 
   RTS.nameFor = function (factionId, key) {
