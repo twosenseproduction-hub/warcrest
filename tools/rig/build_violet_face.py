@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-"""Isolated FACE match for violet cape warrior figurine reference.
+"""Isolated FACE rebuild vs user figurine reference (dense cage, not sticker ball).
 
-Only head / face / ears / hair bangs — camera framed on face.
-Iterate until eyes, tattoos, lips, ears match the ref.
+Matches attached T-pose figurine face:
+  squared chibi head, circular neon lime eyes deep in sockets, stern brows,
+  two thin teal cheek curves + small forehead mark, chunky purple+gold hair,
+  long horizontal ears, purple cowl.
 
   blender -b -noaudio --python tools/rig/build_violet_face.py -- \
-    --out exports/blender-rig-test --name violet_face --iter 43
+    --out exports/blender-rig-test --name violet_face --iter 50
 """
-import bpy, math, mathutils, sys, os, json
+import bpy, bmesh, math, mathutils, sys, os, json
 V = mathutils.Vector
 
 def argval(flag, default=None):
@@ -17,7 +19,7 @@ def argval(flag, default=None):
 
 OUT = argval('--out', 'exports/blender-rig-test')
 NAME = argval('--name', 'violet_face')
-ITER = argval('--iter', '46')
+ITER = argval('--iter', '51')
 os.makedirs(OUT, exist_ok=True)
 
 bpy.ops.object.select_all(action='SELECT'); bpy.ops.object.delete()
@@ -41,15 +43,16 @@ def mat(name, hexcol, rough=0.55, metal=0.0, emit=None, estr=0.0):
         b.inputs['Emission Strength'].default_value = estr
     return m
 
-# Figurine face palette — darker matte skin, sharp lime, teal vines
-M_skin  = mat('f_skin',  '#4e2f72', 0.72)
-M_skinD = mat('f_skinD', '#2a1840', 0.80)
-M_tat   = mat('f_tat',   '#1fe088', 0.28, emit='#2aff9a', estr=1.1)
-M_eye   = mat('f_eye',   '#c8ff28', 0.15, emit='#b4ff10', estr=1.8)
-M_lip   = mat('f_lip',   '#1a0e22', 0.88)
-M_hair  = mat('f_hair',  '#241030', 0.82)
-M_hairG = mat('f_hairG', '#e8c040', 0.42, metal=0.25)
-M_brow  = mat('f_brow',  '#1a1028', 0.9)
+# Palette sampled toward figurine (darker matte purple, clean neon lime)
+M_skin  = mat('f_skin',  '#6a4a88', 0.68)
+M_skinD = mat('f_skinD', '#2e1a48', 0.80)
+M_tat   = mat('f_tat',   '#28e090', 0.22, emit='#40ffb0', estr=1.5)
+M_eye   = mat('f_eye',   '#c4ff30', 0.08, emit='#b0ff20', estr=2.6)
+M_lip   = mat('f_lip',   '#1a1020', 0.88)
+M_hair  = mat('f_hair',  '#241430', 0.78)
+M_hairG = mat('f_hairG', '#f0c840', 0.38, metal=0.25)
+M_brow  = mat('f_brow',  '#140c20', 0.9)
+M_cowl  = mat('f_cowl',  '#3a2458', 0.72)
 
 parts = []
 
@@ -70,17 +73,31 @@ def finish(ob, m, name):
     parts.append(ob)
     return ob
 
-def add_uv(loc, r, seg=32, rings=18):
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=seg, ring_count=rings, radius=r, location=loc)
-    return bpy.context.active_object
-
 def add_cube(loc, scale):
     bpy.ops.mesh.primitive_cube_add(size=1, location=loc)
     ob = bpy.context.active_object; ob.scale = scale; apply_TRS(ob, scale=True)
     return ob
 
+def add_uv(loc, r, seg=32, rings=18):
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=seg, ring_count=rings, radius=r, location=loc)
+    return bpy.context.active_object
+
+def add_ico(loc, r, subdiv=2):
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=subdiv, radius=r, location=loc)
+    return bpy.context.active_object
+
 def add_cone(loc, r1, r2, depth, seg=10):
     bpy.ops.mesh.primitive_cone_add(vertices=seg, radius1=r1, radius2=r2, depth=depth, location=loc)
+    return bpy.context.active_object
+
+def add_cylinder(loc, r, depth, seg=16):
+    bpy.ops.mesh.primitive_cylinder_add(vertices=seg, radius=r, depth=depth, location=loc)
+    return bpy.context.active_object
+
+def add_torus(loc, maj, minr, maj_seg=32, min_seg=10):
+    bpy.ops.mesh.primitive_torus_add(
+        major_segments=maj_seg, minor_segments=min_seg,
+        major_radius=maj, minor_radius=minr, location=loc)
     return bpy.context.active_object
 
 def scale_local(ob, sx, sy, sz):
@@ -94,193 +111,187 @@ def bevel(ob, width=0.015, segments=3):
     activate(ob)
     mod = ob.modifiers.new('Bevel', 'BEVEL')
     mod.width = width; mod.segments = segments
-    mod.limit_method = 'ANGLE'; mod.angle_limit = math.radians(30)
+    mod.limit_method = 'ANGLE'; mod.angle_limit = math.radians(28)
     bpy.ops.object.modifier_apply(modifier='Bevel')
     return ob
 
-def subdiv(ob, levels=2, simple_first=False):
+def subdiv(ob, levels=2):
     activate(ob)
-    if simple_first:
-        m = ob.modifiers.new('Simple', 'SUBSURF')
-        m.subdivision_type = 'SIMPLE'; m.levels = 1
-        bpy.ops.object.modifier_apply(modifier='Simple')
     m = ob.modifiers.new('CC', 'SUBSURF')
     m.subdivision_type = 'CATMULL_CLARK'; m.levels = levels
     bpy.ops.object.modifier_apply(modifier='CC')
     return ob
 
-R = 1.0
+def solidify(ob, thick=0.04):
+    activate(ob)
+    m = ob.modifiers.new('Solid', 'SOLIDIFY')
+    m.thickness = thick
+    bpy.ops.object.modifier_apply(modifier='Solid')
+    return ob
+
+# Front face plane ≈ this Y (features outside / on surface)
+FACE_Y = -0.92
 HZ = 0.0
-# Front skin surface ≈ y = -R after slight squash. Features ON/OUTSIDE.
-FACE_Y = -1.00
 
-# ---- cranium (flatter face plane toward camera) ----
-cr = add_uv((0, 0.08, HZ), R, 48, 28)
-scale_local(cr, 1.00, 0.88, 1.06)
-subdiv(cr, 1)
-finish(cr, M_skin, 'cranium')
+# ========== DENSE HEAD CAGE (squared chibi, smooth resin) ==========
+head = add_cube((0, 0.05, HZ + 0.02), (0.92, 0.82, 1.02))
+bevel(head, 0.22, 5)
+subdiv(head, 3)
+finish(head, M_skin, 'head_cage')
 
-# face pad — shallow plate so features sit on a flatter figurine face
-face_pad = add_uv((0, FACE_Y + 0.12, HZ + 0.02), 0.72, 36, 20)
-scale_local(face_pad, 1.05, 0.22, 1.15)
-subdiv(face_pad, 1)
-finish(face_pad, M_skin, 'face_pad')
-
-# jaw / chin
-jaw = add_uv((0, -0.10, HZ - 0.55), 0.58, 36, 20)
-scale_local(jaw, 1.02, 0.72, 0.68)
-subdiv(jaw, 1)
+jaw = add_cube((0, -0.02, HZ - 0.52), (0.72, 0.50, 0.38))
+bevel(jaw, 0.14, 4)
+subdiv(jaw, 2)
 finish(jaw, M_skin, 'jaw')
 
-# cheeks
-for s in (-1, 1):
-    ch = add_uv((0.50 * s, -0.50, HZ - 0.10), 0.24, 24, 14)
-    scale_local(ch, 0.80, 0.45, 0.90)
-    finish(ch, M_skin, f'cheek_{s}')
+chin = add_uv((0, FACE_Y + 0.30, HZ - 0.82), 0.20, 24, 14)
+scale_local(chin, 1.05, 0.65, 0.80)
+subdiv(chin, 1)
+finish(chin, M_skin, 'chin')
 
-# brow ridge + brows (stern, angled down toward nose)
 for s in (-1, 1):
-    br = add_uv((0.28 * s, FACE_Y + 0.12, HZ + 0.28), 0.16, 18, 10)
-    scale_local(br, 1.55, 0.42, 0.48)
-    rot_euler(br, 8, 0, -s * 16)
-    finish(br, M_skinD, f'brow_ridge_{s}')
-    line = add_cube((0.26 * s, FACE_Y - 0.01, HZ + 0.32), (0.16, 0.025, 0.022))
-    bevel(line, 0.006, 2)
-    rot_euler(line, 0, 0, -s * 18)
-    finish(line, M_brow, f'brow_{s}')
+    ck = add_uv((0.52 * s, -0.30, HZ - 0.12), 0.28, 24, 14)
+    scale_local(ck, 0.80, 0.50, 0.90)
+    finish(ck, M_skin, f'cheek_{s}')
 
-# small nose bridge (not a dark blob)
-nose = add_uv((0, FACE_Y - 0.04, HZ + 0.02), 0.07, 14, 10)
-scale_local(nose, 0.65, 1.15, 1.35)
-finish(nose, M_skin, 'nose')
+fore = add_uv((0, FACE_Y + 0.40, HZ + 0.32), 0.55, 28, 16)
+scale_local(fore, 1.15, 0.28, 0.70)
+finish(fore, M_skin, 'forehead')
 
-# ---- ALMOND EYES: flush plates (thin Y), wide X, short Z, outer corner up ----
+# ========== EYE SOCKETS (deep bowls) ==========
 for s in (-1, 1):
-    sock = add_uv((0.28 * s, FACE_Y + 0.04, HZ + 0.10), 0.20, 24, 14)
-    scale_local(sock, 1.60, 0.22, 0.68)
-    rot_euler(sock, 0, 0, -s * 20)
+    sock = add_uv((0.28 * s, FACE_Y + 0.10, HZ + 0.12), 0.26, 24, 14)
+    scale_local(sock, 1.10, 0.45, 1.00)
     finish(sock, M_skinD, f'socket_{s}')
 
-    # flat emissive almond sitting just outside skin
-    eye = add_uv((0.28 * s, FACE_Y - 0.02, HZ + 0.10), 0.17, 28, 16)
-    scale_local(eye, 1.85, 0.14, 0.62)
-    rot_euler(eye, 0, 0, -s * 22)
+# ========== CIRCULAR neon eyes — single clean disc (no layered speckles) ==========
+for s in (-1, 1):
+    eye = add_uv((0.28 * s, FACE_Y - 0.03, HZ + 0.12), 0.19, 32, 18)
+    scale_local(eye, 1.0, 0.16, 1.0)
     finish(eye, M_eye, f'eye_{s}')
 
-    core = add_uv((0.28 * s, FACE_Y - 0.04, HZ + 0.10), 0.10, 18, 12)
-    scale_local(core, 1.65, 0.10, 0.50)
-    rot_euler(core, 0, 0, -s * 22)
-    finish(core, M_eye, f'eye_core_{s}')
-
-    lid = add_cube((0.28 * s, FACE_Y - 0.01, HZ + 0.20), (0.22, 0.022, 0.032))
-    bevel(lid, 0.006, 2)
-    rot_euler(lid, 4, 0, -s * 20)
+# thick dark upper lids + stern brows (down toward nose)
+for s in (-1, 1):
+    lid = add_cube((0.30 * s, FACE_Y - 0.01, HZ + 0.28), (0.22, 0.06, 0.07))
+    bevel(lid, 0.02, 2)
+    rot_euler(lid, 8, 0, -s * 8)
     finish(lid, M_skinD, f'lid_{s}')
+    brow = add_cube((0.26 * s, FACE_Y - 0.03, HZ + 0.36), (0.20, 0.04, 0.035))
+    bevel(brow, 0.012, 2)
+    # angle down toward center (stern)
+    rot_euler(brow, 0, 0, -s * 28)
+    finish(brow, M_brow, f'brow_{s}')
 
-# ---- LIPS — thin stern line, not two sausages ----
-lip_u = add_cube((0, FACE_Y - 0.02, HZ - 0.38), (0.16, 0.035, 0.028))
-bevel(lip_u, 0.012, 2)
-finish(lip_u, M_lip, 'lip_upper')
-lip_l = add_cube((0, FACE_Y - 0.01, HZ - 0.46), (0.13, 0.030, 0.024))
-bevel(lip_l, 0.010, 2)
-finish(lip_l, M_lip, 'lip_lower')
+# nose — small upturned
+nose = add_ico((0, FACE_Y - 0.04, HZ - 0.02), 0.09, 2)
+scale_local(nose, 0.7, 1.1, 1.25)
+finish(nose, M_skin, 'nose')
 
-# ---- VINE TATTOOS — segment chains along curved face paths ----
-def ribbon(x, y, z, sx, sy, sz, yaw, pitch=0, roll=0, name='tat'):
-    ob = add_cube((x, y, z), (sx, sy, sz))
-    bevel(ob, min(sx, sy, sz) * 0.48, 3)
-    rot_euler(ob, pitch, roll, yaw)
-    return finish(ob, M_tat, name)
+# lips — small grim line
+lip = add_cube((0, FACE_Y - 0.02, HZ - 0.42), (0.14, 0.04, 0.035))
+bevel(lip, 0.012, 2)
+finish(lip, M_lip, 'lips')
+lip2 = add_cube((0, FACE_Y - 0.01, HZ - 0.48), (0.11, 0.035, 0.028))
+bevel(lip2, 0.01, 2)
+finish(lip2, M_lip, 'lips_lo')
 
-def vine_path(points, thick=0.022, name_prefix='vine'):
-    """points: list of (x, z) on face; elongated segments BETWEEN points (XZ plane)."""
-    for i in range(len(points) - 1):
-        x0, z0 = points[i][0], points[i][1]
-        x1, z1 = points[i + 1][0], points[i + 1][1]
-        mx, mz = (x0 + x1) * 0.5, (z0 + z1) * 0.5
-        dx, dz = x1 - x0, z1 - z0
-        length = max(math.hypot(dx, dz), 0.04)
-        # ribbon long axis = local X; align in XZ via Y-rotation (roll arg → ry)
+# ========== TEAL TATTOOS — sparse continuous curves (match ref) ==========
+def cheek_curve(side):
+    """Two thin arcs from beside nose toward ear — figurine pattern."""
+    # arc 1 (upper cheek)
+    pts = []
+    for i in range(10):
+        t = i / 9.0
+        x = side * (0.12 + 0.42 * t)
+        z = 0.02 - 0.08 * math.sin(t * math.pi) - 0.06 * t
+        pts.append((x, FACE_Y - 0.015, HZ + z))
+    for i in range(len(pts) - 1):
+        a, b = V(pts[i]), V(pts[i + 1])
+        mid = (a + b) * 0.5
+        d = (b - a).length
+        ob = add_cube(tuple(mid), (d * 0.52, 0.012, 0.018))
+        # align in XZ via Y rot
+        dx, dz = b.x - a.x, b.z - a.z
         ry = math.degrees(math.atan2(-dz, dx))
-        # sx ≈ half-length; use 0.52*L so segments nearly touch/overlap
-        ribbon(mx, TY, HZ + mz, length * 0.52, thick * 0.55, thick * 0.85,
-               yaw=0, pitch=0, roll=ry, name=f'{name_prefix}_{i}')
-    for i, p in enumerate(points):
-        if i % 2:
-            d = add_uv((p[0], TY - 0.01, HZ + p[1]), thick * 0.85, 8, 6)
-            finish(d, M_tat, f'{name_prefix}_bud_{i}')
+        rot_euler(ob, 0, ry, 0)
+        bevel(ob, 0.006, 2)
+        finish(ob, M_tat, f'tat_ck1_{side}_{i}')
+    # arc 2 (lower cheek, parallel)
+    pts2 = []
+    for i in range(8):
+        t = i / 7.0
+        x = side * (0.14 + 0.38 * t)
+        z = -0.12 - 0.06 * math.sin(t * math.pi) - 0.05 * t
+        pts2.append((x, FACE_Y - 0.015, HZ + z))
+    for i in range(len(pts2) - 1):
+        a, b = V(pts2[i]), V(pts2[i + 1])
+        mid = (a + b) * 0.5
+        d = max((b - a).length, 0.04)
+        ob = add_cube(tuple(mid), (d * 0.52, 0.011, 0.016))
+        dx, dz = b.x - a.x, b.z - a.z
+        ry = math.degrees(math.atan2(-dz, dx))
+        rot_euler(ob, 0, ry, 0)
+        bevel(ob, 0.005, 2)
+        finish(ob, M_tat, f'tat_ck2_{side}_{i}')
 
-TY = FACE_Y - 0.012  # flush — avoid floating-shadow kitbash look
+cheek_curve(-1)
+cheek_curve(1)
 
-# forehead vine — central stem + left/right branches
-vine_path([(0.00, 0.40), (0.00, 0.50), (0.00, 0.60), (0.00, 0.68)], thick=0.024, name_prefix='tat_fore_stem')
-vine_path([(0.00, 0.56), (-0.10, 0.54), (-0.18, 0.46), (-0.24, 0.36)], thick=0.022, name_prefix='tat_fore_L')
-vine_path([(0.00, 0.56), (0.10, 0.54), (0.18, 0.46), (0.24, 0.36)], thick=0.022, name_prefix='tat_fore_R')
+# small vertical forehead mark (ref: tiny, centered)
+for i, z in enumerate([0.48, 0.56, 0.64]):
+    m = add_cube((0, FACE_Y - 0.015, HZ + z), (0.025, 0.012, 0.045))
+    bevel(m, 0.008, 2)
+    finish(m, M_tat, f'tat_fore_{i}')
 
-# cheek vines — flowing S under each eye
+# ========== EARS — long pointed horizontal, slight back ==========
 for s in (-1, 1):
-    vine_path([
-        (0.16 * s, 0.04),
-        (0.22 * s, -0.04),
-        (0.30 * s, -0.10),
-        (0.38 * s, -0.06),
-        (0.42 * s, 0.04),
-        (0.40 * s, 0.14),
-        (0.34 * s, -0.18),
-        (0.26 * s, -0.28),
-        (0.18 * s, -0.36),
-    ], thick=0.022, name_prefix=f'tat_ck_{s}')
-
-# ---- EARS — long pointed, tip along ±X (horizontal elf ears) ----
-for s in (-1, 1):
-    # tip along ±X, angled slightly forward (−Y) and up
-    ear = add_cone((1.05 * s, -0.35, HZ + 0.08), 0.16, 0.0, 1.55, seg=10)
-    scale_local(ear, 0.70, 0.38, 1.0)
-    rot_euler(ear, -18, -90 * s, 5 * s)
-    bevel(ear, 0.014, 2)
+    ear = add_cone((1.10 * s, 0.05, HZ + 0.06), 0.20, 0.0, 1.65, seg=12)
+    scale_local(ear, 0.55, 0.28, 1.0)
+    rot_euler(ear, -5, -90 * s, 0)
+    bevel(ear, 0.012, 2)
+    subdiv(ear, 1)
     finish(ear, M_skin, f'ear_{s}')
-    inn = add_cone((1.15 * s, -0.42, HZ + 0.08), 0.07, 0.0, 1.15, seg=8)
-    scale_local(inn, 0.70, 0.35, 1.0)
-    rot_euler(inn, -18, -90 * s, 5 * s)
-    finish(inn, M_skinD, f'ear_in_{s}')
 
-# ---- HAIR — purple spikes + gold on character RIGHT (-X), lean to camera ----
-for i, (x, y, z, r, d, rx, rz) in enumerate([
-    (0.0, -0.35, 1.15, 0.16, 0.62, -62, 0),
-    (-0.28, -0.30, 1.05, 0.13, 0.55, -50, -22),
-    (0.28, -0.30, 1.05, 0.13, 0.55, -50, 22),
-    (-0.48, -0.20, 0.78, 0.11, 0.48, -35, -48),
-    (0.48, -0.20, 0.78, 0.11, 0.48, -35, 48),
-    (-0.62, -0.10, 0.40, 0.09, 0.38, -12, -70),
-    (0.62, -0.10, 0.40, 0.09, 0.38, -12, 70),
-    (0.10, -0.45, 1.22, 0.12, 0.50, -68, 8),
-    (-0.12, -0.42, 1.20, 0.12, 0.52, -65, -6),
-]):
-    sp = add_cone((x, y, HZ + z), r, 0.006, d, seg=8)
+# ========== HAIR — many chunky spikes, gold on character right / front ==========
+# purple volume base
+cap = add_ico((0, 0.15, HZ + 0.85), 0.55, 2)
+scale_local(cap, 1.15, 0.95, 0.55)
+finish(cap, M_hair, 'hair_cap')
+
+spikes = [
+    # (x, y, z, r, depth, rx, rz, gold?)
+    (0.05, -0.55, 1.25, 0.14, 0.70, -70, 5, True),
+    (-0.15, -0.50, 1.20, 0.13, 0.65, -65, -12, True),
+    (-0.30, -0.40, 1.10, 0.12, 0.60, -55, -28, True),
+    (0.20, -0.45, 1.15, 0.12, 0.58, -60, 18, False),
+    (-0.45, -0.25, 0.95, 0.11, 0.55, -40, -45, True),
+    (0.40, -0.25, 0.95, 0.11, 0.55, -40, 45, False),
+    (0.0, -0.20, 1.35, 0.13, 0.55, -75, 0, True),
+    (-0.20, 0.05, 1.30, 0.12, 0.50, -50, -15, False),
+    (0.25, 0.05, 1.28, 0.12, 0.50, -50, 20, False),
+    (-0.55, -0.10, 0.70, 0.10, 0.48, -25, -60, False),
+    (0.55, -0.10, 0.70, 0.10, 0.48, -25, 60, False),
+    (-0.35, -0.55, 0.85, 0.10, 0.50, -45, -20, True),
+    (0.10, -0.60, 1.00, 0.11, 0.55, -68, 8, True),
+    (-0.05, 0.25, 1.20, 0.14, 0.45, -35, -5, False),
+    (0.35, 0.20, 1.10, 0.12, 0.42, -30, 30, False),
+]
+for i, (x, y, z, r, d, rx, rz, gold) in enumerate(spikes):
+    sp = add_cone((x, y, HZ + z), r, 0.01, d, seg=8)
     rot_euler(sp, rx, 0, rz)
-    finish(sp, M_hair, f'hair_{i}')
+    bevel(sp, 0.01, 2)
+    finish(sp, M_hairG if gold else M_hair, f'spike_{i}')
 
-# gold bangs — character right (-X)
-for i, (x, y, z, r, d, rx, rz) in enumerate([
-    (-0.16, -0.70, 1.00, 0.085, 0.48, -48, -8),
-    (-0.28, -0.62, 0.88, 0.075, 0.42, -40, -24),
-    (-0.08, -0.75, 1.08, 0.080, 0.50, -52, 2),
-    (-0.38, -0.50, 0.68, 0.065, 0.36, -28, -40),
-    (-0.22, -0.68, 0.78, 0.070, 0.40, -44, -14),
-]):
-    sp = add_cone((x, y, HZ + z), r, 0.006, d, seg=8)
-    rot_euler(sp, rx, 0, rz)
-    finish(sp, M_hairG, f'gold_{i}')
-
-# side locks tucked by ears (gold only on character right / -X)
-lock_r = add_uv((-0.85, -0.45, HZ - 0.35), 0.10, 14, 8)
-scale_local(lock_r, 0.75, 0.65, 1.5)
-rot_euler(lock_r, 20, 0, -12)
-finish(lock_r, M_hairG, 'lock_-1')
-lock_l = add_uv((0.85, -0.40, HZ - 0.35), 0.10, 14, 8)
-scale_local(lock_l, 0.75, 0.65, 1.5)
-rot_euler(lock_l, 20, 0, 12)
-finish(lock_l, M_hair, 'lock_1')
+# ========== COWL (neck) — draped scarf, not a donut earring ==========
+cowl = add_cube((0, 0.10, HZ - 1.15), (0.75, 0.40, 0.35))
+bevel(cowl, 0.12, 4)
+subdiv(cowl, 2)
+finish(cowl, M_cowl, 'cowl')
+for s in (-1, 1):
+    flap = add_cube((0.35 * s, 0.20, HZ - 1.35), (0.28, 0.22, 0.30))
+    bevel(flap, 0.08, 3)
+    subdiv(flap, 1)
+    finish(flap, M_cowl, f'cowl_flap_{s}')
 
 # JOIN
 clear_sel()
@@ -294,28 +305,27 @@ bpy.context.view_layer.update()
 glb = os.path.join(OUT, f'{NAME}.glb')
 bpy.ops.export_scene.gltf(filepath=glb, export_format='GLB', export_apply=True)
 
-# ---- FACE cameras ----
-eye_target = V((0.0, FACE_Y, 0.10))
+# ========== RENDER ==========
+eye_target = V((0.0, FACE_Y, 0.12))
 
-bpy.ops.object.light_add(type='SUN', location=(2, -2, 3))
+bpy.ops.object.light_add(type='SUN', location=(2.5, -2.5, 3.5))
 sun = bpy.context.active_object
-sun.data.energy = 2.2
-sun.rotation_euler = (math.radians(48), math.radians(8), math.radians(18))
-bpy.ops.object.light_add(type='AREA', location=(-1.8, -2.2, 1.0))
+sun.data.energy = 2.4
+sun.rotation_euler = (math.radians(48), math.radians(10), math.radians(20))
+bpy.ops.object.light_add(type='AREA', location=(-2.0, -2.5, 1.2))
 fill = bpy.context.active_object
-fill.data.energy = 55; fill.data.size = 2.5
-# rim from behind to separate hair
-bpy.ops.object.light_add(type='AREA', location=(1.2, 1.5, 1.8))
+fill.data.energy = 60; fill.data.size = 2.8
+bpy.ops.object.light_add(type='AREA', location=(1.5, 1.8, 1.5))
 rim = bpy.context.active_object
-rim.data.energy = 40; rim.data.size = 2.0
+rim.data.energy = 35; rim.data.size = 2.0
 
 scene = bpy.context.scene
 try:
     scene.render.engine = 'BLENDER_EEVEE'
-    scene.eevee.taa_render_samples = 48
+    scene.eevee.taa_render_samples = 56
     scene.eevee.use_bloom = True
-    scene.eevee.bloom_threshold = 1.35
-    scene.eevee.bloom_intensity = 0.18
+    scene.eevee.bloom_threshold = 1.2
+    scene.eevee.bloom_intensity = 0.22
 except Exception:
     scene.render.engine = 'BLENDER_WORKBENCH'
 scene.render.resolution_x = 768
@@ -324,8 +334,9 @@ scene.render.image_settings.file_format = 'PNG'
 world = bpy.data.worlds.new('W'); scene.world = world
 world.use_nodes = True
 bg = world.node_tree.nodes.get('Background')
-bg.inputs['Color'].default_value = (0.12, 0.12, 0.14, 1)
-bg.inputs['Strength'].default_value = 0.35
+# match ref light gray studio a bit
+bg.inputs['Color'].default_value = (0.55, 0.55, 0.56, 1)
+bg.inputs['Strength'].default_value = 0.55
 
 bpy.ops.object.camera_add()
 cam = bpy.context.active_object
@@ -339,37 +350,48 @@ def aim(loc):
     direction = eye_target - cam.location
     cam.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()
 
-# front portrait — full head
 cam.data.lens = 55
-aim(V((0.0, -4.2, 0.15)))
+aim(V((0.0, -4.4, 0.05)))
 path = os.path.join(frames, f'{ITER}_face_front.png')
 scene.render.filepath = path
 bpy.ops.render.render(write_still=True)
 rendered.append(path); print('RENDERED', path)
 
-# ¾
 cam.data.lens = 55
-aim(V((2.0, -3.8, 0.25)))
+aim(V((2.1, -3.9, 0.15)))
 path = os.path.join(frames, f'{ITER}_face_threeq.png')
 scene.render.filepath = path
 bpy.ops.render.render(write_still=True)
 rendered.append(path); print('RENDERED', path)
 
-# face close — still outside mesh, shows eyes+tattoos+lips
 cam.data.lens = 70
-aim(V((0.0, -2.9, 0.12)))
+aim(V((0.0, -2.8, 0.10)))
 path = os.path.join(frames, f'{ITER}_face_close.png')
 scene.render.filepath = path
 bpy.ops.render.render(write_still=True)
 rendered.append(path); print('RENDERED', path)
 
+# clay pass of front
+try:
+    scene.render.engine = 'BLENDER_WORKBENCH'
+    scene.display.shading.light = 'STUDIO'
+    scene.display.shading.color_type = 'SINGLE'
+    scene.display.shading.single_color = (0.72, 0.72, 0.74)
+    aim(V((0.0, -4.4, 0.05)))
+    path = os.path.join(frames, f'{ITER}_face_clay.png')
+    scene.render.filepath = path
+    bpy.ops.render.render(write_still=True)
+    rendered.append(path); print('RENDERED', path)
+except Exception as e:
+    print('CLAY_FAIL', e)
+
 report = {
     'name': NAME, 'iter': ITER, 'glb': glb,
     'bytes': os.path.getsize(glb),
     'rendered': rendered,
-    'focus': 'face_only',
-    'changes': 'face pad, flush vines, longer forward ears, denser vine joins',
-    'target': 'figurine: dark purple skin, lime almond eyes, teal vine tattoos, dark lips, pointed ears, gold bangs on character right',
+    'focus': 'face_only_dense_vs_user_ref',
+    'changes': 'smoother darker head, clean circular eyes, draped cowl, fixed ears',
+    'card': 'exports/blender-rig-test/refs/violet_face_CARD.md',
 }
 print('FACE_BUILT', json.dumps(report, indent=2))
 with open(os.path.join(OUT, f'{NAME}_report.json'), 'w') as f:

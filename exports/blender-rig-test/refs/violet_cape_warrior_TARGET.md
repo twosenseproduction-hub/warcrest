@@ -4,10 +4,10 @@ Pose: T/A display; we build T-pose for rig, match silhouette/volumes from front.
 Style: high-end chibi action figure — sharp edges, no blobs, matte plastic skin, metallic gold.
 
 MUST MATCH:
-- Dark purple skin; lime pupil-less eyes; stern face; dark lips
-- Teal/green glowing vine tattoos on face + chest
-- Long pointed horizontal ears
-- Voluminous spiky purple hair + gold/blonde streaks (character RIGHT / image LEFT)
+- Dark purple skin; large **circular** neon lime pupil-less eyes (deep sockets); stern brows; dark lips
+- Teal face marks: two thin curved cheek lines per side + small vertical forehead mark (not bead clouds)
+- Long pointed horizontal ears (slight back angle)
+- Voluminous chunky spiky purple hair + gold front/top spikes (character RIGHT / image LEFT)
 - Purple neck cowl into cape
 - Forest green armor + raised gold filigree scrollwork + red gems on pauldron peaks
 - Multi-layer pauldrons; matching bracers; greaves with ruby knee gems
