@@ -1,14 +1,14 @@
 {
   "name": "violet_face",
-  "iter": "45",
+  "iter": "46",
   "glb": "exports/blender-rig-test/violet_face.glb",
-  "bytes": 749428,
+  "bytes": 878712,
   "rendered": [
-    "exports/blender-rig-test/progress/violet_face/45_face_front.png",
-    "exports/blender-rig-test/progress/violet_face/45_face_threeq.png",
-    "exports/blender-rig-test/progress/violet_face/45_face_close.png"
+    "exports/blender-rig-test/progress/violet_face/46_face_front.png",
+    "exports/blender-rig-test/progress/violet_face/46_face_threeq.png",
+    "exports/blender-rig-test/progress/violet_face/46_face_close.png"
   ],
   "focus": "face_only",
-  "changes": "flush almond eyes, curved vine paths, horizontal \u00b1X ears, gold lock fixed",
+  "changes": "face pad, flush vines, longer forward ears, denser vine joins",
   "target": "figurine: dark purple skin, lime almond eyes, teal vine tattoos, dark lips, pointed ears, gold bangs on character right"
 }

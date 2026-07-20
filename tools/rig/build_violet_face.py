@@ -17,7 +17,7 @@ def argval(flag, default=None):
 
 OUT = argval('--out', 'exports/blender-rig-test')
 NAME = argval('--name', 'violet_face')
-ITER = argval('--iter', '44')
+ITER = argval('--iter', '46')
 os.makedirs(OUT, exist_ok=True)
 
 bpy.ops.object.select_all(action='SELECT'); bpy.ops.object.delete()
@@ -114,22 +114,28 @@ HZ = 0.0
 # Front skin surface ≈ y = -R after slight squash. Features ON/OUTSIDE.
 FACE_Y = -1.00
 
-# ---- cranium (darker chibi skull, slightly flatter face) ----
-cr = add_uv((0, 0.05, HZ), R, 48, 28)
-scale_local(cr, 1.00, 0.92, 1.05)
+# ---- cranium (flatter face plane toward camera) ----
+cr = add_uv((0, 0.08, HZ), R, 48, 28)
+scale_local(cr, 1.00, 0.88, 1.06)
 subdiv(cr, 1)
 finish(cr, M_skin, 'cranium')
 
-# jaw / chin — softer, less ball
-jaw = add_uv((0, -0.15, HZ - 0.52), 0.62, 36, 20)
-scale_local(jaw, 1.05, 0.78, 0.72)
+# face pad — shallow plate so features sit on a flatter figurine face
+face_pad = add_uv((0, FACE_Y + 0.12, HZ + 0.02), 0.72, 36, 20)
+scale_local(face_pad, 1.05, 0.22, 1.15)
+subdiv(face_pad, 1)
+finish(face_pad, M_skin, 'face_pad')
+
+# jaw / chin
+jaw = add_uv((0, -0.10, HZ - 0.55), 0.58, 36, 20)
+scale_local(jaw, 1.02, 0.72, 0.68)
 subdiv(jaw, 1)
 finish(jaw, M_skin, 'jaw')
 
 # cheeks
 for s in (-1, 1):
-    ch = add_uv((0.48 * s, -0.55, HZ - 0.12), 0.26, 24, 14)
-    scale_local(ch, 0.85, 0.55, 0.95)
+    ch = add_uv((0.50 * s, -0.50, HZ - 0.10), 0.24, 24, 14)
+    scale_local(ch, 0.80, 0.45, 0.90)
     finish(ch, M_skin, f'cheek_{s}')
 
 # brow ridge + brows (stern, angled down toward nose)
@@ -196,14 +202,15 @@ def vine_path(points, thick=0.022, name_prefix='vine'):
         length = max(math.hypot(dx, dz), 0.04)
         # ribbon long axis = local X; align in XZ via Y-rotation (roll arg → ry)
         ry = math.degrees(math.atan2(-dz, dx))
-        ribbon(mx, TY, HZ + mz, length * 0.58, thick * 0.65, thick,
+        # sx ≈ half-length; use 0.52*L so segments nearly touch/overlap
+        ribbon(mx, TY, HZ + mz, length * 0.52, thick * 0.55, thick * 0.85,
                yaw=0, pitch=0, roll=ry, name=f'{name_prefix}_{i}')
     for i, p in enumerate(points):
         if i % 2:
             d = add_uv((p[0], TY - 0.01, HZ + p[1]), thick * 0.85, 8, 6)
             finish(d, M_tat, f'{name_prefix}_bud_{i}')
 
-TY = FACE_Y - 0.025
+TY = FACE_Y - 0.012  # flush — avoid floating-shadow kitbash look
 
 # forehead vine — central stem + left/right branches
 vine_path([(0.00, 0.40), (0.00, 0.50), (0.00, 0.60), (0.00, 0.68)], thick=0.024, name_prefix='tat_fore_stem')
@@ -226,15 +233,15 @@ for s in (-1, 1):
 
 # ---- EARS — long pointed, tip along ±X (horizontal elf ears) ----
 for s in (-1, 1):
-    # default cone tip = +Z; squash then rotate Y so tip aims ±X (toward camera a bit)
-    ear = add_cone((0.95 * s, -0.20, HZ + 0.06), 0.17, 0.0, 1.45, seg=10)
-    scale_local(ear, 0.85, 0.50, 1.0)
-    rot_euler(ear, -12, -90 * s, 8 * s)
-    bevel(ear, 0.016, 2)
+    # tip along ±X, angled slightly forward (−Y) and up
+    ear = add_cone((1.05 * s, -0.35, HZ + 0.08), 0.16, 0.0, 1.55, seg=10)
+    scale_local(ear, 0.70, 0.38, 1.0)
+    rot_euler(ear, -18, -90 * s, 5 * s)
+    bevel(ear, 0.014, 2)
     finish(ear, M_skin, f'ear_{s}')
-    inn = add_cone((1.05 * s, -0.28, HZ + 0.06), 0.08, 0.0, 1.05, seg=8)
-    scale_local(inn, 0.85, 0.45, 1.0)
-    rot_euler(inn, -12, -90 * s, 8 * s)
+    inn = add_cone((1.15 * s, -0.42, HZ + 0.08), 0.07, 0.0, 1.15, seg=8)
+    scale_local(inn, 0.70, 0.35, 1.0)
+    rot_euler(inn, -18, -90 * s, 5 * s)
     finish(inn, M_skinD, f'ear_in_{s}')
 
 # ---- HAIR — purple spikes + gold on character RIGHT (-X), lean to camera ----
@@ -361,7 +368,7 @@ report = {
     'bytes': os.path.getsize(glb),
     'rendered': rendered,
     'focus': 'face_only',
-    'changes': 'flush almond eyes, curved vine paths, horizontal ±X ears, gold lock fixed',
+    'changes': 'face pad, flush vines, longer forward ears, denser vine joins',
     'target': 'figurine: dark purple skin, lime almond eyes, teal vine tattoos, dark lips, pointed ears, gold bangs on character right',
 }
 print('FACE_BUILT', json.dumps(report, indent=2))
