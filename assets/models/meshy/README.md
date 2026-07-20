@@ -51,24 +51,21 @@ See `STYLE.md` for the full recipe.
 Untextured Meshy clay elf archer with welded bow/quiver:
 [Drive GLB](https://drive.google.com/file/d/15AomYJC-tnxaEtC7aiOvxsM5-0wtEwJd/view?usp=drivesdk)
 
-Meshy Auto-Rig pose estimation failed on this silhouette, so we bind to the
-purple-elf Mixamo-like armature (automatic weights, A-pose rest) and retarget
-the same Human Archer FREE Female clips.
+Meshy Auto-Rig pose estimation failed on this welded-bow silhouette.
+DIY pipeline skins the clay mesh to the **HumanF pack skeleton** (B-* bones)
+and world-bakes the Female idle/bow/walk/run clips natively.
 
 | File | Notes |
 |------|-------|
 | `bow_elf_meshy_raw.glb` | Source clay mesh from Drive |
 | `drive_character_raw.glb` | Same source (alias) |
-| `bow_elf_meshy_rigged.glb` | Skinned to Mixamo-like rig |
+| `bow_elf_meshy_rigged.glb` | Skinned to HumanF armature |
 | `bow_elf_meshy_pack_anim.glb` | Pack clips (idle / bow / walk / run) |
 
 ```bash
-blender -b -noaudio --python tools/.meshy-work/bind_bow_elf_to_meshy_rig.py
-blender -b -noaudio --python tools/.meshy-work/retarget_humanf_to_meshy.py -- \
-  --mesh assets/models/meshy/bow_elf_meshy_rigged.glb \
-  --anims-dir tools/.meshy-work/drive_anims_extracted/Animations/Female \
-  --out assets/models/meshy/bow_elf_meshy_pack_anim.glb
+blender -b -noaudio --python tools/.meshy-work/rig_animate_bow_elf_humanf.py
 ```
+
 
 ## Archer animations
 
