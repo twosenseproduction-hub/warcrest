@@ -1,0 +1,21 @@
+{
+  "glb": "/workspace/exports/blender-rig-test/antler_elf.glb",
+  "bbox": {
+    "min": [
+      -1.287092924118042,
+      -0.41874903440475464,
+      0.0
+    ],
+    "max": [
+      1.287092924118042,
+      0.43800002336502075,
+      2.345277786254883
+    ],
+    "size": 3.586192950954725
+  },
+  "rendered": [
+    "/workspace/exports/blender-rig-test/frames/antler_elf_view_000.png",
+    "/workspace/exports/blender-rig-test/frames/antler_elf_view_035.png",
+    "/workspace/exports/blender-rig-test/frames/antler_elf_view_090.png"
+  ]
+}

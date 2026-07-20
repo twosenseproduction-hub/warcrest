@@ -111,6 +111,20 @@ blender -b -noaudio --python tools/rig/test_scratch_rig_anim.py -- \
   --name scratch_walker --out exports/blender-rig-test
 ```
 
+## Antlered chibi elf (static T-pose)
+
+Procedural Rimwalker hero matching the purple-skin / leaf-armor / white-braid
+reference. Face toward `-Y`, arms in T-pose, ready to rig later:
+
+```bash
+blender -b -noaudio --python tools/rig/build_antler_elf.py -- \
+  --name antler_elf --out exports/blender-rig-test
+
+blender -b -noaudio --python tools/rig/render_model_views.py -- \
+  --glb exports/blender-rig-test/antler_elf.glb \
+  --angles 0,35,90 --out exports/blender-rig-test/frames
+```
+
 ## Notes
 - The exported GLB carries geometry + standard materials + the donor's clips. The game
   re-applies its toon/outline look on load, exactly like every other unit.
