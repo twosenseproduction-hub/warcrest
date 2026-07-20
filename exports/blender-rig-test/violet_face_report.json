@@ -1,0 +1,14 @@
+{
+  "name": "violet_face",
+  "iter": "45",
+  "glb": "exports/blender-rig-test/violet_face.glb",
+  "bytes": 749428,
+  "rendered": [
+    "exports/blender-rig-test/progress/violet_face/45_face_front.png",
+    "exports/blender-rig-test/progress/violet_face/45_face_threeq.png",
+    "exports/blender-rig-test/progress/violet_face/45_face_close.png"
+  ],
+  "focus": "face_only",
+  "changes": "flush almond eyes, curved vine paths, horizontal \u00b1X ears, gold lock fixed",
+  "target": "figurine: dark purple skin, lime almond eyes, teal vine tattoos, dark lips, pointed ears, gold bangs on character right"
+}
