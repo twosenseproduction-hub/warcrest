@@ -7,9 +7,11 @@ Part of blender-reference-character skill. Angle 0 = front (camera on -Y).
     --glb exports/blender-rig-test/antler_elf.glb \
     --out exports/blender-rig-test/frames \
     --angles 0,35,90 \
-    --mode studio|raking|clay
+    --mode studio|raking|clay \
+    --prefix 12_refine_hair
 
 Modes: studio (beauty), raking (form light), clay (flat grey + raking).
+--prefix: optional step label prepended to filenames for progress folders.
 """
 import bpy, mathutils, math, sys, os, json
 V = mathutils.Vector
@@ -26,6 +28,7 @@ ANGLES = [float(x) for x in argval('--angles', '0,45,90,180').split(',')]
 RES = int(argval('--res', '768'))
 # studio = beauty lights; raking = low-angle form light; clay = flat grey + raking
 MODE = (argval('--mode', 'studio') or 'studio').lower()
+PREFIX = argval('--prefix', '') or ''
 os.makedirs(OUT, exist_ok=True)
 
 bpy.ops.object.select_all(action='SELECT')
@@ -135,7 +138,8 @@ for ang in ANGLES:
     direction = center - cam.location
     cam.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()
     suffix = '' if MODE == 'studio' else f'_{MODE}'
-    path = os.path.join(OUT, f'{base}_view_{int(ang):03d}{suffix}.png')
+    pre = f'{PREFIX}_' if PREFIX else ''
+    path = os.path.join(OUT, f'{pre}{base}_view_{int(ang):03d}{suffix}.png')
     scene.render.filepath = path
     bpy.ops.render.render(write_still=True)
     rendered.append(path)
@@ -144,6 +148,7 @@ for ang in ANGLES:
 info = {
     'glb': GLB,
     'mode': MODE,
+    'prefix': PREFIX,
     'bbox': {'min': list(mn), 'max': list(mx), 'size': size},
     'rendered': rendered,
 }

@@ -72,8 +72,8 @@ Lock once for the whole kit:
 For each part:
 
 1. Build **only that part** (or L/R pair) in isolation or muted ghost body  
-2. Render a tight crop / turntable of the part  
-3. Critique vs the reference crop for **that** landmark  
+2. Render a tight crop / turntable of the part (**show PNG** — see `show-progress.md`)  
+3. Critique vs the reference crop for **that** landmark (Read the PNG in-chat)  
 4. One-knob refine until it matches  
 5. Mark `status: approved` on the card  
 

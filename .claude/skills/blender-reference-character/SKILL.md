@@ -39,6 +39,7 @@ param. This skill enforces that.
 references/
   reference-card.md      # MUST fill before writing geometry
   lidar-light-scan.md    # REQUIRED: treat ref as LiDAR — light reveals form
+  show-progress.md       # REQUIRED: PNG after almost every step (user must see)
   parts-first.md         # PREFERRED: inventory parts → craft each → assemble
   anti-blob.md           # REQUIRED: silhouette match, ban sphere/cylinder finals
   blender-cookbook.md    # safe primitives, axis conventions, materials
@@ -47,7 +48,7 @@ scripts/
   lib/primitives.py      # shared bpy helpers (importable from Blender)
   light_scan_reference.py # luminance / edges / relief sheets from a ref image
   build_from_card.py     # parametric builder driven by a JSON card
-  render_views.py        # headless turntable stills (studio|raking|clay)
+  render_views.py        # headless turntable stills (studio|raking|clay) + --prefix
   new_card.py            # scaffold an empty card JSON from a name
 examples/
   antler_elf_card.json   # worked example (purple leaf-armor Rimwalker)
@@ -111,23 +112,36 @@ ideally one builder function / section per `parts[].id`.
 
 Conventions (see cookbook): **Z-up, face −Y, feet z≈0, T-pose along ±X**.
 
-### 3. Render turntable
+### 3. Render turntable + show progress (REQUIRED every step)
+Read `references/show-progress.md`. After **almost every** build/refine, write a
+step-prefixed PNG and **Read it in the same turn** so the user sees development.
+
 ```bash
+# Named progress still (keep history — do not overwrite earlier steps)
 blender -b -noaudio --python .claude/skills/blender-reference-character/scripts/render_views.py -- \
   --glb exports/blender-rig-test/<name>.glb \
-  --angles 0,35,90 --out exports/blender-rig-test/frames
+  --angles 0,35 \
+  --prefix 01_blockout \
+  --out exports/blender-rig-test/progress/<name>
 
 # Form check (compare to light-scan luminance/edges — not beauty lights alone)
 blender -b -noaudio --python .claude/skills/blender-reference-character/scripts/render_views.py -- \
   --glb exports/blender-rig-test/<name>.glb \
   --angles 0,35 --mode clay \
-  --out exports/blender-rig-test/frames-clay
+  --prefix 01_blockout \
+  --out exports/blender-rig-test/progress/<name>
+
+# Also keep a latest turntable under frames/ if useful
+blender -b -noaudio --python .claude/skills/blender-reference-character/scripts/render_views.py -- \
+  --glb exports/blender-rig-test/<name>.glb \
+  --angles 0,35,90 --out exports/blender-rig-test/frames
 ```
 Angle `0` = front (camera on −Y). Always produce **front + ¾** at minimum.
+Copy step PNGs to `/opt/cursor/artifacts/<name>-progress/` for the walkthrough.
 For parts-first: also render tight crops while approving individual parts.
 
 ### 4. Critique against the reference
-Load the PNGs with the Read tool. Score with `references/critique-checklist.md`:
+Load the PNGs with the Read tool **in the working turn**. Score with `references/critique-checklist.md`:
 silhouette · proportions · palette · landmarks · armor read · face read · hair/antler ·
 **form_language** · **relief_match** (clay/raking vs light-scan sheets).
 
@@ -135,7 +149,8 @@ Produce a **prioritized diff** — worst miss first. Each miss → **one named p
 Prefer fixing the **owning part** (e.g. pauldron radius) over global hacks.
 
 ### 5. Refine (one knob per rebuild)
-Edit only that param on the card or builder. Rebuild. Re-render front+¾. Re-score.
+Edit only that param on the card or builder. Rebuild. Re-render front+¾ with a
+**new** `--prefix` (e.g. `12_refine_hair`). Read the PNG. Re-score.
 Stop when front silhouette landmarks match and palette regions are correct.
 
 ### 6. Export + (optional) rig
@@ -172,6 +187,7 @@ When the user wants “Meshy/Tripo-style from a photo,” start with
 - Jumping to geometry before a locked card → vague “elf-like” blob.
 - Reading only colors (albedo) and ignoring painted light/value → missing ridges & cavities (see `lidar-light-scan.md`).
 - Critiquing only under beauty studio lights → form errors stay hidden; use `--mode clay`.
+- Rebuilding without showing a step PNG → user cannot see development (`show-progress.md`).
 - Building the whole hero as one undifferentiated mesh → muddy pauldrons/cape/boots.
 - **Shipping UV-sphere heads / cube capes / tube limbs as finals** → toy-blob look (see `anti-blob.md`).
 - Fragile bmesh matrix stacks for capsules/leaves → exploded fan geometry.
