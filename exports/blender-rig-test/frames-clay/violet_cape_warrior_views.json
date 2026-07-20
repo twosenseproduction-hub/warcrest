@@ -1,0 +1,21 @@
+{
+  "glb": "exports/blender-rig-test/violet_cape_warrior.glb",
+  "mode": "clay",
+  "bbox": {
+    "min": [
+      -1.2859998941421509,
+      -0.4357830882072449,
+      0.0
+    ],
+    "max": [
+      1.2859998941421509,
+      0.49400001764297485,
+      2.421999931335449
+    ],
+    "size": 3.653185342530172
+  },
+  "rendered": [
+    "exports/blender-rig-test/frames-clay/violet_cape_warrior_view_000_clay.png",
+    "exports/blender-rig-test/frames-clay/violet_cape_warrior_view_035_clay.png"
+  ]
+}

@@ -102,8 +102,8 @@ try:
     scene.eevee.taa_render_samples = 32
     scene.eevee.use_bloom = (MODE == 'studio')
     if MODE == 'studio':
-        scene.eevee.bloom_threshold = 0.85
-        scene.eevee.bloom_intensity = 0.35
+        scene.eevee.bloom_threshold = 1.2
+        scene.eevee.bloom_intensity = 0.18
 except Exception:
     scene.render.engine = 'BLENDER_WORKBENCH'
 

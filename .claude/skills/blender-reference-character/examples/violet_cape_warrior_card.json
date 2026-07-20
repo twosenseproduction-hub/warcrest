@@ -6,23 +6,24 @@
   "up_axis": "Z",
   "construction_mode": "parts_first",
   "palette": {
-    "skin": "#8a6bb8",
-    "skin_shadow": "#5a3f82",
-    "tattoo": "#2ec4b6",
-    "hair": "#4a2d7a",
-    "hair_gold": "#e8c547",
-    "armor": "#5a6b3a",
-    "armor_dark": "#3d4a28",
-    "gold": "#d4a84b",
+    "skin": "#7a58a8",
+    "skin_shadow": "#4a326e",
+    "tattoo": "#3dff7a",
+    "hair": "#3a1f66",
+    "hair_gold": "#f0c93a",
+    "armor": "#3f9e4a",
+    "armor_dark": "#2a6b32",
+    "gold": "#e0b045",
     "gem": "#c23b3b",
-    "cloth_cape": "#3b2758",
-    "cloth_lining": "#7a5a9e",
+    "cloth_cape": "#3a2458",
+    "cloth_lining": "#2a1838",
     "cloth_skirt": "#b8a0d0",
-    "scarf": "#6b4a9a",
-    "eye": "#b8ff4a",
-    "belt": "#4a5c32",
+    "scarf": "#5a3a88",
+    "eye": "#b8ff3a",
+    "belt": "#357a3c",
     "ink": "#1a1020",
-    "steel": "#6a6e78"
+    "steel": "#6a6e78",
+    "cape_hem": "#2e7a38"
   },
   "emissive": {
     "eye": {
@@ -105,7 +106,19 @@
         "socket": "head"
       },
       "silhouette": "oversized chibi lavender head",
-      "status": "crafted_v1"
+      "status": "pending_v2",
+      "silhouette_trace": {
+        "front": "large chibi oval with jaw taper, cheek width",
+        "side": "cranium round, jaw forward shelf, depth ~0.9 width",
+        "forbidden_blobs": [
+          "uv_sphere_alone"
+        ],
+        "form_recipe": [
+          "lathe_cranium",
+          "jaw_shelf",
+          "cheek_planes"
+        ]
+      }
     },
     {
       "id": "ear_L",
@@ -151,7 +164,19 @@
         "socket": "hair"
       },
       "silhouette": "spiky royal purple clumps + gold bang streaks",
-      "status": "crafted_v1"
+      "status": "pending_v2",
+      "silhouette_trace": {
+        "front": "tall upswept spikes; gold mass on image-left/character-right",
+        "side": "volume behind crown; spikes lean back then up",
+        "forbidden_blobs": [
+          "random_cones_on_ball"
+        ],
+        "form_recipe": [
+          "designed_clumps",
+          "asymmetric_gold_streaks",
+          "side_locks"
+        ]
+      }
     },
     {
       "id": "scarf",
@@ -182,7 +207,20 @@
         "socket": "pauldron"
       },
       "silhouette": "layered olive cup, gold rim, red gem",
-      "status": "crafted_v1"
+      "status": "pending_v2",
+      "silhouette_trace": {
+        "front": "wide layered cup, gold rim ellipse, gem on peak",
+        "side": "overhangs upper arm ~30%, under-lip cavity",
+        "forbidden_blobs": [
+          "uv_sphere_alone"
+        ],
+        "form_recipe": [
+          "beveled_plate",
+          "layered_ridge",
+          "torus_rim",
+          "gem_housing"
+        ]
+      }
     },
     {
       "id": "cape",
@@ -197,7 +235,20 @@
         "socket": "cape"
       },
       "silhouette": "floor-length dark purple cape, flared hem, light lining",
-      "status": "crafted_v1"
+      "status": "pending_v2",
+      "silhouette_trace": {
+        "front": "floor flare wider than shoulders; green hem band",
+        "side": "thick yoke to mid folds to hem; dark lining",
+        "forbidden_blobs": [
+          "flat_cube_slab"
+        ],
+        "form_recipe": [
+          "multi_panel_yoke_mid_hem",
+          "lining",
+          "green_hem",
+          "fold_angles"
+        ]
+      }
     },
     {
       "id": "boot_L",
@@ -214,7 +265,20 @@
         "socket": "boot"
       },
       "silhouette": "heavy greave + knee gem + gold toe",
-      "status": "crafted_v1"
+      "status": "pending_v2",
+      "silhouette_trace": {
+        "front": "chunky shin plate, diamond knee gem, gold toe",
+        "side": "boot last depth, knee cup forward",
+        "forbidden_blobs": [
+          "constant_radius_cylinder"
+        ],
+        "form_recipe": [
+          "beveled_shin_plate",
+          "knee_cup",
+          "toe_cap",
+          "gold_scroll"
+        ]
+      }
     },
     {
       "id": "torso",
@@ -368,5 +432,48 @@
       "status": "crafted_v1"
     }
   ],
-  "notes": "Night-elf chibi warrior: purple hair+gold streaks, olive/gold armor, floor cape, hip sword. Parts-first build. | Built parts-first in tools/rig/build_violet_cape_warrior.py; hair/cape refined."
+  "notes": "Night-elf chibi warrior from attached T-pose ref: deep purple skin, vibrant green/gold armor, floor purple cape with green hem, gold hair on character right, green glow tattoos, hip scabbard. Rebuild v2: light_scan + anti-blob (beveled plates, multi-panel cape, lathed head).",
+  "light_scan": {
+    "key_light": "soft upper-front-left studio; gentle chin/pauldron underside AO",
+    "value_planes": [
+      "forehead and cheek planes brighter than jaw",
+      "pauldron top ridge bright, under-lip cavity dark",
+      "cape outer folds lit, lining/underside dark",
+      "greave front plates catch light; gold trim specular ridges",
+      "hair leading edges highlighted; gold streaks on character right"
+    ],
+    "ridges": [
+      "gold pauldron rim and filigree",
+      "bracer gold bands + medallion",
+      "belt gold trim",
+      "greave gold scroll bars and knee rim",
+      "cape green hem edge",
+      "hair spike leading edges"
+    ],
+    "cavities": [
+      "under-pauldron overhang",
+      "shoulder/elbow articulation cutouts",
+      "cape\u2013back gap",
+      "eye sockets",
+      "scarf folds into neck"
+    ],
+    "part_breaks": [
+      "hair clumps vs scalp",
+      "pauldron layers vs upper arm",
+      "skirt strips vs thighs",
+      "cape yoke/mid/hem panels",
+      "greave plate vs knee cup vs toe"
+    ],
+    "form_notes_by_part": {
+      "head": "jaw shelf + cheek planes; not bare sphere",
+      "hair": "8 purple upswept clumps; gold streaks on character right (-X)",
+      "pauldron_L": "layered beveled cup, gold rim, red gem on peak, under-lip",
+      "cape": "yoke + mid fold panels + lower flare + green hem + dark lining",
+      "boot_L": "shin plate + knee cup + toe cap + gold scroll; no tube greave",
+      "bracer_L": "beveled shell, dual gold bands, central medallion/gem"
+    }
+  },
+  "reference_images": [
+    "user_attached_tpose_figurine"
+  ]
 }
