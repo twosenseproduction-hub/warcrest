@@ -39,6 +39,7 @@ param. This skill enforces that.
 references/
   reference-card.md      # MUST fill before writing geometry
   parts-first.md         # PREFERRED: inventory parts → craft each → assemble
+  anti-blob.md           # REQUIRED: silhouette match, ban sphere/cylinder finals
   blender-cookbook.md    # safe primitives, axis conventions, materials
   critique-checklist.md  # scoring rubric + one-knob refine rule
 scripts/
@@ -76,6 +77,13 @@ Read `references/parts-first.md`. Scan the reference for discrete pieces
 (limbs, pauldrons, cape, boots, hair, antlers, gems, weapon…). Craft **each
 part to quality**, then assemble on shared sockets. Do not smear accessories
 into the torso blob. Per-part critique before full-body critique.
+
+### 1c. Anti-blob / silhouette match (REQUIRED)
+Read `references/anti-blob.md`. Do **not** ship UV-sphere heads, flat-cube
+capes, or constant-radius limb tubes as final forms. For each priority-1 part:
+crop the reference, write a silhouette_trace + form_recipe, measure ratios,
+build with profiles/beveled plates/edge loops, and gate on `form_language`.
+Spheres/cylinders are scaffolds only.
 
 ### 2. Blockout from the card
 ```bash
@@ -140,8 +148,10 @@ When the user wants “Meshy/Tripo-style from a photo,” start with
 
 - Jumping to geometry before a locked card → vague “elf-like” blob.
 - Building the whole hero as one undifferentiated mesh → muddy pauldrons/cape/boots.
+- **Shipping UV-sphere heads / cube capes / tube limbs as finals** → toy-blob look (see `anti-blob.md`).
 - Fragile bmesh matrix stacks for capsules/leaves → exploded fan geometry.
 - Rotating default tori 90° on X for belts/circlets → face-on vertical halos.
 - Camera on −Y while face is +Y → “front” renders show the back.
 - Changing five params between renders → cannot tell what helped.
 - Assembling before high-priority parts are approved → wasted full-body polish.
+- Adding subdivision to a sphere and calling it done → smoother blob, not a copy.

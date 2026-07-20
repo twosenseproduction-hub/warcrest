@@ -15,6 +15,7 @@ per rebuild**.
 | **Armor read** | Leaf/plates/trim readable at glance | Flat blob torso | No armor language |
 | **Face read** | Eyes/ears/mouth place correctly | Eyes only | Featureless sphere |
 | **Hair / antler** | Volume + branches match reference family | Bun OR antlers weak | Missing / wrong |
+| **Form language** | Part outlines match ref crops; no single-primitive silhouettes | Some plates, still ball/tube heavy | Toy blob (sphere head, cube cape, tube limbs) |
 | **Pose / axis** | T-pose, face −Y, feet z≈0 | Small lean/offset | Back-facing / floating |
 
 ## Diff format (required in agent notes)
@@ -62,3 +63,7 @@ axis — e.g. need side-view reference, or sculpt pass beyond procedural primiti
 | Too tall / tiny head | `head_height_frac`, `HEAD_R`, `HEAD_Z` |
 | Back shown as front | face −Y; camera angle 0 on −Y |
 | Exploded fans | delete bmesh capsule hacks; use ops primitives |
+| **Sphere head / toy look** | lathed jaw profile + cheek planes; ban UV-sphere-as-final (`anti-blob.md`) |
+| **Cube cape** | multi-panel flare + thickness + lining; not one slab |
+| **Melon pauldrons** | beveled plate + rim + inset gem housing |
+| **Tube greaves** | separate shin plate / knee cup / toe cap |
