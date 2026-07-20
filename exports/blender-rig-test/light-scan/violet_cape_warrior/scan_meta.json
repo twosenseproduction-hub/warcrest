@@ -1,0 +1,24 @@
+{
+  "source": "/workspace/exports/blender-rig-test/refs/violet_cape_warrior_REF.png",
+  "size": [
+    1264,
+    843
+  ],
+  "shadow_percentile": 28.0,
+  "highlight_percentile": 78.0,
+  "blur": 10,
+  "opaque_luma_mean": 0.6745091676712036,
+  "opaque_luma_p10": 0.21856001019477844,
+  "opaque_luma_p90": 0.8215537667274475,
+  "files": [
+    "00_original.png",
+    "01_luminance.png",
+    "02_edges.png",
+    "03_relief.png",
+    "04_shadow_mask.png",
+    "05_highlight_mask.png",
+    "05b_value_falsecolor.png",
+    "06_scan_sheet.png"
+  ],
+  "howto": "Read 06_scan_sheet.png first, then fill card.light_scan (ridges from highlights, cavities from shadows, part_breaks from edges)."
+}
