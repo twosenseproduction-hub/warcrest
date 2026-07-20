@@ -1,32 +1,37 @@
 # Meshy AI models
 
-## Purple Elf (from reference image)
+## Purple Elf — matching the reference
 
-Cleanest path: **Image-to-3D** with Meshy Smart Topology (`meshy-t2`, 10k faces, T-pose).
+### What drifts (and how to fix it)
 
-| File | Description |
-|------|-------------|
-| `purple_elf_ref.jpg` | Source T-pose reference (Drive) |
-| `purple_elf_meshy.glb` | Matte textured GLB (metalness stripped) |
-| `purple_elf_meshy_pbr.glb` | Original shiny PBR export (backup) |
-| `purple_elf_meshy_thumb.png` | Front thumbnail |
-| `purple_elf_meshy_view_*.png` | Front / left / right / back views |
+| Gap | Cause | Fix |
+|-----|-------|-----|
+| Chrome / plastic shine | PBR metalness + normals + studio preview lights | `enable_pbr: false`, strip normals, roughness=1 (`matte_glb.py` / post) |
+| Paint / filigree mismatch | Meshy invents texture when enhanced | `image_enhancement: false` + `texture_image_url` = reference |
+| Soft / rounded forms | Smart Topology / high-poly remesh | Remesh ~8–12k tris, or `model_type: lowpoly` |
+| Silhouette / side drift | Single front image only | Add side + back refs (Multi-Image to 3D) |
+| Exact game look | Image-to-3D always approximates | Rebuild in lowpoly-character-forge, or retopo in Blender |
 
-**Task:** `019f8066-81e9-7ac7-9a19-bb11d48c5b5e`  
-**Regen:** `MESHY_API_KEY=… python3 tools/.meshy-work/generate_purple_elf_from_image.py`  
-**Matte (no Meshy credits):** `python3 tools/.meshy-work/matte_glb.py assets/models/meshy/purple_elf_meshy.glb`
+### Current ship (`purple_elf_meshy.glb`)
 
-### Less shiny
-Meshy PBR sets `metallicFactor=1` + a metalness map → chrome armor. Fixes:
-1. **Local (this repo):** `matte_glb.py` — zero metalness, high roughness (applied to `purple_elf_meshy.glb`).
-2. **On generate:** `enable_pbr: false` (base color only).
-3. **Meshy retexture:** matte/hand-painted `texture_prompt` with `enable_pbr: false` if baked highlights remain.
-
-## Elven Archer (text-to-3D)
+**Fidelity regen** (Meshy-6): no image enhancement, texture from reference, no PBR, remesh 12k, then normals stripped for a painted read.
 
 | File | Description |
 |------|-------------|
-| `elven_archer_meshy.glb` | Earlier text-prompt lowpoly archer |
-| `elven_archer_meshy_thumb.png` | Thumbnail |
+| `purple_elf_ref.jpg` | Source T-pose reference |
+| `purple_elf_meshy.glb` | Best current match (matte / flat) |
+| `purple_elf_meshy_fidelity_raw.glb` | Pre-normal-strip fidelity export |
+| `purple_elf_meshy_v1_smarttopo.glb` | First smart-topology attempt |
+| `purple_elf_meshy_pbr.glb` | Early shiny PBR backup |
+| `purple_elf_meshy_view_*.png` | Meshy preview views |
 
-Not wired into `registerUnitModel` yet.
+**Regen (closest Meshy settings):**
+```bash
+MESHY_API_KEY=… python3 tools/.meshy-work/generate_purple_elf_fidelity.py
+```
+
+**Next step for even closer:** supply side + back images → Multi-Image to 3D, or rebuild procedurally.
+
+## Elven Archer (text-to-3D experiment)
+
+`elven_archer_meshy.glb` — earlier prompt-only attempt; less faithful than image-to-3D.
