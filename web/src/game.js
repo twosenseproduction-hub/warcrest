@@ -1883,6 +1883,7 @@ function updateWarband(){
   if(hpr&&hero&&hero.max){ const f=Math.max(0,Math.min(1,hero.hp/hero.max)); hpr.style.background='conic-gradient('+(f<0.35?'#e8564a':'#6fe06a')+' '+(f*360)+'deg, rgba(0,0,0,.55) 0)'; }
 
   // ---- plot selected → the cluster becomes that plot's build/train menu ----
+  document.body.classList.toggle('building', !!hubMenu);   // build mode: clears the ability hand so the title + discs own the corner
   if(hubMenu){
     warbandEl.style.display='flex';
     if(warbandTitleEl){ warbandTitleEl.textContent=hubMenu.title||''; warbandTitleEl.style.display='block'; }
