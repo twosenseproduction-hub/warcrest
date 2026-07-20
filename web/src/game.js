@@ -1885,7 +1885,7 @@ function updateWarband(){
   // ---- plot selected → the cluster becomes that plot's build/train menu ----
   document.body.classList.toggle('building', !!hubMenu);   // build mode: clears the ability hand so the title + discs own the corner
   if(hubMenu){
-    warbandEl.style.display='flex';
+    warbandEl.style.display='flex'; warbandEl.classList.remove('empty','idle');   // build menu must show even with no live units (.empty → display:none)
     if(warbandTitleEl){ warbandTitleEl.textContent=hubMenu.title||''; warbandTitleEl.style.display='block'; }
     const sig='M|'+(hubMenu.title||'')+'|'+hubMenu.items.map(it=>it.label+':'+(it.cost||'')+(it.ok===false?'x':'')).join(',');
     if(warbandEl.__sig!==sig){ warbandEl.__sig=sig; warbandEl.innerHTML='';
