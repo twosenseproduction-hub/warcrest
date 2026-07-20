@@ -1,14 +1,15 @@
 {
   "name": "violet_face",
-  "iter": "70",
+  "iter": "72",
   "glb": "exports/blender-rig-test/violet_face.glb",
-  "bytes": 2619632,
+  "bytes": 1844752,
   "rendered": [
-    "exports/blender-rig-test/progress/violet_face/70_face_front.png",
-    "exports/blender-rig-test/progress/violet_face/70_face_threeq.png",
-    "exports/blender-rig-test/progress/violet_face/70_face_close.png",
-    "exports/blender-rig-test/progress/violet_face/70_face_clay.png"
+    "exports/blender-rig-test/progress/violet_face/72_face_front.png",
+    "exports/blender-rig-test/progress/violet_face/72_face_threeq.png",
+    "exports/blender-rig-test/progress/violet_face/72_face_close.png",
+    "exports/blender-rig-test/progress/violet_face/72_face_clay.png",
+    "exports/blender-rig-test/progress/violet_face/72_face_vs_ref.png"
   ],
-  "pipeline": "owned_dense_boolean_remesh_no_external_ai",
-  "card": "exports/blender-rig-test/refs/violet_face_CARD.md"
+  "pipeline": "owned_bust_vs_drive_ref",
+  "ref": "exports/blender-rig-test/refs/violet_face_REF_crop.png"
 }

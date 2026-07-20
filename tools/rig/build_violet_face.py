@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
-"""Owned dense FACE match — no external AI APIs.
+"""Owned dense FACE BUST match vs Drive REF crop — no external AI.
 
-Matches violet_face_CARD.md (figurine T-pose head):
-  squared chibi head, circular neon eyes deep in sockets, stern brows,
-  two continuous teal cheek curves + tiny forehead mark, chunky purple+gold
-  hair swept to character right, long horizontal ears, purple cowl.
-
-Pipeline: skin cages → boolean UNION + voxel remesh → attachments → clay/studio PNGs.
+Targets violet_face_REF_crop.png (head + shoulders):
+  deep purple skin, circular lime eyes + dark liner, twin wavy forehead tattoos,
+  tribal cheek marks, chunky purple+gold hair swept to character right (−X),
+  long horizontal ears, purple cowl, green/gold pauldrons + red gems.
 
   blender -b -noaudio --python tools/rig/build_violet_face.py -- \
-    --out exports/blender-rig-test --name violet_face --iter 60
+    --out exports/blender-rig-test --name violet_face --iter 71
 """
 import bpy, math, mathutils, sys, os, json
+from pathlib import Path
 V = mathutils.Vector
 
 def argval(flag, default=None):
@@ -21,7 +20,7 @@ def argval(flag, default=None):
 
 OUT = argval('--out', 'exports/blender-rig-test')
 NAME = argval('--name', 'violet_face')
-ITER = argval('--iter', '70')
+ITER = argval('--iter', '72')
 os.makedirs(OUT, exist_ok=True)
 
 bpy.ops.object.select_all(action='SELECT'); bpy.ops.object.delete()
@@ -45,19 +44,21 @@ def mat(name, hexcol, rough=0.55, metal=0.0, emit=None, estr=0.0):
         b.inputs['Emission Strength'].default_value = estr
     return m
 
-# Figurine palette (matte resin)
-M_skin  = mat('f_skin',  '#5a3a78', 0.68)
-M_skinD = mat('f_skinD', '#2a1740', 0.78)
-M_tat   = mat('f_tat',   '#2ae896', 0.20, emit='#3cffb0', estr=1.55)
-M_eye   = mat('f_eye',   '#c8ff2a', 0.06, emit='#b4ff14', estr=2.8)
-M_lip   = mat('f_lip',   '#18101f', 0.88)
-M_hair  = mat('f_hair',  '#221430', 0.76)
-M_hairG = mat('f_hairG', '#f0c840', 0.36, metal=0.28)
-M_brow  = mat('f_brow',  '#120c1c', 0.9)
-M_cowl  = mat('f_cowl',  '#3c2458', 0.70)
+# Palette from REF sampling + vision
+M_skin  = mat('f_skin',  '#5a3d6e', 0.66)
+M_skinD = mat('f_skinD', '#2a1a38', 0.80)
+M_tat   = mat('f_tat',   '#3a8a78', 0.28, emit='#4ec4a0', estr=1.1)
+M_eye   = mat('f_eye',   '#78c04a', 0.10, emit='#90e050', estr=2.4)
+M_lip   = mat('f_lip',   '#1a1220', 0.88)
+M_hair  = mat('f_hair',  '#2a1838', 0.76)
+M_hairG = mat('f_hairG', '#bd955a', 0.40, metal=0.22)
+M_brow  = mat('f_brow',  '#140c1c', 0.9)
+M_cowl  = mat('f_cowl',  '#1f1e30', 0.72)
+M_armor = mat('f_armor', '#2c4031', 0.42, metal=0.20)
+M_gold  = mat('f_gold',  '#d4a84a', 0.24, metal=0.92)
+M_gem   = mat('f_gem',   '#d02838', 0.18, metal=0.1, emit='#ff3040', estr=0.6)
 
-skin_parts = []   # will be fused
-attach = []       # eyes, tattoos, hair, etc.
+parts = []
 
 def clear_sel():
     for o in bpy.context.selected_objects: o.select_set(False)
@@ -68,12 +69,12 @@ def activate(ob):
 def apply_TRS(ob, loc=False, rot=False, scale=False):
     activate(ob); bpy.ops.object.transform_apply(location=loc, rotation=rot, scale=scale)
 
-def finish(ob, m, name, bucket):
+def finish(ob, m, name):
     ob.name = name
     if ob.data.materials: ob.data.materials[0] = m
     else: ob.data.materials.append(m)
     for p in ob.data.polygons: p.use_smooth = True
-    bucket.append(ob)
+    parts.append(ob)
     return ob
 
 def add_cube(loc, scale):
@@ -85,7 +86,7 @@ def add_uv(loc, r, seg=32, rings=18):
     bpy.ops.mesh.primitive_uv_sphere_add(segments=seg, ring_count=rings, radius=r, location=loc)
     return bpy.context.active_object
 
-def add_cone(loc, r1, r2, depth, seg=10):
+def add_cone(loc, r1, r2, depth, seg=12):
     bpy.ops.mesh.primitive_cone_add(vertices=seg, radius1=r1, radius2=r2, depth=depth, location=loc)
     return bpy.context.active_object
 
@@ -111,238 +112,184 @@ def subdiv(ob, levels=2):
     bpy.ops.object.modifier_apply(modifier='CC')
     return ob
 
-FACE_Y = -0.88
-HZ = 0.0
+FACE_Y = -0.90
+HZ = 0.15  # raise head so pauldrons sit below in bust frame
 
-# ========== SKIN CAGES (fused into one resin head) ==========
-head = add_cube((0, 0.08, HZ + 0.05), (0.90, 0.78, 0.98))
-bevel(head, 0.24, 5)
-subdiv(head, 2)
-finish(head, M_skin, 'head', skin_parts)
+# ---- HEAD (squared chibi, single cage + pads) ----
+head = add_cube((0, 0.05, HZ), (0.88, 0.76, 0.95))
+bevel(head, 0.22, 5)
+subdiv(head, 3)
+finish(head, M_skin, 'head')
 
-jaw = add_cube((0, 0.0, HZ - 0.48), (0.70, 0.52, 0.40))
-bevel(jaw, 0.16, 4)
+jaw = add_cube((0, -0.02, HZ - 0.48), (0.68, 0.50, 0.36))
+bevel(jaw, 0.14, 4)
 subdiv(jaw, 2)
-finish(jaw, M_skin, 'jaw', skin_parts)
-
-chin = add_uv((0, FACE_Y + 0.35, HZ - 0.78), 0.18, 24, 14)
-scale_local(chin, 1.05, 0.60, 0.75)
-finish(chin, M_skin, 'chin', skin_parts)
+finish(jaw, M_skin, 'jaw')
 
 for s in (-1, 1):
-    ck = add_uv((0.48 * s, -0.22, HZ - 0.10), 0.26, 24, 14)
-    scale_local(ck, 0.75, 0.48, 0.88)
-    finish(ck, M_skin, f'cheek_{s}', skin_parts)
+    ck = add_uv((0.46 * s, -0.28, HZ - 0.08), 0.24, 24, 14)
+    scale_local(ck, 0.78, 0.48, 0.88)
+    finish(ck, M_skin, f'cheek_{s}')
 
-fore = add_uv((0, FACE_Y + 0.42, HZ + 0.35), 0.50, 28, 16)
-scale_local(fore, 1.20, 0.26, 0.65)
-finish(fore, M_skin, 'forehead', skin_parts)
+chin = add_uv((0, FACE_Y + 0.38, HZ - 0.72), 0.16, 20, 12)
+scale_local(chin, 1.05, 0.55, 0.70)
+finish(chin, M_skin, 'chin')
 
-# ears — tip along ±X, base at temple (attach after fuse so remesh doesn't destroy them)
-ear_defs = []
+# ---- EARS — elongated tapers along ±X ----
 for s in (-1, 1):
-    ear_defs.append(s)
+    ear = add_uv((0.95 * s, -0.05, HZ + 0.02), 0.28, 20, 12)
+    scale_local(ear, 2.4, 0.35, 0.55)
+    rot_euler(ear, 0, 0, s * 8)
+    finish(ear, M_skin, f'ear_{s}')
+    tip = add_cone((1.55 * s, -0.02, HZ + 0.04), 0.08, 0.0, 0.45, seg=10)
+    scale_local(tip, 0.5, 0.35, 1.0)
+    rot_euler(tip, 0, -90 * s, 0)
+    finish(tip, M_skin, f'ear_tip_{s}')
 
-# Fuse → one continuous resin surface
-base = skin_parts[0]
-activate(base)
-for other in skin_parts[1:]:
-    mod = base.modifiers.new(f'Bool_{other.name}', 'BOOLEAN')
-    mod.operation = 'UNION'
-    mod.solver = 'EXACT'
-    mod.object = other
-    try:
-        bpy.ops.object.modifier_apply(modifier=mod.name)
-    except Exception:
-        # fallback: join
-        break
-    bpy.data.objects.remove(other, do_unlink=True)
-
-# If boolean left orphans, join remaining
-remaining = [o for o in bpy.context.scene.objects if o.type == 'MESH' and o != base]
-if remaining:
-    clear_sel()
-    for o in remaining:
-        if o.name.startswith(('head', 'jaw', 'chin', 'cheek', 'forehead', 'ear')):
-            o.select_set(True)
-    base.select_set(True)
-    bpy.context.view_layer.objects.active = base
-    try:
-        bpy.ops.object.join()
-        base = bpy.context.view_layer.objects.active
-    except Exception:
-        pass
-
-activate(base)
-rm = base.modifiers.new('Voxel', 'REMESH')
-rm.mode = 'VOXEL'
-rm.voxel_size = 0.028
-rm.use_smooth_shade = True
-bpy.ops.object.modifier_apply(modifier='Voxel')
-subdiv(base, 1)
-# assign skin mat after remesh
-if base.data.materials:
-    base.data.materials[0] = M_skin
-else:
-    base.data.materials.append(M_skin)
-for p in base.data.polygons:
-    p.use_smooth = True
-base.name = 'head_fused'
-skin_mesh = base
-
-# ears AFTER fuse (horizontal elf, slight back)
-for s in ear_defs:
-    ear = add_cone((1.00 * s, 0.05, HZ + 0.04), 0.17, 0.0, 1.40, seg=12)
-    scale_local(ear, 0.48, 0.24, 1.0)
-    rot_euler(ear, -6, -90 * s, 0)
-    bevel(ear, 0.01, 2)
-    finish(ear, M_skin, f'ear_{s}', attach)
-
-# carve eye sockets (boolean difference with dark bowls kept as attach for rim)
+# ---- EYES: dark socket + liner + circular lime ----
 for s in (-1, 1):
-    cutter = add_uv((0.27 * s, FACE_Y + 0.05, HZ + 0.12), 0.22, 20, 12)
-    scale_local(cutter, 1.05, 0.55, 1.0)
-    activate(skin_mesh)
-    mod = skin_mesh.modifiers.new(f'SockCut_{s}', 'BOOLEAN')
-    mod.operation = 'DIFFERENCE'
-    mod.solver = 'EXACT'
-    mod.object = cutter
-    try:
-        bpy.ops.object.modifier_apply(modifier=mod.name)
-    except Exception:
-        pass
-    bpy.data.objects.remove(cutter, do_unlink=True)
+    sock = add_uv((0.26 * s, FACE_Y + 0.08, HZ + 0.10), 0.22, 24, 14)
+    scale_local(sock, 1.05, 0.42, 0.95)
+    finish(sock, M_skinD, f'socket_{s}')
+    liner = add_uv((0.26 * s, FACE_Y - 0.01, HZ + 0.10), 0.185, 28, 12)
+    scale_local(liner, 1.0, 0.12, 1.0)
+    finish(liner, M_brow, f'liner_{s}')
+    eye = add_uv((0.26 * s, FACE_Y - 0.04, HZ + 0.10), 0.155, 32, 18)
+    scale_local(eye, 1.0, 0.16, 1.0)
+    finish(eye, M_eye, f'eye_{s}')
+    # stern brow
+    brow = add_cube((0.22 * s, FACE_Y - 0.02, HZ + 0.30), (0.16, 0.032, 0.028))
+    bevel(brow, 0.008, 2)
+    rot_euler(brow, 0, 0, -s * 32)
+    finish(brow, M_brow, f'brow_{s}')
+    lid = add_cube((0.26 * s, FACE_Y - 0.015, HZ + 0.22), (0.17, 0.04, 0.045))
+    bevel(lid, 0.012, 2)
+    rot_euler(lid, 5, 0, -s * 8)
+    finish(lid, M_skinD, f'lid_{s}')
 
-    sock = add_uv((0.27 * s, FACE_Y + 0.06, HZ + 0.12), 0.20, 20, 12)
-    scale_local(sock, 1.05, 0.40, 1.0)
-    finish(sock, M_skinD, f'socket_{s}', attach)
+nose = add_uv((0, FACE_Y - 0.03, HZ - 0.02), 0.07, 14, 10)
+scale_local(nose, 0.65, 1.0, 1.15)
+finish(nose, M_skin, 'nose')
 
-# dark liner rings around eyes (REF: thick eyeliner)
-for s in (-1, 1):
-    ring = add_uv((0.27 * s, FACE_Y - 0.005, HZ + 0.12), 0.195, 28, 12)
-    scale_local(ring, 1.0, 0.10, 1.0)
-    finish(ring, M_brow, f'liner_{s}', attach)
-    eye = add_uv((0.27 * s, FACE_Y - 0.03, HZ + 0.12), 0.165, 32, 18)
-    scale_local(eye, 1.0, 0.14, 1.0)
-    finish(eye, M_eye, f'eye_{s}', attach)
-
-# stern brows + thick lids
-for s in (-1, 1):
-    lid = add_cube((0.27 * s, FACE_Y - 0.01, HZ + 0.26), (0.20, 0.05, 0.06))
-    bevel(lid, 0.018, 2)
-    rot_euler(lid, 6, 0, -s * 6)
-    finish(lid, M_skinD, f'lid_{s}', attach)
-    brow = add_cube((0.24 * s, FACE_Y - 0.02, HZ + 0.34), (0.18, 0.035, 0.032))
-    bevel(brow, 0.01, 2)
-    rot_euler(brow, 0, 0, -s * 30)
-    finish(brow, M_brow, f'brow_{s}', attach)
-
-# nose + lips
-nose = add_uv((0, FACE_Y - 0.03, HZ + 0.00), 0.075, 16, 12)
-scale_local(nose, 0.65, 1.05, 1.20)
-finish(nose, M_skin, 'nose', attach)
-lip = add_cube((0, FACE_Y - 0.015, HZ - 0.40), (0.12, 0.035, 0.030))
+lip = add_cube((0, FACE_Y - 0.015, HZ - 0.38), (0.11, 0.032, 0.028))
 bevel(lip, 0.01, 2)
-finish(lip, M_lip, 'lips', attach)
-lip2 = add_cube((0, FACE_Y - 0.01, HZ - 0.46), (0.10, 0.030, 0.024))
-bevel(lip2, 0.008, 2)
-finish(lip2, M_lip, 'lips_lo', attach)
+finish(lip, M_lip, 'lips')
 
-# ========== TEAL TATTOOS — match REF: 2 wavy forehead + tribal cheek marks ==========
-def make_curve_ribbon(name, points_xyz, bevel_depth=0.014, res=8):
+# ---- TATTOOS (curve ribbons) ----
+def curve_ribbon(name, pts, depth=0.012):
     cu = bpy.data.curves.new(name, 'CURVE')
     cu.dimensions = '3D'
-    cu.bevel_depth = bevel_depth
+    cu.bevel_depth = depth
     cu.bevel_resolution = 3
-    cu.resolution_u = res
+    cu.resolution_u = 10
     sp = cu.splines.new('NURBS')
-    sp.points.add(len(points_xyz) - 1)
-    for i, (x, y, z) in enumerate(points_xyz):
+    sp.points.add(len(pts) - 1)
+    for i, (x, y, z) in enumerate(pts):
         sp.points[i].co = (x, y, z, 1.0)
     sp.use_endpoint_u = True
-    sp.order_u = min(4, len(points_xyz))
+    sp.order_u = min(4, len(pts))
     ob = bpy.data.objects.new(name, cu)
     bpy.context.collection.objects.link(ob)
     activate(ob)
     bpy.ops.object.convert(target='MESH')
-    ob = bpy.context.active_object
-    return finish(ob, M_tat, name, attach)
+    return finish(bpy.context.active_object, M_tat, name)
 
-# forehead: TWO wavy vertical lines (REF)
-for sx, name in [(-0.06, 'tat_fore_L'), (0.06, 'tat_fore_R')]:
+# twin wavy forehead — on SKIN below hairline
+for sx, nm in [(-0.055, 'tat_fore_L'), (0.055, 'tat_fore_R')]:
     pts = []
-    for i in range(10):
-        t = i / 9.0
-        z = 0.42 + 0.28 * t
-        x = sx + 0.025 * math.sin(t * math.pi * 2.0)
-        pts.append((x, FACE_Y - 0.012, HZ + z))
-    make_curve_ribbon(name, pts, 0.012)
+    for i in range(11):
+        t = i / 10.0
+        pts.append((sx + 0.022 * math.sin(t * math.pi * 2.2), FACE_Y - 0.012, HZ + 0.28 + 0.22 * t))
+    curve_ribbon(nm, pts, 0.011)
 
-# cheeks: tribal curved marks under each eye (REF)
+# tribal cheeks under eyes
 for s in (-1, 1):
-    pts1 = []
-    for i in range(10):
-        t = i / 9.0
-        x = s * (0.18 + 0.28 * t)
-        z = 0.02 - 0.12 * math.sin(t * math.pi * 0.9) - 0.02 * t
-        pts1.append((x, FACE_Y - 0.012, HZ + z))
-    make_curve_ribbon(f'tat_ck_a_{s}', pts1, 0.013)
-    pts2 = []
-    for i in range(8):
-        t = i / 7.0
-        x = s * (0.22 + 0.22 * t)
-        z = -0.08 - 0.10 * math.sin(t * math.pi) - 0.03 * t
-        pts2.append((x, FACE_Y - 0.012, HZ + z))
-    make_curve_ribbon(f'tat_ck_b_{s}', pts2, 0.011)
+    pts = []
+    for i in range(9):
+        t = i / 8.0
+        pts.append((s * (0.20 + 0.26 * t), FACE_Y - 0.012, HZ + 0.00 - 0.10 * math.sin(t * math.pi) - 0.02 * t))
+    curve_ribbon(f'tat_ck_{s}', pts, 0.012)
 
-# ========== HAIR — dense chunky spikes, gold on character RIGHT / front ==========
-cap = add_uv((0, 0.20, HZ + 0.88), 0.58, 28, 16)
-scale_local(cap, 1.15, 0.95, 0.50)
-finish(cap, M_hair, 'hair_cap', attach)
+# ---- HAIR: crown mass BEHIND forehead (must not cover face tattoos) ----
+cap = add_uv((-0.10, 0.45, HZ + 0.95), 0.58, 28, 16)
+scale_local(cap, 1.25, 0.95, 0.58)
+finish(cap, M_hair, 'hair_cap')
 
+# fringe volume over crown but still behind FACE_Y
+fringe = add_uv((-0.12, 0.05, HZ + 1.05), 0.42, 24, 14)
+scale_local(fringe, 1.15, 0.70, 0.40)
+finish(fringe, M_hair, 'hair_fringe')
+
+# (x, y, z, r, depth, rx, rz, gold) — bias −X and −Y (toward camera + character right)
 spikes = [
-    # x, y, z, r, depth, rx, rz, gold
-    (0.08, -0.60, 1.22, 0.15, 0.78, -72, 8, True),
-    (-0.12, -0.55, 1.18, 0.14, 0.72, -68, -10, True),
-    (-0.28, -0.48, 1.10, 0.13, 0.68, -58, -26, True),
-    (-0.40, -0.38, 0.98, 0.12, 0.62, -48, -40, True),
-    (0.22, -0.50, 1.12, 0.13, 0.65, -62, 22, False),
-    (0.38, -0.35, 0.98, 0.12, 0.58, -45, 40, False),
-    (0.0, -0.30, 1.38, 0.14, 0.60, -78, 0, True),
-    (-0.18, -0.05, 1.32, 0.13, 0.55, -55, -12, False),
-    (0.20, -0.05, 1.30, 0.13, 0.55, -55, 18, False),
-    (-0.52, -0.15, 0.72, 0.11, 0.52, -28, -58, False),
-    (0.52, -0.15, 0.72, 0.11, 0.52, -28, 58, False),
-    (-0.32, -0.58, 0.88, 0.11, 0.55, -50, -18, True),
-    (0.12, -0.65, 1.02, 0.12, 0.60, -70, 10, True),
-    (-0.08, 0.28, 1.22, 0.14, 0.48, -38, -6, False),
-    (0.30, 0.22, 1.12, 0.12, 0.45, -32, 28, False),
-    (-0.45, -0.45, 1.05, 0.11, 0.58, -52, -35, True),
-    (0.05, -0.40, 1.42, 0.12, 0.52, -80, 4, True),
+    (-0.05, -0.70, 1.15, 0.16, 0.85, -75, -5, True),
+    (-0.22, -0.62, 1.08, 0.15, 0.80, -68, -18, True),
+    (-0.38, -0.50, 0.98, 0.14, 0.72, -55, -35, True),
+    (-0.48, -0.35, 0.85, 0.12, 0.62, -42, -50, True),
+    (0.10, -0.58, 1.05, 0.14, 0.70, -65, 15, False),
+    (0.28, -0.42, 0.92, 0.13, 0.62, -48, 32, False),
+    (0.42, -0.25, 0.78, 0.11, 0.55, -35, 48, False),
+    (-0.15, -0.35, 1.35, 0.15, 0.65, -82, -8, True),
+    (0.05, -0.25, 1.38, 0.14, 0.58, -78, 6, True),
+    (-0.30, -0.10, 1.28, 0.13, 0.55, -60, -20, False),
+    (0.22, -0.08, 1.22, 0.12, 0.50, -55, 22, False),
+    (-0.55, -0.20, 0.65, 0.11, 0.52, -25, -62, False),
+    (0.52, -0.15, 0.62, 0.10, 0.48, -22, 62, False),
+    (-0.35, -0.65, 0.78, 0.12, 0.58, -52, -22, True),
+    (-0.10, -0.72, 0.92, 0.13, 0.62, -70, -8, True),
+    (0.15, -0.68, 0.88, 0.11, 0.55, -68, 12, False),
+    (-0.20, 0.25, 1.18, 0.14, 0.48, -40, -12, False),
+    (0.18, 0.22, 1.12, 0.13, 0.45, -38, 18, False),
+    (-0.42, -0.55, 1.10, 0.12, 0.68, -58, -28, True),
+    (0.0, -0.48, 1.42, 0.13, 0.55, -85, 0, True),
 ]
 for i, (x, y, z, r, d, rx, rz, gold) in enumerate(spikes):
-    sp = add_cone((x, y, HZ + z), r, 0.012, d, seg=16)
+    sp = add_cone((x, y, HZ + z), r, 0.01, d, seg=16)
     rot_euler(sp, rx, 0, rz)
-    bevel(sp, 0.018, 3)
+    bevel(sp, 0.016, 3)
     subdiv(sp, 1)
-    finish(sp, M_hairG if gold else M_hair, f'spike_{i}', attach)
+    finish(sp, M_hairG if gold else M_hair, f'spike_{i}')
 
-# ========== COWL — snug under chin, no floating ball ==========
-cowl = add_uv((0, 0.05, HZ - 0.95), 0.48, 28, 16)
-scale_local(cowl, 1.35, 1.05, 0.55)
-finish(cowl, M_cowl, 'cowl', attach)
-cowl2 = add_cube((0, 0.10, HZ - 1.20), (0.70, 0.38, 0.28))
-bevel(cowl2, 0.10, 3)
+# side locks by ears
+for s in (-1, 1):
+    lock = add_uv((0.88 * s, -0.30, HZ - 0.40), 0.12, 14, 8)
+    scale_local(lock, 0.75, 0.65, 1.5)
+    finish(lock, M_hairG if s < 0 else M_hair, f'lock_{s}')
+
+# ---- COWL ----
+cowl = add_uv((0, 0.05, HZ - 0.95), 0.45, 28, 16)
+scale_local(cowl, 1.40, 1.10, 0.55)
+finish(cowl, M_cowl, 'cowl')
+cowl2 = add_cube((0, 0.08, HZ - 1.18), (0.65, 0.35, 0.22))
+bevel(cowl2, 0.08, 3)
 subdiv(cowl2, 1)
-finish(cowl2, M_cowl, 'cowl_drape', attach)
+finish(cowl2, M_cowl, 'cowl_drape')
 
-# JOIN everything
-all_objs = [skin_mesh] + attach
+# bigger pauldrons matching REF crop shoulders
+for s in (-1, 1):
+    p1 = add_cube((0.85 * s, 0.10, HZ - 1.45), (0.48, 0.36, 0.28))
+    bevel(p1, 0.08, 3)
+    subdiv(p1, 1)
+    rot_euler(p1, 12, 0, s * 18)
+    finish(p1, M_armor, f'pauldron_{s}')
+    p2 = add_cube((0.95 * s, 0.05, HZ - 1.55), (0.32, 0.28, 0.18))
+    bevel(p2, 0.05, 2)
+    finish(p2, M_armor, f'pauldron2_{s}')
+    rim = add_cube((0.85 * s, -0.08, HZ - 1.28), (0.50, 0.07, 0.07))
+    bevel(rim, 0.02, 2)
+    finish(rim, M_gold, f'pauldron_rim_{s}')
+    for j, (ox, oz) in enumerate([(0.0, 0.02), (0.14, -0.05), (-0.12, -0.08), (0.08, -0.12)]):
+        fil = add_cube((0.85 * s + ox * s, -0.15, HZ - 1.40 + oz), (0.12, 0.018, 0.022))
+        bevel(fil, 0.005, 2)
+        rot_euler(fil, 0, 0, s * (15 + j * 18))
+        finish(fil, M_gold, f'filigree_{s}_{j}')
+    gem = add_uv((0.85 * s, -0.18, HZ - 1.22), 0.06, 12, 8)
+    finish(gem, M_gem, f'gem_{s}')
+
+# JOIN
 clear_sel()
-for o in all_objs:
-    if o.name in bpy.data.objects:
-        o.select_set(True)
-bpy.context.view_layer.objects.active = skin_mesh
+for o in parts: o.select_set(True)
+bpy.context.view_layer.objects.active = parts[0]
 bpy.ops.object.join()
 body = bpy.context.view_layer.objects.active
 body.name = NAME
@@ -351,24 +298,24 @@ bpy.context.view_layer.update()
 glb = os.path.join(OUT, f'{NAME}.glb')
 bpy.ops.export_scene.gltf(filepath=glb, export_format='GLB', export_apply=True)
 
-# ========== RENDER (studio gray like figurine + clay) ==========
-eye_target = V((0.0, FACE_Y, 0.10))
+# ---- RENDER ----
+eye_target = V((0.0, FACE_Y, HZ + 0.05))
 
-bpy.ops.object.light_add(type='SUN', location=(2.2, -2.8, 3.2))
+bpy.ops.object.light_add(type='SUN', location=(2.5, -2.5, 3.5))
 sun = bpy.context.active_object
-sun.data.energy = 2.6
-sun.rotation_euler = (math.radians(50), math.radians(8), math.radians(18))
-bpy.ops.object.light_add(type='AREA', location=(-2.0, -2.6, 1.4))
+sun.data.energy = 2.5
+sun.rotation_euler = (math.radians(48), math.radians(10), math.radians(15))
+bpy.ops.object.light_add(type='AREA', location=(-2.2, -2.8, 1.5))
 fill = bpy.context.active_object
-fill.data.energy = 70; fill.data.size = 3.0
+fill.data.energy = 65; fill.data.size = 3.0
 
 scene = bpy.context.scene
 try:
     scene.render.engine = 'BLENDER_EEVEE'
     scene.eevee.taa_render_samples = 56
     scene.eevee.use_bloom = True
-    scene.eevee.bloom_threshold = 1.15
-    scene.eevee.bloom_intensity = 0.25
+    scene.eevee.bloom_threshold = 1.25
+    scene.eevee.bloom_intensity = 0.20
 except Exception:
     scene.render.engine = 'BLENDER_WORKBENCH'
 scene.render.resolution_x = 768
@@ -377,8 +324,8 @@ scene.render.image_settings.file_format = 'PNG'
 world = bpy.data.worlds.new('W'); scene.world = world
 world.use_nodes = True
 bg = world.node_tree.nodes.get('Background')
-bg.inputs['Color'].default_value = (0.62, 0.62, 0.64, 1)
-bg.inputs['Strength'].default_value = 0.65
+bg.inputs['Color'].default_value = (0.68, 0.68, 0.70, 1)
+bg.inputs['Strength'].default_value = 0.70
 
 bpy.ops.object.camera_add()
 cam = bpy.context.active_object
@@ -392,22 +339,23 @@ def aim(loc):
     direction = eye_target - cam.location
     cam.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()
 
-cam.data.lens = 55
-aim(V((0.0, -4.5, 0.05)))
+# bust framing like REF crop
+cam.data.lens = 60
+aim(V((0.0, -4.8, HZ - 0.15)))
 path = os.path.join(frames, f'{ITER}_face_front.png')
 scene.render.filepath = path
 bpy.ops.render.render(write_still=True)
 rendered.append(path); print('RENDERED', path)
 
 cam.data.lens = 55
-aim(V((2.0, -4.0, 0.12)))
+aim(V((2.1, -4.2, HZ - 0.05)))
 path = os.path.join(frames, f'{ITER}_face_threeq.png')
 scene.render.filepath = path
 bpy.ops.render.render(write_still=True)
 rendered.append(path); print('RENDERED', path)
 
 cam.data.lens = 70
-aim(V((0.0, -2.85, 0.10)))
+aim(V((0.0, -3.0, HZ + 0.08)))
 path = os.path.join(frames, f'{ITER}_face_close.png')
 scene.render.filepath = path
 bpy.ops.render.render(write_still=True)
@@ -418,7 +366,7 @@ try:
     scene.display.shading.light = 'STUDIO'
     scene.display.shading.color_type = 'SINGLE'
     scene.display.shading.single_color = (0.70, 0.70, 0.72)
-    aim(V((0.0, -4.5, 0.05)))
+    aim(V((0.0, -4.8, HZ - 0.15)))
     path = os.path.join(frames, f'{ITER}_face_clay.png')
     scene.render.filepath = path
     bpy.ops.render.render(write_still=True)
@@ -426,12 +374,30 @@ try:
 except Exception as e:
     print('CLAY_FAIL', e)
 
+# side-by-side vs REF crop
+try:
+    from PIL import Image
+    ref_path = Path(OUT) / 'refs' / 'violet_face_REF_crop.png'
+    if ref_path.exists():
+        ref = Image.open(ref_path).convert('RGB')
+        ours = Image.open(rendered[0]).convert('RGB')
+        h = 420
+        ref = ref.resize((int(ref.width * h / ref.height), h), Image.LANCZOS)
+        ours = ours.resize((h, h), Image.LANCZOS)
+        canvas = Image.new('RGB', (ref.width + ours.width + 12, h), (48, 48, 52))
+        canvas.paste(ref, (0, 0)); canvas.paste(ours, (ref.width + 12, 0))
+        vs = Path(frames) / f'{ITER}_face_vs_ref.png'
+        canvas.save(vs)
+        rendered.append(str(vs)); print('RENDERED', vs)
+except Exception as e:
+    print('COMPOSITE_FAIL', e)
+
 report = {
     'name': NAME, 'iter': ITER, 'glb': glb,
     'bytes': os.path.getsize(glb),
     'rendered': rendered,
-    'pipeline': 'owned_dense_boolean_remesh_no_external_ai',
-    'card': 'exports/blender-rig-test/refs/violet_face_CARD.md',
+    'pipeline': 'owned_bust_vs_drive_ref',
+    'ref': 'exports/blender-rig-test/refs/violet_face_REF_crop.png',
 }
 print('FACE_BUILT', json.dumps(report, indent=2))
 with open(os.path.join(OUT, f'{NAME}_report.json'), 'w') as f:
