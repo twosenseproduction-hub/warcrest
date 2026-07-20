@@ -9,11 +9,19 @@
   var DIR = 'assets/skills/', AV = '20260626a', cache = {};
 
   // Sheet metadata: frame count + native fps + frame size (default 16x16).
+  // `smooth: true` marks HD (non-pixel) sheets so they are bilinear-filtered.
   var SHEETS = {
     spike_vine:   { frames: 12, fps: 18, fw: 16, fh: 16 },
     sprout_heal:  { frames: 12, fps: 20, fw: 16, fh: 16 },
     leaf_fall:    { frames: 28, fps: 22, fw: 16, fh: 16 },
     levelup_aura: { frames: 5,  fps: 12, fw: 25, fh: 24 },
+    // HD hero-skill sheets (Blender-baked, top-down, 512px frames, alpha).
+    holy_nova:    { frames: 20, fps: 30, fw: 512, fh: 512, smooth: true },
+    holy_strike:  { frames: 20, fps: 30, fw: 512, fh: 512, smooth: true },
+    holy_ward:    { frames: 20, fps: 30, fw: 512, fh: 512, smooth: true },
+    moon_nova:    { frames: 20, fps: 30, fw: 512, fh: 512, smooth: true },
+    moon_bolt:    { frames: 20, fps: 30, fw: 512, fh: 512, smooth: true },
+    dash_wind:    { frames: 20, fps: 30, fw: 512, fh: 512, smooth: true },
   };
 
   function img(sheet) {
@@ -32,7 +40,7 @@
         kind: 'skillfx', sheet: sheet, x: x, y: y,
         scale: opts.scale || 3, life: life, max: life,
         fps: meta.fps, frames: meta.frames, fw: meta.fw || 16, fh: meta.fh || 16,
-        hold: !!opts.hold, loop: !!opts.loop,
+        hold: !!opts.hold, loop: !!opts.loop, smooth: !!meta.smooth,
       });
     },
 
@@ -49,7 +57,7 @@
       var a = fx.life < 0.5 ? Math.max(0, fx.life / 0.5) : 1;
       ctx.save();
       ctx.globalAlpha = a;
-      ctx.imageSmoothingEnabled = false;
+      ctx.imageSmoothingEnabled = !!fx.smooth;   // pixel sheets stay crisp; HD sheets filter
       ctx.drawImage(im, idx * fw, 0, fw, fh,
         Math.round(fx.x - dw / 2), Math.round(fx.y - dh / 2), Math.round(dw), Math.round(dh));
       ctx.restore();
