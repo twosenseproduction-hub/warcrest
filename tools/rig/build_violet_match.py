@@ -240,17 +240,25 @@ scale_local(belly, 1.0, 0.65, 0.8)
 subdiv(belly, 1)
 finish(belly, M_skin, 'belly')
 
-# vine chest tattoos (more organic path)
+# vine chest tattoos as continuous ribbons (not dot clusters)
 for s in (-1, 1):
+    for j, (z0, z1, x0, x1) in enumerate([
+        (0.68, 0.40, 0.04, 0.11),
+        (0.60, 0.35, 0.09, 0.05),
+        (0.55, 0.30, 0.06, 0.12),
+    ]):
+        ribbon = add_cube((
+            (x0+x1)*0.5*s, FY*0.245,
+            LEG_Z + TORSO_H*((z0+z1)*0.5)
+        ), (0.035, 0.016, abs(z0-z1)*TORSO_H*0.55))
+        bevel(ribbon, 0.008, 2)
+        rot_euler(ribbon, 0, 0, s*(12 + j*8))
+        finish(ribbon, M_tattoo, f'chest_rib_{s}_{j}')
     vine([
-        (0.04*s, FY*0.24, LEG_Z + TORSO_H*0.70),
-        (0.08*s, FY*0.245, LEG_Z + TORSO_H*0.60),
-        (0.10*s, FY*0.245, LEG_Z + TORSO_H*0.50),
-        (0.07*s, FY*0.24, LEG_Z + TORSO_H*0.40),
-        (0.11*s, FY*0.24, LEG_Z + TORSO_H*0.32),
-        (0.05*s, FY*0.24, LEG_Z + TORSO_H*0.45),
-        (0.13*s, FY*0.24, LEG_Z + TORSO_H*0.55),
-    ], 0.028, f'chest_vine_{s}')
+        (0.08*s, FY*0.25, LEG_Z + TORSO_H*0.62),
+        (0.12*s, FY*0.25, LEG_Z + TORSO_H*0.48),
+        (0.06*s, FY*0.25, LEG_Z + TORSO_H*0.36),
+    ], 0.022, f'chest_vine_{s}')
 
 neck = add_cyl((0, 0, SHOULDER_Z - 0.02), 0.09, 0.16, 22)
 bevel(neck, 0.012, 2); subdiv(neck, 1)
@@ -405,56 +413,61 @@ def build_head():
     scale_local(nose, 0.8, 1.1, 1.0)
     finish(nose, M_skinD, 'nose')
     for s in (-1, 1):
-        ear = add_cone((HEAD_R*0.78*s, FY*0.05, HEAD_Z + 0.02), 0.12, 0.0, 0.78, seg=9)
-        rot_euler(ear, 5, 0, -s*90)
+        # ears must stick out past hair in front view
+        ear = add_cone((HEAD_R*0.95*s, FY*0.08, HEAD_Z + 0.02), 0.13, 0.0, 0.85, seg=9)
+        rot_euler(ear, 8, 0, -s*92)
         bevel(ear, 0.012, 1)
         finish(ear, M_skin, f'ear_{s}')
-        inn = add_cone((HEAD_R*0.88*s, FY*0.12, HEAD_Z + 0.02), 0.055, 0.0, 0.52, seg=7)
-        rot_euler(inn, 5, 0, -s*90)
+        inn = add_cone((HEAD_R*1.05*s, FY*0.14, HEAD_Z + 0.02), 0.06, 0.0, 0.55, seg=7)
+        rot_euler(inn, 8, 0, -s*92)
         finish(inn, M_skinD, f'ear_in_{s}')
 
 build_head()
 
 # ===================== HAIR =====================
-hb = add_uv((0, 0.14, HEAD_Z + 0.16), 0.44, 28, 16)
-scale_local(hb, 1.22, 0.88, 1.08)
+# smaller crown so spikes dominate silhouette (figurine hair is spike-led)
+hb = add_uv((0, 0.10, HEAD_Z + 0.12), 0.38, 26, 14)
+scale_local(hb, 1.15, 0.85, 0.95)
 subdiv(hb, 1)
 finish(hb, M_hair, 'hair_crown')
-hb2 = add_uv((0, 0.10, HEAD_Z + 0.34), 0.30, 22, 12)
-scale_local(hb2, 1.15, 0.9, 0.85)
-finish(hb2, M_hair, 'hair_top')
 
-# hair: tall but not so tall it shrinks body in frame (figurine ~head+spikes)
-purple = []
-for ang in range(-75, 80, 12):
-    rad = math.radians(ang)
-    purple.append((math.sin(rad)*0.30, 0.10+0.06*math.cos(rad), 0.38+0.08*math.cos(rad*0.5),
-                   0.10+0.03*abs(math.cos(rad)), 0.38+0.10*abs(math.cos(rad)), -10, ang))
-purple += [
-    (0.0, 0.18, 0.48, 0.15, 0.52, -12, 0),
-    (-0.16, 0.16, 0.42, 0.12, 0.46, -8, -18),
-    (0.16, 0.16, 0.42, 0.12, 0.46, -8, 18),
-    (-0.38, 0.02, 0.26, 0.10, 0.34, 6, -52),
-    (0.38, 0.02, 0.26, 0.10, 0.34, 6, 52),
+# hair MUST break front silhouette — spikes lean toward camera (-Y) and up
+purple = [
+    # x, y(- forward), z_off, r, depth, rx(pitch toward cam), rz
+    (0.00, FY*0.05, 0.45, 0.14, 0.50, 25, 0),
+    (-0.14, FY*0.02, 0.42, 0.12, 0.46, 22, -16),
+    (0.14, FY*0.02, 0.42, 0.12, 0.46, 22, 16),
+    (-0.26, 0.02, 0.38, 0.11, 0.42, 12, -32),
+    (0.26, 0.02, 0.38, 0.11, 0.42, 12, 32),
+    (-0.36, 0.06, 0.28, 0.10, 0.36, 5, -50),
+    (0.36, 0.06, 0.28, 0.10, 0.36, 5, 50),
+    (0.00, 0.12, 0.48, 0.13, 0.48, -5, 0),
+    (-0.18, 0.14, 0.40, 0.11, 0.40, 0, -20),
+    (0.18, 0.14, 0.40, 0.11, 0.40, 0, 20),
+    (-0.10, FY*0.08, 0.32, 0.09, 0.34, 35, -8),
+    (0.10, FY*0.08, 0.32, 0.09, 0.34, 35, 8),
+    (-0.42, 0.00, 0.18, 0.08, 0.28, 15, -62),
+    (0.42, 0.00, 0.18, 0.08, 0.28, 15, 62),
+    (0.00, 0.18, 0.30, 0.12, 0.36, -15, 0),
 ]
 for i, (x, y, dz, rb, depth, rx, rz) in enumerate(purple):
-    sp = add_cone((x, y, HEAD_Z + dz*0.25), rb, 0.006, depth, seg=8)
+    sp = add_cone((x, y, HEAD_Z + dz * 0.35), rb, 0.005, depth, seg=8)
     rot_euler(sp, rx, 0, rz)
     bevel(sp, 0.006, 1)
     finish(sp, M_hair, f'hair_{i}')
 
-# gold streaks — character RIGHT = -X
+# gold bangs — character RIGHT (-X), strongly toward camera
 gold = [
-    (-0.10, FY*0.20, 0.36, 0.09, 0.40, 26, -5),
-    (-0.22, FY*0.14, 0.30, 0.08, 0.36, 24, -24),
-    (-0.04, FY*0.22, 0.42, 0.10, 0.44, 24, 2),
-    (-0.30, FY*0.06, 0.24, 0.07, 0.30, 16, -40),
-    (-0.16, FY*0.12, 0.20, 0.07, 0.26, 30, -14),
-    (-0.08, FY*0.18, 0.28, 0.08, 0.32, 28, -8),
-    (-0.26, FY*0.16, 0.34, 0.07, 0.32, 22, -20),
+    (-0.08, FY*0.28, 0.38, 0.10, 0.42, 40, -4),
+    (-0.18, FY*0.22, 0.34, 0.09, 0.38, 36, -18),
+    (-0.02, FY*0.30, 0.44, 0.11, 0.46, 38, 2),
+    (-0.28, FY*0.14, 0.26, 0.08, 0.32, 28, -36),
+    (-0.12, FY*0.24, 0.28, 0.08, 0.34, 42, -10),
+    (-0.22, FY*0.18, 0.40, 0.08, 0.36, 32, -22),
+    (-0.34, FY*0.08, 0.22, 0.07, 0.28, 20, -48),
 ]
 for i, (x, y, dz, rb, depth, rx, rz) in enumerate(gold):
-    sp = add_cone((x, y, HEAD_Z + dz*0.25), rb, 0.006, depth, seg=8)
+    sp = add_cone((x, y, HEAD_Z + dz * 0.35), rb, 0.005, depth, seg=8)
     rot_euler(sp, rx, 0, rz)
     finish(sp, M_hairG, f'gold_{i}')
 
@@ -490,7 +503,7 @@ report = {
     'bbox': {'min':[min(xs),min(ys),min(zs)], 'max':[max(xs),max(ys),max(zs)], 'height': max(zs)-min(zs)},
     'tris': sum(len(p.vertices)-2 for p in body.data.polygons),
     'parts_before_join': len(parts),
-    'construction': '1to1_match_iter33',
+    'construction': '1to1_match_iter34',
     'target': 'user figurine reference — sharp chibi warrior',
 }
 print('MATCH_BUILT', json.dumps(report, indent=2))
