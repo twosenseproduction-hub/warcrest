@@ -1,37 +1,13 @@
-# Meshy helpers (Warcrest)
+# Meshy helpers (optional study only)
 
-Fetch **sharp** image→3D meshes from Meshy, then preview as PNGs.
-
-## Setup
-
-Add Cursor Cloud secret / env:
-
-```bash
-export MESHY_API_KEY=...
-```
-
-Confirm your Meshy plan allows the intended game use (free tier is often
-non-exclusive).
-
-## White model first (recommended)
+These scripts can fetch a commercial Meshy mesh for **side-by-side comparison**
+when the user explicitly wants that. **Warcrest’s default sharp path does not
+use Meshy as the builder** — see
+`.claude/skills/image-to-3d-from-reference/references/sharp-detail-path.md`.
 
 ```bash
-python3 tools/meshy/image_to_3d.py \
-  --image /path/to/reference.png \
-  --out exports/meshy/<name> \
-  --no-texture
-
+# Only if user asks for a Meshy comparison AND MESHY_API_KEY is set:
+python3 tools/meshy/image_to_3d.py --image ref.png --out exports/meshy/study --no-texture
 blender -b -noaudio --python tools/meshy/import_and_preview.py -- \
-  --glb exports/meshy/<name>/model.glb \
-  --name <name> \
-  --out exports/meshy/<name>/preview
+  --glb exports/meshy/study/model.glb --name study --out exports/meshy/study/preview
 ```
-
-Open the PNGs under `preview/` (and copy to `/opt/cursor/artifacts/…`).
-
-## Or drop a GLB
-
-If you already generated in the Meshy UI, place the GLB and run
-`import_and_preview.py` only.
-
-See skill: `.claude/skills/image-to-3d-from-reference/references/sharp-detail-path.md`.

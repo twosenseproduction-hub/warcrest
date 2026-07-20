@@ -1,29 +1,22 @@
 {
   "name": "violet_cape_warrior",
   "glb": "exports/blender-rig-test/violet_cape_warrior.glb",
-  "bytes": 474768,
+  "bytes": 2433800,
   "bbox": {
     "min": [
-      -1.2859997749328613,
-      -0.4357830882072449,
+      -1.2567014694213867,
+      -0.4146735966205597,
       0.0
     ],
     "max": [
-      1.2860000133514404,
-      0.49400001764297485,
-      2.421999931335449
+      1.2567014694213867,
+      0.4699954092502594,
+      2.4039976596832275
     ],
-    "height": 2.421999931335449
+    "height": 2.4039976596832275
   },
-  "tris": 15660,
-  "part_objects_before_join": 158,
-  "construction": "parts_first_anti_blob_v2",
-  "form_recipes": [
-    "beveled_plate",
-    "profile_limb",
-    "lathe_head_jaw",
-    "multi_panel_cape",
-    "designed_hair_clumps",
-    "gem_housing"
-  ]
+  "tris": 97364,
+  "part_objects_before_join": 151,
+  "construction": "meshy_inspired_dense_cages",
+  "white_model": false
 }

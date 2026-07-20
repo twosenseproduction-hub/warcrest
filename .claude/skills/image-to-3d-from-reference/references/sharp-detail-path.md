@@ -1,93 +1,103 @@
-# Sharp detail path (Meshy-level) — REQUIRED when user rejects blobs
+# Sharp detail path — become the Meshy-quality builder (no Meshy dependency)
 
-Procedural UV-sphere / cylinder kits will **never** match a Meshy AI render.
-Meshy invents a dense neural surface with real plate edges, hair strands, and
-filigree. An LLM writing `bpy.ops.mesh.primitive_*` invents **blobs**.
+Meshy/Tripo are **teachers**, not our runtime. Study their stages, then **own**
+the same quality contract with Blender tools we control. Do not tell the user
+they must bring an API key to escape blobs.
 
-When the user wants Meshy-sharp detail, **stop sphere-kit hero builds** and use
-this path instead.
+## What Meshy does that creates sharpness (steal the contract)
 
-## Preferred construction order
+| Meshy stage | Quality it buys | Our owned analogue |
+|---|---|---|
+| Multi-view synthesis | Correct volumes from more than 1 silhouette | Multi-view card + inferred side/back |
+| Dense white model | Edges follow the painting | **All-quad cages + subdiv + panel cuts** driven by light-scan |
+| Remesh | Clean readable topology | Apply subdiv → optional decimate to budget |
+| Texture after shape | Paint doesn’t hide bad form | Region materials / maps **only after** clay pass ships |
+| Thumbnail QA | Catch fails early | Step PNGs every turn (`show-progress.md`) |
+
+Meshy’s “secret” is not magic primitives — it is **dense surface first, texture
+second**, with edges that track the reference. We replicate that density with
+subdivision cages and edge-driven cuts, not UV-sphere kits.
+
+## Owned pipeline (MANDATORY for sharp requests)
 
 ```
-reference image (clean, ≥1024)
-    │
-    ├─ A) MESHY_API_KEY / Tripo key available
-    │     → image-to-3D WHITE MODEL first (should_texture=false)
-    │     → download GLB → orient to Warcrest axes
-    │     → render progress PNGs (front/¾/clay)
-    │     → approve silhouette
-    │     → optional remesh / smart-topology / game budget
-    │     → texture pass (Meshy retexture OR region materials)
-    │
-    ├─ B) User drops a Meshy/Tripo GLB (licensed for the project)
-    │     → same from “orient → PNG → remesh → materials”
-    │
-    └─ C) No API / no GLB (owned-IP only fallback)
-          → hard-surface Blender cages (double-subdiv / beveled plates)
-          → NEVER claim Meshy parity; label as “blockout”
+0. Input prep + Read reference
+1. Light scan (luminance / edges / relief)     ← our depth/crease sensor
+2. Multi-view card + parts inventory
+3. DENSE WHITE MODEL (flat grey / clay only)
+     - all-quad cages (cubes/grids), NOT final spheres
+     - double-subdiv or Catmull-Clark ≥2 where organic
+     - hard edges: bevel + support loops (armor, greaves, bracers)
+     - panel cuts / insets where edge-map fires
+     - cape = subdivided sheet with thickness + folds
+     - hair = many thin volumes / cards, not 5 cones
+4. PNG progress (studio + clay) — Read in chat
+5. Critique shape only (relief_match, form_language)
+6. One-knob densify/cut/reshape — rebuild — PNG again
+7. Materials / texture pass AFTER shape ≥ ship bar
+8. Optional remesh/decimate for game tris + donor bind
 ```
 
-## Hard gates (reject and escalate)
+## Hard bans (these recreate blobs)
 
-Refuse to continue a “Meshy-quality” request if:
+- Shipping UV spheres / constant cylinders / flat cubes as **final** hero forms  
+- Texturing or “color polish” before clay silhouette matches the ref  
+- Calling Meshy/Tripo APIs as the primary builder (optional research only)  
+- Stopping at “parts-first” with 1 primitive per part  
 
-1. Geometry is still mostly UV spheres + cylinders as final forms  
-2. Cape / hair / armor read as single primitives in clay mode  
-3. No neural white model **and** user explicitly wants Meshy sharpness  
-4. Free-tier Meshy mesh is about to ship into exclusive Warcrest IP without a license note  
+## Density targets (hero display white model)
 
-**Escalate to user:** “Need `MESHY_API_KEY` (or a Meshy GLB drop) for sharp detail.
-I can keep iterating a procedural blockout, but it will stay soft.”
+Guide, not law — aim for **readable edges in clay**, not a tris quota:
 
-## Why the blob path failed (teach this)
+- Head/hair: subdivided cage, jaw/cheek planes, many hair clumps (≥12)  
+- Armor: inset panels + rim loops; filigree as thin extruded curves or inset strips  
+- Cape: grid ≥16×16 before subdiv, ≥2 fold ridges, thickness shell  
+- Overall before game decimate: often **15k–80k tris** OK for display; decimate later  
 
-| Meshy | Sphere-kit agent |
-|---|---|
-| Diffusion + 3D recon invents missing volume | Agent approximates with primitives |
-| Dense triangles follow painted edges | Bevels on cubes still look toy |
-| Filigree is geometry or high-res normals | Gold “bars” fake ornament |
-| Hair is many thin volumes | Cone clumps |
+If clay still looks like stacked toys → **add support loops / panel cuts / subdiv**,
+do not add more spheres.
 
-Anti-blob + light-scan still help **blockouts** and **QA**. They are not a
-substitute for stage-2 neural geometry when sharpness is the goal.
+## Modeling recipes (see also cookbook)
 
-## Agent checklist (Meshy-sharp request)
+Primary doc: `blender-reference-character/references/meshy-inspired-modeling.md`
 
-1. Confirm path A/B/C with available credentials / files  
-2. Run white model → **PNG in chat** (`show-progress.md`)  
-3. Critique clay silhouette vs reference (not beauty lights)  
-4. Remesh only after shape approval  
-5. Texture after shape approval  
-6. Optional: donor bind via `tools/rig/` (AI topology usually needs rebuild for anim)
+Quick rules:
+
+1. **Start every volume as a cage** (cube/grid) → loop cuts → bevel → subdiv  
+2. **Cut where the edge map is bright** (light scan `02_edges.png`)  
+3. **Raise where highlights are**, carve where shadows are (relief map)  
+4. **White/clay only** until form_language≥2 and relief_match≥1  
+5. Show a PNG after every densify pass  
 
 ## Scripts
 
 ```bash
-# A) Meshy white model (needs MESHY_API_KEY)
-python3 tools/meshy/image_to_3d.py \
-  --image /path/to/ref.png \
-  --out exports/meshy/<name> \
-  --no-texture \
-  --ai-model latest
+# Light scan
+python3 .claude/skills/blender-reference-character/scripts/light_scan_reference.py \
+  --image <ref.png> --out exports/.../light-scan/<name>
 
-# Orient + progress PNGs
-blender -b -noaudio --python tools/meshy/import_and_preview.py -- \
-  --glb exports/meshy/<name>/model.glb \
-  --name <name> \
-  --out exports/meshy/<name>/preview
+# Dense white-model builder (owned — no Meshy)
+blender -b -noaudio --python tools/rig/build_dense_white_character.py -- \
+  --card examples/<name>_card.json --out exports/blender-rig-test
+
+# Progress PNGs
+blender -b -noaudio --python .claude/skills/blender-reference-character/scripts/render_views.py -- \
+  --glb exports/blender-rig-test/<name>.glb --angles 0,35 --mode clay \
+  --prefix 30_white --out exports/blender-rig-test/progress/<name>
 ```
 
-## Licensing reminder
+## Optional: Meshy as study only
 
-Meshy free-tier is often non-exclusive / attribution — check before shipping into
-Warcrest exclusive heroes. Prefer paid commercial license or owned rebuild.
+`tools/meshy/` may fetch a commercial mesh for **side-by-side study** when the
+user explicitly wants a comparison. It is **not** required and must not block
+our builder work.
 
 ## Tie-in
 
 | Doc | Role |
 |---|---|
-| **This file** | When to abandon sphere kits for neural white models |
-| `meshy-pipeline.md` | Product stages |
-| `agent-analogue.md` | Stage map for agents |
-| `blender-reference-character` | Blockout / owned-IP / remesh QA — not Meshy parity |
+| **This file** | Quality contract we own |
+| `meshy-pipeline.md` | What Meshy’s product stages are (study) |
+| `meshy-inspired-modeling.md` | How we cut dense Blender geometry |
+| `anti-blob.md` / `lidar-light-scan.md` | Sensors + bans feeding the dense pass |
+| `show-progress.md` | PNG every step |

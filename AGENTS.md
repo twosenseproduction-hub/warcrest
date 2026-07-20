@@ -45,7 +45,8 @@ analogue; do not claim to run their proprietary weights unless using their API
 with user credentials. Respect Meshy free-tier licensing for game IP.
 
 **Sharp / no-blob requests:** follow
-`.claude/skills/image-to-3d-from-reference/references/sharp-detail-path.md`.
-Prefer neural white model via `tools/meshy/image_to_3d.py` (`MESHY_API_KEY`) or a
-user-dropped Meshy/Tripo GLB. Sphere-kit procedural builds are blockouts only —
-they will not match Meshy edge sharpness. Always show step PNGs in chat.
+`.claude/skills/image-to-3d-from-reference/references/sharp-detail-path.md` and
+`blender-reference-character/references/meshy-inspired-modeling.md`. Meshy/Tripo
+are study references for *stages* (dense white model → remesh → texture); **we**
+author dense cage/subdiv geometry — do not require their APIs. Always show step
+PNGs in chat.

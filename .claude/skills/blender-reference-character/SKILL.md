@@ -40,6 +40,7 @@ references/
   reference-card.md      # MUST fill before writing geometry
   lidar-light-scan.md    # REQUIRED: treat ref as LiDAR — light reveals form
   show-progress.md       # REQUIRED: PNG after almost every step (user must see)
+  meshy-inspired-modeling.md # dense cages/subdiv/panel cuts (own Meshy quality)
   parts-first.md         # PREFERRED: inventory parts → craft each → assemble
   anti-blob.md           # REQUIRED: silhouette match, ban sphere/cylinder finals
   blender-cookbook.md    # safe primitives, axis conventions, materials
@@ -179,11 +180,10 @@ Ship only when:
 Preferred path for a new Warcrest hero from art:
 **card → this skill (static T-pose) → tools/rig donor bind → register in Render3D.**
 
-When the user wants **Meshy-sharp detail (no blobs)**, do **not** rely on this
-skill’s sphere/plate kits as the final mesh. Follow
-`image-to-3d-from-reference/references/sharp-detail-path.md`: neural white model
-(Meshy API / dropped GLB) first, then use **this** skill for critique PNGs,
-axis conventions, remesh QA, and optional owned-IP rebuild.
+When the user wants **Meshy-sharp detail (no blobs)**, follow
+`image-to-3d-from-reference/references/sharp-detail-path.md` and
+`references/meshy-inspired-modeling.md`: dense white model (cages → subdiv →
+panel cuts from light-scan), then color. Sphere kits are scaffolds only.
 
 ## Anti-patterns (learned the hard way)
 

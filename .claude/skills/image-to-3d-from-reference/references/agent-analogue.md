@@ -50,20 +50,15 @@ Add to the JSON card:
 Deliver an untextured or flat-shaded mesh and critique **shape only**:
 proportions · silhouette · landmark presence · genus (no unwanted holes).
 
-**If the user wants Meshy-sharp detail** (not a soft toy blockout), follow
-`sharp-detail-path.md` — **neural white model first** (`tools/meshy/image_to_3d.py`
-or a user-dropped Meshy/Tripo GLB). Sphere-kit procedural builds cannot match
-Meshy edge sharpness; do not pretend otherwise.
-
-**Owned-IP / no-API fallback — parts-first hard-surface** (see
-`blender-reference-character/references/parts-first.md` + `anti-blob.md`):
-inventory limbs/armor/cloth → beveled plates / double-subdiv cages → assemble.
-Label as **blockout**, not Meshy parity.
+**If the user wants Meshy-sharp detail**, follow `sharp-detail-path.md` and
+`meshy-inspired-modeling.md` — **we** author the dense white model (cages →
+bevel → subdiv → panel cuts from light-scan). Meshy/Tripo are study references
+only; do not block on their APIs. Sphere kits are scaffolds, never finals.
 
 Tools:
-- `tools/meshy/image_to_3d.py` + `import_and_preview.py` (**preferred for sharp**)
-- `.claude/skills/blender-reference-character/` (owned-IP blockout / QA remesh)
-- Optional: TripoSR locally if CUDA + MIT draft as blockout
+- Dense builder pattern: `tools/rig/build_violet_dense.py`
+- `blender-reference-character` recipes (`meshy-inspired-modeling.md`)
+- Optional study comparison: `tools/meshy/` only if the user asks
 
 ## Stage 3 — remesh for Warcrest
 
@@ -97,25 +92,14 @@ Score each view against the card. One-knob refine.
 
 ## Hybrid recommended for Warcrest heroes
 
-**Sharp / Meshy-like (default when user hates blobs):**
+**Sharp / Meshy-inspired (default when user hates blobs):**
 ```
 reference image
-  → multi-view card (this skill)
-  → Meshy/Tripo WHITE MODEL (API or dropped GLB)   ← sharp edges live here
-  → PNG progress + clay critique
-  → remesh / rebuild topology for animation if needed
-  → materials / toon OR Meshy retexture (licensed)
-  → donor bind (tools/rig) after topology QA
+  → multi-view card + light_scan (this skill + blender-reference-character)
+  → DENSE WHITE MODEL we author (cages / subdiv / panel cuts)
+  → PNG progress + clay critique every densify pass
+  → materials / toon after shape ships
+  → remesh/decimate + donor bind (tools/rig) as needed
 ```
 
-**Owned-IP blockout (no neural mesh):**
-```
-reference image
-  → card + light_scan + anti-blob
-  → procedural hard-surface (blender-reference-character)
-  → critique (expect softer than Meshy)
-  → donor bind
-```
-
-Neural meshes: confirm license before exclusive Warcrest ship; often rebuild
-topology for animation — see `lowpoly-character-forge/references/pipeline.md`.
+Meshy/Tripo docs remain the **quality checklist**, not the mesh source.

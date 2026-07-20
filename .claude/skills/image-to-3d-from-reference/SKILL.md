@@ -68,8 +68,8 @@ unsuitable for exclusive game IP. Prefer paid commercial license, open TripoSR
 Read `references/meshy-pipeline.md` and `references/tripo-pipeline.md` for
 product-specific detail. Read `references/agent-analogue.md` before building.
 If the user wants **sharp Meshy-like detail / no blobs**, read
-`references/sharp-detail-path.md` and prefer neural white model
-(`tools/meshy/image_to_3d.py`) over sphere-kit procedural builds.
+`references/sharp-detail-path.md` and build a **dense owned white model**
+(cages/subdiv/panel cuts) — Meshy is the quality teacher, not the runtime.
 
 ## When to use
 
@@ -90,11 +90,10 @@ Follow `references/agent-analogue.md` in order:
 1. **Input prep checklist** on the reference image (Read the image).
 2. **Multi-view card** — front + side (+ back if inferable) landmarks, silhouettes,
    palette (extends `blender-reference-character` reference card).
-3. **Geometry pass** — white/untextured first (Meshy’s “review white model” gate):
-   - **Sharp path:** Meshy/Tripo API (`tools/meshy/image_to_3d.py`) or user GLB
-     → `tools/meshy/import_and_preview.py` (see `sharp-detail-path.md`)
-   - **Owned-IP blockout:** `blender-reference-character` hard-surface / parts-first
-   - Optional: TripoSR if CUDA available (MIT draft)
+3. **Geometry pass** — dense white/untextured first (Meshy’s “review white model” gate):
+   - **Sharp path:** owned dense cages — see `sharp-detail-path.md` +
+     `meshy-inspired-modeling.md` / `tools/rig/build_violet_dense.py` pattern
+   - Optional study comparison only: `tools/meshy/` if user asks
 4. **Remesh** — hit game budget (Warcrest troops ~2k tris; heroes higher).
 5. **Texture / materials** — region PBR or stylized toon; never bake lighting into albedo if avoidable.
 6. **Critique** — render front/¾/side/back; score vs reference like Meshy’s white-model review.
