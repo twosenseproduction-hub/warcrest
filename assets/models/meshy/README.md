@@ -1,37 +1,34 @@
 # Meshy AI models
 
-## Purple Elf — matching the reference
+## Purple Elf — keep the polygon / flat-shade look
 
-### What drifts (and how to fix it)
+The reference is **low-poly + flat shading** (hard facet edges, no smooth normals).
+Meshy’s default smooth normals wash that out.
 
-| Gap | Cause | Fix |
-|-----|-------|-----|
-| Chrome / plastic shine | PBR metalness + normals + studio preview lights | `enable_pbr: false`, strip normals, roughness=1 (`matte_glb.py` / post) |
-| Paint / filigree mismatch | Meshy invents texture when enhanced | `image_enhancement: false` + `texture_image_url` = reference |
-| Soft / rounded forms | Smart Topology / high-poly remesh | Remesh ~8–12k tris, or `model_type: lowpoly` |
-| Silhouette / side drift | Single front image only | Add side + back refs (Multi-Image to 3D) |
-| Exact game look | Image-to-3D always approximates | Rebuild in lowpoly-character-forge, or retopo in Blender |
+### What we ship now
+`purple_elf_meshy.glb` = Meshy **`model_type: lowpoly`** Image-to-3D from the Drive ref,
+then **`facet_glb.py`** (unmerge verts → face normals) + matte factors.
 
-### Current ship (`purple_elf_meshy.glb`)
+| File | Notes |
+|------|-------|
+| `purple_elf_ref.jpg` | Source T-pose |
+| `purple_elf_meshy.glb` | Faceted lowpoly (current) |
+| `purple_elf_meshy_lowpoly_raw.glb` | Meshy lowpoly before facet pass |
+| `purple_elf_meshy_lowpoly_view_*.png` | Meshy preview thumbs |
+| `purple_elf_meshy_v1_smarttopo.glb` / `_fidelity_raw.glb` | Earlier smoother attempts |
 
-**Fidelity regen** (Meshy-6): no image enhancement, texture from reference, no PBR, remesh 12k, then normals stripped for a painted read.
+### How to keep the polygon look
+1. **Generate with** `model_type: "lowpoly"` (not standard/smart-topology remesh).
+2. **Facet after export:** `python3 tools/.meshy-work/facet_glb.py path/to.glb`
+3. **In engine:** load with **flat shading** (`material.flatShading = true` in Three.js, or `use_smooth=False` in Blender). Smooth shading will hide the facets again.
+4. **No normal maps** — they re-smooth the silhouette.
 
-| File | Description |
-|------|-------------|
-| `purple_elf_ref.jpg` | Source T-pose reference |
-| `purple_elf_meshy.glb` | Best current match (matte / flat) |
-| `purple_elf_meshy_fidelity_raw.glb` | Pre-normal-strip fidelity export |
-| `purple_elf_meshy_v1_smarttopo.glb` | First smart-topology attempt |
-| `purple_elf_meshy_pbr.glb` | Early shiny PBR backup |
-| `purple_elf_meshy_view_*.png` | Meshy preview views |
-
-**Regen (closest Meshy settings):**
+### Regen
 ```bash
-MESHY_API_KEY=… python3 tools/.meshy-work/generate_purple_elf_fidelity.py
+MESHY_API_KEY=… python3 tools/.meshy-work/generate_purple_elf_lowpoly.py
+python3 tools/.meshy-work/facet_glb.py assets/models/meshy/purple_elf_meshy_lowpoly_raw.glb \
+  -o assets/models/meshy/purple_elf_meshy.glb
 ```
 
-**Next step for even closer:** supply side + back images → Multi-Image to 3D, or rebuild procedurally.
-
-## Elven Archer (text-to-3D experiment)
-
-`elven_archer_meshy.glb` — earlier prompt-only attempt; less faithful than image-to-3D.
+## Elven Archer
+Earlier text-to-3D experiment: `elven_archer_meshy.glb`.
