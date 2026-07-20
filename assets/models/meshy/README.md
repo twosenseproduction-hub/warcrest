@@ -51,16 +51,28 @@ See `STYLE.md` for the full recipe.
 Untextured Meshy clay elf archer with welded bow/quiver:
 [Drive GLB](https://drive.google.com/file/d/15AomYJC-tnxaEtC7aiOvxsM5-0wtEwJd/view?usp=drivesdk)
 
-Meshy Auto-Rig pose estimation failed on this welded-bow silhouette.
-DIY pipeline skins the clay mesh to the **HumanF pack skeleton** (B-* bones)
-and world-bakes the Female idle/bow/walk/run clips natively.
+### From scratch (preferred)
+
+Custom 19-bone humanoid built from mesh landmarks + automatic weights.
+Clips are **hand-keyed in Blender** (idle / walk / run / bow combat) — no Meshy
+Auto-Rig, no HumanF/Mixamo donor skeleton, no pack retarget.
 
 | File | Notes |
 |------|-------|
 | `bow_elf_meshy_raw.glb` | Source clay mesh from Drive |
-| `drive_character_raw.glb` | Same source (alias) |
+| `bow_elf_scratch_rigged.glb` | Custom scratch armature |
+| `bow_elf_scratch_anim.glb` | Hand-keyed clips |
+
+```bash
+blender -b -noaudio --python tools/.meshy-work/rig_animate_bow_elf_scratch.py
+```
+
+### Earlier: HumanF pack skeleton (reference)
+
+| File | Notes |
+|------|-------|
 | `bow_elf_meshy_rigged.glb` | Skinned to HumanF armature |
-| `bow_elf_meshy_pack_anim.glb` | Pack clips (idle / bow / walk / run) |
+| `bow_elf_meshy_pack_anim.glb` | Retargeted pack clips |
 
 ```bash
 blender -b -noaudio --python tools/.meshy-work/rig_animate_bow_elf_humanf.py
