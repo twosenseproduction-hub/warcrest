@@ -1,0 +1,21 @@
+{
+  "name": "violet_cape_warrior",
+  "glb": "/workspace/exports/blender-rig-test/violet_cape_warrior.glb",
+  "bytes": 265064,
+  "bbox": {
+    "min": [
+      -1.2972922325134277,
+      -0.4157178997993469,
+      0.0
+    ],
+    "max": [
+      1.2972922325134277,
+      0.47699999809265137,
+      2.360999822616577
+    ],
+    "height": 2.360999822616577
+  },
+  "tris": 8558,
+  "part_objects_before_join": 101,
+  "construction": "parts_first"
+}
