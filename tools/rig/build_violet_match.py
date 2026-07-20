@@ -292,6 +292,12 @@ def build_pauldron(s):
         (0.07, 0.10, 0.05, 0.014, 0),
         (-0.03, 0.07, 0.06, 0.014, s*12),
         (0.04, 0.09, 0.03, 0.04, -s*8),
+        # denser filigree from REF edge map
+        (0.08, 0.05, 0.07, 0.012, s*35),
+        (-0.07, 0.08, 0.065, 0.012, -s*30),
+        (0.02, 0.12, 0.04, 0.05, s*15),
+        (0.05, 0.03, 0.012, 0.07, -s*20),
+        (-0.02, 0.05, 0.055, 0.012, s*8),
     ]):
         scroll((0.50*s + ox*s, FY*0.16, SHOULDER_Z + oz), (sx, 0.013, sz), f'pfil_{s}_{i}', yaw=yaw)
     finish(add_torus((0.54*s, FY*0.02, SHOULDER_Z + 0.20), 0.038, 0.011), M_gold, f'gem_bez_{s}')
@@ -352,10 +358,10 @@ def build_cape():
     for i, (x, y, z, sx, sy, sz, yaw, pitch) in enumerate(panels):
         p = plate((x, y, z), (sx, sy, sz), M_cape, f'cape_p_{i}', 0.016, 1)
         rot_euler(p, pitch, 0, yaw)
-    # fold ridges (thin vertical plates)
-    for i, x in enumerate([-0.50, -0.25, 0.0, 0.25, 0.50]):
-        ridge = plate((x, 0.39, 0.55), (0.045, 0.04, 1.05), M_cape, f'fold_{i}', 0.012, 1)
-        rot_euler(ridge, 5, 0, (1 if x >= 0 else -1) * min(abs(x) * 25, 18))
+    # denser fold ridges (edge-map shows many vertical cape creases)
+    for i, x in enumerate([-0.65, -0.48, -0.32, -0.16, 0.0, 0.16, 0.32, 0.48, 0.65]):
+        ridge = plate((x, 0.40, 0.52), (0.035, 0.038, 1.10), M_cape, f'fold_{i}', 0.01, 1)
+        rot_euler(ridge, 5, 0, (1 if x >= 0 else -1) * min(abs(x) * 28, 22))
     for i, (x, yaw, w) in enumerate([(-0.4, 16, 0.55), (0.0, 0, 0.80), (0.4, -16, 0.55)]):
         lin = plate((x, 0.25, 0.42), (w, 0.03, 0.88), M_lining, f'lining_{i}', 0.01, 1)
         rot_euler(lin, 7, 0, yaw)
@@ -370,115 +376,104 @@ build_cape()
 
 # ===================== HEAD =====================
 def build_head():
-    # organic chibi head (high-seg sphere — not cube faceplate)
-    cr = add_uv((0, 0, HEAD_Z), HEAD_R, 40, 24)
-    scale_local(cr, 1.05, 0.98, 1.02)
+    cr = add_uv((0, 0.02, HEAD_Z), HEAD_R, 40, 24)
+    scale_local(cr, 1.02, 0.92, 1.05)
     subdiv(cr, 1)
     finish(cr, M_skin, 'head')
-    # soft jaw / chin
-    jaw = add_uv((0, FY*0.08, HEAD_Z - HEAD_R*0.45), HEAD_R*0.72, 28, 16)
-    scale_local(jaw, 1.05, 0.78, 0.75)
+    jaw = add_uv((0, FY*0.06, HEAD_Z - HEAD_R*0.48), HEAD_R*0.70, 28, 16)
+    scale_local(jaw, 1.05, 0.75, 0.72)
     subdiv(jaw, 1)
     finish(jaw, M_skin, 'jaw')
     for s in (-1, 1):
-        cheek = add_uv((0.24*s, FY*0.22, HEAD_Z - 0.02), 0.14, 18, 10)
-        scale_local(cheek, 0.9, 0.7, 1.0)
+        cheek = add_uv((0.26*s, FY*0.20, HEAD_Z - 0.04), 0.13, 18, 10)
+        scale_local(cheek, 0.85, 0.55, 0.95)
         finish(cheek, M_skin, f'cheek_{s}')
+    # circular eyes + dark liner (REF)
     for s in (-1, 1):
-        sock = add_uv((0.16*s, FY*0.32, HEAD_Z + 0.07), 0.11, 18, 12)
-        scale_local(sock, 1.15, 0.26, 0.75)
-        rot_euler(sock, 0, 0, -s*14)
+        sock = add_uv((0.15*s, FY*0.30, HEAD_Z + 0.06), 0.105, 18, 12)
+        scale_local(sock, 1.05, 0.35, 0.95)
         finish(sock, M_skinD, f'socket_{s}')
-        eye = add_uv((0.16*s, FY*0.42, HEAD_Z + 0.07), 0.085, 20, 12)
-        scale_local(eye, 0.95, 0.30, 1.5)
-        rot_euler(eye, 0, 0, -s*16)
+        liner = add_uv((0.15*s, FY*0.40, HEAD_Z + 0.06), 0.092, 20, 12)
+        scale_local(liner, 1.0, 0.18, 1.0)
+        finish(liner, M_ink, f'liner_{s}')
+        eye = add_uv((0.15*s, FY*0.46, HEAD_Z + 0.06), 0.078, 22, 14)
+        scale_local(eye, 1.0, 0.22, 1.0)
         finish(eye, M_eye, f'eye_{s}')
-        # brow ridge soft
-        brow = add_uv((0.14*s, FY*0.34, HEAD_Z + 0.16), 0.06, 12, 8)
-        scale_local(brow, 1.4, 0.4, 0.5)
-        finish(brow, M_skinD, f'brow_{s}')
+        brow = add_cube((0.13*s, FY*0.42, HEAD_Z + 0.15), (0.09, 0.02, 0.018))
+        bevel(brow, 0.006, 2)
+        rot_euler(brow, 0, 0, -s*28)
+        finish(brow, M_ink, f'brow_{s}')
+    # twin forehead + cheek tribal (curve-ish vines)
     for s in (-1, 1):
         vine([
-            (0.08*s, FY*0.38, HEAD_Z + 0.20),
-            (0.14*s, FY*0.38, HEAD_Z + 0.12),
-            (0.18*s, FY*0.38, HEAD_Z + 0.04),
-            (0.16*s, FY*0.38, HEAD_Z - 0.04),
-            (0.10*s, FY*0.38, HEAD_Z + 0.08),
-            (0.20*s, FY*0.36, HEAD_Z + 0.00),
-        ], 0.024, f'face_vine_{s}')
-    mouth = add_uv((0, FY*0.34, HEAD_Z - 0.20), 0.045, 14, 8)
-    scale_local(mouth, 1.6, 0.28, 0.5)
+            (0.04*s, FY*0.42, HEAD_Z + 0.18),
+            (0.05*s, FY*0.42, HEAD_Z + 0.24),
+            (0.04*s, FY*0.42, HEAD_Z + 0.30),
+        ], 0.018, f'fore_{s}')
+        vine([
+            (0.12*s, FY*0.44, HEAD_Z + 0.00),
+            (0.18*s, FY*0.44, HEAD_Z - 0.04),
+            (0.22*s, FY*0.42, HEAD_Z - 0.08),
+            (0.18*s, FY*0.42, HEAD_Z - 0.02),
+        ], 0.020, f'cheek_{s}')
+    mouth = add_cube((0, FY*0.40, HEAD_Z - 0.18), (0.07, 0.025, 0.018))
+    bevel(mouth, 0.008, 2)
     finish(mouth, M_lip, 'mouth')
-    nose = add_uv((0, FY*0.38, HEAD_Z - 0.02), 0.035, 12, 8)
-    scale_local(nose, 0.8, 1.1, 1.0)
-    finish(nose, M_skinD, 'nose')
+    nose = add_uv((0, FY*0.42, HEAD_Z - 0.01), 0.032, 12, 8)
+    scale_local(nose, 0.7, 1.0, 1.1)
+    finish(nose, M_skin, 'nose')
     for s in (-1, 1):
-        # ears must stick out past hair in front view
-        ear = add_cone((HEAD_R*0.95*s, FY*0.08, HEAD_Z + 0.02), 0.13, 0.0, 0.85, seg=9)
-        rot_euler(ear, 8, 0, -s*92)
-        bevel(ear, 0.012, 1)
+        ear = add_uv((HEAD_R*0.92*s, FY*0.05, HEAD_Z + 0.02), 0.12, 16, 10)
+        scale_local(ear, 2.2, 0.40, 0.55)
         finish(ear, M_skin, f'ear_{s}')
-        inn = add_cone((HEAD_R*1.05*s, FY*0.14, HEAD_Z + 0.02), 0.06, 0.0, 0.55, seg=7)
-        rot_euler(inn, 8, 0, -s*92)
-        finish(inn, M_skinD, f'ear_in_{s}')
+        tip = add_cone((HEAD_R*1.35*s, FY*0.05, HEAD_Z + 0.04), 0.045, 0.0, 0.28, seg=8)
+        rot_euler(tip, 0, -90*s, 0)
+        finish(tip, M_skin, f'ear_tip_{s}')
 
 build_head()
 
-# ===================== HAIR =====================
-# smaller crown so spikes dominate silhouette (figurine hair is spike-led)
-hb = add_uv((0, 0.10, HEAD_Z + 0.12), 0.38, 26, 14)
-scale_local(hb, 1.15, 0.85, 0.95)
+# ===================== HAIR (chunky cards — REF silhouette) =====================
+hb = add_uv((-0.04, 0.18, HEAD_Z + 0.18), 0.36, 26, 14)
+scale_local(hb, 1.20, 0.85, 0.70)
 subdiv(hb, 1)
 finish(hb, M_hair, 'hair_crown')
 
-# hair MUST break front silhouette — spikes lean toward camera (-Y) and up
-purple = [
-    # x, y(- forward), z_off, r, depth, rx(pitch toward cam), rz
-    (0.00, FY*0.05, 0.45, 0.14, 0.50, 25, 0),
-    (-0.14, FY*0.02, 0.42, 0.12, 0.46, 22, -16),
-    (0.14, FY*0.02, 0.42, 0.12, 0.46, 22, 16),
-    (-0.26, 0.02, 0.38, 0.11, 0.42, 12, -32),
-    (0.26, 0.02, 0.38, 0.11, 0.42, 12, 32),
-    (-0.36, 0.06, 0.28, 0.10, 0.36, 5, -50),
-    (0.36, 0.06, 0.28, 0.10, 0.36, 5, 50),
-    (0.00, 0.12, 0.48, 0.13, 0.48, -5, 0),
-    (-0.18, 0.14, 0.40, 0.11, 0.40, 0, -20),
-    (0.18, 0.14, 0.40, 0.11, 0.40, 0, 20),
-    (-0.10, FY*0.08, 0.32, 0.09, 0.34, 35, -8),
-    (0.10, FY*0.08, 0.32, 0.09, 0.34, 35, 8),
-    (-0.42, 0.00, 0.18, 0.08, 0.28, 15, -62),
-    (0.42, 0.00, 0.18, 0.08, 0.28, 15, 62),
-    (0.00, 0.18, 0.30, 0.12, 0.36, -15, 0),
-]
-for i, (x, y, dz, rb, depth, rx, rz) in enumerate(purple):
-    sp = add_cone((x, y, HEAD_Z + dz * 0.35), rb, 0.005, depth, seg=8)
-    rot_euler(sp, rx, 0, rz)
-    bevel(sp, 0.006, 1)
-    finish(sp, M_hair, f'hair_{i}')
+def hair_card(loc, sx, sy, sz, rx, rz, m, name):
+    ob = add_cube(loc, (sx, sy, sz))
+    bevel(ob, min(sx, sy, sz) * 0.32, 3)
+    subdiv(ob, 1)
+    rot_euler(ob, rx, 0, rz)
+    return finish(ob, m, name)
 
-# gold bangs — character RIGHT (-X), strongly toward camera
-gold = [
-    (-0.08, FY*0.28, 0.38, 0.10, 0.42, 40, -4),
-    (-0.18, FY*0.22, 0.34, 0.09, 0.38, 36, -18),
-    (-0.02, FY*0.30, 0.44, 0.11, 0.46, 38, 2),
-    (-0.28, FY*0.14, 0.26, 0.08, 0.32, 28, -36),
-    (-0.12, FY*0.24, 0.28, 0.08, 0.34, 42, -10),
-    (-0.22, FY*0.18, 0.40, 0.08, 0.36, 32, -22),
-    (-0.34, FY*0.08, 0.22, 0.07, 0.28, 20, -48),
+hair_cards = [
+    # loc xyz, sx sy sz, rx, rz, gold
+    ((-0.06, FY*0.22, HEAD_Z + 0.42), 0.14, 0.06, 0.32, -50, -6, True),
+    ((-0.18, FY*0.18, HEAD_Z + 0.38), 0.12, 0.055, 0.30, -45, -22, True),
+    ((-0.28, FY*0.12, HEAD_Z + 0.32), 0.11, 0.05, 0.28, -38, -38, True),
+    ((-0.12, FY*0.24, HEAD_Z + 0.34), 0.11, 0.05, 0.28, -55, -10, True),
+    ((0.10, FY*0.16, HEAD_Z + 0.36), 0.12, 0.055, 0.28, -42, 16, False),
+    ((0.22, FY*0.10, HEAD_Z + 0.30), 0.11, 0.05, 0.26, -35, 32, False),
+    ((0.32, FY*0.04, HEAD_Z + 0.24), 0.10, 0.045, 0.24, -25, 48, False),
+    ((-0.02, FY*0.10, HEAD_Z + 0.50), 0.13, 0.06, 0.26, -65, 0, True),
+    ((0.12, FY*0.06, HEAD_Z + 0.48), 0.11, 0.05, 0.24, -60, 12, False),
+    ((-0.20, FY*0.02, HEAD_Z + 0.46), 0.11, 0.05, 0.24, -55, -16, False),
+    ((-0.36, 0.02, HEAD_Z + 0.22), 0.09, 0.04, 0.22, -20, -55, False),
+    ((0.36, 0.02, HEAD_Z + 0.22), 0.09, 0.04, 0.22, -18, 55, False),
+    ((-0.24, FY*0.20, HEAD_Z + 0.26), 0.10, 0.045, 0.26, -40, -28, True),
+    ((0.04, FY*0.22, HEAD_Z + 0.30), 0.10, 0.045, 0.24, -58, 4, True),
+    ((-0.08, 0.16, HEAD_Z + 0.44), 0.12, 0.055, 0.22, -30, -8, False),
+    ((0.16, 0.14, HEAD_Z + 0.40), 0.11, 0.05, 0.20, -28, 18, False),
+    ((-0.30, FY*0.14, HEAD_Z + 0.40), 0.10, 0.045, 0.28, -48, -30, True),
+    ((0.0, FY*0.14, HEAD_Z + 0.54), 0.11, 0.05, 0.22, -72, 2, True),
 ]
-for i, (x, y, dz, rb, depth, rx, rz) in enumerate(gold):
-    sp = add_cone((x, y, HEAD_Z + dz * 0.35), rb, 0.005, depth, seg=8)
-    rot_euler(sp, rx, 0, rz)
-    finish(sp, M_hairG, f'gold_{i}')
+for i, (loc, sx, sy, sz, rx, rz, gold) in enumerate(hair_cards):
+    hair_card(loc, sx, sy, sz, rx, rz, M_hairG if gold else M_hair, f'hcard_{i}')
 
 for s in (-1, 1):
-    lock = add_cyl((HEAD_R*0.80*s, FY*0.05, HEAD_Z - 0.14), 0.068, 0.58, 12)
-    rot_euler(lock, 32, 0, s*14)
+    lock = add_cyl((HEAD_R*0.78*s, FY*0.05, HEAD_Z - 0.12), 0.06, 0.52, 12)
+    rot_euler(lock, 28, 0, s*12)
     bevel(lock, 0.01, 1); subdiv(lock, 1)
-    finish(lock, M_hair, f'lock_{s}')
-    tip = add_cone((HEAD_R*0.88*s, FY*0.10, HEAD_Z - 0.44), 0.055, 0.0, 0.18, seg=6)
-    rot_euler(tip, 40, 0, s*16)
-    finish(tip, M_hair, f'lock_tip_{s}')
+    finish(lock, M_hairG if s < 0 else M_hair, f'lock_{s}')
 
 # JOIN + ground
 clear_sel()
@@ -503,8 +498,8 @@ report = {
     'bbox': {'min':[min(xs),min(ys),min(zs)], 'max':[max(xs),max(ys),max(zs)], 'height': max(zs)-min(zs)},
     'tris': sum(len(p.vertices)-2 for p in body.data.polygons),
     'parts_before_join': len(parts),
-    'construction': '1to1_match_iter34',
-    'target': 'user figurine reference — sharp chibi warrior',
+    'construction': '1to1_match_iter36_hair_cards',
+    'target': 'user figurine Drive REF — sharp chibi warrior',
 }
 print('MATCH_BUILT', json.dumps(report, indent=2))
 with open(os.path.join(OUT, NAME + '_report.json'), 'w') as f:

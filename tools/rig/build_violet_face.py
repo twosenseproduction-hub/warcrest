@@ -20,7 +20,7 @@ def argval(flag, default=None):
 
 OUT = argval('--out', 'exports/blender-rig-test')
 NAME = argval('--name', 'violet_face')
-ITER = argval('--iter', '72')
+ITER = argval('--iter', '73')
 os.makedirs(OUT, exist_ok=True)
 
 bpy.ops.object.select_all(action='SELECT'); bpy.ops.object.delete()
@@ -210,50 +210,48 @@ for s in (-1, 1):
         pts.append((s * (0.20 + 0.26 * t), FACE_Y - 0.012, HZ + 0.00 - 0.10 * math.sin(t * math.pi) - 0.02 * t))
     curve_ribbon(f'tat_ck_{s}', pts, 0.012)
 
-# ---- HAIR: crown mass BEHIND forehead (must not cover face tattoos) ----
-cap = add_uv((-0.10, 0.45, HZ + 0.95), 0.58, 28, 16)
-scale_local(cap, 1.25, 0.95, 0.58)
+# ---- HAIR: chunky CARD clumps (flattened plates), not cone rollers ----
+cap = add_uv((-0.10, 0.50, HZ + 0.95), 0.55, 28, 16)
+scale_local(cap, 1.20, 0.90, 0.55)
 finish(cap, M_hair, 'hair_cap')
 
-# fringe volume over crown but still behind FACE_Y
-fringe = add_uv((-0.12, 0.05, HZ + 1.05), 0.42, 24, 14)
-scale_local(fringe, 1.15, 0.70, 0.40)
-finish(fringe, M_hair, 'hair_fringe')
+def hair_card(loc, sx, sy, sz, rx, ry, rz, m, name):
+    ob = add_cube(loc, (sx, sy, sz))
+    bevel(ob, min(sx, sy, sz) * 0.35, 3)
+    subdiv(ob, 1)
+    rot_euler(ob, rx, ry, rz)
+    return finish(ob, m, name)
 
-# (x, y, z, r, depth, rx, rz, gold) — bias −X and −Y (toward camera + character right)
-spikes = [
-    (-0.05, -0.70, 1.15, 0.16, 0.85, -75, -5, True),
-    (-0.22, -0.62, 1.08, 0.15, 0.80, -68, -18, True),
-    (-0.38, -0.50, 0.98, 0.14, 0.72, -55, -35, True),
-    (-0.48, -0.35, 0.85, 0.12, 0.62, -42, -50, True),
-    (0.10, -0.58, 1.05, 0.14, 0.70, -65, 15, False),
-    (0.28, -0.42, 0.92, 0.13, 0.62, -48, 32, False),
-    (0.42, -0.25, 0.78, 0.11, 0.55, -35, 48, False),
-    (-0.15, -0.35, 1.35, 0.15, 0.65, -82, -8, True),
-    (0.05, -0.25, 1.38, 0.14, 0.58, -78, 6, True),
-    (-0.30, -0.10, 1.28, 0.13, 0.55, -60, -20, False),
-    (0.22, -0.08, 1.22, 0.12, 0.50, -55, 22, False),
-    (-0.55, -0.20, 0.65, 0.11, 0.52, -25, -62, False),
-    (0.52, -0.15, 0.62, 0.10, 0.48, -22, 62, False),
-    (-0.35, -0.65, 0.78, 0.12, 0.58, -52, -22, True),
-    (-0.10, -0.72, 0.92, 0.13, 0.62, -70, -8, True),
-    (0.15, -0.68, 0.88, 0.11, 0.55, -68, 12, False),
-    (-0.20, 0.25, 1.18, 0.14, 0.48, -40, -12, False),
-    (0.18, 0.22, 1.12, 0.13, 0.45, -38, 18, False),
-    (-0.42, -0.55, 1.10, 0.12, 0.68, -58, -28, True),
-    (0.0, -0.48, 1.42, 0.13, 0.55, -85, 0, True),
+cards = [
+    ((-0.08, -0.55, HZ + 1.25), 0.22, 0.10, 0.55, -55, 0, -8, True),
+    ((-0.28, -0.48, HZ + 1.15), 0.20, 0.09, 0.50, -48, 5, -28, True),
+    ((-0.42, -0.35, HZ + 1.00), 0.18, 0.08, 0.45, -38, 8, -42, True),
+    ((-0.18, -0.60, HZ + 1.05), 0.18, 0.09, 0.48, -62, 0, -12, True),
+    ((0.12, -0.50, HZ + 1.10), 0.20, 0.09, 0.48, -50, -5, 18, False),
+    ((0.30, -0.38, HZ + 0.95), 0.18, 0.08, 0.42, -40, -8, 35, False),
+    ((0.45, -0.22, HZ + 0.80), 0.16, 0.07, 0.38, -28, -5, 50, False),
+    ((-0.05, -0.30, HZ + 1.40), 0.22, 0.10, 0.42, -70, 0, 0, True),
+    ((0.15, -0.22, HZ + 1.35), 0.18, 0.09, 0.38, -65, 0, 12, False),
+    ((-0.25, -0.15, HZ + 1.30), 0.18, 0.08, 0.40, -55, 5, -18, False),
+    ((-0.50, -0.15, HZ + 0.70), 0.14, 0.07, 0.36, -20, 10, -58, False),
+    ((0.50, -0.12, HZ + 0.68), 0.14, 0.07, 0.34, -18, -10, 58, False),
+    ((-0.35, -0.55, HZ + 0.85), 0.16, 0.08, 0.42, -45, 0, -25, True),
+    ((0.05, -0.65, HZ + 0.95), 0.16, 0.08, 0.40, -68, 0, 5, True),
+    ((-0.15, 0.20, HZ + 1.25), 0.20, 0.10, 0.36, -35, 0, -10, False),
+    ((0.20, 0.18, HZ + 1.18), 0.18, 0.09, 0.34, -32, 0, 20, False),
+    ((-0.40, -0.45, HZ + 1.15), 0.15, 0.08, 0.48, -52, 5, -32, True),
+    ((0.0, -0.40, HZ + 1.48), 0.18, 0.09, 0.38, -78, 0, 2, True),
+    ((-0.22, -0.70, HZ + 0.75), 0.14, 0.07, 0.36, -55, 0, -15, True),
+    ((0.25, -0.55, HZ + 0.85), 0.14, 0.07, 0.34, -50, 0, 22, False),
+    ((-0.55, -0.30, HZ + 0.95), 0.13, 0.06, 0.40, -35, 8, -45, True),
+    ((0.38, -0.48, HZ + 1.05), 0.14, 0.07, 0.38, -45, -5, 30, False),
 ]
-for i, (x, y, z, r, d, rx, rz, gold) in enumerate(spikes):
-    sp = add_cone((x, y, HZ + z), r, 0.01, d, seg=16)
-    rot_euler(sp, rx, 0, rz)
-    bevel(sp, 0.016, 3)
-    subdiv(sp, 1)
-    finish(sp, M_hairG if gold else M_hair, f'spike_{i}')
+for i, (loc, sx, sy, sz, rx, ry, rz, gold) in enumerate(cards):
+    hair_card(loc, sx, sy, sz, rx, ry, rz, M_hairG if gold else M_hair, f'card_{i}')
 
-# side locks by ears
 for s in (-1, 1):
-    lock = add_uv((0.88 * s, -0.30, HZ - 0.40), 0.12, 14, 8)
-    scale_local(lock, 0.75, 0.65, 1.5)
+    lock = add_uv((0.90 * s, -0.25, HZ - 0.35), 0.11, 14, 8)
+    scale_local(lock, 0.70, 0.60, 1.55)
     finish(lock, M_hairG if s < 0 else M_hair, f'lock_{s}')
 
 # ---- COWL ----
