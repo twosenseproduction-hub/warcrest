@@ -32,3 +32,8 @@ python3 tools/.meshy-work/facet_glb.py assets/models/meshy/purple_elf_meshy_lowp
 
 ## Elven Archer
 Earlier text-to-3D experiment: `elven_archer_meshy.glb`.
+
+### Less shiny texture
+Shine was baked into the albedo (painted highlights), not just PBR.
+Pipeline: Meshy retexture with `remove_lighting: true` + local highlight crush on purple plate hotspots.
+Keep `metallicFactor=0`, `roughnessFactor=1`, no normal map. In-engine prefer Lambert/unlit or `flatShading` with roughness 1.
