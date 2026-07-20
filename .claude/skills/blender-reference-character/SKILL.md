@@ -179,8 +179,11 @@ Ship only when:
 Preferred path for a new Warcrest hero from art:
 **card → this skill (static T-pose) → tools/rig donor bind → register in Render3D.**
 
-When the user wants “Meshy/Tripo-style from a photo,” start with
-`image-to-3d-from-reference` for staging, then use **this** skill for the white-model geometry pass.
+When the user wants **Meshy-sharp detail (no blobs)**, do **not** rely on this
+skill’s sphere/plate kits as the final mesh. Follow
+`image-to-3d-from-reference/references/sharp-detail-path.md`: neural white model
+(Meshy API / dropped GLB) first, then use **this** skill for critique PNGs,
+axis conventions, remesh QA, and optional owned-IP rebuild.
 
 ## Anti-patterns (learned the hard way)
 

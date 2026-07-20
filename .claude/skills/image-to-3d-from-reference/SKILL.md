@@ -67,6 +67,9 @@ unsuitable for exclusive game IP. Prefer paid commercial license, open TripoSR
 
 Read `references/meshy-pipeline.md` and `references/tripo-pipeline.md` for
 product-specific detail. Read `references/agent-analogue.md` before building.
+If the user wants **sharp Meshy-like detail / no blobs**, read
+`references/sharp-detail-path.md` and prefer neural white model
+(`tools/meshy/image_to_3d.py`) over sphere-kit procedural builds.
 
 ## When to use
 
@@ -88,9 +91,10 @@ Follow `references/agent-analogue.md` in order:
 2. **Multi-view card** — front + side (+ back if inferable) landmarks, silhouettes,
    palette (extends `blender-reference-character` reference card).
 3. **Geometry pass** — white/untextured first (Meshy’s “review white model” gate):
-   - Prefer `blender-reference-character` parametric build, OR
-   - open TripoSR if CUDA available and user wants neural draft, OR
-   - import user-provided Meshy/Tripo GLB as blockout only.
+   - **Sharp path:** Meshy/Tripo API (`tools/meshy/image_to_3d.py`) or user GLB
+     → `tools/meshy/import_and_preview.py` (see `sharp-detail-path.md`)
+   - **Owned-IP blockout:** `blender-reference-character` hard-surface / parts-first
+   - Optional: TripoSR if CUDA available (MIT draft)
 4. **Remesh** — hit game budget (Warcrest troops ~2k tris; heroes higher).
 5. **Texture / materials** — region PBR or stylized toon; never bake lighting into albedo if avoidable.
 6. **Critique** — render front/¾/side/back; score vs reference like Meshy’s white-model review.

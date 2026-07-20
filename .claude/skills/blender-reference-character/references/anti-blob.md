@@ -104,6 +104,8 @@ ratios and checking renders against the ref with the Read tool.
 - Adding subdivision to a sphere (smoother blob)  
 - Recoloring a blob  
 - Assembling before priority-1 parts pass `form_language≥1`  
+- **Expecting Meshy-level filigree from sphere kits** — escalate to
+  `image-to-3d-from-reference/references/sharp-detail-path.md` (neural white model)
 
 ## Tie-in
 

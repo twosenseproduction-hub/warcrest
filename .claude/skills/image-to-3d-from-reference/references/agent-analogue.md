@@ -50,16 +50,20 @@ Add to the JSON card:
 Deliver an untextured or flat-shaded mesh and critique **shape only**:
 proportions · silhouette · landmark presence · genus (no unwanted holes).
 
-**Preferred geometry method: parts-first** (see
-`blender-reference-character/references/parts-first.md`):
-inventory limbs/armor/cloth/accessories from the reference → craft each part →
-assemble on sockets. This is how we keep pauldrons/capes/boots sharp instead of
-smearing them into a single Meshy-style blob.
+**If the user wants Meshy-sharp detail** (not a soft toy blockout), follow
+`sharp-detail-path.md` — **neural white model first** (`tools/meshy/image_to_3d.py`
+or a user-dropped Meshy/Tripo GLB). Sphere-kit procedural builds cannot match
+Meshy edge sharpness; do not pretend otherwise.
+
+**Owned-IP / no-API fallback — parts-first hard-surface** (see
+`blender-reference-character/references/parts-first.md` + `anti-blob.md`):
+inventory limbs/armor/cloth → beveled plates / double-subdiv cages → assemble.
+Label as **blockout**, not Meshy parity.
 
 Tools:
-- `.claude/skills/blender-reference-character/` (preferred for owned IP)
-- Optional: run TripoSR locally if CUDA + user OK with MIT neural draft as **blockout only**, then rebuild procedurally **per part**
-- Optional: user-paid Meshy/Tripo GLB as blockout; use Tripo **segmentation** ideas to split kit pieces, then rebuild
+- `tools/meshy/image_to_3d.py` + `import_and_preview.py` (**preferred for sharp**)
+- `.claude/skills/blender-reference-character/` (owned-IP blockout / QA remesh)
+- Optional: TripoSR locally if CUDA + MIT draft as blockout
 
 ## Stage 3 — remesh for Warcrest
 
@@ -93,14 +97,25 @@ Score each view against the card. One-knob refine.
 
 ## Hybrid recommended for Warcrest heroes
 
+**Sharp / Meshy-like (default when user hates blobs):**
 ```
 reference image
   → multi-view card (this skill)
-  → procedural/Blender white model (blender-reference-character)
-  → critique vs ref (front/¾/side)
-  → donor bind (tools/rig)
-  → in-engine toon (Render3D)
+  → Meshy/Tripo WHITE MODEL (API or dropped GLB)   ← sharp edges live here
+  → PNG progress + clay critique
+  → remesh / rebuild topology for animation if needed
+  → materials / toon OR Meshy retexture (licensed)
+  → donor bind (tools/rig) after topology QA
 ```
 
-Use Meshy/Tripo neural meshes only as **licensed blockout references**, then rebuild
-for ownership + animatable topology — same advice as `lowpoly-character-forge/references/pipeline.md`.
+**Owned-IP blockout (no neural mesh):**
+```
+reference image
+  → card + light_scan + anti-blob
+  → procedural hard-surface (blender-reference-character)
+  → critique (expect softer than Meshy)
+  → donor bind
+```
+
+Neural meshes: confirm license before exclusive Warcrest ship; often rebuild
+topology for animation — see `lowpoly-character-forge/references/pipeline.md`.

@@ -43,3 +43,9 @@ that same staged construction from a reference, load
 (multi-view → white model → remesh → texture → optional rig) via the agent
 analogue; do not claim to run their proprietary weights unless using their API
 with user credentials. Respect Meshy free-tier licensing for game IP.
+
+**Sharp / no-blob requests:** follow
+`.claude/skills/image-to-3d-from-reference/references/sharp-detail-path.md`.
+Prefer neural white model via `tools/meshy/image_to_3d.py` (`MESHY_API_KEY`) or a
+user-dropped Meshy/Tripo GLB. Sphere-kit procedural builds are blockouts only —
+they will not match Meshy edge sharpness. Always show step PNGs in chat.
