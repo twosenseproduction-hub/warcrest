@@ -26,3 +26,11 @@
   batch `--strip-dir` on `assets/heroes/rimwalker/aelindra/` unless the user
   asked to re-process their own files.
 - Keep artist originals in `assets/heroes/rimwalker/aelindra/_refs/` when converting.
+
+## Blender characters from a reference
+
+When making or refining a **Blender** character from a concept/reference image,
+load and follow `.claude/skills/blender-reference-character/SKILL.md` (also
+linked from `.cursor/skills/blender-reference-character/`). Mandatory order:
+reference card → parametric build → turntable render → critique → one-knob refine.
+Do not jump to geometry before a locked palette/proportions/landmarks card.

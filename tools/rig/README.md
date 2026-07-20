@@ -114,7 +114,10 @@ blender -b -noaudio --python tools/rig/test_scratch_rig_anim.py -- \
 ## Antlered chibi elf (static T-pose)
 
 Procedural Rimwalker hero matching the purple-skin / leaf-armor / white-braid
-reference. Face toward `-Y`, arms in T-pose, ready to rig later:
+reference. Face toward `-Y`, arms in T-pose, ready to rig later.
+
+For the full **reference → card → critique** workflow, follow
+`.claude/skills/blender-reference-character/SKILL.md`.
 
 ```bash
 blender -b -noaudio --python tools/rig/build_antler_elf.py -- \
