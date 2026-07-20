@@ -1,15 +1,14 @@
 {
   "name": "violet_face",
-  "iter": "51",
+  "iter": "61",
   "glb": "exports/blender-rig-test/violet_face.glb",
-  "bytes": 1355864,
+  "bytes": 2561936,
   "rendered": [
-    "exports/blender-rig-test/progress/violet_face/51_face_front.png",
-    "exports/blender-rig-test/progress/violet_face/51_face_threeq.png",
-    "exports/blender-rig-test/progress/violet_face/51_face_close.png",
-    "exports/blender-rig-test/progress/violet_face/51_face_clay.png"
+    "exports/blender-rig-test/progress/violet_face/61_face_front.png",
+    "exports/blender-rig-test/progress/violet_face/61_face_threeq.png",
+    "exports/blender-rig-test/progress/violet_face/61_face_close.png",
+    "exports/blender-rig-test/progress/violet_face/61_face_clay.png"
   ],
-  "focus": "face_only_dense_vs_user_ref",
-  "changes": "smoother darker head, clean circular eyes, draped cowl, fixed ears",
+  "pipeline": "owned_dense_boolean_remesh_no_external_ai",
   "card": "exports/blender-rig-test/refs/violet_face_CARD.md"
 }
