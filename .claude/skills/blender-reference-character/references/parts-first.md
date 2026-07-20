@@ -20,8 +20,10 @@ editable parts — except we author the parts on purpose.
 
 ## Mandatory order
 
-### 1. Scan the reference (vision)
-Read the image. List **every discrete visual object**, not just body regions:
+### 1. Scan the reference (vision + light)
+Read the image. Also run the LiDAR-style light scan (`lidar-light-scan.md`) so
+part breaks come from **edges/shadows**, not only color regions. List **every
+discrete visual object**, not just body regions:
 
 ```
 body:        head, neck, torso, upper_arm_L/R, forearm_L/R, hand_L/R,

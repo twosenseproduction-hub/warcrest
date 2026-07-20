@@ -16,6 +16,7 @@ per rebuild**.
 | **Face read** | Eyes/ears/mouth place correctly | Eyes only | Featureless sphere |
 | **Hair / antler** | Volume + branches match reference family | Bun OR antlers weak | Missing / wrong |
 | **Form language** | Part outlines match ref crops; no single-primitive silhouettes | Some plates, still ball/tube heavy | Toy blob (sphere head, cube cape, tube limbs) |
+| **Relief match** | Clay/raking ridges & cavities line up with light-scan sheets | Some ridges present, wrong places | Smooth blob under raking light; scan ignored |
 | **Pose / axis** | T-pose, face −Y, feet z≈0 | Small lean/offset | Back-facing / floating |
 
 ## Diff format (required in agent notes)
@@ -29,6 +30,8 @@ CRITIQUE <name> iter <n>
 - armor: 1 — breastplates not leaf-shaped
 - face: 1 — eyes too round
 - hair/antler: 1 — antlers twiggy
+- form_language: 1 — pauldron still sphere-ish
+- relief_match: 0 — no under-pauldron cavity vs scan shadows
 - pose: 2
 NEXT: increase antler main radius 0.045→0.055 (hair/antler only)
 ```
@@ -67,3 +70,5 @@ axis — e.g. need side-view reference, or sculpt pass beyond procedural primiti
 | **Cube cape** | multi-panel flare + thickness + lining; not one slab |
 | **Melon pauldrons** | beveled plate + rim + inset gem housing |
 | **Tube greaves** | separate shin plate / knee cup / toe cap |
+| **Looks OK in studio, dead in clay** | Rebuild from `light_scan` ridges/cavities; render `--mode clay` |
+| **No plate seams vs edge sheet** | Add panel cuts / inset loops where `02_edges.png` fires |

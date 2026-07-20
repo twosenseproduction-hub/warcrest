@@ -38,14 +38,16 @@ param. This skill enforces that.
 ```
 references/
   reference-card.md      # MUST fill before writing geometry
+  lidar-light-scan.md    # REQUIRED: treat ref as LiDAR — light reveals form
   parts-first.md         # PREFERRED: inventory parts → craft each → assemble
   anti-blob.md           # REQUIRED: silhouette match, ban sphere/cylinder finals
   blender-cookbook.md    # safe primitives, axis conventions, materials
   critique-checklist.md  # scoring rubric + one-knob refine rule
 scripts/
   lib/primitives.py      # shared bpy helpers (importable from Blender)
+  light_scan_reference.py # luminance / edges / relief sheets from a ref image
   build_from_card.py     # parametric builder driven by a JSON card
-  render_views.py        # headless turntable stills (EEVEE/Workbench)
+  render_views.py        # headless turntable stills (studio|raking|clay)
   new_card.py            # scaffold an empty card JSON from a name
 examples/
   antler_elf_card.json   # worked example (purple leaf-armor Rimwalker)
@@ -70,7 +72,21 @@ Write it to `examples/<name>_card.json` (or `/tmp/<name>_card.json`).
 
 **Hard gate:** do not open a builder script until the card has:
 palette (hex per region) · head_height_frac · landmarks[] · **parts[]** (or
-part_inventory[]) · pose.
+part_inventory[]) · pose · **light_scan** (see 1a).
+
+### 1a. LiDAR-style light scan (REQUIRED — see form via light)
+Read `references/lidar-light-scan.md`. Color alone is albedo; **value / edges /
+raking light** are the depth sensor.
+
+```bash
+python3 .claude/skills/blender-reference-character/scripts/light_scan_reference.py \
+  --image /path/to/reference.png \
+  --out exports/blender-rig-test/light-scan/<name>
+```
+
+Read `06_scan_sheet.png` (+ luminance/edges/relief). Fill `card.light_scan`
+(ridges, cavities, part_breaks, form_notes_by_part) **before** crafting.
+When critiquing the mesh, also render `--mode raking` or `--mode clay`.
 
 ### 1b. Parts-first inventory (PREFERRED construction method)
 Read `references/parts-first.md`. Scan the reference for discrete pieces
@@ -100,13 +116,20 @@ Conventions (see cookbook): **Z-up, face −Y, feet z≈0, T-pose along ±X**.
 blender -b -noaudio --python .claude/skills/blender-reference-character/scripts/render_views.py -- \
   --glb exports/blender-rig-test/<name>.glb \
   --angles 0,35,90 --out exports/blender-rig-test/frames
+
+# Form check (compare to light-scan luminance/edges — not beauty lights alone)
+blender -b -noaudio --python .claude/skills/blender-reference-character/scripts/render_views.py -- \
+  --glb exports/blender-rig-test/<name>.glb \
+  --angles 0,35 --mode clay \
+  --out exports/blender-rig-test/frames-clay
 ```
 Angle `0` = front (camera on −Y). Always produce **front + ¾** at minimum.
 For parts-first: also render tight crops while approving individual parts.
 
 ### 4. Critique against the reference
 Load the PNGs with the Read tool. Score with `references/critique-checklist.md`:
-silhouette · proportions · palette · landmarks · armor read · face read · hair/antler.
+silhouette · proportions · palette · landmarks · armor read · face read · hair/antler ·
+**form_language** · **relief_match** (clay/raking vs light-scan sheets).
 
 Produce a **prioritized diff** — worst miss first. Each miss → **one named param**.
 Prefer fixing the **owning part** (e.g. pauldron radius) over global hacks.
@@ -147,6 +170,8 @@ When the user wants “Meshy/Tripo-style from a photo,” start with
 ## Anti-patterns (learned the hard way)
 
 - Jumping to geometry before a locked card → vague “elf-like” blob.
+- Reading only colors (albedo) and ignoring painted light/value → missing ridges & cavities (see `lidar-light-scan.md`).
+- Critiquing only under beauty studio lights → form errors stay hidden; use `--mode clay`.
 - Building the whole hero as one undifferentiated mesh → muddy pauldrons/cape/boots.
 - **Shipping UV-sphere heads / cube capes / tube limbs as finals** → toy-blob look (see `anti-blob.md`).
 - Fragile bmesh matrix stacks for capsules/leaves → exploded fan geometry.

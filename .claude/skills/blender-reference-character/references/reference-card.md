@@ -67,14 +67,18 @@
 ## How to extract from a reference image
 
 1. **Read the image** with the Read tool (vision). Do not rely on memory of a prior turn alone.
-2. **Palette** — sample dominant region colors; prefer saturated mid-values (engine toon/lighting will lift them). Record hex, not adjectives (“purple”).
-3. **Proportions** — estimate `head_height_frac` = head / total height from the front view. Chibi heroes often land 0.40–0.48.
-4. **Landmarks** — list every silhouette-breaking feature a black cutout must show. If it is not on this list, the critique loop will not protect it.
-5. **Part inventory (parts-first — preferred)** — list every discrete piece visible
+2. **LiDAR light scan (required)** — run `scripts/light_scan_reference.py` on the
+   image, Read `06_scan_sheet.png`, and fill `light_scan` (see
+   `lidar-light-scan.md`). Value/edges/shadows are the depth sensor; palette
+   alone is not enough.
+3. **Palette** — sample dominant region colors; prefer saturated mid-values (engine toon/lighting will lift them). Record hex, not adjectives (“purple”).
+4. **Proportions** — estimate `head_height_frac` = head / total height from the front view. Chibi heroes often land 0.40–0.48.
+5. **Landmarks** — list every silhouette-breaking feature a black cutout must show. If it is not on this list, the critique loop will not protect it.
+6. **Part inventory (parts-first — preferred)** — list every discrete piece visible
    in the reference (limbs, pauldrons, cape, boots, hair, antlers, gems, weapon…).
    Prefer a structured `parts[]` array (see `parts-first.md`) over a flat string
    list. Build order: high-silhouette parts first; feet-up still helps z=0 grounding.
-6. **Pose** — `tpose` (arms ±X) for rigging; `apose` or `action` only if the reference demands it and you are not binding yet.
+7. **Pose** — `tpose` (arms ±X) for rigging; `apose` or `action` only if the reference demands it and you are not binding yet.
 
 ## Optional fields
 
@@ -84,6 +88,15 @@
   "target_height_game": 62,
   "weapon": "none",
   "reference_images": ["path/or/url"],
+  "light_scan": {
+    "key_light": "upper-left soft key",
+    "ridges": ["pauldron gold rim", "belt plates"],
+    "cavities": ["under pauldron", "cape–back gap"],
+    "part_breaks": ["hair clumps", "skirt panels"],
+    "form_notes_by_part": {
+      "pauldron_L": "bright top ellipse, dark under-lip"
+    }
+  },
   "forbid": ["realistic_fingers", "high_poly_sculpt", "mixamo_auto_rig"],
   "parts": [
     {
@@ -104,5 +117,6 @@ See `parts-first.md` for the full craft → assemble loop.
 
 ## Hard gate
 
-If `palette`, `proportions.head_height_frac`, `landmarks`, or `part_inventory` is
-missing → **stop** and complete the card. Do not “wing” a mesh.
+If `palette`, `proportions.head_height_frac`, `landmarks`, `part_inventory` /
+`parts`, or `light_scan` (ridges + cavities at minimum) is missing → **stop**
+and complete the card. Do not “wing” a mesh.

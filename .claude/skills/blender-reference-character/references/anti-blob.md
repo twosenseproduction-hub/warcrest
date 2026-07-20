@@ -107,6 +107,7 @@ ratios and checking renders against the ref with the Read tool.
 
 ## Tie-in
 
+- LiDAR light scan (`lidar-light-scan.md`) = *see* ridges/cavities via value  
 - Parts-first (`parts-first.md`) = *what* to build  
 - Anti-blob (this file) = *how* each part must look like the reference  
 - Meshy/Tripo analogue = stage order; still remesh/rebuild for form language
