@@ -1,17 +1,24 @@
 # Meshy AI models
 
-Generated via the Meshy Text-to-3D API (`model_type: lowpoly` preview + PBR refine).
+## Purple Elf (from reference image)
 
-## Elven Archer
+Cleanest path: **Image-to-3D** with Meshy Smart Topology (`meshy-t2`, 10k faces, T-pose).
 
 | File | Description |
 |------|-------------|
-| `elven_archer_meshy.glb` | Textured low-poly elven archer (bow + quiver), silver / forest green / gold |
-| `elven_archer_meshy_thumb.png` | Meshy preview thumbnail |
-| `elven_archer_meshy_thumb_alpha.png` | Transparent-background thumbnail |
+| `purple_elf_ref.jpg` | Source T-pose reference (Drive) |
+| `purple_elf_meshy.glb` | Textured smart-topology GLB |
+| `purple_elf_meshy_thumb.png` | Front thumbnail |
+| `purple_elf_meshy_view_*.png` | Front / left / right / back views |
 
-**Task IDs:** preview `019f8044-983f-77bc-b416-c25f597044ff`, refine `019f8049-d966-7edc-a0b7-bc4f83084905`
+**Task:** `019f8066-81e9-7ac7-9a19-bb11d48c5b5e`  
+**Regen:** `MESHY_API_KEY=… python3 tools/.meshy-work/generate_purple_elf_from_image.py`
 
-**Regen:** `MESHY_API_KEY=… python3 tools/.meshy-work/generate_elven_archer.py`
+## Elven Archer (text-to-3D)
 
-Style target: mobile fantasy RPG (sharp faceted armor, high-contrast palette), matching the reference hero lineup. Not yet wired into `registerUnitModel` — drop into a viewer or run through `tools/rig/import_ai3d.py` before shipping in-game.
+| File | Description |
+|------|-------------|
+| `elven_archer_meshy.glb` | Earlier text-prompt lowpoly archer |
+| `elven_archer_meshy_thumb.png` | Thumbnail |
+
+Not wired into `registerUnitModel` yet.
