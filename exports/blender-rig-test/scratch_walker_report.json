@@ -1,0 +1,51 @@
+{
+  "name": "scratch_walker",
+  "glb": "/workspace/exports/blender-rig-test/scratch_walker_anim.glb",
+  "blend": "/workspace/exports/blender-rig-test/scratch_walker.blend",
+  "bytes": 49340,
+  "bones": [
+    "root",
+    "hips",
+    "spine",
+    "chest",
+    "neck",
+    "head",
+    "clav_l",
+    "arm_l",
+    "fore_l",
+    "clav_r",
+    "arm_r",
+    "fore_r",
+    "thigh_l",
+    "shin_l",
+    "foot_l",
+    "thigh_r",
+    "shin_r",
+    "foot_r"
+  ],
+  "actions": [
+    "idle",
+    "walk"
+  ],
+  "vertex_groups": [
+    "root",
+    "hips",
+    "spine",
+    "chest",
+    "neck",
+    "head",
+    "clav_l",
+    "arm_l",
+    "fore_l",
+    "clav_r",
+    "arm_r",
+    "fore_r",
+    "thigh_l",
+    "shin_l",
+    "foot_l",
+    "thigh_r",
+    "shin_r",
+    "foot_r"
+  ],
+  "tris": 96
+}

@@ -1,0 +1,65 @@
+{
+  "glb": "/workspace/exports/blender-rig-test/scratch_walker_anim.glb",
+  "bytes": 49340,
+  "armatures": [
+    "Armature"
+  ],
+  "meshes": [
+    {
+      "name": "Icosphere",
+      "verts": 42,
+      "polys": 80,
+      "groups": []
+    },
+    {
+      "name": "scratch_walker_mesh",
+      "verts": 192,
+      "polys": 96,
+      "groups": [
+        "root",
+        "hips",
+        "spine",
+        "chest",
+        "neck",
+        "head",
+        "clav_l",
+        "arm_l",
+        "fore_l",
+        "clav_r",
+        "arm_r",
+        "fore_r",
+        "thigh_l",
+        "shin_l",
+        "foot_l",
+        "thigh_r",
+        "shin_r",
+        "foot_r"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "name": "idle_Armature",
+      "fcurves": 180,
+      "frames": [
+        1,
+        40
+      ]
+    },
+    {
+      "name": "walk_Armature",
+      "fcurves": 180,
+      "frames": [
+        1,
+        25
+      ]
+    }
+  ],
+  "used_action": "walk_Armature",
+  "rendered": [
+    "/workspace/exports/blender-rig-test/frames/scratch_walker_anim_walk_Armature_f001.png",
+    "/workspace/exports/blender-rig-test/frames/scratch_walker_anim_walk_Armature_f007.png",
+    "/workspace/exports/blender-rig-test/frames/scratch_walker_anim_walk_Armature_f013.png",
+    "/workspace/exports/blender-rig-test/frames/scratch_walker_anim_walk_Armature_f019.png"
+  ]
+}

@@ -1,0 +1,163 @@
+{
+  "glb": "/workspace/exports/blender-rig-test/pipeline_test_grunt_anim.glb",
+  "bytes": 504296,
+  "armatures": [
+    "Armature"
+  ],
+  "meshes": [
+    {
+      "name": "Icosphere",
+      "verts": 42,
+      "polys": 80,
+      "groups": []
+    },
+    {
+      "name": "pipeline_test_grunt",
+      "verts": 2932,
+      "polys": 5488,
+      "groups": [
+        "root",
+        "root.001",
+        "root.002",
+        "pelvis",
+        "pelvis.001",
+        "pelvis.002",
+        "thigh_l",
+        "thigh_l.001",
+        "thigh_l.002",
+        "calf_l",
+        "calf_l.001",
+        "foot_l",
+        "ball_l",
+        "thigh_r",
+        "thigh_r.001",
+        "thigh_r.002",
+        "calf_r",
+        "calf_r.001",
+        "foot_r",
+        "ball_r",
+        "spine_01",
+        "spine_01.001",
+        "spine_01.002",
+        "spine_02",
+        "spine_02.001",
+        "spine_03",
+        "spine_03.001",
+        "clavicle_l",
+        "clavicle_l.001",
+        "upperarm_l",
+        "upperarm_l.001",
+        "lowerarm_l",
+        "lowerarm_l.001",
+        "hand_l",
+        "thumb_01_l",
+        "thumb_02_l",
+        "thumb_03_l",
+        "index_01_l",
+        "index_02_l",
+        "index_03_l",
+        "middle_01_l",
+        "middle_02_l",
+        "middle_03_l",
+        "ring_01_l",
+        "ring_02_l",
+        "ring_03_l",
+        "clavicle_r",
+        "clavicle_r.001",
+        "upperarm_r",
+        "upperarm_r.001",
+        "lowerarm_r",
+        "lowerarm_r.001",
+        "hand_r",
+        "thumb_01_r",
+        "thumb_02_r",
+        "thumb_03_r",
+        "index_01_r",
+        "index_02_r",
+        "index_03_r",
+        "middle_01_r",
+        "middle_02_r",
+        "ring_01_r",
+        "ring_02_r",
+        "ring_03_r",
+        "neck_01",
+        "neck_01.001",
+        "neck_01.002",
+        "neck_01.003",
+        "head",
+        "head.001",
+        "pupil_right",
+        "pupil_right.001",
+        "pupil_left",
+        "pupil_left.001",
+        "hair_back_1",
+        "hair_back_1.001",
+        "hair_back_2",
+        "hair_back_2.001",
+        "hair_back_3",
+        "hair_back_4",
+        "hair_back_5"
+      ]
+    },
+    {
+      "name": "pipeline_test_grunt_weapon",
+      "verts": 20,
+      "polys": 32,
+      "groups": []
+    }
+  ],
+  "actions": [
+    {
+      "name": "attack_Armature",
+      "fcurves": 810,
+      "frames": [
+        0,
+        36
+      ]
+    },
+    {
+      "name": "block_Armature",
+      "fcurves": 810,
+      "frames": [
+        0,
+        33
+      ]
+    },
+    {
+      "name": "idle_Armature",
+      "fcurves": 810,
+      "frames": [
+        0,
+        88
+      ]
+    },
+    {
+      "name": "run_Armature",
+      "fcurves": 810,
+      "frames": [
+        0,
+        16
+      ]
+    }
+  ],
+  "bbox": {
+    "min": [
+      -63.345436096191406,
+      -39.91145324707031,
+      -1.0
+    ],
+    "max": [
+      19.294952392578125,
+      41.37089538574219,
+      124.4932861328125
+    ],
+    "size": 170.83564721502066
+  },
+  "used_action": "run_Armature",
+  "rendered": [
+    "/workspace/exports/blender-rig-test/frames/pipeline_test_grunt_anim_run_Armature_f001.png",
+    "/workspace/exports/blender-rig-test/frames/pipeline_test_grunt_anim_run_Armature_f005.png",
+    "/workspace/exports/blender-rig-test/frames/pipeline_test_grunt_anim_run_Armature_f009.png",
+    "/workspace/exports/blender-rig-test/frames/pipeline_test_grunt_anim_run_Armature_f013.png"
+  ]
+}
