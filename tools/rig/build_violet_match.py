@@ -165,9 +165,9 @@ SHOULDER_W = 0.48       # wider pauldrons
 
 # ===================== BOOTS / GREAVES =====================
 def build_boot(s):
-    # layered shin plates
-    plate((HIP_X*s, FY*0.10, 0.24), (0.125, 0.105, 0.24), M_armor, f'shin_a_{s}', 0.02, 1)
-    plate((HIP_X*s, FY*0.02, 0.22), (0.145, 0.12, 0.20), M_armorD, f'shin_b_{s}', 0.018, 1)
+    # layered shin plates — chunky figurine greaves
+    plate((HIP_X*s, FY*0.12, 0.26), (0.14, 0.12, 0.28), M_armor, f'shin_a_{s}', 0.022, 1)
+    plate((HIP_X*s, FY*0.02, 0.24), (0.16, 0.14, 0.24), M_armorD, f'shin_b_{s}', 0.02, 1)
     # gold filigree scrolls on shin
     scroll((HIP_X*s, FY*0.17, 0.30), (0.02, 0.015, 0.10), f'scroll_s0_{s}', yaw=s*8)
     scroll((HIP_X*s*1.05, FY*0.17, 0.24), (0.08, 0.012, 0.02), f'scroll_s1_{s}', yaw=s*5)
@@ -329,38 +329,33 @@ for s in (-1, 1):
 
 # ===================== CAPE (folds + lining + hem) =====================
 def build_cape():
-    # sculptural cape: tapered cylinders as curved fold volumes + flare plates
-    for i, (x, yaw, r0, r1, z, d) in enumerate([
-        (-0.35, 25, 0.22, 0.32, 0.55, 1.05),
-        (0.0, 0, 0.28, 0.40, 0.55, 1.10),
-        (0.35, -25, 0.22, 0.32, 0.55, 1.05),
-        (-0.55, 38, 0.16, 0.28, 0.35, 0.70),
-        (0.55, -38, 0.16, 0.28, 0.35, 0.70),
-    ]):
-        # approximate fold volume with scaled sphere stacks
-        for j, t in enumerate((0.15, 0.4, 0.65, 0.9)):
-            rr = r0 + (r1 - r0) * t
-            zz = z - d * t * 0.85
-            yy = 0.28 + 0.06 * t + 0.02 * abs(x)
-            vol = add_uv((x * (0.7 + 0.3*t), yy, zz), rr * 0.55, 18, 10)
-            scale_local(vol, 1.1, 0.45, 1.3)
-            rot_euler(vol, 8, 0, yaw)
-            finish(vol, M_cape, f'cape_vol_{i}_{j}')
-    # outer flare plates near floor
-    for i, (x, yaw, w) in enumerate([(-0.6, 32, 0.4), (-0.25, 12, 0.45), (0.25, -12, 0.45), (0.6, -32, 0.4)]):
-        p = plate((x, 0.32, 0.12), (w, 0.05, 0.28), M_cape, f'cape_flare_{i}', 0.016, 1)
-        rot_euler(p, 10, 0, yaw)
-    # lining
-    for i, (x, yaw, w) in enumerate([(-0.35, 18, 0.55), (0.0, 0, 0.75), (0.35, -18, 0.55)]):
-        lin = plate((x, 0.24, 0.40), (w, 0.03, 0.90), M_lining, f'lining_{i}', 0.01, 1)
-        rot_euler(lin, 8, 0, yaw)
-    # green patterned hem
-    for i, (x, yaw) in enumerate([(-0.65, 34), (-0.35, 16), (0.0, 0), (0.35, -16), (0.65, -34)]):
-        hem = plate((x, 0.30, 0.05), (0.32, 0.045, 0.10), M_hem, f'hem_{i}', 0.01, 1)
+    # Hard-surface cape panels (NO sphere droplets) — figurine floor flare + folds
+    panels = [
+        # x, y, z, sx, sy, sz, yaw, pitch
+        (0.0, 0.30, SHOULDER_Z - 0.08, 0.58, 0.06, 0.28, 0, 8),   # yoke
+        (0.0, 0.34, 0.85, 0.70, 0.055, 0.50, 0, 6),                # upper back
+        (0.0, 0.36, 0.50, 0.95, 0.055, 0.65, 0, 5),                # mid
+        (0.0, 0.34, 0.18, 1.25, 0.05, 0.38, 0, 8),                 # floor flare
+        (-0.42, 0.32, 0.55, 0.42, 0.05, 0.95, 20, 6),
+        (0.42, 0.32, 0.55, 0.42, 0.05, 0.95, -20, 6),
+        (-0.62, 0.30, 0.28, 0.38, 0.045, 0.50, 30, 10),
+        (0.62, 0.30, 0.28, 0.38, 0.045, 0.50, -30, 10),
+    ]
+    for i, (x, y, z, sx, sy, sz, yaw, pitch) in enumerate(panels):
+        p = plate((x, y, z), (sx, sy, sz), M_cape, f'cape_p_{i}', 0.016, 1)
+        rot_euler(p, pitch, 0, yaw)
+    # fold ridges (thin vertical plates)
+    for i, x in enumerate([-0.50, -0.25, 0.0, 0.25, 0.50]):
+        ridge = plate((x, 0.39, 0.55), (0.045, 0.04, 1.05), M_cape, f'fold_{i}', 0.012, 1)
+        rot_euler(ridge, 5, 0, (1 if x >= 0 else -1) * min(abs(x) * 25, 18))
+    for i, (x, yaw, w) in enumerate([(-0.4, 16, 0.55), (0.0, 0, 0.80), (0.4, -16, 0.55)]):
+        lin = plate((x, 0.25, 0.42), (w, 0.03, 0.88), M_lining, f'lining_{i}', 0.01, 1)
+        rot_euler(lin, 7, 0, yaw)
+    for i, (x, yaw) in enumerate([(-0.70, 32), (-0.35, 14), (0.0, 0), (0.35, -14), (0.70, -32)]):
+        hem = plate((x, 0.30, 0.05), (0.34, 0.045, 0.10), M_hem, f'hem_{i}', 0.01, 1)
         rot_euler(hem, 10, 0, yaw)
         finish(add_ico((x, 0.34, 0.07), 0.022, 1), M_gold, f'hem_d_{i}')
-        scroll((x, 0.33, 0.04), (0.07, 0.012, 0.016), f'hem_g_{i}')
-    plate((0, 0.28, SHOULDER_Z - 0.02), (0.55, 0.07, 0.26), M_cape, 'yoke', 0.022, 1)
+        scroll((x, 0.33, 0.04), (0.08, 0.012, 0.016), f'hem_g_{i}')
     finish(add_ico((0, FY*0.02, SHOULDER_Z + 0.05), 0.045, 2), M_gold, 'clasp')
 
 build_cape()
@@ -429,20 +424,18 @@ hb2 = add_uv((0, 0.10, HEAD_Z + 0.34), 0.30, 22, 12)
 scale_local(hb2, 1.15, 0.9, 0.85)
 finish(hb2, M_hair, 'hair_top')
 
-# taller / wider hair silhouette like figurine
+# hair: tall but not so tall it shrinks body in frame (figurine ~head+spikes)
 purple = []
-for ang in range(-80, 85, 10):
+for ang in range(-75, 80, 12):
     rad = math.radians(ang)
-    purple.append((math.sin(rad)*0.34, 0.10+0.08*math.cos(rad), 0.50+0.12*math.cos(rad*0.5),
-                   0.11+0.04*abs(math.cos(rad)), 0.50+0.18*abs(math.cos(rad)), -12, ang))
+    purple.append((math.sin(rad)*0.30, 0.10+0.06*math.cos(rad), 0.38+0.08*math.cos(rad*0.5),
+                   0.10+0.03*abs(math.cos(rad)), 0.38+0.10*abs(math.cos(rad)), -10, ang))
 purple += [
-    (0.0, 0.22, 0.65, 0.18, 0.72, -16, 0),
-    (-0.18, 0.20, 0.58, 0.14, 0.60, -10, -20),
-    (0.18, 0.20, 0.58, 0.14, 0.60, -10, 20),
-    (-0.42, 0.04, 0.32, 0.12, 0.42, 6, -58),
-    (0.42, 0.04, 0.32, 0.12, 0.42, 6, 58),
-    (-0.28, 0.16, 0.40, 0.11, 0.45, 10, -35),
-    (0.28, 0.16, 0.40, 0.11, 0.45, 10, 35),
+    (0.0, 0.18, 0.48, 0.15, 0.52, -12, 0),
+    (-0.16, 0.16, 0.42, 0.12, 0.46, -8, -18),
+    (0.16, 0.16, 0.42, 0.12, 0.46, -8, 18),
+    (-0.38, 0.02, 0.26, 0.10, 0.34, 6, -52),
+    (0.38, 0.02, 0.26, 0.10, 0.34, 6, 52),
 ]
 for i, (x, y, dz, rb, depth, rx, rz) in enumerate(purple):
     sp = add_cone((x, y, HEAD_Z + dz*0.25), rb, 0.006, depth, seg=8)
@@ -452,14 +445,13 @@ for i, (x, y, dz, rb, depth, rx, rz) in enumerate(purple):
 
 # gold streaks — character RIGHT = -X
 gold = [
-    (-0.10, FY*0.20, 0.44, 0.10, 0.48, 26, -5),
-    (-0.22, FY*0.14, 0.36, 0.09, 0.42, 24, -24),
-    (-0.04, FY*0.22, 0.50, 0.11, 0.52, 24, 2),
-    (-0.30, FY*0.06, 0.28, 0.08, 0.34, 16, -40),
-    (-0.16, FY*0.12, 0.24, 0.07, 0.30, 30, -14),
-    (-0.08, FY*0.18, 0.32, 0.08, 0.36, 28, -8),
-    (-0.26, FY*0.16, 0.40, 0.08, 0.38, 22, -20),
-    (-0.14, FY*0.08, 0.18, 0.06, 0.24, 35, -12),
+    (-0.10, FY*0.20, 0.36, 0.09, 0.40, 26, -5),
+    (-0.22, FY*0.14, 0.30, 0.08, 0.36, 24, -24),
+    (-0.04, FY*0.22, 0.42, 0.10, 0.44, 24, 2),
+    (-0.30, FY*0.06, 0.24, 0.07, 0.30, 16, -40),
+    (-0.16, FY*0.12, 0.20, 0.07, 0.26, 30, -14),
+    (-0.08, FY*0.18, 0.28, 0.08, 0.32, 28, -8),
+    (-0.26, FY*0.16, 0.34, 0.07, 0.32, 22, -20),
 ]
 for i, (x, y, dz, rb, depth, rx, rz) in enumerate(gold):
     sp = add_cone((x, y, HEAD_Z + dz*0.25), rb, 0.006, depth, seg=8)
@@ -498,7 +490,7 @@ report = {
     'bbox': {'min':[min(xs),min(ys),min(zs)], 'max':[max(xs),max(ys),max(zs)], 'height': max(zs)-min(zs)},
     'tris': sum(len(p.vertices)-2 for p in body.data.polygons),
     'parts_before_join': len(parts),
-    'construction': '1to1_match_iter32',
+    'construction': '1to1_match_iter33',
     'target': 'user figurine reference — sharp chibi warrior',
 }
 print('MATCH_BUILT', json.dumps(report, indent=2))
