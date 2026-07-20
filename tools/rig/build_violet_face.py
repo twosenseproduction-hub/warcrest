@@ -21,7 +21,7 @@ def argval(flag, default=None):
 
 OUT = argval('--out', 'exports/blender-rig-test')
 NAME = argval('--name', 'violet_face')
-ITER = argval('--iter', '61')
+ITER = argval('--iter', '70')
 os.makedirs(OUT, exist_ok=True)
 
 bpy.ops.object.select_all(action='SELECT'); bpy.ops.object.delete()
@@ -217,9 +217,12 @@ for s in (-1, 1):
     scale_local(sock, 1.05, 0.40, 1.0)
     finish(sock, M_skinD, f'socket_{s}', attach)
 
-# ========== CIRCULAR neon eyes (recessed discs) ==========
+# dark liner rings around eyes (REF: thick eyeliner)
 for s in (-1, 1):
-    eye = add_uv((0.27 * s, FACE_Y - 0.02, HZ + 0.12), 0.175, 32, 18)
+    ring = add_uv((0.27 * s, FACE_Y - 0.005, HZ + 0.12), 0.195, 28, 12)
+    scale_local(ring, 1.0, 0.10, 1.0)
+    finish(ring, M_brow, f'liner_{s}', attach)
+    eye = add_uv((0.27 * s, FACE_Y - 0.03, HZ + 0.12), 0.165, 32, 18)
     scale_local(eye, 1.0, 0.14, 1.0)
     finish(eye, M_eye, f'eye_{s}', attach)
 
@@ -245,7 +248,7 @@ lip2 = add_cube((0, FACE_Y - 0.01, HZ - 0.46), (0.10, 0.030, 0.024))
 bevel(lip2, 0.008, 2)
 finish(lip2, M_lip, 'lips_lo', attach)
 
-# ========== CONTINUOUS cheek curve tattoos (curve → mesh) ==========
+# ========== TEAL TATTOOS — match REF: 2 wavy forehead + tribal cheek marks ==========
 def make_curve_ribbon(name, points_xyz, bevel_depth=0.014, res=8):
     cu = bpy.data.curves.new(name, 'CURVE')
     cu.dimensions = '3D'
@@ -265,31 +268,32 @@ def make_curve_ribbon(name, points_xyz, bevel_depth=0.014, res=8):
     ob = bpy.context.active_object
     return finish(ob, M_tat, name, attach)
 
-for s in (-1, 1):
-    # upper cheek arc nose → ear
-    pts1 = []
-    for i in range(12):
-        t = i / 11.0
-        x = s * (0.10 + 0.48 * t)
-        z = 0.04 - 0.10 * math.sin(t * math.pi) - 0.04 * t
-        pts1.append((x, FACE_Y - 0.012, HZ + z))
-    make_curve_ribbon(f'tat_ck_hi_{s}', pts1, 0.013)
-    # lower parallel arc
-    pts2 = []
+# forehead: TWO wavy vertical lines (REF)
+for sx, name in [(-0.06, 'tat_fore_L'), (0.06, 'tat_fore_R')]:
+    pts = []
     for i in range(10):
         t = i / 9.0
-        x = s * (0.12 + 0.42 * t)
-        z = -0.10 - 0.08 * math.sin(t * math.pi) - 0.04 * t
-        pts2.append((x, FACE_Y - 0.012, HZ + z))
-    make_curve_ribbon(f'tat_ck_lo_{s}', pts2, 0.012)
+        z = 0.42 + 0.28 * t
+        x = sx + 0.025 * math.sin(t * math.pi * 2.0)
+        pts.append((x, FACE_Y - 0.012, HZ + z))
+    make_curve_ribbon(name, pts, 0.012)
 
-# tiny forehead vertical
-make_curve_ribbon('tat_fore', [
-    (0, FACE_Y - 0.012, HZ + 0.46),
-    (0, FACE_Y - 0.012, HZ + 0.54),
-    (0, FACE_Y - 0.012, HZ + 0.62),
-    (0, FACE_Y - 0.012, HZ + 0.70),
-], 0.011)
+# cheeks: tribal curved marks under each eye (REF)
+for s in (-1, 1):
+    pts1 = []
+    for i in range(10):
+        t = i / 9.0
+        x = s * (0.18 + 0.28 * t)
+        z = 0.02 - 0.12 * math.sin(t * math.pi * 0.9) - 0.02 * t
+        pts1.append((x, FACE_Y - 0.012, HZ + z))
+    make_curve_ribbon(f'tat_ck_a_{s}', pts1, 0.013)
+    pts2 = []
+    for i in range(8):
+        t = i / 7.0
+        x = s * (0.22 + 0.22 * t)
+        z = -0.08 - 0.10 * math.sin(t * math.pi) - 0.03 * t
+        pts2.append((x, FACE_Y - 0.012, HZ + z))
+    make_curve_ribbon(f'tat_ck_b_{s}', pts2, 0.011)
 
 # ========== HAIR — dense chunky spikes, gold on character RIGHT / front ==========
 cap = add_uv((0, 0.20, HZ + 0.88), 0.58, 28, 16)

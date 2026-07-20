@@ -1,33 +1,28 @@
-# Face reference card — violet cape warrior (user PNG, 2026-07-20)
+# Face reference card — from Drive REF (locked pixels)
 
-Source: user-attached full-body T-pose figurine render (light gray studio BG).
-Binary not persisted on disk this turn — rebuild from vision landmarks below.
-**If re-saving:** `exports/blender-rig-test/refs/violet_cape_warrior_REF.png`
+Source: `exports/blender-rig-test/refs/violet_cape_warrior_REF.png` (1264×843)
+Face crop: `exports/blender-rig-test/refs/violet_face_REF_crop.png`
+Light scan: `exports/blender-rig-test/light-scan/violet_cape_warrior/06_scan_sheet.png`
 
-## Face must-match (from attached image)
+## Measured face must-match
 
-| Feature | Exact read |
+| Feature | From REF crop |
 |---|---|
-| Head | Large chibi, slightly **squared** cranium, **broad jaw**, defined rounded chin — sculpted plastic, not a ball |
-| Skin | Uniform muted lavender-purple, matte resin |
-| Eyes | Large **circular** neon lime discs, **no pupils**, set **deep in sockets** |
-| Lids/brows | Thick dark upper lids; brows angled **down to nose bridge** (stern) |
-| Tattoos | Teal: **two thin curved cheek lines** per side (nose→ear); **small vertical** forehead mark only — not a bead cloud |
-| Nose | Small, stylized, slightly upturned |
-| Mouth | Small closed dark/near-black lips, grim |
-| Ears | Long pointed, horizontal, slight back angle |
-| Hair | Chunky wind-swept spikes up + toward character **right**; purple base + **gold** front/top spikes |
-| Neck | Thick purple cowl / scarf (include in face crop) |
+| Skin | Deep lavender-purple matte resin `#6a4a88`–`#5a3a78` |
+| Eyes | Large **circular** neon lime, pupil-less, dark thick liner, heavy dark brows angled stern |
+| Tattoos | Teal: **2 wavy vertical lines** on forehead center; **tribal curved marks** on upper cheeks under eyes (not bead clouds) |
+| Mouth | Small dark lips, slight downturn |
+| Ears | Large pointed, horizontal |
+| Hair | Chunky sculpted spikes, voluminous, swept to character **right**; deep purple + **gold** on top/right |
+| Shoulders | Green pauldrons + gold filigree + red gems (visible in face crop) |
+| Neck | High purple cowl under armor |
 
-## Forbidden (previous fails)
+## Light-scan notes (from sheet)
 
-- UV-sphere head as final form
-- Vertical/almond egg eyes
-- Floating bead/cube tattoo kits
-- Sparse 5-cone hair
-- Features buried inside mesh
+- Ridges: pauldron gold rims, hair spike edges, ear tips, brow ridge
+- Cavities: eye sockets (dark liner), under chin/cowl folds, between hair clumps
+- Part breaks: hair vs skin, cowl vs skin, pauldron plates, ear base
 
-## Form recipe (face)
+## Forbidden
 
-`subdiv_cube_cage` → jaw/cheek/chin pads → socket bowls → circular eye plates →
-brow ridges → continuous cheek curve ribbons → cone ears → multi-spike hair clumps
+- UV-sphere head as final; sticker eyes; dashed tattoo beads; sparse 5-cone hair

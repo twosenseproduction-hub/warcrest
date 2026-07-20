@@ -1,13 +1,13 @@
 {
   "name": "violet_face",
-  "iter": "61",
+  "iter": "70",
   "glb": "exports/blender-rig-test/violet_face.glb",
-  "bytes": 2561936,
+  "bytes": 2619632,
   "rendered": [
-    "exports/blender-rig-test/progress/violet_face/61_face_front.png",
-    "exports/blender-rig-test/progress/violet_face/61_face_threeq.png",
-    "exports/blender-rig-test/progress/violet_face/61_face_close.png",
-    "exports/blender-rig-test/progress/violet_face/61_face_clay.png"
+    "exports/blender-rig-test/progress/violet_face/70_face_front.png",
+    "exports/blender-rig-test/progress/violet_face/70_face_threeq.png",
+    "exports/blender-rig-test/progress/violet_face/70_face_close.png",
+    "exports/blender-rig-test/progress/violet_face/70_face_clay.png"
   ],
   "pipeline": "owned_dense_boolean_remesh_no_external_ai",
   "card": "exports/blender-rig-test/refs/violet_face_CARD.md"
