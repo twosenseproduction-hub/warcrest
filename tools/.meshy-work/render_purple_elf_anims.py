@@ -66,7 +66,15 @@ new THREE.GLTFLoader().load('/'+qs.get('glb'),function(g){
   // Bind-pose framing (model is ~1.7m tall, feet at y=0)
   box.setFromObject(root); box.getCenter(ctr); box.getSize(sz);
   window.BIND={c:ctr.toArray(), s:sz.toArray()};
-  var clip=(g.animations&&g.animations[0])||null;
+  var want=(qs.get('clip')||'').toLowerCase();
+  var clip=null;
+  if(g.animations&&g.animations.length){
+    if(want){
+      clip=g.animations.find(function(c){ return (c.name||'').toLowerCase()===want; })
+        || g.animations.find(function(c){ return (c.name||'').toLowerCase().indexOf(want)>=0; });
+    }
+    clip=clip||g.animations[0];
+  }
   mixer=new THREE.AnimationMixer(root);
   if(clip){ dur=Math.max(clip.duration,0.4); var a=mixer.clipAction(clip); a.reset(); a.play(); }
   // Warm skeleton once at t=0
@@ -101,6 +109,20 @@ CLIPS = [
     "hit",
     "walk_aimed",
 ]
+
+# Multi-clip Human Archer FREE pack (one GLB, select by ?clip=)
+PACK_GLB = REPO / "assets" / "models" / "meshy" / "purple_elf_meshy_pack_anim.glb"
+PACK_CLIPS = [
+    "idle",
+    "bow_idle",
+    "bow_idle_alt",
+    "attack_load",
+    "attack_hold",
+    "attack_release",
+    "walk",
+    "run",
+]
+PACK_OUT = Path("/opt/cursor/artifacts/purple_elf_pack_anims")
 
 
 def _serve(d: Path):
@@ -170,17 +192,32 @@ async def main() -> None:
         print("chromium", exe)
 
     nfr = 36
+    mode = (os.environ.get("MESHY_RENDER_MODE") or "library").strip().lower()
+    jobs: list[tuple[Path, str, Path]] = []
+    if mode in ("library", "all"):
+        for name in CLIPS:
+            glb = ANIM_DIR / f"purple_elf_meshy_{name}.glb"
+            if glb.exists():
+                jobs.append((glb, name, OUT))
+    if mode in ("pack", "all"):
+        PACK_OUT.mkdir(parents=True, exist_ok=True)
+        if PACK_GLB.exists():
+            for name in PACK_CLIPS:
+                jobs.append((PACK_GLB, name, PACK_OUT))
+        else:
+            print("missing pack", PACK_GLB)
+
     async with async_playwright() as p:
         browser = await p.chromium.launch(**launch)
         page = await browser.new_page(viewport={"width": 480, "height": 600})
-        for name in CLIPS:
-            glb = ANIM_DIR / f"purple_elf_meshy_{name}.glb"
-            if not glb.exists():
-                print("missing", glb)
-                continue
+        for glb, name, out_dir in jobs:
+            out_dir.mkdir(parents=True, exist_ok=True)
             rel = glb.relative_to(REPO).as_posix()
-            url = f"http://127.0.0.1:{port}/_purple_elf_anim_preview.html?glb={rel}&angle=28"
-            print("render", name, "…", flush=True)
+            url = (
+                f"http://127.0.0.1:{port}/_purple_elf_anim_preview.html"
+                f"?glb={rel}&clip={name}&angle=28"
+            )
+            print("render", name, "from", rel, "…", flush=True)
             await page.goto(url, wait_until="load")
             await page.wait_for_function("window.READY", timeout=60000)
             err = await page.evaluate("window.ERR||null")
@@ -197,8 +234,9 @@ async def main() -> None:
                 await page.wait_for_timeout(20)
                 png = await page.screenshot()
                 frames.append(Image.open(io.BytesIO(png)).convert("RGB"))
-            gif = OUT / f"{name}.gif"
+            gif = out_dir / f"{name}.gif"
             frame_ms = max(40, int(dur / nfr * 1000))
+            frames[0].save(out_dir / f"{name}_frame0.png")
             frames[0].save(
                 gif,
                 save_all=True,
@@ -207,14 +245,14 @@ async def main() -> None:
                 loop=0,
                 optimize=True,
             )
-            mp4 = OUT / f"{name}.mp4"
+            mp4 = out_dir / f"{name}.mp4"
             fps = nfr / dur
             frames_to_mp4(frames, mp4, fps)
-            print(f"  wrote {gif.name} {mp4.name}", flush=True)
+            print(f"  wrote {gif} {mp4.name}", flush=True)
         await browser.close()
     server.shutdown()
     html_path.unlink(missing_ok=True)
-    print("DONE", OUT)
+    print("DONE mode=", mode)
 
 
 if __name__ == "__main__":

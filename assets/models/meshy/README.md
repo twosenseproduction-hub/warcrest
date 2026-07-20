@@ -48,6 +48,25 @@ See `STYLE.md` for the full recipe.
 
 ## Archer animations
 
+### Human Archer FREE pack (preferred)
+
+Drive pack retargeted onto the Meshy Mixamo-like rig (Female idle / bow / walk / run):
+
+`purple_elf_meshy_pack_anim.glb` — clips: `idle`, `bow_idle`, `bow_idle_alt`, `attack_load`, `attack_hold`, `attack_release`, `walk`, `run`
+
+```bash
+# Requires the unzipped pack under tools/.meshy-work/drive_anims_extracted/
+# Source: https://drive.google.com/file/d/1S3iyP2TTVy6a-vArz7NXzvEiE9bO5a4I
+blender -b -noaudio --python tools/.meshy-work/retarget_humanf_to_meshy.py -- \
+  --mesh assets/models/meshy/purple_elf_meshy_rigged.glb \
+  --anims-dir tools/.meshy-work/drive_anims_extracted/Animations/Female \
+  --out assets/models/meshy/purple_elf_meshy_pack_anim.glb
+```
+
+**Preview:** `/tools/rig/view_unit.html?glb=assets/models/meshy/purple_elf_meshy_pack_anim.glb`
+
+### Meshy Animation Library (per-clip GLBs)
+
 | Clip | File |
 |------|------|
 | idle / walk / run | `anims/purple_elf_meshy_{idle,walk,run}.glb` |

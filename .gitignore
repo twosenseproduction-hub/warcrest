@@ -11,3 +11,5 @@ __pycache__/
 tools/.meshy-work/*.glb
 tools/.meshy-work/*.png
 tools/.meshy-work/*.log
+tools/.meshy-work/drive_anims.zip
+tools/.meshy-work/drive_anims_extracted/
