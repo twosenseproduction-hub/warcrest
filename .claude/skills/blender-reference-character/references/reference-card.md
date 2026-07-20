@@ -70,7 +70,10 @@
 2. **Palette** — sample dominant region colors; prefer saturated mid-values (engine toon/lighting will lift them). Record hex, not adjectives (“purple”).
 3. **Proportions** — estimate `head_height_frac` = head / total height from the front view. Chibi heroes often land 0.40–0.48.
 4. **Landmarks** — list every silhouette-breaking feature a black cutout must show. If it is not on this list, the critique loop will not protect it.
-5. **Part inventory** — build order. Head/hair last is fine; feet-up is easier for z=0 grounding.
+5. **Part inventory (parts-first — preferred)** — list every discrete piece visible
+   in the reference (limbs, pauldrons, cape, boots, hair, antlers, gems, weapon…).
+   Prefer a structured `parts[]` array (see `parts-first.md`) over a flat string
+   list. Build order: high-silhouette parts first; feet-up still helps z=0 grounding.
 6. **Pose** — `tpose` (arms ±X) for rigging; `apose` or `action` only if the reference demands it and you are not binding yet.
 
 ## Optional fields
@@ -81,9 +84,23 @@
   "target_height_game": 62,
   "weapon": "none",
   "reference_images": ["path/or/url"],
-  "forbid": ["realistic_fingers", "high_poly_sculpt", "mixamo_auto_rig"]
+  "forbid": ["realistic_fingers", "high_poly_sculpt", "mixamo_auto_rig"],
+  "parts": [
+    {
+      "id": "pauldron_L",
+      "category": "armor",
+      "mirror": "pauldron_R",
+      "palette_keys": ["armor", "gold"],
+      "attach": { "parent": "shoulder_L", "socket": "pauldron" },
+      "silhouette": "rounded leaf cup, gold rim",
+      "priority": 1,
+      "status": "pending"
+    }
+  ]
 }
 ```
+
+See `parts-first.md` for the full craft → assemble loop.
 
 ## Hard gate
 

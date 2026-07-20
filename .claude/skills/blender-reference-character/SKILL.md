@@ -38,6 +38,7 @@ param. This skill enforces that.
 ```
 references/
   reference-card.md      # MUST fill before writing geometry
+  parts-first.md         # PREFERRED: inventory parts → craft each → assemble
   blender-cookbook.md    # safe primitives, axis conventions, materials
   critique-checklist.md  # scoring rubric + one-knob refine rule
 scripts/
@@ -67,14 +68,22 @@ Read the reference image(s). Fill a card using `references/reference-card.md`.
 Write it to `examples/<name>_card.json` (or `/tmp/<name>_card.json`).
 
 **Hard gate:** do not open a builder script until the card has:
-palette (hex per region) · head_height_frac · landmarks[] · part_inventory[] · pose.
+palette (hex per region) · head_height_frac · landmarks[] · **parts[]** (or
+part_inventory[]) · pose.
+
+### 1b. Parts-first inventory (PREFERRED construction method)
+Read `references/parts-first.md`. Scan the reference for discrete pieces
+(limbs, pauldrons, cape, boots, hair, antlers, gems, weapon…). Craft **each
+part to quality**, then assemble on shared sockets. Do not smear accessories
+into the torso blob. Per-part critique before full-body critique.
 
 ### 2. Blockout from the card
 ```bash
 blender -b -noaudio --python .claude/skills/blender-reference-character/scripts/build_from_card.py -- \
   --card examples/<name>_card.json --out exports/blender-rig-test
 ```
-Or copy `tools/rig/build_antler_elf.py` and drive it from the card's knobs.
+Or copy `tools/rig/build_antler_elf.py` and drive it from the card's knobs —
+ideally one builder function / section per `parts[].id`.
 
 Conventions (see cookbook): **Z-up, face −Y, feet z≈0, T-pose along ±X**.
 
@@ -85,12 +94,14 @@ blender -b -noaudio --python .claude/skills/blender-reference-character/scripts/
   --angles 0,35,90 --out exports/blender-rig-test/frames
 ```
 Angle `0` = front (camera on −Y). Always produce **front + ¾** at minimum.
+For parts-first: also render tight crops while approving individual parts.
 
 ### 4. Critique against the reference
 Load the PNGs with the Read tool. Score with `references/critique-checklist.md`:
 silhouette · proportions · palette · landmarks · armor read · face read · hair/antler.
 
 Produce a **prioritized diff** — worst miss first. Each miss → **one named param**.
+Prefer fixing the **owning part** (e.g. pauldron radius) over global hacks.
 
 ### 5. Refine (one knob per rebuild)
 Edit only that param on the card or builder. Rebuild. Re-render front+¾. Re-score.
@@ -128,7 +139,9 @@ When the user wants “Meshy/Tripo-style from a photo,” start with
 ## Anti-patterns (learned the hard way)
 
 - Jumping to geometry before a locked card → vague “elf-like” blob.
+- Building the whole hero as one undifferentiated mesh → muddy pauldrons/cape/boots.
 - Fragile bmesh matrix stacks for capsules/leaves → exploded fan geometry.
 - Rotating default tori 90° on X for belts/circlets → face-on vertical halos.
 - Camera on −Y while face is +Y → “front” renders show the back.
 - Changing five params between renders → cannot tell what helped.
+- Assembling before high-priority parts are approved → wasted full-body polish.

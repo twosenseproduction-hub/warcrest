@@ -50,10 +50,16 @@ Add to the JSON card:
 Deliver an untextured or flat-shaded mesh and critique **shape only**:
 proportions · silhouette · landmark presence · genus (no unwanted holes).
 
+**Preferred geometry method: parts-first** (see
+`blender-reference-character/references/parts-first.md`):
+inventory limbs/armor/cloth/accessories from the reference → craft each part →
+assemble on sockets. This is how we keep pauldrons/capes/boots sharp instead of
+smearing them into a single Meshy-style blob.
+
 Tools:
 - `.claude/skills/blender-reference-character/` (preferred for owned IP)
-- Optional: run TripoSR locally if CUDA + user OK with MIT neural draft as **blockout only**, then rebuild procedurally
-- Optional: user-paid Meshy/Tripo GLB as blockout, then rebuild/bind
+- Optional: run TripoSR locally if CUDA + user OK with MIT neural draft as **blockout only**, then rebuild procedurally **per part**
+- Optional: user-paid Meshy/Tripo GLB as blockout; use Tripo **segmentation** ideas to split kit pieces, then rebuild
 
 ## Stage 3 — remesh for Warcrest
 
