@@ -83,7 +83,9 @@ def main() -> None:
         "target_polycount": 10000,
         "pose_mode": "t-pose",
         "should_texture": True,
-        "enable_pbr": True,
+        # Base color only — PBR metalness maps make the painted armor chrome-shiny.
+        # Run matte_glb.py afterward if you ever enable PBR again.
+        "enable_pbr": False,
         "target_formats": ["glb"],
         "alpha_thumbnail": True,
         "multi_view_thumbnails": True,
