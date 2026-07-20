@@ -1,22 +1,22 @@
 {
   "name": "violet_cape_warrior",
   "glb": "exports/blender-rig-test/violet_cape_warrior.glb",
-  "bytes": 2433800,
+  "bytes": 2780284,
   "bbox": {
     "min": [
-      -1.2567014694213867,
-      -0.4146735966205597,
+      -1.3415641784667969,
+      -0.46713387966156006,
       0.0
     ],
     "max": [
-      1.2567014694213867,
-      0.4699954092502594,
-      2.4039976596832275
+      1.3415641784667969,
+      0.5215047597885132,
+      2.8901290893554688
     ],
-    "height": 2.4039976596832275
+    "height": 2.8901290893554688
   },
-  "tris": 97364,
-  "part_objects_before_join": 151,
-  "construction": "meshy_inspired_dense_cages",
-  "white_model": false
+  "tris": 107788,
+  "parts_before_join": 237,
+  "construction": "1to1_match_iter32",
+  "target": "user figurine reference \u2014 sharp chibi warrior"
 }
