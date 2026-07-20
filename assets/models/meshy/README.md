@@ -46,6 +46,30 @@ MESHY_API_KEY=… python3 tools/.meshy-work/retexture_keep_color.py \
 
 See `STYLE.md` for the full recipe.
 
+## Bow elf (Drive clay A-pose)
+
+Untextured Meshy clay elf archer with welded bow/quiver:
+[Drive GLB](https://drive.google.com/file/d/15AomYJC-tnxaEtC7aiOvxsM5-0wtEwJd/view?usp=drivesdk)
+
+Meshy Auto-Rig pose estimation failed on this silhouette, so we bind to the
+purple-elf Mixamo-like armature (automatic weights, A-pose rest) and retarget
+the same Human Archer FREE Female clips.
+
+| File | Notes |
+|------|-------|
+| `bow_elf_meshy_raw.glb` | Source clay mesh from Drive |
+| `drive_character_raw.glb` | Same source (alias) |
+| `bow_elf_meshy_rigged.glb` | Skinned to Mixamo-like rig |
+| `bow_elf_meshy_pack_anim.glb` | Pack clips (idle / bow / walk / run) |
+
+```bash
+blender -b -noaudio --python tools/.meshy-work/bind_bow_elf_to_meshy_rig.py
+blender -b -noaudio --python tools/.meshy-work/retarget_humanf_to_meshy.py -- \
+  --mesh assets/models/meshy/bow_elf_meshy_rigged.glb \
+  --anims-dir tools/.meshy-work/drive_anims_extracted/Animations/Female \
+  --out assets/models/meshy/bow_elf_meshy_pack_anim.glb
+```
+
 ## Archer animations
 
 ### Human Archer FREE pack (preferred)
