@@ -1,0 +1,28 @@
+{
+  "id": "019f8044-983f-77bc-b416-c25f597044ff",
+  "type": "text-to-3d-preview",
+  "mode": "preview",
+  "name": "",
+  "model_type": "lowpoly",
+  "seed": 590244244,
+  "art_style": "realistic",
+  "texture_richness": "",
+  "prompt": "Stylized low-poly fantasy elven archer for a mobile RPG, sharp geometric faceted polygons, flat planar armor plates, angular origami-like silhouette, slender athletic female elf with long pointed ears, long straight silver-white hair, glowing cyan eyes, ornate light armor in white silver and forest green with gold trim, large angular shoulder pauldrons, crystal-shard accents on bracers, elegant geometric recurve longbow held ready, quiver of faceted arrows on back, high-contrast game-ready hero character, A-pose, single character, no base, clean readable silhouette",
+  "negative_prompt": "",
+  "texture_prompt": "",
+  "texture_image_url": "",
+  "status": "SUCCEEDED",
+  "created_at": 1784563408906,
+  "progress": 100,
+  "started_at": 1784563408936,
+  "finished_at": 1784563745653,
+  "task_error": null,
+  "model_urls": {
+    "glb": "https://assets.meshy.ai/6bbd2096-7065-4c2b-af13-9dc395ee172d/tasks/019f8044-983f-77bc-b416-c25f597044ff/output/model.glb?Expires=4938105600&Signature=Xl0O6frECG~3p9NhJ3ea1m3~OYtweUK-jP0FxLLseoDi1yH3w8AwaIQZjeCv7H1xhGJRCY~U1nuN0TG6qN4X-igLtkNam9HUhBGY4N2sYNEgtlcZ253Ak5aRnqHP-~Brcls8nknBGZLNF1dL73HV2sX2pvbP~WdUcqhR7BjhrSrgCS6V~ECG1TdScS9JVgkO5zLehU4p9zyt5itN2~eqsoD98ApzUYd9ObRPin5kM2N4E7qdv9aqmyj1plnYPdkSlvO2sZ1ss-A7rxLzHg-mi9GONnkj0FxXtmrBYVCXILocZy4GjmcFQeW9Q8vSUQX2TBKVfIya~mMrT3Ws0Dspng__&Key-Pair-Id=K1VGYTHIYLM9UM"
+  },
+  "thumbnail_url": "https://assets.meshy.ai/6bbd2096-7065-4c2b-af13-9dc395ee172d/tasks/019f8044-983f-77bc-b416-c25f597044ff/output/preview.png?Expires=4938105600&Signature=fOi71j-1eAkWO7PNIfyhQgPNgdXR~sb5nbCYJ~FVU1Abl0rsWLHF3pG46LtLIdibhMu44H7j3rKL2uT1z9usZbjp5U~50zGETywY26PUOAbCGasiQr0iuIFAERM~7QovpEPAGcZRXd9CH60C9OesHF65RklTtwQNlzyRvuRni1O-3~MFEq0KsBy-EDps82Fm8m2DyCOGPylw0Lo87kOuh~S3YDsQzH-MpbfijYa2Yqgsi45cSjlLi9hJaPMMmXZgJzCrkc8ML9h-jX~ljjId7~v-dO8CKGbOKyj5gJD2G7op2y9UvyOPUICRARUjxQqGdOkynmqbqusMZD3ATO~SAQ__&Key-Pair-Id=K1VGYTHIYLM9UM",
+  "alpha_thumbnail_url": "https://assets.meshy.ai/6bbd2096-7065-4c2b-af13-9dc395ee172d/tasks/019f8044-983f-77bc-b416-c25f597044ff/output/preview_alpha.png?Expires=4938105600&Signature=IQeI1VDzOXkuk5mo506sRORhoR9PbHQeWARkOaVx1tLVeCgIw7WAY-xRj9Usw7HWNETLSVBNlCXaiOwmyTnOXAJqaWecW5~mKgT8RU-KQqKdH5btH~5ydk-NMTyOmj-qZ7UWcZli4NDw713JT7xHSRnPT8OgQp~qaGzefm7~0Z7nTELwi0MKOoTg2218LJKOXuCNpJdULLmV6S0IEfBv9rwXdz0B-i6Ugw91WtzcDIzPBXN4lutXksRUiucp4kfwnESCM-Q1nDu6okOKPOEXJpjyZNBpdDZkbiyRGtpX4Sy6dC34Vkd9bY-dmj5jmgBIW3c4uNeLb-7oJqOkPQdL-w__&Key-Pair-Id=K1VGYTHIYLM9UM",
+  "video_url": "",
+  "texture_urls": [],
+  "consumed_credits": 20
+}
