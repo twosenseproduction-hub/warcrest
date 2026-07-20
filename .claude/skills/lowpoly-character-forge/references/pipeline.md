@@ -20,14 +20,20 @@ architecture puts the *parametric generator* at the center — not "ask the LLM 
 All output static, single-object, lighting-baked geometry needing cleanup; treat as
 reference/blockout. Re-verify licenses before commercial use.
 - **TripoSR** — MIT, single-image→mesh, ~6GB VRAM, fast/low-quality, bakes lighting.
+  Architecture: image encoder → triplane NeRF → Marching Cubes (see
+  `.claude/skills/image-to-3d-from-reference/`).
+- **Tripo3D product** — commercial multiview/texture/remesh/segment/rig API on top of
+  similar recon ideas; still needs game retopo for heroes.
+- **Meshy** — staged white-model → remesh → multi-view texture → optional rig; free
+  tier often **CC BY / non-exclusive** — paid plan required for exclusive Warcrest IP.
 - **Stable Fast 3D** — Stability Community License (free under $1M revenue), albedo-only.
 - **InstantMesh** — multi-view, CUDA-oriented.
 - **Hunyuan3D 2.1** — Tencent Community License, high-fidelity PBR, NVIDIA-first.
 - **TRELLIS / TRELLIS.2** — MIT, production PBR, clean topology; CUDA-first but a
   community **TRELLIS-Mac** MPS port exists (~5 min/asset on M4 Pro).
-- **Meshy free tier** — 100 credits/mo, auto-rig, BUT free outputs are **CC BY 4.0
-  (attribution + public)** — unsuitable for a game where you want exclusive rights.
-  Only paid plans grant private ownership.
+
+Agent staging that mirrors Meshy/Tripo without their weights:
+`.claude/skills/image-to-3d-from-reference/SKILL.md`.
 
 Most local stacks are CUDA/NVIDIA and don't run natively on Apple Silicon. The
 procedural path has no such dependency — that's why it's the spine.

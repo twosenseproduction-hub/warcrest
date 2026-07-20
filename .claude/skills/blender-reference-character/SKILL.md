@@ -115,11 +115,15 @@ Ship only when:
 | Skill | Role |
 |---|---|
 | **blender-reference-character** (this) | Reference → Blender parametric mesh → GLB |
+| `image-to-3d-from-reference` | How Meshy/Tripo stage image→3D + agent analogue (multi-view → white model → remesh → texture) |
 | `lowpoly-character-forge` | Same loop in Three.js (toon/outline/bloom look-dev) |
 | `tools/rig/` | Bind mesh to donor skeleton; inherit idle/run/attack |
 
 Preferred path for a new Warcrest hero from art:
 **card → this skill (static T-pose) → tools/rig donor bind → register in Render3D.**
+
+When the user wants “Meshy/Tripo-style from a photo,” start with
+`image-to-3d-from-reference` for staging, then use **this** skill for the white-model geometry pass.
 
 ## Anti-patterns (learned the hard way)
 
