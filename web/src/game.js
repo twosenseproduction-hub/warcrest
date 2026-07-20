@@ -854,7 +854,17 @@ function sellValue(p){ let spent=0; for(let i=0;i<p.level;i++) spent+=CAT[p.cat]
 // Build/train/upgrade menus route into the bottom-right warband cluster (living hub),
 // not a centre radial: the unit-type discs swap to the plot's options while it's selected.
 function radialOpen(cx,cy,title,items){ hubMenu={ title:title||'', items:items||[] }; if(typeof updateWarband==='function') updateWarband(); }
-function openPlotMenu(p){ if(!buildMenuEl||p.locked)return; menuPlot=p; menuAnchor={x:p.x,z:p.z}; const g=Math.floor(gold), w=Math.floor(wood); const [cx,cy]=screenOf(p.x,p.z); let items;
+// bright gold ground ring marking the currently-selected plot / throne (pulses in the loop)
+let plotSelRing=null;
+function showPlotSel(x,z,scale){
+  if(!plotSelRing){ plotSelRing=new THREE.Mesh(new THREE.RingGeometry(3.25,4.15,48),
+      new THREE.MeshBasicMaterial({color:0xffd060,transparent:true,opacity:0.85,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending}));
+    plotSelRing.rotation.x=-Math.PI/2; plotSelRing.renderOrder=6; scene.add(plotSelRing); }
+  plotSelRing.__s=scale||1; plotSelRing.__t=0;
+  plotSelRing.position.set(x,topY(x,z)+0.5,z); plotSelRing.visible=true;
+}
+function hidePlotSel(){ if(plotSelRing) plotSelRing.visible=false; }
+function openPlotMenu(p){ if(!buildMenuEl||p.locked)return; menuPlot=p; menuAnchor={x:p.x,z:p.z}; showPlotSel(p.x,p.z); const g=Math.floor(gold), w=Math.floor(wood); const [cx,cy]=screenOf(p.x,p.z); let items;
   // upgrade cost label + affordability (gold + wood)
   const upItem=()=>{ const gc=CAT[p.cat].cost[p.level], wc=UP_WOOD[p.level];
     return {icon:ic('upgrade'), label:'Upgrade', cost:gc+'g · '+wc+'w', ok:g>=gc&&w>=wc, fn:()=>upgradePlot(p)}; };
@@ -872,14 +882,14 @@ function openPlotMenu(p){ if(!buildMenuEl||p.locked)return; menuPlot=p; menuAnch
   else { items=[]; if(p.level<3) items.push(upItem()); else items.push({icon:ic('star'), label:'Max', ok:false});
     items.push(sellItem());
     radialOpen(cx,cy,catLabel(p.cat)+' L'+p.level,items); } }
-function openCoreMenu(){ if(!buildMenuEl||!coreB)return; menuPlot=null; menuAnchor={x:coreB.x,z:coreB.z}; const g=Math.floor(gold), w=Math.floor(wood); const [cx,cy]=screenOf(coreB.x,coreB.z);
+function openCoreMenu(){ if(!buildMenuEl||!coreB)return; menuPlot=null; menuAnchor={x:coreB.x,z:coreB.z}; showPlotSel(coreB.x,coreB.z,1.85); const g=Math.floor(gold), w=Math.floor(wood); const [cx,cy]=screenOf(coreB.x,coreB.z);
   const items=[]; if(coreB.level<3){ const gc=CORE_UP[coreB.level], wc=CORE_WOOD[coreB.level]; items.push({icon:ic('upgrade'), label:'Expand base', cost:gc+'g · '+wc+'w', ok:g>=gc&&w>=wc, fn:()=>upgradeCore()}); }
   else items.push({icon:ic('star'), label:'Max', ok:false});
   radialOpen(cx,cy,'Throne L'+coreB.level+' · '+Math.ceil(coreB.hp)+'hp',items); }
 function sellPlot(p){ if(!p.cat)return; gold+=sellValue(p); if(p.g)scene.remove(p.g); p.g=null;
   p.cat=null; p.level=0; p.dmg=p.range=p.rof=p.every=p.cap=undefined; p.mine=[]; p.queue=[]; if(p.pbar)p.pbar.visible=false;
   styleRing(p); recomputeIncome(); recomputeSupply(); closeBuildMenu(); }
-function closeBuildMenu(){ if(buildMenuEl) buildMenuEl.style.display='none'; if(bmBack)bmBack.style.display='none'; menuPlot=null; menuAnchor=null; setBuildBtn(false); hubMenu=null; if(typeof updateWarband==='function') updateWarband(); }
+function closeBuildMenu(){ if(buildMenuEl) buildMenuEl.style.display='none'; if(bmBack)bmBack.style.display='none'; menuPlot=null; menuAnchor=null; hidePlotSel(); setBuildBtn(false); hubMenu=null; if(typeof updateWarband==='function') updateWarband(); }
 // ---- one-tap build entry: a hammer button that expands the nearest buildable plot's radial (and collapses it) ----
 function setBuildBtn(on){ if(buildBtnEl) buildBtnEl.classList.toggle('on',!!on); }
 function nearestBuildPlot(){ let best=null,bd=1e9; const ax=hero?hero.px:camAim.x, az=hero?hero.pz:camAim.z;
@@ -2666,6 +2676,7 @@ async function boot(){
     const now=performance.now(); let dt=(now-last)/1000; last=now; if(dt>0.05)dt=0.05;
     if(tunerActive){ _tFrame(dt); composer.render(); return; }   // weapon tuner takes over the frame
     updateGame(dt); followCam(dt); repositionRadial(); updateFires(dt); updateHeroAura(dt); updateAtmos(dt);
+    if(plotSelRing&&plotSelRing.visible){ plotSelRing.__t+=dt; const w=0.5+0.5*Math.sin(plotSelRing.__t*5); const s=plotSelRing.__s*(1+0.05*w); plotSelRing.scale.set(s,s,1); plotSelRing.material.opacity=0.55+0.3*w; }   // selected-plot ring pulse
     document.body.classList.toggle('moving', !!(joy && joy.active));   // shrink-on-move: pull the action side in while driving
     if(++miniAcc%4===0){ drawMini(); updateSelPanel(); updateWarband(); }   // ~15fps minimap + selection-card + warband refresh
     if(miniAcc%6===0) updateFog();   // ~10fps fog recompute
