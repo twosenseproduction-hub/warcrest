@@ -37,3 +37,25 @@ Earlier text-to-3D experiment: `elven_archer_meshy.glb`.
 Shine was baked into the albedo (painted highlights), not just PBR.
 Pipeline: Meshy retexture with `remove_lighting: true` + local highlight crush on purple plate hotspots.
 Keep `metallicFactor=0`, `roughnessFactor=1`, no normal map. In-engine prefer Lambert/unlit or `flatShading` with roughness 1.
+
+## Archer animations (Meshy Rig + Animation Library)
+
+Rigged from the matte retexture task, then Meshy animation clips applied:
+
+| Clip | File | Meshy action |
+|------|------|--------------|
+| idle | `anims/purple_elf_meshy_idle.glb` | Idle (0) |
+| walk | `anims/purple_elf_meshy_walk.glb` | Walking Woman (1) |
+| run | `anims/purple_elf_meshy_run.glb` | Run 3 (15) |
+| attack | `anims/purple_elf_meshy_attack.glb` | Archery Shot (224) |
+| attack_alt | `anims/purple_elf_meshy_attack_alt.glb` | Archery Shot 1 (225) |
+| aim | `anims/purple_elf_meshy_aim.glb` | Archery Aim Lateral Scan (231) |
+| draw_shoot | `anims/purple_elf_meshy_draw_shoot.glb` | Draw and Shoot from Back (222) |
+| hit | `anims/purple_elf_meshy_hit.glb` | Hit Reaction with Bow (150) |
+| walk_aimed | `anims/purple_elf_meshy_walk_aimed.glb` | Walk Forward with Bow Aimed (228) |
+
+Also: `purple_elf_meshy_rigged.glb` (bind pose / default clip).
+
+**Regen:** `MESHY_API_KEY=… python3 tools/.meshy-work/rig_and_animate_purple_elf.py`
+
+**Preview:** serve repo root → `/tools/rig/view_unit.html?glb=assets/models/meshy/anims/purple_elf_meshy_attack.glb`

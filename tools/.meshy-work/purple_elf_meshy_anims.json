@@ -1,0 +1,49 @@
+{
+  "rig_task_id": "019f80a0-c1ba-7f72-bf99-db6e7c1ce496",
+  "clips": {
+    "idle": {
+      "action_id": 0,
+      "task_id": "019f80a1-43af-79d7-9b2b-5d4ad576c8f6",
+      "file": "models/meshy/anims/purple_elf_meshy_idle.glb"
+    },
+    "walk": {
+      "action_id": 1,
+      "task_id": "019f80a1-6f98-79f9-afe2-947c997b5ef9",
+      "file": "models/meshy/anims/purple_elf_meshy_walk.glb"
+    },
+    "run": {
+      "action_id": -1,
+      "error": "POST https://api.meshy.ai/openapi/v1/animations failed 400: {\"message\":\"Invalid action_id. See https://docs.meshy.ai/en/api/animation-library for available animation IDs.\"}"
+    },
+    "attack": {
+      "action_id": 224,
+      "task_id": "019f80a1-9c68-7692-a63e-9b968cfaa702",
+      "file": "models/meshy/anims/purple_elf_meshy_attack.glb"
+    },
+    "attack_alt": {
+      "action_id": 225,
+      "task_id": "019f80a1-c877-76a1-8016-b92ff622306e",
+      "file": "models/meshy/anims/purple_elf_meshy_attack_alt.glb"
+    },
+    "aim": {
+      "action_id": 231,
+      "task_id": "019f80a1-f4df-7c44-86ee-37ec1f2d270a",
+      "file": "models/meshy/anims/purple_elf_meshy_aim.glb"
+    },
+    "draw_shoot": {
+      "action_id": 222,
+      "task_id": "019f80a2-3575-7fc5-a8a0-31a764130fe9",
+      "file": "models/meshy/anims/purple_elf_meshy_draw_shoot.glb"
+    },
+    "hit": {
+      "action_id": 150,
+      "task_id": "019f80a2-7620-7c71-9f82-26ea90d12177",
+      "file": "models/meshy/anims/purple_elf_meshy_hit.glb"
+    },
+    "walk_aimed": {
+      "action_id": 228,
+      "task_id": "019f80a2-a21d-7a51-8532-d535bde9d380",
+      "file": "models/meshy/anims/purple_elf_meshy_walk_aimed.glb"
+    }
+  }
+}
