@@ -46,6 +46,28 @@ MESHY_API_KEY=… python3 tools/.meshy-work/retexture_keep_color.py \
 
 See `STYLE.md` for the full recipe.
 
+## Pack archer (built for Human Archer FREE anims)
+
+New Meshy lowpoly T-pose elf designed to wear the Human Archer FREE Female
+clips (idle / bow / walk / run) after Meshy Auto-Rig + pack retarget.
+
+| File | Notes |
+|------|-------|
+| `pack_archer_meshy.glb` | Faceted lowpoly mesh |
+| `pack_archer_meshy_rigged.glb` | Meshy Auto-Rig |
+| `pack_archer_meshy_pack_anim.glb` | Pack clips on this character |
+
+```bash
+MESHY_API_KEY=… python3 tools/.meshy-work/generate_pack_archer.py
+python3 tools/.meshy-work/facet_glb.py assets/models/meshy/pack_archer_meshy_raw.glb \
+  -o assets/models/meshy/pack_archer_meshy.glb
+# then Meshy rig via model_url +:
+blender -b -noaudio --python tools/.meshy-work/retarget_humanf_to_meshy.py -- \
+  --mesh assets/models/meshy/pack_archer_meshy_rigged.glb \
+  --anims-dir tools/.meshy-work/drive_anims_extracted/Animations/Female \
+  --out assets/models/meshy/pack_archer_meshy_pack_anim.glb
+```
+
 ## Bow elf (Drive clay A-pose)
 
 Untextured Meshy clay elf archer with welded bow/quiver:
