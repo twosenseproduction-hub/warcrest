@@ -1,26 +1,27 @@
-# Night Elf Archer (Meshy, textured T-pose)
+# Night Elf Archer (Drive Meshy import)
 
-New purple night-elf archer concept lifted to a textured `.glb` via the
-**Sorceress** Tools API (`meshy-6` image-to-3D, `should_texture: true`).
+User-preferred Meshy export from Google Drive (`15AomYJC-tnxaEtC7aiOvxsM5-0wtEwJd`).
+A-pose archer with **bow + quiver**. The Drive GLB was geometry-only
+(no UVs, materials, skins, or clips).
 
 ## Files
 
 | Path | What |
 |------|------|
-| `../elf_archer_meshy.glb` | Game-ready mesh + embedded albedo + normal maps (~12 MB) |
-| `_ref.jpg` | Source concept (Google Drive upload, 1024²) |
-| `elf_archer_meshy_thumb.png` | Meshy preview render |
-| `elf_archer_meshy_albedo.jpg` | Extracted 2048² albedo atlas |
-| `provenance.json` | Job id, credits, params |
+| `../elf_archer_drive.glb` | Game mesh — planted, decimated ~30k tris, purple vertex colors |
+| `elf_archer_drive_raw.glb` | Exact Drive upload (~445k tris, positions only) |
+| `elf_archer_drive_preview.png` | Local shaded preview |
+| `elf_archer_drive_concept.png` | Sorceress GPT Image 2 painted concept (for later textured 3D) |
+| `elf_archer_meshy.glb` (parent) | Earlier textured T-pose (no bow) — kept for comparison |
+| `_ref.jpg` | Original purple T-pose concept |
 
-## Preview in-engine
+## Preview
 
-Open the game with `?models=meshy-archer`. This swaps `elf:archer` to the
-new mesh. It is a **static T-pose** (no skeleton / clips yet) — units will
-bob in place rather than walk/attack.
+`?models=drive-archer` or `?models=meshy-archer`
 
-## Next steps (Sorceress 3D Studio / WizardGenie)
+## Blocked next steps (Sorceress)
 
-Per the Meshy pipeline video: send this mesh to **rig → weight paint →
-text-to-animation → drive mode → export**, then replace the live
-`rim_walker_mdx.glb` archer once idle/walk/attack/death clips exist.
+- **Textured remesh** (Hunyuan / Tripo / Meshy): needs ≥30 credits (balance was 26).
+  Concept image is ready — re-run `model_generate` when topped up.
+- **Rig + text-to-anim**: Studio UI only (`/3d-studio`, `/rigging`) — not on the Tools API.
+  Export an animated GLB from Studio and drop it here to replace the live archer.

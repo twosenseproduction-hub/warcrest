@@ -30,8 +30,9 @@ body, so the game is unchanged until real assets are dropped in.
 Open the game with `?models=demo` in the URL to render every unit from
 `RobotExpressive.glb` (a rigged sample model) — proves the pipeline in-engine.
 
-`?models=meshy-archer` swaps `elf:archer` to the Sorceress/Meshy textured
-T-pose in `elf_archer_meshy.glb` (see `elf_archer_new/`). Static — no clips yet.
+`?models=meshy-archer` or `?models=drive-archer` swaps `elf:archer` to the
+user Drive Meshy A-pose archer (`elf_archer_drive.glb`, bow+quiver). Static —
+no clips yet. See `elf_archer_new/`.
 
 ## Requirements
 

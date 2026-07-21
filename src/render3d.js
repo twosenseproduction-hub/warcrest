@@ -1014,10 +1014,10 @@
       registerUnitModel('*', { url: 'assets/models/RobotExpressive.glb', height: 50, anims: { idle: 'Idle', walk: 'Walking' } });
     } else if (/[?&]models=kaykit/.test(q)) {
       for (var k in KAYKIT_ROSTER) registerUnitModel(k, KAYKIT_ROSTER[k]);
-    } else if (/[?&]models=meshy-archer/.test(q)) {
-      // Preview: Sorceress/Meshy-6 textured T-pose from the purple night-elf
-      // concept (assets/models/elf_archer_new/). Static mesh — no clips yet.
-      registerUnitModel('elf:archer', { url: 'assets/models/elf_archer_meshy.glb?v=20260721a', height: 60, yaw: 0 });
+    } else if (/[?&]models=meshy-archer/.test(q) || /[?&]models=drive-archer/.test(q)) {
+      // Preview: user Drive Meshy archer (bow+quiver A-pose). Decimated game mesh
+      // with flat purple vertex colors — no UVs/textures/clips in the export yet.
+      registerUnitModel('elf:archer', { url: 'assets/models/elf_archer_drive.glb?v=20260721b', height: 60, yaw: 0 });
       loadUnitModels().then(function (ok) { if (ok && R.enabled) rebuildUnitMeshes(); });
       return;
     } else {
