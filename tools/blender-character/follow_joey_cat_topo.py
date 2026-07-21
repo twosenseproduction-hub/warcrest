@@ -44,14 +44,15 @@ HEIGHT = 1.85
 MON: Monitor | None = None
 
 PAL = {
-    "fur": (0.78, 0.40, 0.10),
-    "coat": (0.58, 0.22, 0.78),
-    "pink": (0.92, 0.32, 0.72),
-    "muzzle": (0.96, 0.96, 0.96),
+    # Match Joey Imgur / ortho palette (brighter orange, soft lavender)
+    "fur": (0.90, 0.52, 0.16),
+    "coat": (0.68, 0.48, 0.86),
+    "pink": (0.96, 0.48, 0.74),
+    "muzzle": (0.98, 0.98, 0.98),
     "eye_white": (1.0, 1.0, 1.0),
     "pupil": (0.02, 0.02, 0.02),
-    "brow": (0.22, 0.10, 0.03),
-    "sole": (0.95, 0.95, 0.95),
+    "brow": (0.20, 0.09, 0.04),
+    "sole": (0.97, 0.97, 0.97),
     "mouth": (0.05, 0.05, 0.05),
 }
 
@@ -75,7 +76,7 @@ def setup_scene():
     sc.world = bpy.data.worlds.new("World")
     sc.world.use_nodes = True
     bg = sc.world.node_tree.nodes["Background"]
-    bg.inputs[0].default_value = (0.015, 0.015, 0.02, 1.0)
+    bg.inputs[0].default_value = (0.0, 0.0, 0.0, 1.0)
     for name, loc, energy, size in (
         ("Key", (2.0, 3.5, 3.8), 170, 3.0),
         ("Fill", (-2.5, 2.0, 2.2), 65, 4.0),
@@ -306,45 +307,59 @@ def plant(obj):
 
 
 def build(mats_list, idx):
+    """Preferred connected topo — tuned toward Joey ortho / Imgur T-pose."""
     parts = []
 
-    # Coat torso — dense loops
-    torso = make_grid_cube("Torso", 0.52, 0.38, 0.50, 3, mats_list, idx["coat"])
-    torso.location = (0, 0.02, 1.02)
+    # Coat torso — taller bell flare like Joey sweater (still boxy topo read)
+    torso = make_grid_cube("Torso", 0.50, 0.40, 0.56, 3, mats_list, idx["coat"])
+    torso.location = (0, 0.02, 0.98)
     apply_tr(torso)
     for v in torso.data.vertices:
-        if v.co.z < 0.92:
-            f = 1.0 + (0.92 - v.co.z) * 0.6
+        if v.co.z < 0.86:
+            f = 1.0 + (0.86 - v.co.z) * 0.85
             v.co.x *= f
-            v.co.y *= 1.0 + (0.92 - v.co.z) * 0.28
+            v.co.y *= 1.0 + (0.86 - v.co.z) * 0.38
+        elif v.co.z > 1.16:
+            v.co.x *= 0.93
+            v.co.y *= 0.95
     torso.data.update()
-    crease_near(torso, lambda m: m.z < 0.82 or m.z > 1.20, 0.55)
+    crease_near(torso, lambda m: m.z < 0.78 or m.z > 1.20, 0.55)
     parts.append(torso)
 
-    collar = make_cyl("Collar", 0.21, 0.18, 16, 3, mats_list, idx["coat"])
-    collar.scale = (1.4, 1.18, 1.0)
-    collar.location = (0, 0.02, 1.30)
+    # Tall funnel turtleneck up to chin
+    collar = make_cyl("Collar", 0.19, 0.24, 16, 3, mats_list, idx["coat"])
+    collar.scale = (1.55, 1.28, 1.0)
+    collar.location = (0, 0.03, 1.30)
     apply_tr(collar)
     for v in collar.data.vertices:
         if v.co.z > 1.30:
-            v.co.x *= 1.2
-            v.co.y *= 1.12
+            v.co.x *= 1.32
+            v.co.y *= 1.18
         else:
-            v.co.x *= 0.88
-            v.co.y *= 0.88
+            v.co.x *= 0.84
+            v.co.y *= 0.84
     collar.data.update()
     crease_near(collar, lambda m: abs(m.z - 1.30) > 0.04, 0.75)
     parts.append(collar)
 
     # Neck bridge (ensures head↔coat connection)
-    neck = make_cyl("Neck", 0.14, 0.14, 12, 2, mats_list, idx["fur"])
-    neck.location = (0, 0.02, 1.42)
+    neck = make_cyl("Neck", 0.15, 0.12, 12, 2, mats_list, idx["fur"])
+    neck.location = (0, 0.02, 1.44)
     apply_tr(neck)
     parts.append(neck)
 
-    head = make_grid_cube("Head", 0.52, 0.46, 0.46, 3, mats_list, idx["fur"])
-    head.location = (0, 0.03, 1.68)
+    # Wider head — larger vs torso like Joey (~big head / small body)
+    head = make_grid_cube("Head", 0.62, 0.50, 0.52, 3, mats_list, idx["fur"])
+    head.location = (0, 0.04, 1.72)
     apply_tr(head)
+    # Soften box corners toward Joey's rounder cheek silhouette
+    for v in head.data.vertices:
+        rxy = math.hypot(v.co.x, v.co.y)
+        if rxy > 0.22:
+            shrink = 0.92 + 0.08 * (0.22 / rxy)
+            v.co.x *= shrink
+            v.co.y *= shrink
+    head.data.update()
     parts.append(head)
 
     for sx, side in ((-1, "L"), (1, "R")):
@@ -353,118 +368,141 @@ def build(mats_list, idx):
                 f"Ear_{side}",
                 mats_list,
                 idx["fur"],
-                (0.22 * sx, -0.02, 1.96),
-                0.12,
-                0.24,
-                (math.radians(-12), 0, math.radians(20 * sx)),
-                (1.0, 0.45, 1.0),
+                (0.26 * sx, -0.04, 2.02),
+                0.14,
+                0.30,
+                (math.radians(-18), 0, math.radians(26 * sx)),
+                (1.1, 0.36, 1.05),
             )
         )
+        # Inner ear kept inset so pink doesn't smear into hair via boolean
         parts.append(
             make_cone(
                 f"EarIn_{side}",
                 mats_list,
                 idx["pink"],
-                (0.22 * sx, 0.05, 1.94),
+                (0.26 * sx, 0.02, 1.98),
                 0.07,
-                0.15,
-                (math.radians(-6), 0, math.radians(20 * sx)),
-                (1.0, 0.28, 1.0),
+                0.16,
+                (math.radians(-10), 0, math.radians(26 * sx)),
+                (0.95, 0.22, 1.0),
             )
         )
 
+    # Hair tufts lean viewer's left (−X), chunky but distinct
     for i, (x, y, z, sc) in enumerate(
-        ((-0.10, -0.04, 1.98, (0.20, 0.16, 0.22)), (-0.22, 0.0, 1.94, (0.18, 0.14, 0.20)), (0.05, 0.02, 1.96, (0.16, 0.14, 0.18)))
+        (
+            (-0.12, -0.04, 2.06, (0.20, 0.15, 0.26)),
+            (-0.28, 0.00, 2.00, (0.18, 0.14, 0.24)),
+            (0.04, 0.02, 2.04, (0.16, 0.13, 0.22)),
+        )
     ):
         parts.append(make_sphere(f"Hair_{i}", mats_list, idx["fur"], (x, y, z), sc, segs=12, rings=8))
 
+    # Longer sharp cheek spikes (Joey signature)
     for sx, side in ((-1, "L"), (1, "R")):
-        for i, (dz, length) in enumerate(((0.06, 0.17), (0.0, 0.19), (-0.06, 0.16))):
+        for i, (dz, length, tilt) in enumerate(
+            ((0.08, 0.26, 20), (0.0, 0.30, 0), (-0.08, 0.24, -18))
+        ):
             parts.append(
                 make_cone(
                     f"Cheek_{side}_{i}",
                     mats_list,
                     idx["fur"],
-                    (0.30 * sx, 0.05, 1.58 + dz),
-                    0.055,
+                    (0.36 * sx, 0.06, 1.60 + dz),
+                    0.048,
                     length,
-                    (0, math.radians(90 * sx), 0),
-                    (1.0, 0.6, 1.0),
+                    (math.radians(tilt), math.radians(90 * sx), 0),
+                    (1.0, 0.42, 1.0),
                     segs=6,
                 )
             )
 
-    # Muzzle — overlaps head deeply
-    parts.append(make_sphere("Muzzle", mats_list, idx["muzzle"], (0, 0.16, 1.42), (0.40, 0.30, 0.24)))
+    # Large white bean muzzle
+    parts.append(make_sphere("Muzzle", mats_list, idx["muzzle"], (0, 0.20, 1.40), (0.46, 0.32, 0.28)))
 
     # Sleeves deep into torso
     for sx, side in ((-1, "L"), (1, "R")):
-        sleeve = make_cyl(f"Sleeve_{side}", 0.12, 0.62, 12, 4, mats_list, idx["coat"])
+        sleeve = make_cyl(f"Sleeve_{side}", 0.12, 0.66, 12, 4, mats_list, idx["coat"])
         sleeve.rotation_euler = (0, math.radians(90), 0)
-        sleeve.location = (0.42 * sx, 0.02, 1.14)
+        sleeve.location = (0.44 * sx, 0.02, 1.08)
         apply_tr(sleeve)
-        crease_near(sleeve, lambda m, s=sx: abs(m.x - 0.25 * s) < 0.05 or abs(m.x - 0.70 * s) < 0.05, 0.6)
+        crease_near(
+            sleeve,
+            lambda m, s=sx: abs(m.x - 0.24 * s) < 0.05 or abs(m.x - 0.70 * s) < 0.05,
+            0.6,
+        )
         parts.append(sleeve)
 
-        cuff = make_cyl(f"Cuff_{side}", 0.12, 0.10, 12, 2, mats_list, idx["coat"])
+        cuff = make_cyl(f"Cuff_{side}", 0.125, 0.11, 12, 2, mats_list, idx["coat"])
         cuff.rotation_euler = (0, math.radians(90), 0)
-        cuff.location = (0.78 * sx, 0.02, 1.14)
+        cuff.location = (0.82 * sx, 0.02, 1.08)
         apply_tr(cuff)
         crease_near(cuff, lambda m: True, 0.8)
         parts.append(cuff)
 
-        # Hand overlaps cuff
-        hand = make_grid_cube(f"Hand_{side}", 0.16, 0.14, 0.14, 2, mats_list, idx["fur"])
-        hand.location = (0.92 * sx, 0.02, 1.14)
+        hand = make_grid_cube(f"Hand_{side}", 0.15, 0.13, 0.13, 2, mats_list, idx["fur"])
+        hand.location = (0.96 * sx, 0.02, 1.08)
         apply_tr(hand)
         parts.append(hand)
-        thumb = make_cyl(f"Thumb_{side}", 0.04, 0.10, 8, 2, mats_list, idx["fur"])
+        thumb = make_cyl(f"Thumb_{side}", 0.038, 0.10, 8, 2, mats_list, idx["fur"])
         thumb.rotation_euler = (0, math.radians(50 * sx), math.radians(20 * sx))
-        thumb.location = (0.92 * sx, 0.08, 1.18)
+        thumb.location = (0.96 * sx, 0.08, 1.12)
         apply_tr(thumb)
         parts.append(thumb)
 
-    shorts = make_grid_cube("Shorts", 0.44, 0.32, 0.20, 2, mats_list, idx["coat"])
-    shorts.location = (0, 0.02, 0.74)
+    shorts = make_grid_cube("Shorts", 0.46, 0.34, 0.18, 2, mats_list, idx["coat"])
+    shorts.location = (0, 0.02, 0.66)
     apply_tr(shorts)
     parts.append(shorts)
 
     for sx, side in ((-1, "L"), (1, "R")):
-        leg = make_cyl(f"Leg_{side}", 0.08, 0.26, 12, 3, mats_list, idx["fur"])
-        leg.location = (0.13 * sx, 0.03, 0.54)
+        # Bridging legs — overlap shorts + boots (no floating knees)
+        leg = make_cyl(f"Leg_{side}", 0.085, 0.28, 12, 3, mats_list, idx["fur"])
+        leg.location = (0.16 * sx, 0.04, 0.48)
         apply_tr(leg)
-        crease_near(leg, lambda m: m.z > 0.60 or m.z < 0.46, 0.5)
+        crease_near(leg, lambda m: m.z > 0.56 or m.z < 0.40, 0.5)
         parts.append(leg)
 
-        boot = make_grid_cube(f"Boot_{side}", 0.28, 0.36, 0.32, 2, mats_list, idx["coat"])
-        boot.location = (0.13 * sx, 0.08, 0.28)
+        # Separate chunky boots — spaced so boolean doesn't fuse L/R
+        boot = make_grid_cube(f"Boot_{side}", 0.26, 0.40, 0.30, 2, mats_list, idx["coat"])
+        boot.location = (0.17 * sx, 0.12, 0.24)
         apply_tr(boot)
         for v in boot.data.vertices:
-            if v.co.z < 0.14:
-                v.co.z = 0.14 + (v.co.z - 0.14) * 0.3
+            if v.co.z < 0.12:
+                v.co.z = 0.12 + (v.co.z - 0.12) * 0.35
+            if v.co.y > 0.10:
+                v.co.y *= 1.10
         boot.data.update()
-        crease_near(boot, lambda m: m.z < 0.16, 0.85)
+        crease_near(boot, lambda m: m.z < 0.14, 0.85)
         parts.append(boot)
 
-        sole = make_grid_cube(f"Sole_{side}", 0.30, 0.40, 0.08, 1, mats_list, idx["sole"])
-        sole.location = (0.13 * sx, 0.10, 0.06)
+        sole = make_grid_cube(f"Sole_{side}", 0.28, 0.44, 0.07, 1, mats_list, idx["sole"])
+        sole.location = (0.17 * sx, 0.14, 0.05)
         apply_tr(sole)
         crease_near(sole, lambda m: True, 0.95)
         parts.append(sole)
 
+        # One pink tongue button per boot (Joey)
         parts.append(
-            make_sphere(f"BootBtn_{side}", mats_list, idx["pink"], (0.13 * sx, 0.26, 0.30), (0.09, 0.05, 0.09))
+            make_sphere(
+                f"BootBtn_{side}",
+                mats_list,
+                idx["pink"],
+                (0.17 * sx, 0.30, 0.28),
+                (0.10, 0.045, 0.10),
+            )
         )
 
-    # Face features — included in boolean so they weld into the shell
+    # Face — larger vertical oval eyes, closer, grumpy brows
     for sx, side in ((-1, "L"), (1, "R")):
         parts.append(
             make_sphere(
                 f"Eye_{side}",
                 mats_list,
                 idx["eye_white"],
-                (0.12 * sx, 0.24, 1.62),
-                (0.12, 0.07, 0.18),
+                (0.12 * sx, 0.28, 1.64),
+                (0.13, 0.065, 0.22),
             )
         )
         parts.append(
@@ -472,45 +510,52 @@ def build(mats_list, idx):
                 f"Pupil_{side}",
                 mats_list,
                 idx["pupil"],
-                (0.12 * sx, 0.29, 1.60),
-                (0.055, 0.04, 0.055),
+                (0.12 * sx, 0.33, 1.60),
+                (0.048, 0.032, 0.048),
                 segs=12,
                 rings=8,
             )
         )
-        brow = make_grid_cube(f"Brow_{side}", 0.16, 0.05, 0.055, 1, mats_list, idx["brow"])
-        brow.location = (0.13 * sx, 0.28, 1.76)
-        brow.rotation_euler = (math.radians(-10), 0, math.radians(-30 * sx))
+        brow = make_grid_cube(f"Brow_{side}", 0.18, 0.055, 0.07, 1, mats_list, idx["brow"])
+        brow.location = (0.13 * sx, 0.32, 1.82)
+        brow.rotation_euler = (math.radians(-14), 0, math.radians(-42 * sx))
         apply_tr(brow)
         parts.append(brow)
 
-    parts.append(make_sphere("Nose", mats_list, idx["pink"], (0, 0.32, 1.48), (0.08, 0.06, 0.06)))
-    mouth = make_grid_cube("Mouth", 0.08, 0.015, 0.014, 0, mats_list, idx["mouth"])
-    mouth.location = (0.04, 0.30, 1.32)
-    mouth.rotation_euler = (0, 0, math.radians(-18))
+    parts.append(make_sphere("Nose", mats_list, idx["pink"], (0, 0.36, 1.48), (0.07, 0.05, 0.055)))
+    # Off-center smirk (Joey)
+    mouth = make_grid_cube("Mouth", 0.10, 0.014, 0.012, 0, mats_list, idx["mouth"])
+    mouth.location = (0.07, 0.34, 1.28)
+    mouth.rotation_euler = (0, 0, math.radians(-22))
     apply_tr(mouth)
     parts.append(mouth)
 
+    # Whiskers as flat cards ON muzzle only (avoid collar punch-through)
+    for sx, side in ((-1, "L"), (1, "R")):
+        for i, dz in enumerate((0.04, 0.0, -0.04)):
+            w = make_grid_cube(f"Whisker_{side}_{i}", 0.14, 0.008, 0.008, 0, mats_list, idx["mouth"])
+            w.location = (0.22 * sx, 0.30, 1.34 + dz)
+            w.rotation_euler = (0, 0, math.radians(8 * (1 - i) * sx))
+            apply_tr(w)
+            parts.append(w)
+
     base = parts[0]
     base.name = "Bizzo"
+    log(f"boolean union of {len(parts)} parts…")
     boolean_union(base, parts[1:])
     plant(base)
     smooth(base)
 
     islands = count_islands(base)
-    print(
-        f"connected islands={islands} verts={len(base.data.vertices)} faces={len(base.data.polygons)}",
-        flush=True,
-    )
+    log(f"connected islands={islands} verts={len(base.data.vertices)} faces={len(base.data.polygons)}")
 
     # Keep intentional joint/support loops — do NOT voxel-remesh (melts silhouette).
-    # Multires on this cage is the sculpt-ready path.
     sub = base.modifiers.new("Subdivision", "SUBSURF")
     sub.levels = 2
     sub.render_levels = 2
     sub.quality = 3
     base.modifiers.new("Multires", "MULTIRES")
-    print("Multires modifier added (subdivide in Blender for sculpt levels)", flush=True)
+    log("Multires modifier added (subdivide in Blender for sculpt levels)")
 
     return base
 
