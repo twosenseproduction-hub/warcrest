@@ -539,41 +539,41 @@ def add_surface_cards(body, mats_list, idx):
     h = max(c.z for c in coords)
     extras = []
 
-    # Grumpy brows
+    # Grumpy brows — sit on the eye line (not up in the hair)
     for sx, side in ((-1, "L"), (1, "R")):
         brow = make_grid_cube(f"Brow_{side}", 0.11 * h, 0.035 * h, 0.04 * h, 1, mats_list, idx["brow"])
-        brow.location = (0.07 * h * sx, 0.20 * h, 0.92 * h)
-        brow.rotation_euler = (math.radians(-16), 0, math.radians(-48 * sx))
+        brow.location = (0.065 * h * sx, 0.19 * h, 0.855 * h)
+        brow.rotation_euler = (math.radians(-18), 0, math.radians(-50 * sx))
         apply_tr(brow)
         extras.append(brow)
 
-    # Off-center smirk
-    mouth = make_grid_cube("Mouth", 0.06 * h, 0.012 * h, 0.01 * h, 0, mats_list, idx["mouth"])
-    mouth.location = (0.045 * h, 0.22 * h, 0.68 * h)
+    # Off-center smirk on muzzle
+    mouth = make_grid_cube("Mouth", 0.055 * h, 0.012 * h, 0.01 * h, 0, mats_list, idx["mouth"])
+    mouth.location = (0.04 * h, 0.21 * h, 0.70 * h)
     mouth.rotation_euler = (0, 0, math.radians(-24))
     apply_tr(mouth)
     extras.append(mouth)
 
     # Thin black whiskers on muzzle
     for sx, side in ((-1, "L"), (1, "R")):
-        for i, dz in enumerate((0.02, 0.0, -0.02)):
+        for i, dz in enumerate((0.018, 0.0, -0.018)):
             w = make_grid_cube(
-                f"Whisker_{side}_{i}", 0.07 * h, 0.004 * h, 0.004 * h, 0, mats_list, idx["mouth"]
+                f"Whisker_{side}_{i}", 0.065 * h, 0.0035 * h, 0.0035 * h, 0, mats_list, idx["mouth"]
             )
-            w.location = (0.12 * h * sx, 0.21 * h, (0.72 + dz) * h)
+            w.location = (0.11 * h * sx, 0.20 * h, (0.73 + dz) * h)
             w.rotation_euler = (0, 0, math.radians(6 * (1 - i) * sx))
             apply_tr(w)
             extras.append(w)
 
-    # Pink boot tongue buttons — two per boot like preferred readable ship
+    # Pink boot tongue buttons — two per boot
     for sx, side in ((-1, "L"), (1, "R")):
-        for i, (dx, dz) in enumerate(((-0.018, 0.02), (0.018, 0.02))):
+        for i, (dx, dz) in enumerate(((-0.02, 0.015), (0.02, 0.015))):
             btn = make_sphere(
                 f"BootBtn_{side}_{i}",
                 mats_list,
                 idx["pink"],
-                ((0.095 + dx) * h * sx, 0.14 * h, (0.14 + dz) * h),
-                (0.055 * h, 0.028 * h, 0.055 * h),
+                ((0.10 + dx) * h * sx, 0.145 * h, (0.145 + dz) * h),
+                (0.05 * h, 0.026 * h, 0.05 * h),
                 segs=12,
                 rings=8,
             )
