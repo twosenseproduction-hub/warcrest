@@ -50,12 +50,25 @@ Source: user + Perplexity character-modeling rules. Apply unless the user says o
 | Piece | Path |
 |-------|------|
 | This doc | `assets/models/blender/MASTER_CHARACTER_WORKFLOW.md` |
-| Bizzo (Joey cat) builder | `tools/blender-character/follow_master_cat.py` (Skin stick → Subsurf → Multires) |
+| Bizzo (Joey cat) builder | `tools/blender-character/follow_master_cat.py` |
 | Outputs | `bizzo_cat_v2.{blend,glb}` |
+| Demo stills | `assets/models/blender/bizzo_demo/` |
+
+**Automated start that stays connected:** Skin stick-figure (single object, verts+edges) → Skin radii → Subdivision → optional Voxel Remesh only if islands > 1 → Multires. Prefer reshaping Skin radii over gluing cubes.
 
 ```bash
 blender -b -noaudio --python tools/blender-character/follow_master_cat.py
 ```
+
+## Next sculpt pass (in Blender UI)
+
+On `bizzo_cat_v2.blend` with Multires:
+
+1. Sculpt Mode, Multires level 0–1: **Grab** to pull collar flare, cheek volume, boot blockiness.
+2. **Inflate** muzzle forward; **Crease** lightly under collar.
+3. **Smooth** sparingly — do not erase silhouette.
+4. Add Multires levels for ear/hair tips.
+5. Retopo later if you need animation-clean quads over the Skin/Remesh cage.
 
 ## Agent reminder
 
