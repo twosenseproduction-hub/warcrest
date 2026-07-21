@@ -66,3 +66,13 @@ This is **foundational modelling**, not Multires sculpt. Pair with Ryan King (`r
 
 - https://www.blenderguru.com/posts/blender-donut-v5-tutorial
 - Poliigon (textures/HDRIs mentioned in description): http://www.poliigon.com
+
+
+## Built scene (this repo)
+
+```bash
+./tools/blender-monitor/bin/run-job.sh \
+  tools/blender-character/follow_blender_guru_donut.py
+```
+
+Outputs: `donut.blend`, `donut.glb`, `renders/donut_{hero,top,side,mug}.png`

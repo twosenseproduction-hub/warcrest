@@ -45,15 +45,19 @@ Run artifacts (default):
   tools/blender-character/follow_blender_guru_donut.py
 
 # Another job, custom port / name
-BLENDER_MONITOR_PORT=7790 ./tools/blender-monitor/bin/run-job.sh \
+./tools/blender-monitor/bin/run-job.sh \
   --port 7790 --name bizzo \
   tools/blender-character/follow_master_cat.py
 
-# Dashboard only (attach to an existing run dir)
+# Attach dashboard to an existing run directory
 ./tools/blender-monitor/bin/run-dashboard.sh /opt/cursor/artifacts/blender-monitor/<run>
+
+# Reuse a specific run dir for the next job
+./tools/blender-monitor/bin/run-job.sh --run-dir /tmp/my-run \
+  tools/blender-character/follow_blender_guru_donut.py
 ```
 
-Open **http://127.0.0.1:7788/** while the job runs.
+`run-job.sh` always creates a **fresh** run directory under `/opt/cursor/artifacts/blender-monitor/` unless you pass `--run-dir` (it does not reuse a leftover `BLENDER_MONITOR_DIR` from your shell).
 
 ## Blender job integration
 
