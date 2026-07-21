@@ -146,7 +146,7 @@ def smooth_laplacian(body, repeat=4, lambda_factor=0.35, border=0.0):
 
 
 def sculpt_toward_joey(body):
-    """Spatial deform on the preferred cage — diamond head, flare coat, round boots."""
+    """Gentle deform on preferred cage — keep clean boxy read, nudge toward Joey."""
     mi = mat_lookup(body)
     me = body.data
     coords = [v.co.copy() for v in me.vertices]
@@ -157,7 +157,6 @@ def sculpt_toward_joey(body):
     def nz(z):
         return (z - zmin) / h
 
-    # Poly → material via first loop
     vert_mat = [-1] * len(me.vertices)
     for p in me.polygons:
         for vi in p.vertices:
@@ -168,11 +167,7 @@ def sculpt_toward_joey(body):
     coat_i = mi.get("coat", -1)
     muzzle_i = mi.get("muzzle", -1)
     eye_i = mi.get("eye_white", -1)
-    pink_i = mi.get("pink", -1)
-    sole_i = mi.get("sole", -1)
     brow_i = mi.get("brow", -1)
-    mouth_i = mi.get("mouth", -1)
-    pupil_i = mi.get("pupil", -1)
 
     for v in me.vertices:
         p = v.co
@@ -181,136 +176,73 @@ def sculpt_toward_joey(body):
         x, y, z = p.x, p.y, p.z
         ax = abs(x)
 
-        # --- HEAD: widen into diamond / cheek silhouette (fur mid-head) ---
-        if m == fur_i and 0.72 < t < 0.98:
-            # Cheek band widest
-            cheek = 1.0 - abs((t - 0.82) / 0.12)
-            cheek = max(0.0, cheek)
-            widen = 1.0 + 0.22 * cheek
-            # Slightly flatten front of head box
-            y *= 0.96
-            x *= widen
-            # Lift / size ears (top outer corners)
-            if t > 0.90 and ax > 0.08 * h:
-                z += 0.035 * h
-                x *= 1.12
-                y *= 0.92
-            # Hair tuft zone — lean viewer's left (−X), pull up, taper tips
-            if t > 0.93 and ax < 0.14 * h and y < 0.05 * h:
-                z += 0.04 * h
-                x -= 0.025 * h  # sweep −X
-                # Point tips upward
-                tip = (t - 0.93) / 0.07
-                z += 0.02 * h * tip
-                x *= 0.92
+        # Head: slight cheek widen only (keep boxy preferred look)
+        if m == fur_i and 0.76 < t < 0.90 and ax > 0.05 * h:
+            cheek = 1.0 - abs((t - 0.82) / 0.10)
+            cheek = max(0.0, min(1.0, cheek))
+            x *= 1.0 + 0.10 * cheek
 
-        # Cheek spikes already exist as fur cones — stretch them longer/sharper
-        if m == fur_i and 0.74 < t < 0.88 and ax > 0.22 * h:
-            x *= 1.18
-            # Flatten Y so spikes read as side silhouette
-            y *= 0.85
+        # Cheek spikes: a bit longer
+        if m == fur_i and 0.76 < t < 0.88 and ax > 0.24 * h:
+            x *= 1.08
 
-        # --- MUZZLE: wider bean, less ball protrusion ---
-        if m == muzzle_i:
-            x *= 1.12
-            y = y * 0.82 + 0.04 * h  # pull slightly into face
-            if t < 0.70:
-                z += 0.01 * h
-
-        # --- EYES: larger vertical ovals ---
-        if m == eye_i:
-            # Scale about eye center approx
-            cx = 0.065 * h * (1 if x >= 0 else -1)
-            cy, cz = 0.16 * h, 0.84 * h
-            x = cx + (x - cx) * 1.18
-            y = cy + (y - cy) * 0.95
-            z = cz + (z - cz) * 1.22
-
-        if m == pupil_i:
-            cx = 0.065 * h * (1 if x >= 0 else -1)
-            cy, cz = 0.18 * h, 0.82 * h
-            x = cx + (x - cx) * 1.05
-            y = cy + (y - cy) * 1.0
-            z = cz + (z - cz) * 1.05
-
-        # --- COLLAR: taller + wider funnel framing chin ---
-        if m == coat_i and 0.62 < t < 0.78 and ax < 0.28 * h and abs(y) < 0.22 * h:
-            # Heuristic: neck ring region
-            ring = 1.0 - abs((t - 0.70) / 0.10)
-            ring = max(0.0, ring)
-            # Top of collar flares more
-            top = max(0.0, (t - 0.68) / 0.10)
-            flare = 1.0 + 0.28 * ring + 0.35 * top
-            x *= flare
-            y *= flare * 0.95
-            if t > 0.72:
-                z += 0.02 * h * top
-
-        # --- COAT torso: stronger A-line / bell hem ---
-        if m == coat_i and 0.28 < t < 0.62:
-            # Exclude sleeves (far |x|)
-            if ax < 0.22 * h:
-                hem = max(0.0, (0.55 - t) / 0.30)
-                flare = 1.0 + 0.32 * hem
-                x *= flare
-                y *= 1.0 + 0.18 * hem
-            # Baggy sleeves — thicken mid sleeve
-            elif 0.45 < t < 0.62 and ax > 0.25 * h:
-                # radial thicken in YZ around arm axis roughly
-                y *= 1.08
-
-        # --- BOOTS: rounder sneaker read, push toe forward ---
-        if m == coat_i and t < 0.22 and ax > 0.04 * h:
-            # Forward toe (+Y)
-            if y > 0.02 * h:
-                y *= 1.18
-            # Round side walls inward slightly at top of boot
-            if t > 0.12:
-                x *= 0.96
-            else:
-                x *= 1.02
-
-        if m == sole_i:
-            if y > 0:
-                y *= 1.12
+        # Ears: slightly taller (outer top fur)
+        if m == fur_i and t > 0.92 and ax > 0.10 * h:
+            z += 0.015 * h
             x *= 1.04
 
-        # Pink boot buttons — nudge onto tongue top-front
-        if m == pink_i and t < 0.28:
-            y += 0.01 * h
-            z += 0.008 * h
+        # Hair: mild −X sweep only (no tip flattening)
+        if m == fur_i and t > 0.94 and ax < 0.12 * h and abs(y) < 0.08 * h:
+            x -= 0.012 * h
+            z += 0.012 * h
 
-        # Brows — pull down onto eyes, stronger inward angle via X shift
+        # Muzzle: slightly wider bean
+        if m == muzzle_i:
+            x *= 1.06
+            y *= 0.94
+
+        # Eyes: mild enlarge
+        if m == eye_i:
+            cx = 0.065 * h * (1 if x >= 0 else -1)
+            cy, cz = 0.16 * h, 0.84 * h
+            x = cx + (x - cx) * 1.10
+            z = cz + (z - cz) * 1.12
+
+        # Collar: moderate funnel (not over-wide)
+        if m == coat_i and 0.64 < t < 0.76 and ax < 0.26 * h and abs(y) < 0.20 * h:
+            top = max(0.0, (t - 0.66) / 0.10)
+            flare = 1.0 + 0.16 * top
+            x *= flare
+            y *= flare * 0.97
+            if t > 0.70:
+                z += 0.01 * h * top
+
+        # Coat hem: gentle A-line
+        if m == coat_i and 0.30 < t < 0.55 and ax < 0.22 * h:
+            hem = max(0.0, (0.50 - t) / 0.25)
+            x *= 1.0 + 0.16 * hem
+            y *= 1.0 + 0.08 * hem
+
+        # Boots: mild forward toe
+        if m == coat_i and t < 0.20 and ax > 0.05 * h and y > 0.03 * h:
+            y *= 1.08
+
+        # Brows: slight downward for grumpy (keep attached)
         if m == brow_i:
-            z -= 0.025 * h
-            y += 0.01 * h
-            # Drag inner ends down/in
-            if ax < 0.08 * h:
-                z -= 0.012 * h
-            x *= 0.96
-
-        # Mouth / whiskers — keep on muzzle front
-        if m == mouth_i and t > 0.55:
-            # Likely whiskers or mouth near face
-            if ax > 0.06 * h:
-                # whiskers: lower onto muzzle, forward
-                z = min(z, 0.74 * h)
-                y = max(y, 0.18 * h)
-            else:
-                # mouth smirk
-                z = 0.70 * h
-                y = max(y, 0.20 * h)
+            z -= 0.012 * h
+            if ax < 0.07 * h:
+                z -= 0.006 * h
 
         v.co = Vector((x, y, z))
 
     me.update()
-    log("sculpt deform toward Joey silhouette applied")
+    log("gentle Joey nudge applied (preserving preferred boxy silhouette)")
 
 
 def laplace_preserve_features(body):
-    """Light smooth only on coat/fur bulk — skip face cards."""
+    """Very light smooth on coat/fur only — skip face cards."""
     mi = mat_lookup(body)
-    skip = {mi.get(n, -99) for n in ("brow", "mouth", "eye_white", "pupil", "pink", "sole")}
+    skip = {mi.get(n, -99) for n in ("brow", "mouth", "eye_white", "pupil", "pink", "sole", "muzzle")}
     me = body.data
     vert_mat = [-1] * len(me.vertices)
     for p in me.polygons:
@@ -321,7 +253,7 @@ def laplace_preserve_features(body):
     bm = bmesh.new()
     bm.from_mesh(me)
     bm.verts.ensure_lookup_table()
-    for _ in range(2):
+    for _ in range(1):
         new_co = {}
         for v in bm.verts:
             if vert_mat[v.index] in skip or not v.link_edges:
@@ -330,13 +262,13 @@ def laplace_preserve_features(body):
             for e in v.link_edges:
                 avg += e.other_vert(v).co
             avg /= len(v.link_edges)
-            new_co[v.index] = v.co.lerp(avg, 0.25)
+            new_co[v.index] = v.co.lerp(avg, 0.12)
         for idx, co in new_co.items():
             bm.verts[idx].co = co
     bm.to_mesh(me)
     bm.free()
     me.update()
-    log("feature-preserving smooth")
+    log("light feature-preserving smooth")
 
 
 def plant(body):

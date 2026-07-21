@@ -22,6 +22,18 @@ demo `01_front.png`).
   tools/blender-character/follow_joey_cat_topo.py
 ```
 
+### Refine from preferred base (toward Joey)
+
+Loads the shipped `bizzo_cat_topo.blend` (does not rebuild primitives) and sculpts
+diamond head / collar flare / coat hem / boots toward the Imgur T-pose:
+
+```bash
+./tools/blender-monitor/bin/run-job.sh --name bizzo-topo-refine \
+  tools/blender-character/follow_joey_cat_topo_refine.py
+```
+
+Base backup: `bizzo_cat_topo_base.blend`
+
 ## Alternate: separate-object v3 (superseded)
 
 Joey constructive stages without boolean weld (kept for study comparison):
