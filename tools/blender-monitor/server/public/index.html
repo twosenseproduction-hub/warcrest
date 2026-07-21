@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Blender Monitor</title>
+  <style>
+    :root {
+      --bg: #12141a;
+      --panel: #1a1e27;
+      --ink: #e8eaef;
+      --muted: #8b93a7;
+      --accent: #6db3ff;
+      --ok: #5dcea5;
+      --err: #f07178;
+      --run: #e6c07b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #1e2a3d 0%, transparent 55%),
+        radial-gradient(900px 500px at 100% 0%, #2a1f2e 0%, transparent 50%),
+        var(--bg);
+      color: var(--ink);
+      min-height: 100vh;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 1rem;
+      padding: 1.25rem 1.5rem 0.5rem;
+      border-bottom: 1px solid #2a3140;
+    }
+    header h1 {
+      font-family: "IBM Plex Serif", Georgia, serif;
+      font-weight: 600;
+      font-size: 1.35rem;
+      margin: 0;
+      letter-spacing: -0.02em;
+    }
+    header .meta { color: var(--muted); font-size: 0.85rem; }
+    main {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 1rem;
+      padding: 1rem 1.5rem 1.5rem;
+    }
+    @media (max-width: 900px) {
+      main { grid-template-columns: 1fr; }
+    }
+    .panel {
+      background: color-mix(in srgb, var(--panel) 92%, transparent);
+      border: 1px solid #2c3344;
+      border-radius: 10px;
+      padding: 1rem;
+      backdrop-filter: blur(6px);
+    }
+    .panel h2 {
+      margin: 0 0 0.75rem;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .preview-wrap {
+      position: relative;
+      background: #0b0d12;
+      border-radius: 8px;
+      overflow: hidden;
+      aspect-ratio: 4 / 3;
+      display: grid;
+      place-items: center;
+    }
+    .preview-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+    .preview-wrap .empty {
+      color: var(--muted);
+      font-size: 0.95rem;
+      padding: 2rem;
+      text-align: center;
+    }
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .badge.running { background: #3a2f14; color: var(--run); }
+    .badge.done { background: #143528; color: var(--ok); }
+    .badge.error { background: #3a1518; color: var(--err); }
+    .badge.starting { background: #1a2740; color: var(--accent); }
+    dl.stats {
+      display: grid;
+      grid-template-columns: 8.5rem 1fr;
+      gap: 0.45rem 0.75rem;
+      margin: 0;
+      font-size: 0.92rem;
+    }
+    dl.stats dt { color: var(--muted); }
+    dl.stats dd { margin: 0; word-break: break-word; }
+    .bar {
+      height: 8px;
+      background: #0f131a;
+      border-radius: 99px;
+      overflow: hidden;
+      margin-top: 0.75rem;
+    }
+    .bar > span {
+      display: block;
+      height: 100%;
+      background: linear-gradient(90deg, #3d7ecc, var(--accent));
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    pre.log {
+      margin: 0;
+      max-height: 280px;
+      overflow: auto;
+      background: #0b0d12;
+      border-radius: 8px;
+      padding: 0.75rem;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 0.75rem;
+      line-height: 1.45;
+      color: #c5cad6;
+      white-space: pre-wrap;
+    }
+    .filmstrip {
+      display: flex;
+      gap: 0.4rem;
+      overflow-x: auto;
+      padding-top: 0.75rem;
+    }
+    .filmstrip a {
+      flex: 0 0 auto;
+      width: 88px;
+      border: 1px solid #2c3344;
+      border-radius: 4px;
+      overflow: hidden;
+      opacity: 0.75;
+    }
+    .filmstrip a.active, .filmstrip a:hover { opacity: 1; border-color: var(--accent); }
+    .filmstrip img { width: 100%; display: block; aspect-ratio: 4/3; object-fit: cover; }
+    footer {
+      padding: 0 1.5rem 1.25rem;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+    code { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Blender Monitor</h1>
+    <div class="meta">
+      Run <code id="runId">—</code> · polling <span id="pollMs">1000</span>ms ·
+      <span id="clock">—</span>
+    </div>
+  </header>
+  <main>
+    <section class="panel">
+      <h2>Latest preview</h2>
+      <div class="preview-wrap" id="previewWrap">
+        <div class="empty" id="empty">Waiting for first preview…</div>
+        <img id="preview" alt="Latest Blender preview" hidden />
+      </div>
+      <div class="filmstrip" id="filmstrip"></div>
+    </section>
+    <section class="panel">
+      <h2>Status</h2>
+      <dl class="stats">
+        <dt>State</dt><dd><span class="badge starting" id="statusBadge">starting</span></dd>
+        <dt>Job</dt><dd id="job">—</dd>
+        <dt>Stage</dt><dd id="stage">—</dd>
+        <dt>Frame</dt><dd id="frame">—</dd>
+        <dt>Updated</dt><dd id="updated">—</dd>
+        <dt>Message</dt><dd id="message">—</dd>
+        <dt>Preview path</dt><dd><code id="previewPath">—</code></dd>
+        <dt>Run dir</dt><dd><code id="runDir">—</code></dd>
+      </dl>
+      <div class="bar" title="Render progress"><span id="progressBar"></span></div>
+      <p style="margin:0.5rem 0 0;color:var(--muted);font-size:0.8rem">
+        Stage <span id="stageFrac">—</span> · render <span id="progressPct">—</span>
+      </p>
+    </section>
+    <section class="panel" style="grid-column: 1 / -1">
+      <h2>Log tail</h2>
+      <pre class="log" id="log">(no log yet)</pre>
+    </section>
+  </main>
+  <footer>
+    AI agents: read <code>status.json</code> then open <code>latest_preview</code> as a PNG.
+    Manifest lists every frame. Auto-refresh is client-side; no WebSocket required.
+  </footer>
+  <script>
+    const POLL_MS = Number(new URLSearchParams(location.search).get("poll") || 1000);
+    document.getElementById("pollMs").textContent = String(POLL_MS);
+    let lastUpdated = null;
+    let lastPreview = null;
+
+    async function fetchJSON(url) {
+      const r = await fetch(url, { cache: "no-store" });
+      if (!r.ok) throw new Error(url + " " + r.status);
+      return r.json();
+    }
+
+    async function fetchText(url) {
+      const r = await fetch(url, { cache: "no-store" });
+      if (!r.ok) return "";
+      return r.text();
+    }
+
+    function setBadge(status) {
+      const el = document.getElementById("statusBadge");
+      el.textContent = status || "—";
+      el.className = "badge " + (status || "starting");
+    }
+
+    function fmtTime(iso) {
+      if (!iso) return "—";
+      try { return new Date(iso).toLocaleString(); } catch { return iso; }
+    }
+
+    async function tick() {
+      document.getElementById("clock").textContent = new Date().toLocaleTimeString();
+      try {
+        const s = await fetchJSON("/api/status");
+        document.getElementById("runId").textContent = s.run_id || "—";
+        document.getElementById("job").textContent = s.job || "—";
+        document.getElementById("stage").textContent = s.stage || "—";
+        document.getElementById("frame").textContent =
+          s.frame != null ? String(s.frame) : "—";
+        document.getElementById("updated").textContent = fmtTime(s.updated_at);
+        document.getElementById("message").textContent = s.message || s.error || "—";
+        document.getElementById("previewPath").textContent = s.latest_preview || "—";
+        document.getElementById("runDir").textContent = s.run_dir || "—";
+        setBadge(s.status);
+
+        const si = s.stage_index, st = s.stages_total;
+        document.getElementById("stageFrac").textContent =
+          si != null && st != null ? `${si} / ${st}` : "—";
+
+        const p = s.render_progress;
+        const bar = document.getElementById("progressBar");
+        if (p == null) {
+          // Fall back to stage fraction
+          const frac = (si != null && st) ? si / st : 0;
+          bar.style.width = `${Math.round(frac * 100)}%`;
+          document.getElementById("progressPct").textContent =
+            st ? `${Math.round(frac * 100)}% (by stage)` : "—";
+        } else {
+          bar.style.width = `${Math.round(p * 100)}%`;
+          document.getElementById("progressPct").textContent = `${Math.round(p * 100)}%`;
+        }
+
+        if (s.latest_preview && (s.updated_at !== lastUpdated || s.latest_preview !== lastPreview)) {
+          lastUpdated = s.updated_at;
+          lastPreview = s.latest_preview;
+          const img = document.getElementById("preview");
+          const empty = document.getElementById("empty");
+          img.src = "/" + s.latest_preview + "?t=" + encodeURIComponent(s.updated_at || Date.now());
+          img.hidden = false;
+          empty.hidden = true;
+        }
+      } catch (e) {
+        document.getElementById("message").textContent = "Waiting for status.json…";
+      }
+
+      try {
+        const m = await fetchJSON("/api/manifest");
+        const strip = document.getElementById("filmstrip");
+        const items = (m.previews || []).slice(-24);
+        strip.innerHTML = items.map((p, i) => {
+          const active = i === items.length - 1 ? "active" : "";
+          return `<a class="${active}" href="/${p.file}" target="_blank" title="frame ${p.frame}">
+            <img src="/${p.file}" alt="frame ${p.frame}" loading="lazy" />
+          </a>`;
+        }).join("");
+      } catch (_) {}
+
+      try {
+        const log = await fetchText("/api/log?tail=120");
+        if (log) document.getElementById("log").textContent = log;
+      } catch (_) {}
+    }
+
+    tick();
+    setInterval(tick, POLL_MS);
+  </script>
+</body>
+</html>
