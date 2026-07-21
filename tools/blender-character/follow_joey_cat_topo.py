@@ -45,8 +45,8 @@ MON: Monitor | None = None
 
 PAL = {
     # Match Joey Imgur / ortho palette (brighter orange, soft lavender)
-    "fur": (0.90, 0.52, 0.16),
-    "coat": (0.68, 0.48, 0.86),
+    "fur": (0.93, 0.55, 0.18),
+    "coat": (0.70, 0.50, 0.88),
     "pink": (0.96, 0.48, 0.74),
     "muzzle": (0.98, 0.98, 0.98),
     "eye_white": (1.0, 1.0, 1.0),
