@@ -18,6 +18,7 @@ Curated from public tutorials, then applied to `purple_plate_elf` (Drive T-pose 
 | 10 | [How To Make And Rig A PS1 Style Character](https://www.youtube.com/watch?v=puwu9hZmQYI) | — | Flat texture, simple materials, game rig |
 | 11 | [Character modeling for beginners - Blender](https://www.youtube.com/watch?v=O6HQhs-gk50) | Joey Carlino | Separate-limb Bizzo cat: Mirror, Subsurf, Solidify, Skin fingers, palette colors — see `JOEY_TUTORIAL_STUDY.md` |
 | 12 | [Sculpting for Complete Beginners](https://www.youtube.com/watch?v=Lxem4yMs5Dg) | Ryan King Art | Fish sculpt: Remesh / Dyntopo / Front Faces Only / Grab→Clay Strips→Crease — see `ryan_king_sculpt/STUDY.md` + chapter frame snaps |
+| 13 | [Beginner Blender Tutorial (2026)](https://www.youtube.com/watch?v=z-Xl9tGqH14) | Blender Guru | Donut 5.0 (~4h19m): basics→modelling→materials→UVs→scattering→render — see `blender_guru_donut_v5/STUDY.md` |
 
 ### Snapshotting tutorial videos (cloud)
 
@@ -27,7 +28,7 @@ YouTube blocks MP4 download from cloud IPs. Use storyboard stills instead:
 ./tools/blender-character/yt_snapshot_frames.sh https://youtu.be/VIDEO_ID
 ```
 
-Writes ~every-10s frames + chapter picks under `/opt/cursor/artifacts/yt_<id>/`. Pass cookies as arg 2 only if you need denser ffmpeg dumps.
+Writes ~every-10s frames + chapter picks under `/opt/cursor/artifacts/yt_<id>/`. Put a `chapters.md` there (or a study `CHAPTERS.md` that mentions the video id) for labeled part stills. Pass cookies as arg 2 only if you need denser ffmpeg dumps.
 
 Supporting (materials): [2D-style / flat shading in Blender](https://www.youtube.com/watch?v=AtetvOEcZt8), [flat shaded renders](https://www.youtube.com/watch?v=4yEIrFWjTIM).
 

@@ -182,21 +182,43 @@ for page_path in pages:
 
 print(f"[yt-snap] wrote {len(timestamps)} frames → {frames_dir}")
 
-# Optional chapters from repo STUDY folder or artifacts chapters.md
-chapter_sources = [
-    Path("/workspace/assets/models/blender/ryan_king_sculpt/CHAPTERS.md"),
-    out / "chapters.md",
-]
+# Optional chapters: prefer this video's artifacts/chapters.md, then any
+# study pack CHAPTERS.md that mentions the video id.
+chapter_sources = [out / "chapters.md"]
+for p in Path("/workspace/assets/models/blender").glob("*/CHAPTERS.md"):
+    try:
+        txt = p.read_text()
+    except Exception:
+        continue
+    if vid in txt or f"youtu.be/{vid}" in txt or f"v={vid}" in txt:
+        chapter_sources.append(p)
+
+def parse_timestamp(s: str) -> int | None:
+    """Parse M:SS, MM:SS, or H:MM:SS → seconds."""
+    parts = s.strip().split(":")
+    if not all(p.isdigit() for p in parts) or not (2 <= len(parts) <= 3):
+        return None
+    nums = [int(p) for p in parts]
+    if len(nums) == 2:
+        return nums[0] * 60 + nums[1]
+    return nums[0] * 3600 + nums[1] * 60 + nums[2]
+
 chapters = []
 for src in chapter_sources:
     if not src.exists():
         continue
+    local = []
     for line in src.read_text().splitlines():
-        m = re.match(r"\|\s*(\d+):(\d+)\s*\|\s*([^|]+)\|", line)
-        if m:
-            t = int(m.group(1)) * 60 + int(m.group(2))
-            chapters.append((t, m.group(3).strip()))
-    if chapters:
+        m = re.match(r"\|\s*([0-9:]+)\s*\|\s*([^|]+)\|", line)
+        if not m:
+            continue
+        t = parse_timestamp(m.group(1))
+        if t is None:
+            continue
+        local.append((t, m.group(2).strip()))
+    if local:
+        chapters = local
+        print(f"[yt-snap] chapters from {src} ({len(chapters)})")
         break
 
 if chapters and timestamps:
