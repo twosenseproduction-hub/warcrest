@@ -16,6 +16,7 @@ Curated from public tutorials, then applied to `purple_plate_elf` (Drive T-pose 
 | 8 | [Modeling a body WITHOUT SCULPTING](https://www.youtube.com/watch?v=A1HKvwVMfKY) | — | Pure poly model from front/side refs |
 | 9 | [Low Poly Character Creation in Blender Pt.1](https://www.youtube.com/watch?v=XGL5dw3sum0) | — | Mannequin proportions, delete half + Mirror |
 | 10 | [How To Make And Rig A PS1 Style Character](https://www.youtube.com/watch?v=puwu9hZmQYI) | — | Flat texture, simple materials, game rig |
+| 11 | [Character modeling for beginners - Blender](https://www.youtube.com/watch?v=O6HQhs-gk50) | Joey Carlino | Separate-limb Bizzo cat: Mirror, Subsurf, Solidify, Skin fingers, palette colors — see `JOEY_TUTORIAL_STUDY.md` |
 
 Supporting (materials): [2D-style / flat shading in Blender](https://www.youtube.com/watch?v=AtetvOEcZt8), [flat shaded renders](https://www.youtube.com/watch?v=4yEIrFWjTIM).
 
