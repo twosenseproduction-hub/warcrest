@@ -1,26 +1,18 @@
-# Blender purple plate elf
+# Tutorial follow-through (Jelle Vermandere start→finish)
 
-Low-poly unit built in Blender from the Drive T-pose reference
-(`purple_plate_elf_ref.jpg`), following the YouTube poly-model workflow in
-`YOUTUBE_WORKFLOW.md`.
+See `TUTORIAL_STUDY.md` for the video study notes.
 
-## Assets
-
-| File | Notes |
+| File | Stage |
 |------|--------|
-| `purple_plate_elf_ref.jpg` | Canon front T-pose reference |
-| `purple_plate_elf.blend` | Editable Blender scene |
-| `purple_plate_elf.glb` | Static mesh (flat matte materials) |
-| `purple_plate_elf_rigged.glb` | Skinned to Human Archer FREE `HumanF` |
-| `purple_plate_elf_pack_anim.glb` | Pack clips: idle, bow_idle(+alt), attack_load/hold/release, walk, run |
-
-## Rebuild
+| `tutorial_avatar.blend` | Full scene after model→UV→texture→Rigify→anims |
+| `tutorial_avatar.glb` | Textured static mesh |
+| `tutorial_avatar_rigged.glb` | Metarig + automatic weights |
+| `tutorial_avatar_anim.glb` | Hand-keyed `idle` + `walk` |
 
 ```bash
-blender -b -noaudio --python tools/blender-character/build_purple_plate_elf.py
-blender -b -noaudio --python tools/blender-character/rig_humanf_anims.py
-python3 tools/blender-character/render_anims.py
+blender -b -noaudio --python tools/blender-character/follow_jelle_tutorial.py
 ```
 
-Requires the Human Archer FREE extract under
-`tools/.meshy-work/drive_anims_extracted/` (gitignored).
+## Purple plate elf (earlier)
+
+Drive T-pose plate elf poly-model + HumanF pack anims — see `YOUTUBE_WORKFLOW.md`.
