@@ -14,29 +14,26 @@ What we *can* see visually:
 |-------|------|
 | YouTube thumbnail | `/opt/cursor/artifacts/yt_O6HQhs-gk50/thumb.jpg` |
 | Official Imgur front T-pose | `joey_cat_refs/ref_00_Ha3JhPE.png` |
+| Ortho front / side / back plates | `joey_cat_refs/ortho_{front,side,back}.png` |
 | Color palette strip | `joey_cat_refs/palette.png` |
-| Our rebuild still | `/opt/cursor/artifacts/blender_joey_bizzo/still.png` |
-| Ref vs rebuild | `/opt/cursor/artifacts/blender_joey_bizzo/compare_ref.png` |
+| Connected topo stills | `/opt/cursor/artifacts/blender_joey_bizzo/topo_{front,side,back}.png` |
 
-Plus the full English transcript (chapters: Human model → Cat → Head → Coat → Hands → Shoes → Color → Join).
+## Connected clean-topology rebuild
 
-To unlock every-5s screenshots later: export YouTube cookies into this environment and re-run `yt-dlp`, then `ffmpeg -i bizzo.mp4 -vf fps=1/5 frames/f_%04d.png`.
+Script: `tools/blender-character/follow_joey_cat_topo.py`
 
-## Joey’s pipeline (what we copied)
+Pipeline:
 
-1. **Separate limbs** — head, coat, sleeves, hands, shorts, legs, boots as distinct objects (not one welded mesh while modeling).
-2. **Mirror** — build one side, mirror across X.
-3. **Subdivision Surface** — organic rounding from simple cubes/cylinders.
-4. **Solidify** — coat thickness.
-5. **Skin-style fingers** — capsule finger volumes (Joey uses Skin modifier).
-6. **Palette colors** — we use Principled BSDF slots (glTF-safe) matching the Imgur palette.
-7. **Join + apply modifiers** → export GLB.
+1. Orthographic reference planes (front = official; side/back inferred plates)
+2. Looped volumes with joint rings + edge creases
+3. Exact boolean UNION into a body shell
+4. Subdivision Surface (detail-preserving creases) + Multires (sculpt levels in Blender)
+5. Export `bizzo_cat_topo.glb` (~30k verts after Subsurf apply)
 
-## Rebuild outputs
+```bash
+blender -b -noaudio --python tools/blender-character/follow_joey_cat_topo.py
+```
 
-| File | Role |
-|------|------|
-| `tools/blender-character/follow_joey_cat.py` | Scripted rebuild |
-| `bizzo_cat.blend` / `bizzo_cat.glb` | Scene + game export |
+Outputs: `bizzo_cat_topo.{blend,glb}`
 
-This is a **proportion/palette/workflow** copy of Bizzo from the official ref + transcript, not a vertex-perfect replay of every click in the video (those need the frame dump above).
+Note: voxel remesh was tried for single-island welding but melted the silhouette — kept intentional looped cage + Multires instead.
