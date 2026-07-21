@@ -1,0 +1,25 @@
+{
+  "name": "video-observer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local AI perception loop: capture frames from a playing video for multimodal analysis.",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "capture": "tsx src/cli.ts capture",
+    "prepare-payload": "tsx src/cli.ts prepare-payload",
+    "analyze": "tsx src/cli.ts analyze",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}
