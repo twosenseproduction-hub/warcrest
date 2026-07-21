@@ -30,6 +30,9 @@ body, so the game is unchanged until real assets are dropped in.
 Open the game with `?models=demo` in the URL to render every unit from
 `RobotExpressive.glb` (a rigged sample model) — proves the pipeline in-engine.
 
+`?models=meshy-archer` swaps `elf:archer` to the Sorceress/Meshy textured
+T-pose in `elf_archer_meshy.glb` (see `elf_archer_new/`). Static — no clips yet.
+
 ## Requirements
 
 - `vendor/GLTFLoader.js` and `vendor/SkeletonUtils.js` (already vendored, UMD,

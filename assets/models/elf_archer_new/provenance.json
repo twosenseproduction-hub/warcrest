@@ -1,0 +1,29 @@
+{
+  "name": "elf_archer_meshy",
+  "source": "Sorceress API model_generate",
+  "provider": "meshy-6",
+  "mode": "image-to-3d",
+  "jobId": "d5aa343c-80f1-4a00-b2fe-30ecd6dd6031",
+  "creditsCharged": 65,
+  "params": {
+    "should_texture": true,
+    "should_remesh": true,
+    "topology": "triangle",
+    "target_polycount": 30000
+  },
+  "reference": {
+    "driveId": "1_rhbsyiS1mGmhror-VUZGlUqJAI15rLb",
+    "local": "assets/models/elf_archer_new/_ref.jpg"
+  },
+  "outputs": {
+    "glb": "assets/models/elf_archer_meshy.glb",
+    "thumb": "assets/models/elf_archer_new/elf_archer_meshy_thumb.png",
+    "albedo": "assets/models/elf_archer_new/elf_archer_meshy_albedo.jpg",
+    "package": "assets/models/elf_archer_new/"
+  },
+  "notes": [
+    "Textured T-pose mesh (albedo + normal embedded in GLB). No skeleton/animations yet.",
+    "Next: rig + text-to-anim in Sorceress 3D Studio, or Mixamo / tools/rig.",
+    "Preview in-game with ?models=meshy-archer (static T-pose with bob)."
+  ]
+}
