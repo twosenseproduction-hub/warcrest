@@ -376,7 +376,7 @@ def make_compare():
     canvas.paste(b, (a.width + 40, 40), b)
     d = ImageDraw.Draw(canvas)
     d.text((20, 10), "Joey official ref", fill=(220, 220, 230, 255))
-    d.text((a.width + 40, 10), "Topo refine from preferred base", fill=(220, 220, 230, 255))
+    d.text((a.width + 40, 10), "Preferred topo + gentle Joey refine", fill=(220, 220, 230, 255))
     canvas.save(OUT_CMP)
     log(f"compare → {OUT_CMP}")
 
@@ -407,15 +407,17 @@ def main():
             shutil.copy2(BASE_BLEND, BASE_BACKUP)
             log(f"backed up base → {BASE_BACKUP}")
         else:
-            log(f"base backup already exists → {BASE_BACKUP}")
+            log(f"using frozen base → {BASE_BACKUP}")
 
         MON.stage("load", index=2, total=stages, preview=False)
-        bpy.ops.wm.open_mainfile(filepath=str(BASE_BLEND))
+        # Always refine from frozen preferred base (idempotent re-runs)
+        src = BASE_BACKUP if BASE_BACKUP.exists() else BASE_BLEND
+        bpy.ops.wm.open_mainfile(filepath=str(src))
         setup_render()
         body = bpy.data.objects.get("Bizzo")
         if body is None:
             raise RuntimeError("Bizzo object not found in preferred blend")
-        log(f"loaded Bizzo verts={len(body.data.vertices)}")
+        log(f"loaded Bizzo from {src.name} verts={len(body.data.vertices)}")
 
         MON.stage("sculpt", index=3, total=stages, preview=False)
         ensure_density(body)
