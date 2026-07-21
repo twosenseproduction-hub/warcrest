@@ -56,9 +56,37 @@ def setup_scene():
     sc.render.film_transparent = False
     sc.world = bpy.data.worlds.new("World")
     sc.world.use_nodes = True
-    bg = sc.world.node_tree.nodes["Background"]
-    bg.inputs[0].default_value = (0.035, 0.032, 0.030, 1.0)
-    bg.inputs[1].default_value = 0.35
+    nt = sc.world.node_tree
+    nt.nodes.clear()
+    out = nt.nodes.new("ShaderNodeOutputWorld")
+    bg = nt.nodes.new("ShaderNodeBackground")
+    # Soft warm studio backdrop (not pure black void)
+    bg.inputs[0].default_value = (0.22, 0.21, 0.20, 1.0)
+    bg.inputs[1].default_value = 0.55
+    nt.links.new(bg.outputs["Background"], out.inputs["Surface"])
+
+
+def icing_mat():
+    # Richer strawberry icing like the tutorial finale
+    m = mat(
+        "Icing",
+        (0.95, 0.38, 0.58),
+        rough=0.22,
+        spec=0.65,
+        subsurface=0.22,
+        sub_rgb=(0.98, 0.55, 0.70),
+    )
+    nt = m.node_tree
+    tex = nt.nodes.new("ShaderNodeTexNoise")
+    tex.inputs["Scale"].default_value = 55.0
+    tex.inputs["Detail"].default_value = 6.0
+    bump = nt.nodes.new("ShaderNodeBump")
+    bump.inputs["Strength"].default_value = 0.06
+    nt.links.new(tex.outputs["Fac"], bump.inputs["Height"])
+    bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
+    if "Normal" in bsdf.inputs:
+        nt.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+    return m
 
 
 def mat(name, rgb, rough=0.55, spec=0.35, subsurface=0.0, sub_rgb=None):
@@ -127,29 +155,6 @@ def dough_mat():
     return m
 
 
-def icing_mat():
-    m = mat(
-        "Icing",
-        (0.92, 0.42, 0.62),
-        rough=0.28,
-        spec=0.55,
-        subsurface=0.15,
-        sub_rgb=(0.95, 0.55, 0.70),
-    )
-    # Slight bump for soft icing feel
-    nt = m.node_tree
-    tex = nt.nodes.new("ShaderNodeTexNoise")
-    tex.inputs["Scale"].default_value = 40.0
-    tex.inputs["Detail"].default_value = 4.0
-    bump = nt.nodes.new("ShaderNodeBump")
-    bump.inputs["Strength"].default_value = 0.08
-    nt.links.new(tex.outputs["Fac"], bump.inputs["Height"])
-    bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
-    if "Normal" in bsdf.inputs:
-        nt.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
-    return m
-
-
 def active(obj):
     bpy.ops.object.select_all(action="DESELECT")
     obj.select_set(True)
@@ -192,8 +197,8 @@ def make_donut():
     bpy.ops.mesh.primitive_torus_add(
         major_radius=MAJOR,
         minor_radius=MINOR,
-        major_segments=48,
-        minor_segments=18,
+        major_segments=64,
+        minor_segments=24,
         location=(0, 0, MINOR),
     )
     donut = bpy.context.active_object
@@ -202,10 +207,11 @@ def make_donut():
     bm = bmesh.new()
     bm.from_mesh(donut.data)
     for v in bm.verts:
-        n = noise.noise(v.co * 22.0)
-        # Keep the bottom / inner hole a bit calmer
-        lift = max(0.0, v.co.z - (MINOR * 0.35))
-        v.co += v.normal * (n * 0.0018 + lift * n * 0.0012)
+        n = noise.noise(v.co * 18.0)
+        n2 = noise.noise(v.co * 42.0 + Vector((3.1, 7.7, 1.2)))
+        # Stronger on the top crust, calmer underneath
+        top = max(0.0, (v.co.z / max(1e-6, MINOR * 2.0)))
+        v.co += v.normal * ((n * 0.0022 + n2 * 0.0008) * (0.35 + 0.65 * top))
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     bm.to_mesh(donut.data)
     bm.free()
@@ -216,91 +222,120 @@ def make_donut():
     return donut
 
 
+def _parent_keep(child, parent):
+    """Parent without moving the child in world space."""
+    mw = child.matrix_world.copy()
+    child.parent = parent
+    child.matrix_parent_inverse = parent.matrix_world.inverted()
+    child.matrix_world = mw
+
+
 def make_icing(donut):
-    """Top icing shell with drip lobes along the outer equator."""
-    # Start from a slightly larger torus, keep upper half + drip verts
+    """Icing on the dough: top shell + drips + Shrinkwrap + Solidify.
+
+    Do not copy the donut mesh materials — faces would keep dough slot 0 and
+    the icing would render invisible (same color as dough).
+    """
     bpy.ops.mesh.primitive_torus_add(
         major_radius=MAJOR,
-        minor_radius=MINOR * 1.05,
+        minor_radius=MINOR * 1.02,
         major_segments=64,
-        minor_segments=24,
-        location=(0, 0, MINOR + 0.0015),
+        minor_segments=28,
+        location=donut.location.copy(),
     )
     icing = bpy.context.active_object
     icing.name = "Icing"
+    icing.data.materials.clear()
 
     bm = bmesh.new()
     bm.from_mesh(icing.data)
+    bm.faces.ensure_lookup_table()
+
+    keep = []
+    for f in bm.faces:
+        c = f.calc_center_median()
+        ring = Vector((c.x, c.y, 0.0))
+        if ring.length < 1e-8:
+            continue
+        tube = c - ring.normalized() * MAJOR
+        if tube.z >= -MINOR * 0.05:
+            keep.append(f)
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if f not in set(keep)], context="FACES")
+
+    rng = random.Random(7)
     bm.verts.ensure_lookup_table()
-    # Delete lower faces (keep top icing cap)
-    z_cut = MINOR * 0.15
-    lower = [f for f in bm.faces if f.calc_center_median().z < z_cut]
-    bmesh.ops.delete(bm, geom=lower, context="FACES")
-
-    # Inflate remaining shell slightly outward/up
+    rim = []
     for v in bm.verts:
-        v.co += Vector((0, 0, 0.0012))
-        # Soft noise on icing surface
-        n = noise.noise(v.co * 30.0)
-        v.co += v.normal * n * 0.0010
+        ring = Vector((v.co.x, v.co.y, 0.0))
+        if ring.length < 1e-8:
+            continue
+        tube = v.co - ring.normalized() * MAJOR
+        if tube.z < MINOR * 0.4 and tube.z > -MINOR * 0.12 and ring.length > MAJOR * 0.98:
+            rim.append(v)
 
-    # Add drip blobs around outer ring (tutorial sculpt drips)
-    rng = random.Random(42)
-    drip_angles = []
+    drip_dirs = []
     a = 0.0
     while a < math.tau:
-        drip_angles.append(a)
-        a += rng.uniform(0.28, 0.55)
-    for ang in drip_angles:
-        cx = math.cos(ang) * (MAJOR + MINOR * 0.55)
-        cy = math.sin(ang) * (MAJOR + MINOR * 0.55)
-        length = rng.uniform(0.012, 0.028)
-        width = rng.uniform(0.006, 0.011)
-        # Droplet as elongated UV sphere verts merged via cone-ish
-        bpy_ops_safe = True
-        # Build drip in bmesh: icosphere-like oval
-        tip = Vector((cx, cy, MINOR * 0.55 - length))
-        root = Vector((cx * 0.98, cy * 0.98, MINOR * 0.85))
-        # Create a small cone of faces between root ring and tip
-        ring = []
-        for i in range(8):
-            t = i / 8 * math.tau
-            # tangent basis
-            radial = Vector((math.cos(ang), math.sin(ang), 0))
-            tangent = Vector((-math.sin(ang), math.cos(ang), 0))
-            p = root + (radial * math.cos(t) + tangent * math.sin(t)) * width
-            # Bias downward a bit for hanging drip
-            p.z -= abs(math.sin(t)) * width * 0.3
-            ring.append(bm.verts.new(p))
-        tip_v = bm.verts.new(tip)
-        for i in range(8):
-            bm.faces.new([ring[i], ring[(i + 1) % 8], tip_v])
-        # Cap root toward icing (fan toward inward point)
-        inward = bm.verts.new(root + Vector((-math.cos(ang), -math.sin(ang), 0.004)) * width)
-        for i in range(8):
-            try:
-                bm.faces.new([inward, ring[(i + 1) % 8], ring[i]])
-            except ValueError:
-                pass
+        drip_dirs.append(a + rng.uniform(-0.06, 0.06))
+        a += rng.uniform(0.28, 0.52)
+
+    for ang in drip_dirs:
+        target = Vector((math.cos(ang), math.sin(ang), 0.0))
+        strength = rng.uniform(0.6, 1.0)
+        length = rng.uniform(0.012, 0.030)
+        width = rng.uniform(0.32, 0.65)
+        for v in rim:
+            ring = Vector((v.co.x, v.co.y, 0.0)).normalized()
+            dang = math.acos(max(-1.0, min(1.0, ring.dot(target))))
+            if dang > width:
+                continue
+            fall = (1.0 - dang / width) ** 1.5
+            tube = v.co - ring * MAJOR
+            outward = Vector((tube.x, tube.y, 0.0))
+            outward = outward.normalized() if outward.length > 1e-8 else ring
+            pull = (Vector((0, 0, -1)) * 0.9 + outward * 0.2).normalized()
+            v.co += pull * length * fall * strength
+
+    for v in bm.verts:
+        v.co += v.normal * noise.noise(v.co * 28.0) * 0.0005
 
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-    # Remove doubles
-    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.0004)
+    bmesh.ops.remove_doubles(bm, verts=list(bm.verts), dist=0.0002)
     bm.to_mesh(icing.data)
     bm.free()
     icing.data.update()
 
-    # Solidify for icing thickness + subsurf
-    sol = icing.modifiers.new("Solidify", "SOLIDIFY")
-    sol.thickness = 0.0035
-    sol.offset = 1.0
-    add_subsurf(icing, 2, 3)
-    shade_smooth(icing)
     icing.data.materials.append(icing_mat())
 
-    # Parent visually near donut
-    icing.parent = donut
+    sw = icing.modifiers.new("Shrinkwrap", "SHRINKWRAP")
+    sw.target = donut
+    sw.wrap_method = "NEAREST_SURFACEPOINT"
+    sw.wrap_mode = "ABOVE_SURFACE"
+    sw.offset = 0.0018
+
+    sol = icing.modifiers.new("Solidify", "SOLIDIFY")
+    sol.thickness = 0.0032
+    sol.offset = 1.0
+    sol.use_even_offset = True
+    sol.use_quality_normals = True
+
+    add_subsurf(icing, 2, 2)
+    shade_smooth(icing)
+
+    active(icing)
+    for mod_name in ("Shrinkwrap", "Solidify"):
+        if mod_name in icing.modifiers:
+            try:
+                bpy.ops.object.modifier_apply(modifier=mod_name)
+            except Exception as e:
+                log(f"icing mod apply {mod_name}: {e}")
+
+    for p in icing.data.polygons:
+        p.material_index = 0
+
+    _parent_keep(icing, donut)
     return icing
+
 
 
 def make_plate():
@@ -329,7 +364,7 @@ def make_plate():
     bm.free()
     add_subsurf(plate, 2, 2)
     shade_smooth(plate)
-    plate.data.materials.append(mat("Plate", (0.82, 0.82, 0.80), rough=0.35, spec=0.5))
+    plate.data.materials.append(mat("Plate", (0.92, 0.92, 0.90), rough=0.28, spec=0.55))
     return plate
 
 
@@ -542,15 +577,14 @@ def scatter_sprinkles(icing, protos, count=220):
         ca, sa = math.cos(angle), math.sin(angle)
         x2 = x * ca + y * sa
         y2 = -x * sa + y * ca
-        # Long sprinkles: align cylinder Z to x2 (lying on surface)
-        # Cylinder default is along local Z — lay it flat
-        mat3 = Matrix((x2, y2, z)).transposed()
-        # Tip slightly out of surface
-        loc = center + z * 0.0018
+        # Cylinder default is along local Z — lay it flat on the surface
+        # Basis columns = local axes in world space
+        mat3 = Matrix((z, y2, x2)).transposed()  # local Z → along sprinkle length (x2)
+        # Nest slightly into icing so they don't float
+        loc = center + z * 0.0009
         inst.matrix_world = Matrix.Translation(loc) @ mat3.to_4x4()
-        # Slight random scale
-        s = rng.uniform(0.85, 1.25)
-        inst.scale = (s, s, s * rng.uniform(0.8, 1.2))
+        s = rng.uniform(0.9, 1.2)
+        inst.scale = (s, s, s * rng.uniform(0.85, 1.15))
         coll.objects.link(inst)
         sprinkles.append(inst)
 
@@ -560,57 +594,63 @@ def scatter_sprinkles(icing, protos, count=220):
 
 
 def make_table():
-    bpy.ops.mesh.primitive_plane_add(size=0.8, location=(0, 0, 0))
+    bpy.ops.mesh.primitive_plane_add(size=1.2, location=(0, 0, 0))
     table = bpy.context.active_object
     table.name = "Table"
-    m = mat("Table", (0.18, 0.17, 0.16), rough=0.85, spec=0.15)
-    # Subtle noise roughness via procedural
+    # Dark concrete-ish table like the tutorial finale
+    m = mat("Table", (0.14, 0.135, 0.13), rough=0.88, spec=0.12)
     nt = m.node_tree
     tex = nt.nodes.new("ShaderNodeTexNoise")
-    tex.inputs["Scale"].default_value = 12.0
+    tex.inputs["Scale"].default_value = 18.0
+    tex.inputs["Detail"].default_value = 10.0
     ramp = nt.nodes.new("ShaderNodeValToRGB")
-    ramp.color_ramp.elements[0].color = (0.12, 0.11, 0.10, 1.0)
-    ramp.color_ramp.elements[1].color = (0.22, 0.20, 0.18, 1.0)
+    ramp.color_ramp.elements[0].position = 0.35
+    ramp.color_ramp.elements[0].color = (0.08, 0.075, 0.07, 1.0)
+    ramp.color_ramp.elements[1].position = 0.7
+    ramp.color_ramp.elements[1].color = (0.20, 0.19, 0.18, 1.0)
+    bump = nt.nodes.new("ShaderNodeBump")
+    bump.inputs["Strength"].default_value = 0.15
     bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
     nt.links.new(tex.outputs["Fac"], ramp.inputs["Fac"])
     nt.links.new(ramp.outputs["Color"], bsdf.inputs["Base Color"])
+    nt.links.new(tex.outputs["Fac"], bump.inputs["Height"])
+    if "Normal" in bsdf.inputs:
+        nt.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
     table.data.materials.append(m)
     return table
 
 
 def setup_camera_lights():
-    # Camera — three-quarter beauty shot like tutorial finale
-    bpy.ops.object.camera_add(location=(0.22, -0.28, 0.16))
+    # Three-quarter beauty — full donut + mug in frame (tutorial finale framing)
+    bpy.ops.object.camera_add(location=(0.18, -0.22, 0.14))
     cam = bpy.context.active_object
     cam.name = "Camera"
-    cam.data.lens = 50
+    cam.data.lens = 55
     cam.data.clip_start = 0.01
-    # Aim at donut
-    direction = Vector((0, 0, 0.04)) - cam.location
+    direction = Vector((0.02, -0.01, 0.045)) - cam.location
     cam.rotation_euler = direction.to_track_quat("-Z", "Y").to_euler()
     bpy.context.scene.camera = cam
 
-    # Key area light
-    bpy.ops.object.light_add(type="AREA", location=(0.25, -0.15, 0.35))
+    bpy.ops.object.light_add(type="AREA", location=(0.20, -0.12, 0.32))
     key = bpy.context.active_object
     key.name = "Key"
-    key.data.energy = 40
-    key.data.size = 0.25
-    key.rotation_euler = (math.radians(-50), math.radians(20), math.radians(30))
+    key.data.energy = 28
+    key.data.size = 0.35
+    key.data.color = (1.0, 0.97, 0.93)
+    key.rotation_euler = (math.radians(-55), math.radians(15), math.radians(25))
 
-    # Fill
-    bpy.ops.object.light_add(type="AREA", location=(-0.2, -0.25, 0.2))
+    bpy.ops.object.light_add(type="AREA", location=(-0.22, -0.18, 0.18))
     fill = bpy.context.active_object
     fill.name = "Fill"
-    fill.data.energy = 12
-    fill.data.size = 0.35
+    fill.data.energy = 8
+    fill.data.size = 0.45
+    fill.data.color = (0.85, 0.90, 1.0)
 
-    # Rim
-    bpy.ops.object.light_add(type="AREA", location=(0.05, 0.3, 0.22))
+    bpy.ops.object.light_add(type="AREA", location=(0.0, 0.28, 0.20))
     rim = bpy.context.active_object
     rim.name = "Rim"
-    rim.data.energy = 18
-    rim.data.size = 0.2
+    rim.data.energy = 14
+    rim.data.size = 0.25
 
     return cam
 
@@ -647,18 +687,18 @@ def export_glb(path: Path):
 def extra_views():
     """Orbit a few cameras for gallery."""
     shots = [
-        ("hero", (0.22, -0.28, 0.16), (0, 0, 0.04)),
-        ("top", (0.0, 0.0, 0.35), (0, 0, 0.04)),
-        ("side", (0.35, 0.0, 0.10), (0.05, 0, 0.04)),
-        ("mug", (0.28, -0.12, 0.12), (0.12, -0.02, 0.05)),
+        ("hero", (0.18, -0.22, 0.14), (0.02, -0.01, 0.045)),
+        ("top", (0.0, 0.0, 0.32), (0, 0, 0.04)),
+        ("side", (0.28, 0.0, 0.09), (0.04, 0, 0.04)),
+        ("mug", (0.24, -0.14, 0.11), (0.10, -0.02, 0.05)),
     ]
     for name, loc, target in shots:
         cam = bpy.context.scene.camera
         cam.location = loc
         direction = Vector(target) - Vector(loc)
         cam.rotation_euler = direction.to_track_quat("-Z", "Y").to_euler()
-        render(ART / f"donut_{name}.png", samples=48)
-        render(STUDY / f"renders/donut_{name}.png", samples=48)
+        render(ART / f"donut_{name}.png", samples=32)
+        render(STUDY / f"renders/donut_{name}.png", samples=32)
 
 
 def main():
@@ -692,7 +732,7 @@ def main():
 
         MON.stage("sprinkles", index=6, total=stages, preview=False)
         protos, _ = make_sprinkle_prototypes()
-        scatter_sprinkles(icing, protos, count=240)
+        scatter_sprinkles(icing, protos, count=160)
         MON.preview(message="sprinkles scattered", force=True)
 
         MON.stage("export", index=7, total=stages, preview=False)

@@ -76,3 +76,10 @@ This is **foundational modelling**, not Multires sculpt. Pair with Ryan King (`r
 ```
 
 Outputs: `donut.blend`, `donut.glb`, `renders/donut_{hero,top,side,mug}.png`
+
+## Iteration notes (v3)
+
+- Fixed invisible icing: duplicated mesh was keeping **dough material slot 0**
+- Icing now: fresh torus top shell → drip pulls → Shrinkwrap (ABOVE_SURFACE) → Solidify → pink Principled
+- Parent with `matrix_parent_inverse` so icing doesn't float
+- Dark table + softer studio world; hero/top/side/mug renders in `renders/`
