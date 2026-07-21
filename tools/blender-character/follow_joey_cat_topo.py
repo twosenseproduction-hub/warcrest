@@ -483,18 +483,8 @@ def build(mats_list, idx):
         crease_near(sole, lambda m: True, 0.95)
         parts.append(sole)
 
-        # One pink tongue button — large + deep overlap so boolean keeps it
-        parts.append(
-            make_sphere(
-                f"BootBtn_{side}",
-                mats_list,
-                idx["pink"],
-                (0.17 * sx, 0.28, 0.30),
-                (0.12, 0.08, 0.12),
-            )
-        )
-
-    # Face — larger vertical oval eyes, closer, grumpy brows
+    # Face volumes that boolean well (eyes/pupils/nose). Surface cards
+    # (brows/mouth/whiskers/boot pinks) are added AFTER plant so they don't melt.
     for sx, side in ((-1, "L"), (1, "R")):
         parts.append(
             make_sphere(
@@ -516,28 +506,8 @@ def build(mats_list, idx):
                 rings=8,
             )
         )
-        brow = make_grid_cube(f"Brow_{side}", 0.20, 0.06, 0.075, 1, mats_list, idx["brow"])
-        brow.location = (0.125 * sx, 0.34, 1.84)
-        brow.rotation_euler = (math.radians(-16), 0, math.radians(-48 * sx))
-        apply_tr(brow)
-        parts.append(brow)
 
     parts.append(make_sphere("Nose", mats_list, idx["pink"], (0, 0.38, 1.50), (0.075, 0.055, 0.055)))
-    # Off-center smirk — sit proud of muzzle so boolean keeps the line
-    mouth = make_grid_cube("Mouth", 0.11, 0.02, 0.016, 0, mats_list, idx["mouth"])
-    mouth.location = (0.08, 0.38, 1.30)
-    mouth.rotation_euler = (0, 0, math.radians(-24))
-    apply_tr(mouth)
-    parts.append(mouth)
-
-    # Thin black whiskers far forward on muzzle only (skip collar zone)
-    for sx, side in ((-1, "L"), (1, "R")):
-        for i, dz in enumerate((0.035, 0.0, -0.035)):
-            w = make_grid_cube(f"Whisker_{side}_{i}", 0.12, 0.006, 0.006, 0, mats_list, idx["mouth"])
-            w.location = (0.20 * sx, 0.36, 1.36 + dz)
-            w.rotation_euler = (0, 0, math.radians(6 * (1 - i) * sx))
-            apply_tr(w)
-            parts.append(w)
 
     base = parts[0]
     base.name = "Bizzo"
@@ -549,6 +519,9 @@ def build(mats_list, idx):
     islands = count_islands(base)
     log(f"connected islands={islands} verts={len(base.data.vertices)} faces={len(base.data.polygons)}")
 
+    # Surface ornaments in planted space — JOIN (not boolean) so pinks/mouth stay readable
+    add_surface_cards(base, mats_list, idx)
+
     # Keep intentional joint/support loops — do NOT voxel-remesh (melts silhouette).
     sub = base.modifiers.new("Subdivision", "SUBSURF")
     sub.levels = 2
@@ -558,6 +531,61 @@ def build(mats_list, idx):
     log("Multires modifier added (subdivide in Blender for sculpt levels)")
 
     return base
+
+
+def add_surface_cards(body, mats_list, idx):
+    """Join brows / mouth / whiskers / boot pinks after plant (Joey readable details)."""
+    coords = [v.co.copy() for v in body.data.vertices]
+    h = max(c.z for c in coords)
+    extras = []
+
+    # Grumpy brows
+    for sx, side in ((-1, "L"), (1, "R")):
+        brow = make_grid_cube(f"Brow_{side}", 0.11 * h, 0.035 * h, 0.04 * h, 1, mats_list, idx["brow"])
+        brow.location = (0.07 * h * sx, 0.20 * h, 0.92 * h)
+        brow.rotation_euler = (math.radians(-16), 0, math.radians(-48 * sx))
+        apply_tr(brow)
+        extras.append(brow)
+
+    # Off-center smirk
+    mouth = make_grid_cube("Mouth", 0.06 * h, 0.012 * h, 0.01 * h, 0, mats_list, idx["mouth"])
+    mouth.location = (0.045 * h, 0.22 * h, 0.68 * h)
+    mouth.rotation_euler = (0, 0, math.radians(-24))
+    apply_tr(mouth)
+    extras.append(mouth)
+
+    # Thin black whiskers on muzzle
+    for sx, side in ((-1, "L"), (1, "R")):
+        for i, dz in enumerate((0.02, 0.0, -0.02)):
+            w = make_grid_cube(
+                f"Whisker_{side}_{i}", 0.07 * h, 0.004 * h, 0.004 * h, 0, mats_list, idx["mouth"]
+            )
+            w.location = (0.12 * h * sx, 0.21 * h, (0.72 + dz) * h)
+            w.rotation_euler = (0, 0, math.radians(6 * (1 - i) * sx))
+            apply_tr(w)
+            extras.append(w)
+
+    # Pink boot tongue buttons — two per boot like preferred readable ship
+    for sx, side in ((-1, "L"), (1, "R")):
+        for i, (dx, dz) in enumerate(((-0.018, 0.02), (0.018, 0.02))):
+            btn = make_sphere(
+                f"BootBtn_{side}_{i}",
+                mats_list,
+                idx["pink"],
+                ((0.095 + dx) * h * sx, 0.14 * h, (0.14 + dz) * h),
+                (0.055 * h, 0.028 * h, 0.055 * h),
+                segs=12,
+                rings=8,
+            )
+            extras.append(btn)
+
+    active(body)
+    for o in extras:
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = body
+    bpy.ops.object.join()
+    smooth(body)
+    log(f"joined {len(extras)} surface cards → verts={len(body.data.vertices)}")
 
 
 def frame_camera(view="front"):
