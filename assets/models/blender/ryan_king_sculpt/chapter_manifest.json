@@ -1,0 +1,134 @@
+[
+  {
+    "time_s": 0,
+    "chapter": "Intro",
+    "frame": "00m00s_intro.png",
+    "storyboard_t": 0
+  },
+  {
+    "time_s": 61,
+    "chapter": "CG Boost Course",
+    "frame": "01m01s_cg_boost_course.png",
+    "storyboard_t": 60
+  },
+  {
+    "time_s": 110,
+    "chapter": "Drawing Tablets",
+    "frame": "01m50s_drawing_tablets.png",
+    "storyboard_t": 110
+  },
+  {
+    "time_s": 175,
+    "chapter": "Use a High Poly Mesh",
+    "frame": "02m55s_use_a_high_poly_mesh.png",
+    "storyboard_t": 170
+  },
+  {
+    "time_s": 235,
+    "chapter": "Sculpting Mode",
+    "frame": "03m55s_sculpting_mode.png",
+    "storyboard_t": 230
+  },
+  {
+    "time_s": 304,
+    "chapter": "Navigation",
+    "frame": "05m04s_navigation.png",
+    "storyboard_t": 300
+  },
+  {
+    "time_s": 430,
+    "chapter": "Sculpting Clay",
+    "frame": "07m10s_sculpting_clay.png",
+    "storyboard_t": 430
+  },
+  {
+    "time_s": 463,
+    "chapter": "Brushes",
+    "frame": "07m43s_brushes.png",
+    "storyboard_t": 460
+  },
+  {
+    "time_s": 517,
+    "chapter": "Strength and Radius",
+    "frame": "08m37s_strength_and_radius.png",
+    "storyboard_t": 520
+  },
+  {
+    "time_s": 595,
+    "chapter": "Pen Pressure",
+    "frame": "09m55s_pen_pressure.png",
+    "storyboard_t": 590
+  },
+  {
+    "time_s": 696,
+    "chapter": "More Brushes",
+    "frame": "11m36s_more_brushes.png",
+    "storyboard_t": 700
+  },
+  {
+    "time_s": 933,
+    "chapter": "Symmetry",
+    "frame": "15m33s_symmetry.png",
+    "storyboard_t": 930
+  },
+  {
+    "time_s": 1029,
+    "chapter": "Add More Geometry",
+    "frame": "17m09s_add_more_geometry.png",
+    "storyboard_t": 1030
+  },
+  {
+    "time_s": 1090,
+    "chapter": "Remesh",
+    "frame": "18m10s_remesh.png",
+    "storyboard_t": 1090
+  },
+  {
+    "time_s": 1163,
+    "chapter": "Dyntopo",
+    "frame": "19m23s_dyntopo.png",
+    "storyboard_t": 1160
+  },
+  {
+    "time_s": 1333,
+    "chapter": "Fish Base Mesh",
+    "frame": "22m13s_fish_base_mesh.png",
+    "storyboard_t": 1330
+  },
+  {
+    "time_s": 1755,
+    "chapter": "Front Faces Only",
+    "frame": "29m15s_front_faces_only.png",
+    "storyboard_t": 1750
+  },
+  {
+    "time_s": 1874,
+    "chapter": "Sculpting the Fish",
+    "frame": "31m14s_sculpting_the_fish.png",
+    "storyboard_t": 1870
+  },
+  {
+    "time_s": 2569,
+    "chapter": "Stroke Settings",
+    "frame": "42m49s_stroke_settings.png",
+    "storyboard_t": 2570
+  },
+  {
+    "time_s": 2690,
+    "chapter": "Modeling Fish Eye",
+    "frame": "44m50s_modeling_fish_eye.png",
+    "storyboard_t": 2690
+  },
+  {
+    "time_s": 2878,
+    "chapter": "Painting Fish",
+    "frame": "47m58s_painting_fish.png",
+    "storyboard_t": 2880
+  },
+  {
+    "time_s": 3164,
+    "chapter": "Closing",
+    "frame": "52m44s_closing.png",
+    "storyboard_t": 3160
+  }
+]

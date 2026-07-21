@@ -17,6 +17,17 @@ Curated from public tutorials, then applied to `purple_plate_elf` (Drive T-pose 
 | 9 | [Low Poly Character Creation in Blender Pt.1](https://www.youtube.com/watch?v=XGL5dw3sum0) | — | Mannequin proportions, delete half + Mirror |
 | 10 | [How To Make And Rig A PS1 Style Character](https://www.youtube.com/watch?v=puwu9hZmQYI) | — | Flat texture, simple materials, game rig |
 | 11 | [Character modeling for beginners - Blender](https://www.youtube.com/watch?v=O6HQhs-gk50) | Joey Carlino | Separate-limb Bizzo cat: Mirror, Subsurf, Solidify, Skin fingers, palette colors — see `JOEY_TUTORIAL_STUDY.md` |
+| 12 | [Sculpting for Complete Beginners](https://www.youtube.com/watch?v=Lxem4yMs5Dg) | Ryan King Art | Fish sculpt: Remesh / Dyntopo / Front Faces Only / Grab→Clay Strips→Crease — see `ryan_king_sculpt/STUDY.md` + chapter frame snaps |
+
+### Snapshotting tutorial videos (cloud)
+
+YouTube blocks MP4 download from cloud IPs. Use storyboard stills instead:
+
+```bash
+./tools/blender-character/yt_snapshot_frames.sh https://youtu.be/VIDEO_ID
+```
+
+Writes ~every-10s frames + chapter picks under `/opt/cursor/artifacts/yt_<id>/`. Pass cookies as arg 2 only if you need denser ffmpeg dumps.
 
 Supporting (materials): [2D-style / flat shading in Blender](https://www.youtube.com/watch?v=AtetvOEcZt8), [flat shaded renders](https://www.youtube.com/watch?v=4yEIrFWjTIM).
 
