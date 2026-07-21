@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Bizzo — connected clean-topology base mesh (sculpt-ready).
+"""Bizzo — connected clean-topology base mesh (PREFERRED ship / sculpt-ready).
+
+This is the preferred Bizzo recreate (cleaner connected silhouette than lumpy
+separate-object v3). Demo still: assets/models/blender/bizzo_demo/01_front.png
 
 Pipeline:
   1. Orthographic front / side / back reference planes
@@ -8,11 +11,13 @@ Pipeline:
   4. Tris→quads cleanup, edge creases, Subdivision + Multires
   5. Ortho beauty / wire renders + GLB export
 
-  blender -b -noaudio --python tools/blender-character/follow_joey_cat_topo.py
+  ./tools/blender-monitor/bin/run-job.sh --name bizzo-topo \\
+    tools/blender-character/follow_joey_cat_topo.py
 """
 from __future__ import annotations
 
 import math
+import sys
 from pathlib import Path
 
 import bmesh
@@ -22,6 +27,7 @@ from mathutils import Vector
 REPO = Path("/workspace")
 OUT_DIR = REPO / "assets/models/blender"
 REF_DIR = OUT_DIR / "joey_cat_refs"
+DEMO = OUT_DIR / "bizzo_demo"
 ART = Path("/opt/cursor/artifacts/blender_joey_bizzo")
 OUT_BLEND = OUT_DIR / "bizzo_cat_topo.blend"
 OUT_GLB = OUT_DIR / "bizzo_cat_topo.glb"
@@ -31,7 +37,11 @@ OUT_BACK = ART / "topo_back.png"
 OUT_WIRE = ART / "topo_wire.png"
 OUT_CMP = ART / "topo_compare_ref.png"
 
+sys.path.insert(0, str(REPO / "tools/blender-monitor/lib"))
+from monitor_preview import Monitor  # noqa: E402
+
 HEIGHT = 1.85
+MON: Monitor | None = None
 
 PAL = {
     "fur": (0.78, 0.40, 0.10),
@@ -44,6 +54,12 @@ PAL = {
     "sole": (0.95, 0.95, 0.95),
     "mouth": (0.05, 0.05, 0.05),
 }
+
+
+def log(msg: str):
+    print(f"[bizzo-topo] {msg}", flush=True)
+    if MON is not None:
+        MON.log(msg)
 
 
 def clear():
@@ -600,32 +616,67 @@ def make_compare():
     canvas.paste(a, (20, 40), a)
     canvas.paste(b, (a.width + 40, 40), b)
     d = ImageDraw.Draw(canvas)
-    d.text((20, 10), "Joey ref", fill=(220, 220, 230, 255))
-    d.text((a.width + 40, 10), "Connected topo + Multires", fill=(220, 220, 230, 255))
+    d.text((20, 10), "Joey official ref", fill=(220, 220, 230, 255))
+    d.text((a.width + 40, 10), "Preferred: connected topo", fill=(220, 220, 230, 255))
     canvas.save(OUT_CMP)
+    log(f"compare → {OUT_CMP}")
+
+
+def sync_demo():
+    DEMO.mkdir(parents=True, exist_ok=True)
+    for src, name in (
+        (OUT_FRONT, "01_front.png"),
+        (OUT_SIDE, "02_side.png"),
+        (OUT_BACK, "03_back.png"),
+        (OUT_CMP, "04_compare_ref_vs_ours.png"),
+    ):
+        if src.exists():
+            (DEMO / name).write_bytes(src.read_bytes())
+            log(f"demo ← {name}")
 
 
 def main():
-    clear()
-    setup_scene()
-    load_ref_planes()
-    order = ["fur", "coat", "pink", "muzzle", "eye_white", "pupil", "brow", "sole", "mouth"]
-    mats = {k: mat(k, v) for k, v in PAL.items()}
-    mats_list = [mats[k] for k in order]
-    idx = {k: i for i, k in enumerate(order)}
+    global MON
+    MON = Monitor.from_env(job="follow_joey_cat_topo", preview_samples=4)
+    stages = 5
+    try:
+        clear()
+        setup_scene()
+        load_ref_planes()
+        order = ["fur", "coat", "pink", "muzzle", "eye_white", "pupil", "brow", "sole", "mouth"]
+        mats = {k: mat(k, v) for k, v in PAL.items()}
+        mats_list = [mats[k] for k in order]
+        idx = {k: i for i, k in enumerate(order)}
 
-    body = build(mats_list, idx)
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    bpy.ops.wm.save_as_mainfile(filepath=str(OUT_BLEND))
+        MON.stage("build", index=1, total=stages, preview=False)
+        body = build(mats_list, idx)
+        OUT_DIR.mkdir(parents=True, exist_ok=True)
+        ART.mkdir(parents=True, exist_ok=True)
+        frame_camera("front")
+        MON.preview(message="preferred topo front", force=True)
 
-    render(OUT_FRONT, "front")
-    render(OUT_SIDE, "side")
-    render(OUT_BACK, "back")
-    # render(OUT_WIRE, "front", wire=True)  # skipped in CI for time
-    make_compare()
-    export_glb(OUT_GLB)
-    bpy.ops.wm.save_as_mainfile(filepath=str(OUT_BLEND))
-    print("DONE", flush=True)
+        MON.stage("save", index=2, total=stages, preview=False)
+        bpy.ops.wm.save_as_mainfile(filepath=str(OUT_BLEND))
+
+        MON.stage("renders", index=3, total=stages, preview=False)
+        render(OUT_FRONT, "front")
+        render(OUT_SIDE, "side")
+        render(OUT_BACK, "back")
+        make_compare()
+        sync_demo()
+
+        MON.stage("export", index=4, total=stages, preview=False)
+        export_glb(OUT_GLB)
+
+        MON.stage("final", index=5, total=stages, preview=False)
+        frame_camera("front")
+        MON.preview(message="final preferred topo", force=True)
+        bpy.ops.wm.save_as_mainfile(filepath=str(OUT_BLEND))
+        MON.done("Preferred topo Bizzo complete")
+    except Exception as e:
+        if MON is not None:
+            MON.fail(str(e))
+        raise
 
 
 if __name__ == "__main__":

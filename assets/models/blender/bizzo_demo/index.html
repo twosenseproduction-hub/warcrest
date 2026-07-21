@@ -1,18 +1,22 @@
 <!DOCTYPE html><html><head><meta charset="utf-8"><title>Bizzo demo</title>
 <style>body{margin:0;font-family:system-ui,sans-serif;background:#111;color:#eee}
 h1{padding:1rem 1.25rem;margin:0;font-size:1.25rem}
+.note{padding:0 1.25rem 1rem;opacity:.85;max-width:52rem}
 .grid{display:grid;gap:1rem;padding:1rem 1.25rem;grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
 figure{margin:0;background:#1a1a1a;border-radius:8px;overflow:hidden}
+figure.preferred{outline:2px solid #7ec8a3}
 img{width:100%;height:auto;display:block;background:#000}
 figcaption{padding:.75rem 1rem;font-size:.95rem;opacity:.9}</style></head><body>
-<h1>Bizzo demo gallery</h1><div class="grid">
-<figure><img src="00_joey_official_ref.png" alt="00_joey_official_ref.png"/><figcaption>Joey official reference (target)</figcaption></figure>
-<figure><img src="10_v3_compare.png" alt="10_v3_compare.png"/><figcaption>v3 — compare vs Joey ref</figcaption></figure>
-<figure><img src="10_v3_front.png" alt="10_v3_front.png"/><figcaption>v3 — front</figcaption></figure>
-<figure><img src="10_v3_side.png" alt="10_v3_side.png"/><figcaption>v3 — side</figcaption></figure>
-<figure><img src="10_v3_back.png" alt="10_v3_back.png"/><figcaption>v3 — back</figcaption></figure>
-<figure><img src="10_v3_three_quarter.png" alt="10_v3_three_quarter.png"/><figcaption>v3 — 3/4</figcaption></figure>
-<figure><img src="01_front.png" alt="01_front.png"/><figcaption>v1 topo — front</figcaption></figure>
-<figure><img src="06_v2_compare.png" alt="06_v2_compare.png"/><figcaption>v2 Skin workflow — compare</figcaption></figure>
-<figure><img src="06_v2_front.png" alt="06_v2_front.png"/><figcaption>v2 — front</figcaption></figure>
+<h1>Bizzo demo gallery</h1>
+<p class="note">Preferred ship: <strong>connected topo</strong> (<code>01_front.png</code> / <code>bizzo_cat_topo</code>).
+Lumpy separate-object v3 kept for comparison only.</p>
+<div class="grid">
+<figure class="preferred"><img src="00_joey_official_ref.png" alt="00_joey_official_ref.png"/><figcaption>Joey official reference (target)</figcaption></figure>
+<figure class="preferred"><img src="01_front.png" alt="01_front.png"/><figcaption>Preferred — connected topo front</figcaption></figure>
+<figure class="preferred"><img src="04_compare_ref_vs_ours.png" alt="04_compare_ref_vs_ours.png"/><figcaption>Preferred — topo vs Joey ref</figcaption></figure>
+<figure class="preferred"><img src="02_side.png" alt="02_side.png"/><figcaption>Preferred — topo side</figcaption></figure>
+<figure class="preferred"><img src="03_back.png" alt="03_back.png"/><figcaption>Preferred — topo back</figcaption></figure>
+<figure><img src="10_v3_compare.png" alt="10_v3_compare.png"/><figcaption>v3 separate-object (superseded)</figcaption></figure>
+<figure><img src="10_v3_front.png" alt="10_v3_front.png"/><figcaption>v3 front (superseded)</figcaption></figure>
+<figure><img src="06_v2_front.png" alt="06_v2_front.png"/><figcaption>v2 Skin workflow</figcaption></figure>
 </div></body></html>

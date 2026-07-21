@@ -11,29 +11,35 @@ Chapter stills under `chapter_frames/` (from YouTube storyboard grids ≈ every 
 ./tools/blender-character/yt_snapshot_frames.sh https://youtu.be/O6HQhs-gk50
 ```
 
-## Recreate (v3)
+## Recreate — preferred: connected topo
 
-Joey separate-object workflow matching the Imgur T-pose (chunky head, cheek spikes,
-bell coat, bridging legs, ankle+toe boots — not a skinny Skin blob):
+Clean boxy volumes → boolean union → Subsurf + Multires. This reads better than
+the lumpy separate-object v3 and is the preferred ship (`bizzo_cat_topo.*`,
+demo `01_front.png`).
+
+```bash
+./tools/blender-monitor/bin/run-job.sh --name bizzo-topo \
+  tools/blender-character/follow_joey_cat_topo.py
+```
+
+## Alternate: separate-object v3 (superseded)
+
+Joey constructive stages without boolean weld (kept for study comparison):
 
 ```bash
 ./tools/blender-monitor/bin/run-job.sh --name bizzo-v3 \
   tools/blender-character/follow_joey_cat_v3.py
 ```
 
-Outputs: `../bizzo_cat_v3.{blend,glb}` · demo stills `../bizzo_demo/10_v3_*.png` ·
-artifacts `/opt/cursor/artifacts/blender_joey_bizzo/v3_*.png`
-
-Note: this is the constructive/blockout stage of Joey’s beginner tutorial (separate
-objects → join). His finished Imgur mesh is cleaner after further sculpt/cleanup.
+Outputs: `../bizzo_cat_v3.{blend,glb}` · demo stills `../bizzo_demo/10_v3_*.png`
 
 ## Chapters → build stages
 
-| Chapter | Our stage |
-|---------|-----------|
-| Cat character / Head | Broad head, ears, hair tufts, cheek spikes, face cards |
-| Coat | Solidify sweater + turtleneck + wide sleeves |
-| Hands | Palm + finger capsules |
-| Shoes | Shorts, short fur legs, chunky boots + pink tongue + white sole |
+| Chapter | Preferred topo stage |
+|---------|----------------------|
+| Cat character / Head | Wide box head, ears, hair, cheek spikes, face cards |
+| Coat | Flared sweater + turtleneck + sleeves (boolean weld) |
+| Hands | Palm + thumb welded into cuffs |
+| Shoes | Shorts, bridging legs, separate chunky boots |
 | Color | Palette Principled materials |
-| Join | Apply modifiers → join → normalize height |
+| Join | Exact boolean UNION → one manifold shell + Multires |
