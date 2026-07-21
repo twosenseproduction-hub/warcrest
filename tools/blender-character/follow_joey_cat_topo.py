@@ -326,20 +326,20 @@ def build(mats_list, idx):
     crease_near(torso, lambda m: m.z < 0.78 or m.z > 1.20, 0.55)
     parts.append(torso)
 
-    # Tall funnel turtleneck up to chin
-    collar = make_cyl("Collar", 0.19, 0.24, 16, 3, mats_list, idx["coat"])
-    collar.scale = (1.55, 1.28, 1.0)
-    collar.location = (0, 0.03, 1.30)
+    # Tall turtleneck — snug to chin (Joey), not an over-wide funnel
+    collar = make_cyl("Collar", 0.18, 0.26, 16, 3, mats_list, idx["coat"])
+    collar.scale = (1.35, 1.22, 1.0)
+    collar.location = (0, 0.04, 1.32)
     apply_tr(collar)
     for v in collar.data.vertices:
-        if v.co.z > 1.30:
-            v.co.x *= 1.32
-            v.co.y *= 1.18
+        if v.co.z > 1.32:
+            v.co.x *= 1.18
+            v.co.y *= 1.12
         else:
-            v.co.x *= 0.84
-            v.co.y *= 0.84
+            v.co.x *= 0.90
+            v.co.y *= 0.90
     collar.data.update()
-    crease_near(collar, lambda m: abs(m.z - 1.30) > 0.04, 0.75)
+    crease_near(collar, lambda m: abs(m.z - 1.32) > 0.04, 0.75)
     parts.append(collar)
 
     # Neck bridge (ensures head↔coat connection)
@@ -483,14 +483,14 @@ def build(mats_list, idx):
         crease_near(sole, lambda m: True, 0.95)
         parts.append(sole)
 
-        # One pink tongue button per boot (Joey)
+        # One pink tongue button — large + deep overlap so boolean keeps it
         parts.append(
             make_sphere(
                 f"BootBtn_{side}",
                 mats_list,
                 idx["pink"],
-                (0.17 * sx, 0.30, 0.28),
-                (0.10, 0.045, 0.10),
+                (0.17 * sx, 0.28, 0.30),
+                (0.12, 0.08, 0.12),
             )
         )
 
@@ -516,26 +516,26 @@ def build(mats_list, idx):
                 rings=8,
             )
         )
-        brow = make_grid_cube(f"Brow_{side}", 0.18, 0.055, 0.07, 1, mats_list, idx["brow"])
-        brow.location = (0.13 * sx, 0.32, 1.82)
-        brow.rotation_euler = (math.radians(-14), 0, math.radians(-42 * sx))
+        brow = make_grid_cube(f"Brow_{side}", 0.20, 0.06, 0.075, 1, mats_list, idx["brow"])
+        brow.location = (0.125 * sx, 0.34, 1.84)
+        brow.rotation_euler = (math.radians(-16), 0, math.radians(-48 * sx))
         apply_tr(brow)
         parts.append(brow)
 
-    parts.append(make_sphere("Nose", mats_list, idx["pink"], (0, 0.36, 1.48), (0.07, 0.05, 0.055)))
-    # Off-center smirk (Joey)
-    mouth = make_grid_cube("Mouth", 0.10, 0.014, 0.012, 0, mats_list, idx["mouth"])
-    mouth.location = (0.07, 0.34, 1.28)
-    mouth.rotation_euler = (0, 0, math.radians(-22))
+    parts.append(make_sphere("Nose", mats_list, idx["pink"], (0, 0.38, 1.50), (0.075, 0.055, 0.055)))
+    # Off-center smirk — sit proud of muzzle so boolean keeps the line
+    mouth = make_grid_cube("Mouth", 0.11, 0.02, 0.016, 0, mats_list, idx["mouth"])
+    mouth.location = (0.08, 0.38, 1.30)
+    mouth.rotation_euler = (0, 0, math.radians(-24))
     apply_tr(mouth)
     parts.append(mouth)
 
-    # Whiskers as flat cards ON muzzle only (avoid collar punch-through)
+    # Thin black whiskers far forward on muzzle only (skip collar zone)
     for sx, side in ((-1, "L"), (1, "R")):
-        for i, dz in enumerate((0.04, 0.0, -0.04)):
-            w = make_grid_cube(f"Whisker_{side}_{i}", 0.14, 0.008, 0.008, 0, mats_list, idx["mouth"])
-            w.location = (0.22 * sx, 0.30, 1.34 + dz)
-            w.rotation_euler = (0, 0, math.radians(8 * (1 - i) * sx))
+        for i, dz in enumerate((0.035, 0.0, -0.035)):
+            w = make_grid_cube(f"Whisker_{side}_{i}", 0.12, 0.006, 0.006, 0, mats_list, idx["mouth"])
+            w.location = (0.20 * sx, 0.36, 1.36 + dz)
+            w.rotation_euler = (0, 0, math.radians(6 * (1 - i) * sx))
             apply_tr(w)
             parts.append(w)
 
