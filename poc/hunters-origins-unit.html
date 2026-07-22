@@ -28,6 +28,11 @@
     font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     color: var(--text);
   }
+  body.clean-ui .topbar,
+  body.clean-ui .bottom-sheet,
+  body.clean-ui .hint {
+    display: none;
+  }
   #app {
     position: fixed;
     inset: 0;
@@ -253,6 +258,10 @@
 <script src="./three.min.js"></script>
 <script>
 (() => {
+  const qs = new URLSearchParams(location.search);
+  const cleanUi = qs.get('chrome') === '0';
+  const autorun = qs.get('autorun') !== '0';
+  if (cleanUi) document.body.classList.add('clean-ui');
   const canvas = document.getElementById('c');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -268,7 +277,12 @@
   scene.fog = new THREE.FogExp2(0x071019, 0.022);
 
   const camera = new THREE.PerspectiveCamera(34, window.innerWidth / window.innerHeight, 0.1, 120);
-  const orbit = { yaw: 0.56, pitch: 0.3, dist: 18.8, target: new THREE.Vector3(0, 3.8, 0) };
+  const orbit = {
+    yaw: +(qs.get('yaw') || 0.56),
+    pitch: +(qs.get('pitch') || 0.3),
+    dist: +(qs.get('dist') || 18.8),
+    target: new THREE.Vector3(0, 3.8, 0)
+  };
 
   function placeCamera() {
     const cp = Math.cos(orbit.pitch);
@@ -618,6 +632,7 @@
     state.halo = halo;
 
     g.userData = Object.assign(state, { legL, legR, armL, armR, torso });
+    g.rotation.y = Math.PI;
     g.scale.setScalar(0.9);
     g.position.y = -0.25;
     addOutline(g, 1.055);
@@ -631,9 +646,9 @@
   scene.add(wisps);
 
   const state = {
-    spin: false,
-    fx: true,
-    pose: 'idle',
+    spin: qs.get('spin') === '1',
+    fx: qs.get('fx') !== '0',
+    pose: qs.get('pose') === 'combat' ? 'combat' : 'idle',
     dragging: false,
     lastX: 0,
     lastY: 0
@@ -660,6 +675,25 @@
   combatBtn.addEventListener('click', () => { state.pose = 'combat'; syncUi(); });
   spinBtn.addEventListener('click', () => { state.spin = !state.spin; syncUi(); });
   fxBtn.addEventListener('click', () => { state.fx = !state.fx; syncUi(); });
+
+  function setPose(pose) {
+    state.pose = pose === 'combat' ? 'combat' : 'idle';
+    syncUi();
+  }
+  function setFx(on) {
+    state.fx = !!on;
+    syncUi();
+  }
+  function setSpin(on) {
+    state.spin = !!on;
+    syncUi();
+  }
+  function setOrbit(opts) {
+    if (opts && typeof opts.yaw === 'number') orbit.yaw = opts.yaw;
+    if (opts && typeof opts.pitch === 'number') orbit.pitch = opts.pitch;
+    if (opts && typeof opts.dist === 'number') orbit.dist = opts.dist;
+    placeCamera();
+  }
 
   function onPointerDown(e) {
     state.dragging = true;
@@ -737,6 +771,14 @@
     });
   }
 
+  function renderAt(t) {
+    animateCharacter(t);
+    if (state.fx) animateWisps(t);
+    arch.rotation.y = Math.sin(t * 0.3) * 0.12;
+    archGlow.rotation.y = arch.rotation.y;
+    renderer.render(scene, camera);
+  }
+
   let last = performance.now();
   function frame(now) {
     requestAnimationFrame(frame);
@@ -747,16 +789,23 @@
       orbit.yaw += dt * 0.42;
       placeCamera();
     }
-    animateCharacter(t);
-    if (state.fx) animateWisps(t);
-    arch.rotation.y = Math.sin(t * 0.3) * 0.12;
-    archGlow.rotation.y = arch.rotation.y;
-    renderer.render(scene, camera);
+    renderAt(t);
   }
-  animateCharacter(0);
-  animateWisps(0);
-  renderer.render(scene, camera);
-  requestAnimationFrame(frame);
+  window.__unitView = {
+    setPose,
+    setFx,
+    setSpin,
+    setOrbit,
+    renderAt,
+    getState: () => ({
+      pose: state.pose,
+      fx: state.fx,
+      spin: state.spin,
+      orbit: { yaw: orbit.yaw, pitch: orbit.pitch, dist: orbit.dist }
+    })
+  };
+  renderAt(0);
+  if (autorun) requestAnimationFrame(frame);
 })();
 </script>
 </body>
