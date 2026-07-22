@@ -381,8 +381,11 @@ body.moving .abilHand{ transform:scale(.66) !important; }
 .wbDisc.bld.sell .wc{ background:linear-gradient(180deg,#8fd06a,#4e9c37); color:#0c1b08; }
 .wbDisc .wl{ position:absolute; bottom:100%; left:50%; transform:translateX(-50%); margin-bottom:4px; white-space:nowrap; pointer-events:none;
   font:800 8px/1 system-ui; letter-spacing:.02em; color:#f4e7c9; text-shadow:0 1px 2px #000; }
-#warbandTitle{ position:fixed; z-index:7; right:calc(104px + var(--sr)); bottom:calc(104px + var(--sb)); text-align:right; max-width:56vw;
-  font:800 11px/1.2 system-ui; color:var(--f-gold-hi); text-shadow:0 1px 3px #000; pointer-events:none; }
+#warbandTitle{ position:fixed; z-index:9; right:calc(104px + var(--sr)); bottom:calc(92px + var(--sb)); text-align:right; max-width:52vw;
+  padding:3px 9px; border-radius:8px; font:800 11px/1.25 system-ui; color:var(--f-gold-hi); text-shadow:0 1px 3px #000; pointer-events:none;
+  background:linear-gradient(180deg,rgba(24,16,8,.86),rgba(12,8,4,.86)); box-shadow:inset 0 0 0 1px var(--f-gold-lo),0 3px 10px rgba(0,0,0,.5); }
+/* while a plot's build menu occupies the cluster, clear the ability hand so nothing overlaps the title */
+body.building .abilHand{ opacity:0 !important; pointer-events:none !important; transition:opacity .15s; }
 </style>
 </head>
 <body>

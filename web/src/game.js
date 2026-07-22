@@ -280,7 +280,7 @@ function dirtPad(x,z,r){
 const PLOT_THEME={ elf:{ground:0x5f7a4c, ring:0x86ecc4, plus:0xdaffe8, decor:'leaf'},
                    orc:{ground:0x6f6153, ring:0xff8a5a, plus:0xffceb0, decor:'rock'},
                    human:{ground:0x8f887a, ring:0xffd98a, plus:0xfff0cf, decor:'brick'},
-                   undead:{ground:0x9a9a86, ring:0xbf8fff, plus:0xe6d8ff, decor:'bone'} };
+                   undead:{ground:0x46583f, ring:0xbf8fff, plus:0xd8c8ff, decor:'bone'} };   // necrotic blight-green pad (was near-white 0x9a9a86 → blew out); purple rim keeps the crypt read
 // scatter a ring of race-flavoured props around the pad rim so it reads as an organic terrain patch, not a disc
 function padDecor(g,r,type,n){ n=n||9;
   for(let i=0;i<n;i++){ const a=i/n*6.28+rr(-0.18,0.18), rad=r*rr(0.8,1.02), px=Math.cos(a)*rad, pz=Math.sin(a)*rad; let m;
@@ -854,7 +854,17 @@ function sellValue(p){ let spent=0; for(let i=0;i<p.level;i++) spent+=CAT[p.cat]
 // Build/train/upgrade menus route into the bottom-right warband cluster (living hub),
 // not a centre radial: the unit-type discs swap to the plot's options while it's selected.
 function radialOpen(cx,cy,title,items){ hubMenu={ title:title||'', items:items||[] }; if(typeof updateWarband==='function') updateWarband(); }
-function openPlotMenu(p){ if(!buildMenuEl||p.locked)return; menuPlot=p; menuAnchor={x:p.x,z:p.z}; const g=Math.floor(gold), w=Math.floor(wood); const [cx,cy]=screenOf(p.x,p.z); let items;
+// bright gold ground ring marking the currently-selected plot / throne (pulses in the loop)
+let plotSelRing=null;
+function showPlotSel(x,z,scale){
+  if(!plotSelRing){ plotSelRing=new THREE.Mesh(new THREE.RingGeometry(3.25,4.15,48),
+      new THREE.MeshBasicMaterial({color:0xffd060,transparent:true,opacity:0.85,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending}));
+    plotSelRing.rotation.x=-Math.PI/2; plotSelRing.renderOrder=6; scene.add(plotSelRing); }
+  plotSelRing.__s=scale||1; plotSelRing.__t=0;
+  plotSelRing.position.set(x,topY(x,z)+0.5,z); plotSelRing.visible=true;
+}
+function hidePlotSel(){ if(plotSelRing) plotSelRing.visible=false; }
+function openPlotMenu(p){ if(!buildMenuEl||p.locked)return; menuPlot=p; menuAnchor={x:p.x,z:p.z}; showPlotSel(p.x,p.z); const g=Math.floor(gold), w=Math.floor(wood); const [cx,cy]=screenOf(p.x,p.z); let items;
   // upgrade cost label + affordability (gold + wood)
   const upItem=()=>{ const gc=CAT[p.cat].cost[p.level], wc=UP_WOOD[p.level];
     return {icon:ic('upgrade'), label:'Upgrade', cost:gc+'g · '+wc+'w', ok:g>=gc&&w>=wc, fn:()=>upgradePlot(p)}; };
@@ -872,14 +882,14 @@ function openPlotMenu(p){ if(!buildMenuEl||p.locked)return; menuPlot=p; menuAnch
   else { items=[]; if(p.level<3) items.push(upItem()); else items.push({icon:ic('star'), label:'Max', ok:false});
     items.push(sellItem());
     radialOpen(cx,cy,catLabel(p.cat)+' L'+p.level,items); } }
-function openCoreMenu(){ if(!buildMenuEl||!coreB)return; menuPlot=null; menuAnchor={x:coreB.x,z:coreB.z}; const g=Math.floor(gold), w=Math.floor(wood); const [cx,cy]=screenOf(coreB.x,coreB.z);
+function openCoreMenu(){ if(!buildMenuEl||!coreB)return; menuPlot=null; menuAnchor={x:coreB.x,z:coreB.z}; showPlotSel(coreB.x,coreB.z,1.85); const g=Math.floor(gold), w=Math.floor(wood); const [cx,cy]=screenOf(coreB.x,coreB.z);
   const items=[]; if(coreB.level<3){ const gc=CORE_UP[coreB.level], wc=CORE_WOOD[coreB.level]; items.push({icon:ic('upgrade'), label:'Expand base', cost:gc+'g · '+wc+'w', ok:g>=gc&&w>=wc, fn:()=>upgradeCore()}); }
   else items.push({icon:ic('star'), label:'Max', ok:false});
   radialOpen(cx,cy,'Throne L'+coreB.level+' · '+Math.ceil(coreB.hp)+'hp',items); }
 function sellPlot(p){ if(!p.cat)return; gold+=sellValue(p); if(p.g)scene.remove(p.g); p.g=null;
   p.cat=null; p.level=0; p.dmg=p.range=p.rof=p.every=p.cap=undefined; p.mine=[]; p.queue=[]; if(p.pbar)p.pbar.visible=false;
   styleRing(p); recomputeIncome(); recomputeSupply(); closeBuildMenu(); }
-function closeBuildMenu(){ if(buildMenuEl) buildMenuEl.style.display='none'; if(bmBack)bmBack.style.display='none'; menuPlot=null; menuAnchor=null; setBuildBtn(false); hubMenu=null; if(typeof updateWarband==='function') updateWarband(); }
+function closeBuildMenu(){ if(buildMenuEl) buildMenuEl.style.display='none'; if(bmBack)bmBack.style.display='none'; menuPlot=null; menuAnchor=null; hidePlotSel(); setBuildBtn(false); hubMenu=null; if(typeof updateWarband==='function') updateWarband(); }
 // ---- one-tap build entry: a hammer button that expands the nearest buildable plot's radial (and collapses it) ----
 function setBuildBtn(on){ if(buildBtnEl) buildBtnEl.classList.toggle('on',!!on); }
 function nearestBuildPlot(){ let best=null,bd=1e9; const ax=hero?hero.px:camAim.x, az=hero?hero.pz:camAim.z;
@@ -1224,6 +1234,7 @@ const RIGS={}, PROPS={}, TEXS={}; const CHAR_H={thoryn:4.8, queen:4.4, paladin:4
   hfootman:4.0, harcher:3.9, hknight:4.2, hmage:3.9,
   uking:4.3, uwarrior:3.9, uassassin:3.7, uarcher:3.9, umage:3.9, uworker:3.6};   // undead roster + neutral creeps (ash-basin bestiary)
 const CREEP_KEYS=['cinderhound','direboar','emberspitter','ashtreant','moltenwisp','wyveling','revenant'];   // Tripo/PBR rigs — flatten to the unlit look like thoryn
+const ORC_KEYS=['chief','orcgrunt','orcwarrior','orcarcher','orcshaman'];   // baked weapon meshes float off the hand → hide them & attach clean props (see makeChar / WEAPONS)
 // NB: the Deepvein dead (uworker/uwarrior/uassassin/uarcher/umage/uking) are creeps too — CREEP stats,
 // CREEP_VFX, camp AI — but deliberately NOT in CREEP_KEYS: they're Bitgem humanoids with a non-metallic
 // atlas like the elf/orc units, so they keep their lit materials (flattening would render them flat).
@@ -1243,6 +1254,17 @@ const WEAPONS={
   harcher:  [{file:'bow_human_archer', bone:'hand_l', pos:[10,-3.55,0], rot:[-2.845,Math.PI/2,-1.518], scl:0.86}],
   hknight:  [{file:'sword_human_knight', bone:'hand_r', pos:[-10,-2.55,0.3], rot:[Math.PI/2,2.705,Math.PI], scl:0.66}],
   hmage:    [{file:'staff_human_mage', bone:'hand_r', pos:[0,0,0], rot:[0,0,0], scl:1}],
+  // (Orc weapons are re-homed from their own baked meshes in makeChar — see ORC_KEYS — keeping the
+  // original geometry + atlas, so they need no prop entries here.)
+  // Undead roster rides the shared Bitgem rig (same hand bones / bind pose as the elf & human units),
+  // but shipped bare-handed — arm them with the existing props, painted with each prop's native atlas
+  // (w.tex) so a looted elven blade keeps its blade colours instead of the bone/skin atlas.
+  uking:    [{file:'sword_human_knight',  bone:'hand_r', tex:'hknight',  pos:[-10,-2.55,0.3], rot:[3*Math.PI/2,2.705,Math.PI], scl:0.72}],
+  uwarrior: [{file:'sword_elf_warrior',   bone:'hand_r', tex:'warrior',  pos:[-10,-2.55,0.3], rot:[3*Math.PI/2,2.705,0], scl:0.66},
+             {file:'shield_elf_warrior',  bone:'hand_l', tex:'warrior',  pos:[7.95,-3.7,0.45], rot:[1.292,3.019,0], scl:0.8}],
+  uassassin:[{file:'dagger_elf_assassin', bone:'hand_r', tex:'assassin', pos:[-10,-2.55,0.3], rot:[Math.PI/2,2.705,Math.PI], scl:0.9}],
+  uarcher:  [{file:'bow_elf_archer',      bone:'hand_l', tex:'archer',   pos:[10,-3.55,0], rot:[-2.845,Math.PI/2,-1.518], scl:0.86}],
+  umage:    [{file:'magic_ball',          bone:'hand_r', tex:'priestess',pos:[-10,-10,6.9], rot:[0,0,0], scl:1.4}],
 };
 const RIG_YAW={neaarcher:Math.PI};   // Blender-built rig faces -Z; spin 180° so it faces +Z like the others
 const RIG_ATTACK={thoryn:'Double_Blade_Spin'};   // per-rig basic-attack clip override (else the rig's own 'attack')
@@ -1335,13 +1357,37 @@ function makeChar(key,opts){ opts=opts||{}; const src=RIGS[key]; if(!src)return 
   // drifts from the bone that actually moves the rendered hand — so the weapon floats and no offset fixes
   // it. Ground truth is the mesh: bind to the hand bone belonging to the skeleton of the largest skinned
   // mesh (the body), so the weapon rides the exact deform bone the visible hand follows.
-  let bodySkel=null,_bv=-1; inner.traverse(o=>{ if(o.isSkinnedMesh&&o.skeleton){ const n=o.geometry.attributes.position.count; if(n>_bv){_bv=n;bodySkel=o.skeleton;} } });
+  let bodySkel=null,_bv=-1,bodyMap=null; inner.traverse(o=>{ if(o.isSkinnedMesh&&o.skeleton){ const n=o.geometry.attributes.position.count; if(n>_bv){_bv=n;bodySkel=o.skeleton; const mm=Array.isArray(o.material)?o.material[0]:o.material; if(mm&&mm.map)bodyMap=mm.map;} } });
   const pickFrom=(bones,name)=> bones.find(bn=>bn.name===name) || bones.find(bn=>bn.name.indexOf(name)===0) || null;
   const findBone=name=>{ if(bodySkel){ const b=pickFrom(bodySkel.bones,name); if(b)return b; }
     const cands=[]; inner.traverse(o=>{ if(o.isBone&&(o.name===name||o.name.indexOf(name)===0)) cands.push(o); });
     return pickFrom(cands,name); };
+  // Orc rigs ship the weapon as its OWN skinned mesh, bound to a duplicate armature the clip never
+  // drives → it floats off the hand. Re-home it to the ANIMATED body hand while keeping the weapon's
+  // ORIGINAL geometry + material (so the colour is exactly the baked original): bake the weapon onto
+  // the same-named live bone using its own bind offset (boneInverse · bindMatrix).
+  if(ORC_KEYS.includes(key)) inner.traverse(o=>{
+    if(!(o.isSkinnedMesh && /(?:sword|axe|mace|spear|staff|bow|hammer|club|glaive)/i.test(o.name))) return;
+    const si=o.geometry.attributes.skinIndex, sw=o.geometry.attributes.skinWeight; if(!si||!sw) return;
+    const acc={}; for(let v=0;v<si.count;v++) for(let k=0;k<4;k++){ const idx=si.array[v*4+k], w=sw.array[v*4+k]; if(w>0.01) acc[idx]=(acc[idx]||0)+w; }
+    let bi=0,bw=-1; for(const i in acc){ if(acc[i]>bw){bw=acc[i];bi=+i;} }
+    const wb=o.skeleton.bones[bi], liveBone=findBone(wb.name); if(!liveBone) return;
+    // ride the animated body hand relative to the BODY's rest pose (its boneInverse), not the weapon
+    // armature's — so the weapon lands in the live hand instead of the dead duplicate's bind pose.
+    const bidx=bodySkel?bodySkel.bones.indexOf(liveBone):-1;
+    const invB=(bidx>=0?bodySkel.boneInverses[bidx]:o.skeleton.boneInverses[bi]);
+    const rigid=new THREE.Mesh(o.geometry, o.material); rigid.frustumCulled=false; rigid.castShadow=true;
+    rigid.applyMatrix4(new THREE.Matrix4().multiplyMatrices(invB, o.bindMatrix));   // keeps the weapon's own orientation/scale
+    liveBone.add(rigid);
+    // the duplicate-armature bind leaves the weapon floating; recentre its bounding box onto the hand
+    // (same hand-local point the tuned props used) so it reads as held, regardless of the baked pivot.
+    liveBone.updateWorldMatrix(true,false); rigid.updateWorldMatrix(true,false);
+    const c=new THREE.Box3().setFromObject(rigid).getCenter(new THREE.Vector3());
+    rigid.position.add(new THREE.Vector3(9.1,38.6,-3.8).sub(liveBone.worldToLocal(c)));
+    o.visible=false;
+  });
   if(!opts.noWeapons) (WEAPONS[key]||[]).forEach(w=>{ if(!PROPS[w.file])return; const bone=findBone(w.bone);
-    if(bone){ const prop=PROPS[w.file].clone(true), tx=TEXS[key];
+    if(bone){ const prop=PROPS[w.file].clone(true), tx=TEXS[w.tex||key]||bodyMap;   // w.tex: paint with a borrowed atlas; else the char's own atlas (orc/creep textures are GLB-embedded, not in TEXS)
       prop.traverse(o=>{ if(o.isMesh){ o.material=new THREE.MeshBasicMaterial({map:tx,side:THREE.DoubleSide}); o.frustumCulled=false; } });
       prop.position.fromArray(w.pos); prop.rotation.set(w.rot[0],w.rot[1],w.rot[2]); prop.scale.setScalar(w.scl); bone.add(prop); } });
   const out={g:outer,mixer,act};
@@ -1873,8 +1919,9 @@ function updateWarband(){
   if(hpr&&hero&&hero.max){ const f=Math.max(0,Math.min(1,hero.hp/hero.max)); hpr.style.background='conic-gradient('+(f<0.35?'#e8564a':'#6fe06a')+' '+(f*360)+'deg, rgba(0,0,0,.55) 0)'; }
 
   // ---- plot selected → the cluster becomes that plot's build/train menu ----
+  document.body.classList.toggle('building', !!hubMenu);   // build mode: clears the ability hand so the title + discs own the corner
   if(hubMenu){
-    warbandEl.style.display='flex';
+    warbandEl.style.display='flex'; warbandEl.classList.remove('empty','idle');   // build menu must show even with no live units (.empty → display:none)
     if(warbandTitleEl){ warbandTitleEl.textContent=hubMenu.title||''; warbandTitleEl.style.display='block'; }
     const sig='M|'+(hubMenu.title||'')+'|'+hubMenu.items.map(it=>it.label+':'+(it.cost||'')+(it.ok===false?'x':'')).join(',');
     if(warbandEl.__sig!==sig){ warbandEl.__sig=sig; warbandEl.innerHTML='';
@@ -2666,6 +2713,7 @@ async function boot(){
     const now=performance.now(); let dt=(now-last)/1000; last=now; if(dt>0.05)dt=0.05;
     if(tunerActive){ _tFrame(dt); composer.render(); return; }   // weapon tuner takes over the frame
     updateGame(dt); followCam(dt); repositionRadial(); updateFires(dt); updateHeroAura(dt); updateAtmos(dt);
+    if(plotSelRing&&plotSelRing.visible){ plotSelRing.__t+=dt; const w=0.5+0.5*Math.sin(plotSelRing.__t*5); const s=plotSelRing.__s*(1+0.05*w); plotSelRing.scale.set(s,s,1); plotSelRing.material.opacity=0.55+0.3*w; }   // selected-plot ring pulse
     document.body.classList.toggle('moving', !!(joy && joy.active));   // shrink-on-move: pull the action side in while driving
     if(++miniAcc%4===0){ drawMini(); updateSelPanel(); updateWarband(); }   // ~15fps minimap + selection-card + warband refresh
     if(miniAcc%6===0) updateFog();   // ~10fps fog recompute
