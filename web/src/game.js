@@ -1234,6 +1234,7 @@ const RIGS={}, PROPS={}, TEXS={}; const CHAR_H={thoryn:4.8, queen:4.4, paladin:4
   hfootman:4.0, harcher:3.9, hknight:4.2, hmage:3.9,
   uking:4.3, uwarrior:3.9, uassassin:3.7, uarcher:3.9, umage:3.9, uworker:3.6};   // undead roster + neutral creeps (ash-basin bestiary)
 const CREEP_KEYS=['cinderhound','direboar','emberspitter','ashtreant','moltenwisp','wyveling','revenant'];   // Tripo/PBR rigs — flatten to the unlit look like thoryn
+const ORC_KEYS=['chief','orcgrunt','orcwarrior','orcarcher','orcshaman'];   // baked weapon meshes float off the hand → hide them & attach clean props (see makeChar / WEAPONS)
 // NB: the Deepvein dead (uworker/uwarrior/uassassin/uarcher/umage/uking) are creeps too — CREEP stats,
 // CREEP_VFX, camp AI — but deliberately NOT in CREEP_KEYS: they're Bitgem humanoids with a non-metallic
 // atlas like the elf/orc units, so they keep their lit materials (flattening would render them flat).
@@ -1253,6 +1254,13 @@ const WEAPONS={
   harcher:  [{file:'bow_human_archer', bone:'hand_l', pos:[10,-3.55,0], rot:[-2.845,Math.PI/2,-1.518], scl:0.86}],
   hknight:  [{file:'sword_human_knight', bone:'hand_r', pos:[-10,-2.55,0.3], rot:[Math.PI/2,2.705,Math.PI], scl:0.66}],
   hmage:    [{file:'staff_human_mage', bone:'hand_r', pos:[0,0,0], rot:[0,0,0], scl:1}],
+  // Orc horde: the GLB weapons are skinned to a dead duplicate armature (they float off-hand), so the
+  // baked mesh is hidden in makeChar and the matching orc prop FBX is re-attached to the animated hand.
+  chief:    [{file:'axe_orc_chieftain', bone:'hand_r',              pos:[9.1,38.6,23.3], rot:[Math.PI/2,2.705,Math.PI], scl:0.66}],
+  orcgrunt: [{file:'axe_orc_grunt',     bone:'Character1_RightHand', pos:[74.5,-4.0,49.2], rot:[Math.PI/2,2.705,Math.PI], scl:0.66}],
+  orcwarrior:[{file:'sword_orc_warrior',bone:'Character1_RightHand', pos:[-10,-2.55,0.3], rot:[Math.PI/2,2.705,Math.PI], scl:0.66}],
+  orcarcher:[{file:'bow_orc_archer',    bone:'hand_l',              pos:[10,-3.55,0], rot:[-2.845,Math.PI/2,-1.518], scl:0.86}],
+  orcshaman:[{file:'staff_orc_shaman',  bone:'hand_r',              pos:[67.5,1.6,66.3], rot:[Math.PI/2,2.705,Math.PI], scl:0.66}],
   // Undead roster rides the shared Bitgem rig (same hand bones / bind pose as the elf & human units),
   // but shipped bare-handed — arm them with the existing props, painted with each prop's native atlas
   // (w.tex) so a looted elven blade keeps its blade colours instead of the bone/skin atlas.
@@ -1354,13 +1362,17 @@ function makeChar(key,opts){ opts=opts||{}; const src=RIGS[key]; if(!src)return 
   // drifts from the bone that actually moves the rendered hand — so the weapon floats and no offset fixes
   // it. Ground truth is the mesh: bind to the hand bone belonging to the skeleton of the largest skinned
   // mesh (the body), so the weapon rides the exact deform bone the visible hand follows.
-  let bodySkel=null,_bv=-1; inner.traverse(o=>{ if(o.isSkinnedMesh&&o.skeleton){ const n=o.geometry.attributes.position.count; if(n>_bv){_bv=n;bodySkel=o.skeleton;} } });
+  let bodySkel=null,_bv=-1,bodyMap=null; inner.traverse(o=>{ if(o.isSkinnedMesh&&o.skeleton){ const n=o.geometry.attributes.position.count; if(n>_bv){_bv=n;bodySkel=o.skeleton; const mm=Array.isArray(o.material)?o.material[0]:o.material; if(mm&&mm.map)bodyMap=mm.map;} } });
+  // Orc rigs ship the weapon as its OWN skinned mesh bound to a duplicate armature the clip never
+  // drives (and whose rest pose differs from the body's) — so the weapon floats off the hand. Hide the
+  // baked weapon mesh and re-attach a clean prop to the animated hand below, exactly like the undead.
+  if(ORC_KEYS.includes(key)) inner.traverse(o=>{ if(o.isMesh && /(?:sword|axe|mace|spear|staff|bow|hammer|club|glaive)/i.test(o.name)) o.visible=false; });
   const pickFrom=(bones,name)=> bones.find(bn=>bn.name===name) || bones.find(bn=>bn.name.indexOf(name)===0) || null;
   const findBone=name=>{ if(bodySkel){ const b=pickFrom(bodySkel.bones,name); if(b)return b; }
     const cands=[]; inner.traverse(o=>{ if(o.isBone&&(o.name===name||o.name.indexOf(name)===0)) cands.push(o); });
     return pickFrom(cands,name); };
   if(!opts.noWeapons) (WEAPONS[key]||[]).forEach(w=>{ if(!PROPS[w.file])return; const bone=findBone(w.bone);
-    if(bone){ const prop=PROPS[w.file].clone(true), tx=TEXS[w.tex||key];   // w.tex: paint the prop with a borrowed atlas (e.g. undead holding an elf blade)
+    if(bone){ const prop=PROPS[w.file].clone(true), tx=TEXS[w.tex||key]||bodyMap;   // w.tex: paint with a borrowed atlas; else the char's own atlas (orc/creep textures are GLB-embedded, not in TEXS)
       prop.traverse(o=>{ if(o.isMesh){ o.material=new THREE.MeshBasicMaterial({map:tx,side:THREE.DoubleSide}); o.frustumCulled=false; } });
       prop.position.fromArray(w.pos); prop.rotation.set(w.rot[0],w.rot[1],w.rot[2]); prop.scale.setScalar(w.scl); bone.add(prop); } });
   const out={g:outer,mixer,act};
