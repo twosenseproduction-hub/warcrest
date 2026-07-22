@@ -1253,6 +1253,15 @@ const WEAPONS={
   harcher:  [{file:'bow_human_archer', bone:'hand_l', pos:[10,-3.55,0], rot:[-2.845,Math.PI/2,-1.518], scl:0.86}],
   hknight:  [{file:'sword_human_knight', bone:'hand_r', pos:[-10,-2.55,0.3], rot:[Math.PI/2,2.705,Math.PI], scl:0.66}],
   hmage:    [{file:'staff_human_mage', bone:'hand_r', pos:[0,0,0], rot:[0,0,0], scl:1}],
+  // Undead roster rides the shared Bitgem rig (same hand bones / bind pose as the elf & human units),
+  // but shipped bare-handed — arm them with the existing props, painted with each prop's native atlas
+  // (w.tex) so a looted elven blade keeps its blade colours instead of the bone/skin atlas.
+  uking:    [{file:'sword_human_knight',  bone:'hand_r', tex:'hknight',  pos:[-10,-2.55,0.3], rot:[Math.PI/2,2.705,Math.PI], scl:0.72}],
+  uwarrior: [{file:'sword_elf_warrior',   bone:'hand_r', tex:'warrior',  pos:[-10,-2.55,0.3], rot:[Math.PI/2,2.705,Math.PI], scl:0.66},
+             {file:'shield_elf_warrior',  bone:'hand_l', tex:'warrior',  pos:[7.95,-3.7,0.45], rot:[1.292,3.019,0], scl:0.8}],
+  uassassin:[{file:'dagger_elf_assassin', bone:'hand_r', tex:'assassin', pos:[-10,-2.55,0.3], rot:[Math.PI/2,2.705,Math.PI], scl:0.5}],
+  uarcher:  [{file:'bow_elf_archer',      bone:'hand_l', tex:'archer',   pos:[10,-3.55,0], rot:[-2.845,Math.PI/2,-1.518], scl:0.86}],
+  umage:    [{file:'magic_ball',          bone:'hand_r', tex:'priestess',pos:[-10,-10,6.9], rot:[0,0,0], scl:0.52}],
 };
 const RIG_YAW={neaarcher:Math.PI};   // Blender-built rig faces -Z; spin 180° so it faces +Z like the others
 const RIG_ATTACK={thoryn:'Double_Blade_Spin'};   // per-rig basic-attack clip override (else the rig's own 'attack')
@@ -1351,7 +1360,7 @@ function makeChar(key,opts){ opts=opts||{}; const src=RIGS[key]; if(!src)return 
     const cands=[]; inner.traverse(o=>{ if(o.isBone&&(o.name===name||o.name.indexOf(name)===0)) cands.push(o); });
     return pickFrom(cands,name); };
   if(!opts.noWeapons) (WEAPONS[key]||[]).forEach(w=>{ if(!PROPS[w.file])return; const bone=findBone(w.bone);
-    if(bone){ const prop=PROPS[w.file].clone(true), tx=TEXS[key];
+    if(bone){ const prop=PROPS[w.file].clone(true), tx=TEXS[w.tex||key];   // w.tex: paint the prop with a borrowed atlas (e.g. undead holding an elf blade)
       prop.traverse(o=>{ if(o.isMesh){ o.material=new THREE.MeshBasicMaterial({map:tx,side:THREE.DoubleSide}); o.frustumCulled=false; } });
       prop.position.fromArray(w.pos); prop.rotation.set(w.rot[0],w.rot[1],w.rot[2]); prop.scale.setScalar(w.scl); bone.add(prop); } });
   const out={g:outer,mixer,act};
