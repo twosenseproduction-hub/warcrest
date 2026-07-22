@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#071019">
+<title>Warcrest — Hunters Origins style unit concept</title>
+<style>
+  :root{
+    --safe-t: env(safe-area-inset-top, 0px);
+    --safe-r: env(safe-area-inset-right, 0px);
+    --safe-b: env(safe-area-inset-bottom, 0px);
+    --safe-l: env(safe-area-inset-left, 0px);
+    --panel: rgba(10, 18, 28, 0.78);
+    --panel-soft: rgba(14, 24, 38, 0.56);
+    --line: rgba(125, 214, 191, 0.28);
+    --text: #eef6ff;
+    --muted: #8fa7bb;
+    --accent: #63ffd5;
+    --gold: #f2c874;
+    --danger: #ff9f8a;
+  }
+  html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: radial-gradient(circle at top, #173043 0%, #08131d 40%, #04070c 100%);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: var(--text);
+  }
+  #app {
+    position: fixed;
+    inset: 0;
+  }
+  #c {
+    width: 100%;
+    height: 100%;
+    display: block;
+    touch-action: none;
+  }
+  .topbar {
+    position: fixed;
+    top: calc(12px + var(--safe-t));
+    left: calc(12px + var(--safe-l));
+    right: calc(12px + var(--safe-r));
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    pointer-events: none;
+  }
+  .stack {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    pointer-events: auto;
+  }
+  .chip, .ghost-btn, .pose-btn {
+    border: 1px solid var(--line);
+    background: var(--panel-soft);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(12px);
+    color: var(--text);
+  }
+  .chip {
+    border-radius: 999px;
+    padding: 10px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .chip strong {
+    color: var(--accent);
+  }
+  .controls {
+    display: flex;
+    gap: 8px;
+    pointer-events: auto;
+  }
+  .ghost-btn, .pose-btn {
+    appearance: none;
+    border-radius: 14px;
+    padding: 11px 14px;
+    min-width: 68px;
+    font: 700 12px/1 system-ui, sans-serif;
+    cursor: pointer;
+    transition: transform 120ms ease, background 120ms ease, border-color 120ms ease, color 120ms ease;
+  }
+  .ghost-btn:active, .pose-btn:active {
+    transform: scale(0.96);
+  }
+  .ghost-btn.is-on, .pose-btn.is-on {
+    background: rgba(20, 52, 53, 0.9);
+    border-color: rgba(104, 255, 221, 0.72);
+    color: var(--accent);
+  }
+  .bottom-sheet {
+    position: fixed;
+    left: calc(12px + var(--safe-l));
+    right: calc(12px + var(--safe-r));
+    bottom: calc(12px + var(--safe-b));
+    padding: 16px 16px 18px;
+    border-radius: 24px;
+    border: 1px solid rgba(99, 255, 213, 0.18);
+    background:
+      linear-gradient(180deg, rgba(17, 28, 42, 0.92), rgba(8, 14, 24, 0.94)),
+      radial-gradient(circle at top right, rgba(99, 255, 213, 0.12), transparent 40%);
+    box-shadow: 0 22px 80px rgba(0, 0, 0, 0.38);
+    backdrop-filter: blur(16px);
+    pointer-events: auto;
+  }
+  .sheet-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+  }
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 6px;
+  }
+  .title {
+    font-size: clamp(24px, 4vw, 32px);
+    font-weight: 800;
+    line-height: 1.05;
+    margin: 0;
+  }
+  .subtitle {
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.45;
+    max-width: 34rem;
+  }
+  .rating {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 15px;
+    color: var(--gold);
+    white-space: nowrap;
+  }
+  .stats {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .stat {
+    padding: 10px 12px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .stat .k {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 800;
+  }
+  .stat .v {
+    margin-top: 6px;
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--text);
+  }
+  .sheet-actions {
+    margin-top: 14px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .pose-btn {
+    flex: 1 1 130px;
+    min-height: 44px;
+  }
+  .hint {
+    position: fixed;
+    left: calc(16px + var(--safe-l));
+    bottom: calc(214px + var(--safe-b));
+    font-size: 12px;
+    color: rgba(238, 246, 255, 0.58);
+    letter-spacing: 0.02em;
+    pointer-events: none;
+  }
+  @media (max-width: 720px) {
+    .topbar {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .controls {
+      justify-content: flex-end;
+    }
+    .sheet-head {
+      flex-direction: column;
+    }
+    .stats {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .hint {
+      bottom: calc(262px + var(--safe-b));
+    }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="c"></canvas>
+  <div class="topbar">
+    <div class="stack">
+      <div class="chip"><strong>Concept:</strong> Hunters Origins style mobile unit</div>
+      <div class="chip">Warcrest POC · touch-friendly viewer</div>
+    </div>
+    <div class="controls">
+      <button class="ghost-btn" id="spinBtn" type="button">Spin</button>
+      <button class="ghost-btn is-on" id="fxBtn" type="button">FX</button>
+    </div>
+  </div>
+  <div class="hint">Drag to orbit · pinch/scroll to zoom · buttons toggle the showcase state</div>
+  <section class="bottom-sheet">
+    <div class="sheet-head">
+      <div>
+        <div class="eyebrow">Unit concept</div>
+        <h1 class="title">Nyra Shadowhunt</h1>
+        <div class="subtitle">
+          A mobile-RPG style hunter unit with a high-read silhouette: emerald core,
+          gold-trimmed dusk armor, crescent bow, and a dramatic action pose built to
+          read cleanly on a phone screen.
+        </div>
+      </div>
+      <div class="rating" aria-label="five star unit">
+        <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="k">Class</div><div class="v">Hunter</div></div>
+      <div class="stat"><div class="k">Element</div><div class="v">Verdant Arc</div></div>
+      <div class="stat"><div class="k">Range</div><div class="v">Ranged DPS</div></div>
+      <div class="stat"><div class="k">Role</div><div class="v">Backline carry</div></div>
+    </div>
+    <div class="sheet-actions">
+      <button class="pose-btn is-on" id="idleBtn" type="button">Idle stance</button>
+      <button class="pose-btn" id="combatBtn" type="button">Combat pose</button>
+    </div>
+  </section>
+</div>
+
+<script src="./three.min.js"></script>
+<script>
+(() => {
+  const canvas = document.getElementById('c');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x071019);
+  scene.fog = new THREE.FogExp2(0x071019, 0.022);
+
+  const camera = new THREE.PerspectiveCamera(34, window.innerWidth / window.innerHeight, 0.1, 120);
+  const orbit = { yaw: 0.56, pitch: 0.3, dist: 18.8, target: new THREE.Vector3(0, 3.8, 0) };
+
+  function placeCamera() {
+    const cp = Math.cos(orbit.pitch);
+    camera.position.set(
+      orbit.target.x + orbit.dist * Math.sin(orbit.yaw) * cp,
+      orbit.target.y + orbit.dist * Math.sin(orbit.pitch),
+      orbit.target.z + orbit.dist * Math.cos(orbit.yaw) * cp
+    );
+    camera.lookAt(orbit.target);
+  }
+  placeCamera();
+
+  const hemi = new THREE.HemisphereLight(0x93cfff, 0x061015, 1.12);
+  scene.add(hemi);
+
+  const rim = new THREE.DirectionalLight(0x71ffe0, 0.48);
+  rim.position.set(-6, 8, -6);
+  scene.add(rim);
+
+  const key = new THREE.DirectionalLight(0xfff3da, 1.65);
+  key.position.set(8, 14, 10);
+  key.castShadow = true;
+  key.shadow.mapSize.set(2048, 2048);
+  key.shadow.camera.left = -10;
+  key.shadow.camera.right = 10;
+  key.shadow.camera.top = 10;
+  key.shadow.camera.bottom = -10;
+  key.shadow.camera.near = 0.5;
+  key.shadow.camera.far = 40;
+  key.shadow.bias = -0.00022;
+  scene.add(key);
+
+  const fill = new THREE.PointLight(0x2de8bf, 0.7, 18, 2);
+  fill.position.set(0, 4.5, 4.5);
+  scene.add(fill);
+
+  function M(color, opts) {
+    return new THREE.MeshStandardMaterial(Object.assign({
+      color,
+      roughness: 0.72,
+      metalness: 0.05
+    }, opts || {}));
+  }
+
+  const MAT = {
+    skin: M(0xf1c3a9, { roughness: 0.86 }),
+    skinD: M(0xd89579, { roughness: 0.9 }),
+    armor: M(0x253243, { metalness: 0.28, roughness: 0.48 }),
+    armor2: M(0x172432, { metalness: 0.2, roughness: 0.62 }),
+    gold: M(0xe6bf71, { metalness: 0.72, roughness: 0.34 }),
+    leather: M(0x5a4034, { roughness: 0.92 }),
+    cloth: M(0x0d5360, { roughness: 0.84 }),
+    cloth2: M(0x183846, { roughness: 0.88 }),
+    hair: M(0xdbe5ef, { roughness: 0.58 }),
+    hairD: M(0x9cb3c7, { roughness: 0.62 }),
+    glow: M(0x55ffd8, { emissive: 0x55ffd8, emissiveIntensity: 1.65, roughness: 0.18 }),
+    glowSoft: M(0x7df9dc, { emissive: 0x7df9dc, emissiveIntensity: 0.9, roughness: 0.26 }),
+    dark: M(0x071019, { roughness: 1.0 }),
+    line: new THREE.MeshBasicMaterial({ color: 0x04070b, side: THREE.BackSide })
+  };
+
+  function box(w, h, d, mat, x, y, z) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+    m.position.set(x || 0, y || 0, z || 0);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    return m;
+  }
+  function cyl(r1, r2, h, seg, mat) {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r2, h, seg), mat);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    return m;
+  }
+  function cone(r, h, seg, mat) {
+    const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, seg), mat);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    return m;
+  }
+  function sph(r, mat, detail) {
+    const m = new THREE.Mesh(new THREE.IcosahedronGeometry(r, detail || 0), mat);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    return m;
+  }
+  function dome(r, mat) {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(r, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.56), mat);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    return m;
+  }
+  function ring(r, t, mat, arc) {
+    const m = new THREE.Mesh(new THREE.TorusGeometry(r, t, 8, 28, arc || Math.PI * 2), mat);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    return m;
+  }
+  function crescent(r, t, mat, arc) {
+    const m = new THREE.Mesh(new THREE.TorusGeometry(r, t, 6, 18, arc || Math.PI * 1.34), mat);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    return m;
+  }
+  function profMesh(profile, mat, segs) {
+    const pts = profile.map(p => new THREE.Vector2(p[0], p[1]));
+    const g = new THREE.LatheGeometry(pts, segs || 14);
+    const m = new THREE.Mesh(g, mat);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    return m;
+  }
+  function addOutline(group, scale) {
+    const jobs = [];
+    group.traverse(obj => {
+      if (!obj.isMesh || obj.userData.noOutline) return;
+      const shell = new THREE.Mesh(obj.geometry, MAT.line);
+      shell.position.copy(obj.position);
+      shell.rotation.copy(obj.rotation);
+      shell.scale.copy(obj.scale).multiplyScalar(scale || 1.06);
+      shell.userData.noOutline = true;
+      jobs.push({ parent: obj.parent, mesh: shell });
+    });
+    jobs.forEach(job => job.parent.add(job.mesh));
+  }
+
+  const floor = new THREE.Group();
+  const floorDisk = cyl(4.9, 5.2, 0.46, 32, M(0x0e1d29, { roughness: 0.95 }));
+  floorDisk.position.y = -0.23;
+  floor.add(floorDisk);
+  const floorTop = cyl(4.6, 4.8, 0.18, 32, M(0x173246, { roughness: 0.92 }));
+  floorTop.position.y = 0.05;
+  floor.add(floorTop);
+  const runeOuter = ring(3.4, 0.05, MAT.glowSoft);
+  runeOuter.rotation.x = Math.PI / 2;
+  runeOuter.position.y = 0.16;
+  floor.add(runeOuter);
+  const runeInner = ring(2.15, 0.04, MAT.gold);
+  runeInner.rotation.x = Math.PI / 2;
+  runeInner.position.y = 0.17;
+  floor.add(runeInner);
+  scene.add(floor);
+
+  const backdrop = new THREE.Group();
+  const arch = ring(3.6, 0.1, M(0x102536, { metalness: 0.25, roughness: 0.58 }), Math.PI * 1.02);
+  arch.rotation.z = -0.1;
+  arch.position.set(0, 4.4, -6.2);
+  backdrop.add(arch);
+  const archGlow = ring(3.24, 0.03, MAT.glowSoft, Math.PI * 1.02);
+  archGlow.rotation.z = -0.1;
+  archGlow.position.copy(arch.position);
+  backdrop.add(archGlow);
+  scene.add(backdrop);
+
+  function createWispCloud() {
+    const g = new THREE.Group();
+    for (let i = 0; i < 5; i++) {
+      const orb = sph(0.09 + i * 0.012, i % 2 ? MAT.glow : MAT.glowSoft);
+      orb.userData.seed = i * 1.43;
+      orb.userData.radius = 1.2 + i * 0.28;
+      orb.userData.height = 1.4 + i * 0.35;
+      orb.position.set(0, orb.userData.height, 0);
+      g.add(orb);
+    }
+    return g;
+  }
+
+  function createHunterUnit() {
+    const g = new THREE.Group();
+    const hipY = 2.8;
+    const state = {};
+
+    function leg(side) {
+      const root = new THREE.Group();
+      root.position.set(0.42 * side, hipY, 0);
+      const thigh = profMesh([[0.15, -1.18], [0.24, -0.72], [0.18, -0.18], [0.22, 0.06]], MAT.armor, 12);
+      root.add(thigh);
+      const kneePlate = box(0.32, 0.18, 0.28, MAT.gold, 0, -0.82, 0.06);
+      root.add(kneePlate);
+
+      const shin = new THREE.Group();
+      shin.position.y = -1.08;
+      shin.add(profMesh([[0.12, -1.05], [0.18, -0.58], [0.14, -0.14], [0.16, 0.04]], MAT.armor2, 12));
+      const boot = new THREE.Group();
+      boot.add(box(0.42, 0.22, 0.86, MAT.leather, 0, -1.08, 0.16));
+      boot.add(box(0.38, 0.1, 0.38, MAT.gold, 0, -0.86, 0.08));
+      shin.add(boot);
+      root.add(shin);
+      root.userData.shin = shin;
+      return root;
+    }
+
+    const legL = leg(-1);
+    const legR = leg(1);
+    g.add(legL, legR);
+
+    const torso = new THREE.Group();
+    torso.position.y = hipY;
+    g.add(torso);
+
+    const pelvis = new THREE.Group();
+    pelvis.add(box(1.08, 0.34, 0.72, MAT.leather, 0, 0.08, 0));
+    pelvis.add(box(0.32, 0.28, 0.16, MAT.glow, 0, 0.08, 0.38));
+    torso.add(pelvis);
+
+    const bod = profMesh([[0.52, 0], [0.42, 0.58], [0.58, 1.18], [0.5, 1.7], [0.26, 1.96]], MAT.cloth2, 16);
+    bod.scale.set(1, 1, 0.7);
+    bod.position.y = 0.18;
+    torso.add(bod);
+    torso.add(box(0.92, 1.08, 0.34, MAT.armor, 0, 1.06, 0.34));
+    torso.add(box(0.18, 0.18, 0.08, MAT.glow, 0, 1.02, 0.58));
+    torso.add(crescent(0.18, 0.04, MAT.gold).translateY(1.22).translateZ(0.56));
+
+    const collar = ring(0.44, 0.04, MAT.gold);
+    collar.rotation.x = Math.PI / 2;
+    collar.position.set(0, 1.78, 0.08);
+    torso.add(collar);
+
+    const mantleL = cone(0.34, 0.62, 5, MAT.armor);
+    mantleL.position.set(-0.62, 1.58, 0.02);
+    mantleL.rotation.z = 0.98;
+    mantleL.scale.set(1, 1, 0.66);
+    const mantleR = mantleL.clone();
+    mantleR.position.x *= -1;
+    mantleR.rotation.z *= -1;
+    torso.add(mantleL, mantleR);
+    torso.add(crescent(0.16, 0.03, MAT.gold).translateX(-0.64).translateY(1.54));
+    torso.add(crescent(0.16, 0.03, MAT.gold).translateX(0.64).translateY(1.54));
+
+    const sashFront = box(0.26, 1.2, 0.08, MAT.cloth, 0, -0.34, 0.34);
+    sashFront.rotation.x = 0.06;
+    torso.add(sashFront);
+    const sashBack = box(0.48, 1.65, 0.08, MAT.cloth, -0.48, 0.02, -0.34);
+    sashBack.rotation.x = -0.22;
+    sashBack.rotation.z = 0.15;
+    torso.add(sashBack);
+    state.cape = sashBack;
+
+    function arm(side) {
+      const shoulder = new THREE.Group();
+      shoulder.position.set(0.88 * side, 4.12, 0);
+      shoulder.add(profMesh([[0.15, -1.06], [0.22, -0.58], [0.17, -0.1], [0.19, 0.02]], MAT.armor, 10));
+
+      const fore = new THREE.Group();
+      fore.position.y = -0.96;
+      fore.add(profMesh([[0.1, -0.88], [0.15, -0.44], [0.12, -0.08], [0.13, 0.02]], MAT.skin, 10));
+      fore.add(box(0.26, 0.34, 0.3, MAT.leather, 0, -0.58, 0));
+      fore.add(box(0.28, 0.12, 0.3, MAT.gold, 0, -0.38, 0.04));
+      fore.add(sph(0.14, MAT.skinD).translateY(-0.95).translateZ(0.04));
+      shoulder.add(fore);
+      shoulder.userData.fore = fore;
+      return shoulder;
+    }
+
+    const armL = arm(-1);
+    const armR = arm(1);
+    torso.add(armL, armR);
+
+    const headPivot = new THREE.Group();
+    headPivot.position.y = 2.22;
+    torso.add(headPivot);
+    state.head = headPivot;
+
+    headPivot.add(cyl(0.18, 0.22, 0.26, 8, MAT.skin).translateY(-0.08));
+    const head = sph(0.5, MAT.skin);
+    head.scale.set(1, 1.08, 0.96);
+    head.position.y = 0.3;
+    headPivot.add(head);
+    headPivot.add(box(0.12, 0.08, 0.05, MAT.glowSoft, -0.14, 0.36, 0.4));
+    headPivot.add(box(0.12, 0.08, 0.05, MAT.glowSoft, 0.14, 0.36, 0.4));
+    headPivot.add(cone(0.08, 0.5, 4, MAT.skin).translateX(-0.46).translateY(0.3).rotateZ(0.56));
+    headPivot.add(cone(0.08, 0.5, 4, MAT.skin).translateX(0.46).translateY(0.3).rotateZ(-0.56));
+
+    const hood = dome(0.6, MAT.armor2);
+    hood.position.y = 0.42;
+    headPivot.add(hood);
+    headPivot.add(box(0.76, 0.62, 0.26, MAT.armor2, 0, 0.14, -0.3));
+    const hoodFinL = cone(0.18, 0.66, 4, MAT.armor2);
+    hoodFinL.position.set(-0.32, 0.74, -0.16);
+    hoodFinL.rotation.z = 0.44;
+    hoodFinL.rotation.x = -0.18;
+    const hoodFinR = hoodFinL.clone();
+    hoodFinR.position.x *= -1;
+    hoodFinR.rotation.z *= -1;
+    headPivot.add(hoodFinL, hoodFinR);
+    headPivot.add(crescent(0.15, 0.035, MAT.gold).translateY(0.52).translateZ(0.44));
+
+    const pony = new THREE.Group();
+    pony.position.set(0.12, 0.18, -0.54);
+    pony.add(box(0.18, 0.9, 0.2, MAT.hair, 0, -0.2, 0));
+    pony.add(box(0.16, 0.7, 0.16, MAT.hairD, 0.02, -0.76, -0.03));
+    pony.add(sph(0.1, MAT.gold).translateY(-1.08));
+    headPivot.add(pony);
+    state.pony = pony;
+
+    const sideLockL = box(0.12, 0.72, 0.08, MAT.hair, -0.28, -0.02, 0.2);
+    sideLockL.rotation.z = 0.16;
+    const sideLockR = sideLockL.clone();
+    sideLockR.position.x *= -1;
+    sideLockR.rotation.z *= -1;
+    headPivot.add(sideLockL, sideLockR);
+
+    const quiver = new THREE.Group();
+    quiver.position.set(-0.52, 1.2, -0.46);
+    quiver.rotation.z = 0.12;
+    quiver.rotation.x = 0.38;
+    quiver.add(cyl(0.16, 0.19, 1.04, 7, MAT.leather));
+    [0, 0.11, -0.11].forEach(offset => {
+      const arrow = new THREE.Group();
+      arrow.add(cyl(0.018, 0.018, 0.86, 5, MAT.gold).translateY(0.52));
+      arrow.add(cone(0.06, 0.18, 4, MAT.glow).translateY(1.02));
+      arrow.position.x = offset;
+      arrow.position.y = 0.16;
+      quiver.add(arrow);
+    });
+    torso.add(quiver);
+
+    function buildBow() {
+      const bow = new THREE.Group();
+      bow.add(box(0.04, 1.92, 0.06, MAT.gold, 0, -0.46, 0.16));
+      bow.add(crescent(0.42, 0.05, MAT.gold).translateY(0.4).translateZ(0.16));
+      bow.add(crescent(0.42, 0.05, MAT.gold).translateY(-1.32).translateZ(0.16).rotateZ(Math.PI));
+      bow.add(box(0.02, 2.24, 0.02, MAT.glowSoft, 0, -0.46, 0.17));
+      bow.add(sph(0.1, MAT.glow).translateY(-0.46).translateZ(0.18));
+      bow.add(box(0.14, 0.42, 0.16, MAT.armor, 0, -0.42, 0.04));
+      return bow;
+    }
+
+    const bow = buildBow();
+    bow.position.set(0, -0.52, 0.18);
+    armL.userData.fore.add(bow);
+    state.bow = bow;
+
+    const blade = new THREE.Group();
+    blade.add(box(0.08, 1.22, 0.08, MAT.gold, 0, 0.1, 0));
+    blade.add(crescent(0.34, 0.05, MAT.glow).translateY(0.84).translateZ(0.06));
+    blade.add(sph(0.08, MAT.glowSoft).translateY(0.76).translateZ(0.08));
+    blade.position.set(0, -0.92, 0.12);
+    blade.rotation.z = 0.14;
+    armR.userData.fore.add(blade);
+    state.blade = blade;
+
+    const halo = ring(0.62, 0.03, MAT.glowSoft, Math.PI * 1.16);
+    halo.rotation.x = Math.PI / 2;
+    halo.position.set(0, 5.52, -0.16);
+    torso.add(halo);
+    state.halo = halo;
+
+    g.userData = Object.assign(state, { legL, legR, armL, armR, torso });
+    g.scale.setScalar(0.9);
+    g.position.y = -0.25;
+    addOutline(g, 1.055);
+    return g;
+  }
+
+  const hero = createHunterUnit();
+  scene.add(hero);
+
+  const wisps = createWispCloud();
+  scene.add(wisps);
+
+  const state = {
+    spin: false,
+    fx: true,
+    pose: 'idle',
+    dragging: false,
+    lastX: 0,
+    lastY: 0
+  };
+
+  const idleBtn = document.getElementById('idleBtn');
+  const combatBtn = document.getElementById('combatBtn');
+  const spinBtn = document.getElementById('spinBtn');
+  const fxBtn = document.getElementById('fxBtn');
+
+  function syncUi() {
+    idleBtn.classList.toggle('is-on', state.pose === 'idle');
+    combatBtn.classList.toggle('is-on', state.pose === 'combat');
+    spinBtn.classList.toggle('is-on', state.spin);
+    fxBtn.classList.toggle('is-on', state.fx);
+    wisps.visible = state.fx;
+    hero.userData.halo.visible = state.fx;
+    archGlow.visible = state.fx;
+    runeOuter.visible = state.fx;
+  }
+  syncUi();
+
+  idleBtn.addEventListener('click', () => { state.pose = 'idle'; syncUi(); });
+  combatBtn.addEventListener('click', () => { state.pose = 'combat'; syncUi(); });
+  spinBtn.addEventListener('click', () => { state.spin = !state.spin; syncUi(); });
+  fxBtn.addEventListener('click', () => { state.fx = !state.fx; syncUi(); });
+
+  function onPointerDown(e) {
+    state.dragging = true;
+    state.lastX = e.clientX;
+    state.lastY = e.clientY;
+    canvas.setPointerCapture(e.pointerId);
+  }
+  function onPointerMove(e) {
+    if (!state.dragging) return;
+    orbit.yaw -= (e.clientX - state.lastX) * 0.0085;
+    orbit.pitch = Math.max(0.18, Math.min(1.08, orbit.pitch + (e.clientY - state.lastY) * 0.0065));
+    state.lastX = e.clientX;
+    state.lastY = e.clientY;
+    placeCamera();
+  }
+  function onPointerUp(e) {
+    state.dragging = false;
+    try { canvas.releasePointerCapture(e.pointerId); } catch (err) {}
+  }
+
+  canvas.addEventListener('pointerdown', onPointerDown);
+  window.addEventListener('pointermove', onPointerMove);
+  window.addEventListener('pointerup', onPointerUp);
+  window.addEventListener('wheel', e => {
+    orbit.dist = Math.max(8.5, Math.min(22, orbit.dist + e.deltaY * 0.012));
+    placeCamera();
+  }, { passive: true });
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    placeCamera();
+  });
+
+  function animateCharacter(t) {
+    const u = hero.userData;
+    const bob = Math.sin(t * 2.2) * 0.05;
+    hero.position.y = -0.25 + bob;
+    u.head.rotation.y = Math.sin(t * 0.9) * 0.08;
+    u.pony.rotation.x = -0.2 + Math.sin(t * 2.4) * 0.12;
+    u.cape.rotation.z = 0.15 + Math.sin(t * 1.7) * 0.08;
+    u.halo.rotation.z = t * 0.55;
+
+    if (state.pose === 'idle') {
+      u.torso.rotation.x = -0.02;
+      u.armL.rotation.set(-0.48, 0.08, -0.08);
+      u.armR.rotation.set(0.14, 0.02, 0.18);
+      u.legL.rotation.x = Math.sin(t * 1.7) * 0.04;
+      u.legR.rotation.x = -Math.sin(t * 1.7) * 0.04;
+      u.legL.userData.shin.rotation.x = 0.04;
+      u.legR.userData.shin.rotation.x = 0.02;
+      u.blade.rotation.z = 0.18 + Math.sin(t * 2.1) * 0.05;
+      u.bow.rotation.z = -0.08;
+    } else {
+      u.torso.rotation.x = 0.14;
+      u.armL.rotation.set(-1.12, -0.1, -0.34);
+      u.armR.rotation.set(-0.46, 0.12, 0.32);
+      u.legL.rotation.x = 0.24 + Math.sin(t * 4.3) * 0.06;
+      u.legR.rotation.x = -0.18 - Math.sin(t * 4.3) * 0.05;
+      u.legL.userData.shin.rotation.x = 0.34;
+      u.legR.userData.shin.rotation.x = 0.18;
+      u.blade.rotation.z = 0.42 + Math.sin(t * 6.2) * 0.05;
+      u.bow.rotation.z = -0.18;
+    }
+  }
+
+  function animateWisps(t) {
+    wisps.children.forEach((orb, i) => {
+      const seed = orb.userData.seed;
+      orb.position.x = Math.cos(t * 0.85 + seed) * orb.userData.radius;
+      orb.position.z = Math.sin(t * 0.85 + seed) * orb.userData.radius;
+      orb.position.y = orb.userData.height + Math.sin(t * 1.8 + i) * 0.16;
+      orb.scale.setScalar(0.9 + Math.sin(t * 2.6 + seed) * 0.12);
+    });
+  }
+
+  let last = performance.now();
+  function frame(now) {
+    requestAnimationFrame(frame);
+    const dt = Math.min(0.04, (now - last) / 1000);
+    last = now;
+    const t = now * 0.001;
+    if (state.spin && !state.dragging) {
+      orbit.yaw += dt * 0.42;
+      placeCamera();
+    }
+    animateCharacter(t);
+    if (state.fx) animateWisps(t);
+    arch.rotation.y = Math.sin(t * 0.3) * 0.12;
+    archGlow.rotation.y = arch.rotation.y;
+    renderer.render(scene, camera);
+  }
+  animateCharacter(0);
+  animateWisps(0);
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
