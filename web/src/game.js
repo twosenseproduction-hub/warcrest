@@ -1264,12 +1264,12 @@ const WEAPONS={
   // Undead roster rides the shared Bitgem rig (same hand bones / bind pose as the elf & human units),
   // but shipped bare-handed — arm them with the existing props, painted with each prop's native atlas
   // (w.tex) so a looted elven blade keeps its blade colours instead of the bone/skin atlas.
-  uking:    [{file:'sword_human_knight',  bone:'hand_r', tex:'hknight',  pos:[-10,-2.55,0.3], rot:[Math.PI/2,2.705,Math.PI], scl:0.72}],
-  uwarrior: [{file:'sword_elf_warrior',   bone:'hand_r', tex:'warrior',  pos:[-10,-2.55,0.3], rot:[Math.PI/2,2.705,Math.PI], scl:0.66},
+  uking:    [{file:'sword_human_knight',  bone:'hand_r', tex:'hknight',  pos:[-10,-2.55,0.3], rot:[3*Math.PI/2,2.705,Math.PI], scl:0.72}],
+  uwarrior: [{file:'sword_elf_warrior',   bone:'hand_r', tex:'warrior',  pos:[-10,-2.55,0.3], rot:[3*Math.PI/2,2.705,0], scl:0.66},
              {file:'shield_elf_warrior',  bone:'hand_l', tex:'warrior',  pos:[7.95,-3.7,0.45], rot:[1.292,3.019,0], scl:0.8}],
-  uassassin:[{file:'dagger_elf_assassin', bone:'hand_r', tex:'assassin', pos:[-10,-2.55,0.3], rot:[Math.PI/2,2.705,Math.PI], scl:0.5}],
+  uassassin:[{file:'dagger_elf_assassin', bone:'hand_r', tex:'assassin', pos:[-10,-2.55,0.3], rot:[Math.PI/2,2.705,Math.PI], scl:0.9}],
   uarcher:  [{file:'bow_elf_archer',      bone:'hand_l', tex:'archer',   pos:[10,-3.55,0], rot:[-2.845,Math.PI/2,-1.518], scl:0.86}],
-  umage:    [{file:'magic_ball',          bone:'hand_r', tex:'priestess',pos:[-10,-10,6.9], rot:[0,0,0], scl:0.52}],
+  umage:    [{file:'magic_ball',          bone:'hand_r', tex:'priestess',pos:[-10,-10,6.9], rot:[0,0,0], scl:1.4}],
 };
 const RIG_YAW={neaarcher:Math.PI};   // Blender-built rig faces -Z; spin 180° so it faces +Z like the others
 const RIG_ATTACK={thoryn:'Double_Blade_Spin'};   // per-rig basic-attack clip override (else the rig's own 'attack')
