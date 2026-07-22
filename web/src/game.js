@@ -280,7 +280,7 @@ function dirtPad(x,z,r){
 const PLOT_THEME={ elf:{ground:0x5f7a4c, ring:0x86ecc4, plus:0xdaffe8, decor:'leaf'},
                    orc:{ground:0x6f6153, ring:0xff8a5a, plus:0xffceb0, decor:'rock'},
                    human:{ground:0x8f887a, ring:0xffd98a, plus:0xfff0cf, decor:'brick'},
-                   undead:{ground:0x9a9a86, ring:0xbf8fff, plus:0xe6d8ff, decor:'bone'} };
+                   undead:{ground:0x46583f, ring:0xbf8fff, plus:0xd8c8ff, decor:'bone'} };   // necrotic blight-green pad (was near-white 0x9a9a86 → blew out); purple rim keeps the crypt read
 // scatter a ring of race-flavoured props around the pad rim so it reads as an organic terrain patch, not a disc
 function padDecor(g,r,type,n){ n=n||9;
   for(let i=0;i<n;i++){ const a=i/n*6.28+rr(-0.18,0.18), rad=r*rr(0.8,1.02), px=Math.cos(a)*rad, pz=Math.sin(a)*rad; let m;
