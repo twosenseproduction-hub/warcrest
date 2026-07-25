@@ -548,6 +548,8 @@
       var portraitKey = b.type === 'outpost' ? 'outpost' : b.type;
 
       if (!b.built) {
+        var remain = Math.max(0, (b.buildTime || 0) * (1 - (b.progress || 0)));
+        var remainLabel = remain > 0 ? (Math.ceil(remain) + 's left') : 'finishing\u2026';
         p.innerHTML =
           '<div class="hub-zone-a">' +
             '<div class="hub-portrait unit-portrait-fill">' + UI().buildingPortraitHtml(b.faction, portraitKey) + '</div>' +
@@ -556,8 +558,8 @@
           '<div class="hub-zone-b"></div>' +
           '<div class="hub-zone-c">' +
             '<div class="hub-title">' + RTS.nameFor(b.faction, b.type) + '</div>' +
-            '<div class="hub-subtype">Building\u2026</div>' +
-            '<div class="hub-status">' + Math.floor(b.progress * 100) + '% built</div>' +
+            '<div class="hub-subtype">Raising\u2026</div>' +
+            '<div class="hub-status">' + Math.floor(b.progress * 100) + '% · ' + remainLabel + '</div>' +
           '</div>';
         return;
       }
@@ -930,11 +932,15 @@
     var buildables = RTS.Config.getBuildables ? RTS.Config.getBuildables(fid) : [];
     grid.innerHTML = buildables.map(function (btype) {
       var cost = RTS.Config.buildCost ? RTS.Config.buildCost(btype) : 0;
+      var secs = RTS.Config.buildTime ? RTS.Config.buildTime(btype) : 0;
       var canAfford = s.res.player.halcite >= cost;
+      var label = RTS.nameFor(fid, btype);
       var icon = RTS.UI && RTS.UI.buildingUrl ? RTS.UI.buildingUrl(fid, btype) : '';
-      return '<button class="cmd-slot' + (canAfford ? '' : ' disabled') + '" data-act="place" data-btype="' + btype + '">' +
-        (icon ? '<img class="slot-icon" src="' + icon + '" alt="' + btype + '" />' : '') +
+      var tip = label + ' — ' + cost + ' Ironstone' + (secs ? ', ' + secs + 's build' : '');
+      return '<button class="cmd-slot' + (canAfford ? '' : ' disabled') + '" data-act="place" data-btype="' + btype + '" title="' + tip + '">' +
+        (icon ? '<img class="slot-icon" src="' + icon + '" alt="' + label + '" />' : '') +
         '<span class="slot-cost">' + cost + '</span>' +
+        (secs ? '<span class="slot-time">' + secs + 's</span>' : '') +
         '</button>';
     }).join('');
   }

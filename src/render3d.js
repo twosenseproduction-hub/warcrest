@@ -1913,6 +1913,7 @@
   var DUST_GEO = null, DUST_MAT = null, dustPool = [], dustActive = [];
   function spawnDust(x, gy, z, r0) {
     if (RTS.Config && RTS.Config.reducedMotion) return;
+    if (!R.scene) return;
     if (!DUST_GEO) {
       DUST_GEO = new THREE.RingGeometry(0.62, 1, 18);
       DUST_MAT = new THREE.MeshBasicMaterial({ color: 0xece2c2, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false });
@@ -1927,6 +1928,40 @@
       var m = dustActive[i], t = (performance.now() - m.userData.born) / 360;
       if (t >= 1) { m.visible = false; dustActive.splice(i, 1); dustPool.push(m); continue; }
       var r = m.userData.r0 * (0.4 + t * 1.15); m.scale.set(r, r, r); m.material.opacity = 0.6 * (1 - t);
+    }
+  }
+  function spawnConstructionDust3d(b) {
+    if (!b || !R.enabled || !R.inited) return;
+    var gy = groundYAt(R.lastS, b.x, b.y);
+    var rx = (b.w || 100) * 0.38;
+    var rz = (b.h || 100) * 0.34;
+    var n = 2;
+    for (var i = 0; i < n; i++) {
+      var ang = Math.random() * Math.PI * 2;
+      var jr = 0.55 + Math.random() * 0.55;
+      spawnDust(
+        b.x + Math.cos(ang) * rx * jr,
+        gy,
+        b.y + Math.sin(ang) * rz * jr,
+        12 + Math.random() * 10
+      );
+    }
+  }
+  function spawnBuildingDust3d(b, burst) {
+    if (!b || !R.enabled || !R.inited) return;
+    var gy = groundYAt(R.lastS, b.x, b.y);
+    var r0 = (b.w || 120) * (burst ? 0.55 : 0.4);
+    spawnDust(b.x, gy, b.y, r0);
+    if (burst) {
+      for (var i = 0; i < 3; i++) {
+        var a = (i / 3) * Math.PI * 2 + 0.4;
+        spawnDust(
+          b.x + Math.cos(a) * (b.w || 100) * 0.32,
+          gy,
+          b.y + Math.sin(a) * (b.h || 100) * 0.28,
+          16 + i * 2
+        );
+      }
     }
   }
 
@@ -1961,7 +1996,10 @@
         if (!_box) _box = new THREE.Box3();
         _box.setFromObject(obj); var bs = new THREE.Vector3(); _box.getSize(bs);
         slot = R.pool[e.id] = { obj: obj, sig: sig, kind: kind, baseS: obj.scale.y, topY: bs.y, born: performance.now() };
-        spawnDust(e.x, groundYAt(s, e.x, e.y), e.y, kind === 'building' ? (e.w || 120) * 0.5 : 22);   // plop
+        // Finished buildings / units get a spawn plop; unfinished sites kick dust as they rise.
+        if (kind !== 'building' || e.built) {
+          spawnDust(e.x, groundYAt(s, e.x, e.y), e.y, kind === 'building' ? (e.w || 120) * 0.5 : 22);
+        }
       }
       var o = slot.obj;
       var gy = groundYAt(s, e.x, e.y);
@@ -2082,9 +2120,12 @@
           }
         }
       } else if (kind === 'building') {
-        // rise from the ground while under construction (relative to fitted scale)
-        var prog = e.built ? 1 : Math.max(0.08, e.progress || 0);
-        o.scale.y = slot.baseS * prog;
+        // Rise from the earth: full mesh slides up out of the ground as progress ticks.
+        var prog = e.built ? 1 : Math.max(0, Math.min(1, e.progress || 0));
+        var ease = prog * prog * (3 - 2 * prog);           // smoothstep
+        if (ease < 0.05) ease = 0.05;                      // tiny peek so the site reads
+        o.scale.set(slot.baseS, slot.baseS, slot.baseS);
+        o.position.y = gy - (1 - ease) * (slot.topY || 48) * 0.96;
       }
       updateHealthBar(s, slot, e, gy);
     }
@@ -2464,6 +2505,7 @@
     return cur + d;
   }
   function render(s) {
+    R.lastS = s;
     if (!R.enabled) return;
     if (!R.inited && !init()) return;
     var _now = performance.now();
@@ -2604,6 +2646,8 @@
     disable: disable,
     setNight: setNight,
     isEnabled: function () { return R.enabled; },
+    spawnConstructionDust: spawnConstructionDust3d,
+    spawnBuildingDust: spawnBuildingDust3d,
     // glTF model pipeline: register a .glb per 'race:role' (or 'race:*' / '*'),
     // then loadUnitModels() to fetch them. Units spawned after load use the model;
     // anything unregistered keeps the procedural body.

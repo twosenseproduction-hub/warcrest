@@ -185,6 +185,20 @@
   RTS.spawnBuildingDust = function (s, b) {
     if (RTS.Config.reducedMotion) return;
     if (RTS.Particles && RTS.Particles.ready) RTS.Particles.spawnBuildingDust(s, b);
+    if (RTS.Render3D && RTS.Render3D.isEnabled && RTS.Render3D.isEnabled() &&
+        RTS.Render3D.spawnBuildingDust) {
+      RTS.Render3D.spawnBuildingDust(b, true);
+    }
+  };
+
+  /** Periodic dust while a structure is rising from the ground. */
+  RTS.spawnConstructionDust = function (s, b) {
+    if (RTS.Config.reducedMotion) return;
+    if (RTS.Particles && RTS.Particles.ready) RTS.Particles.spawnConstructionDust(s, b);
+    if (RTS.Render3D && RTS.Render3D.isEnabled && RTS.Render3D.isEnabled() &&
+        RTS.Render3D.spawnConstructionDust) {
+      RTS.Render3D.spawnConstructionDust(b);
+    }
   };
 
   RTS.spawnExplosion = function (s, x, y, size, color) {

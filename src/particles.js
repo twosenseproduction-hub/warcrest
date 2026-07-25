@@ -345,6 +345,35 @@
       this.spawnDustSized(s, b.x, footY, diam);
     },
 
+    /** Soft puffs around a build site while the structure rises. */
+    spawnConstructionDust: function (s, b) {
+      if (!ready || !b || RTS.Config.reducedMotion) return;
+      var footY = b.y + b.h * 0.4;
+      var rx = b.w * 0.38;
+      var ry = b.h * 0.32;
+      var diam = Math.max(22, b.w * 0.28);
+      if (RTS.Assets && RTS.Assets.buildingVisualBounds) {
+        var vb = RTS.Assets.buildingVisualBounds(b, s);
+        if (vb) {
+          footY = vb.footY + 2;
+          rx = vb.drawW * 0.42;
+          ry = Math.max(10, vb.drawH * 0.08);
+          diam = Math.max(18, vb.drawW * 0.26);
+        }
+      }
+      var n = 2 + ((b.id + ((b.progress * 20) | 0)) % 2);
+      for (var i = 0; i < n; i++) {
+        var ang = ((b.id * 17 + i * 97 + ((b.progress || 0) * 40) | 0) % 360) * Math.PI / 180;
+        var jitter = 0.55 + ((b.id + i * 3) % 5) * 0.09;
+        this.spawnDustSized(
+          s,
+          b.x + Math.cos(ang) * rx * jitter,
+          footY + Math.sin(ang) * ry * 0.35,
+          diam * (0.85 + (i % 3) * 0.12)
+        );
+      }
+    },
+
     spawnWaterSplash: function (s, x, y) {
       if (!ready) return;
       addPfx(s, { sheet: 'splash', x: x, y: y, scale: 1.15 });
