@@ -1,0 +1,15 @@
+{
+  "source": "youtube",
+  "url": "https://www.youtube.com/watch?v=jNQXAC9IVRw",
+  "intervalSeconds": 2,
+  "outputDir": "./output/captures",
+  "maxFrames": 5,
+  "captureRegion": "video",
+  "headless": false,
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "startupWaitSeconds": 3,
+  "playTimeoutSeconds": 30
+}
