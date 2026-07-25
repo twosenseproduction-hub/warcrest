@@ -417,6 +417,8 @@
 
   // ---- Buildings -----------------------------------------------------------
   RTS.Buildings = {
+    // `build` = construction time in seconds while a worker is on-site.
+    // Structures rise from the ground over that duration (see systems / render).
     core: {
       type: 'core', label: 'Citadel Keep', w: 256, h: 192,
       hp: 1600, cost: 0, build: 0, deposit: true,
@@ -689,6 +691,12 @@
   RTS.Config.buildCost = function (btype) {
     var spec = RTS.Buildings[btype];
     return spec ? spec.cost : 0;
+  };
+
+  /** Construction duration in seconds (worker on-site). */
+  RTS.Config.buildTime = function (btype) {
+    var spec = RTS.Buildings[btype];
+    return spec && spec.build > 0 ? spec.build : 0;
   };
 
   RTS.Config.canUpgrade = function (b) {

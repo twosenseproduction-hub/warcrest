@@ -833,12 +833,21 @@
       syncBuilderLink(s, b);
       if (!b.builderId && RTS.assignBuilder) RTS.assignBuilder(s, b);
       b.hp = Math.max(b.hp, b.maxHp * (0.08 + 0.92 * b.progress));
+      // Dust rings the rising shell while a worker is on-site (or progress ticks).
+      if (b.progress > 0 && b.progress < 1 && !RTS.Config.reducedMotion) {
+        b._dustAcc = (b._dustAcc || 0) + dt;
+        if (b._dustAcc >= 0.28) {
+          b._dustAcc = 0;
+          if (RTS.spawnConstructionDust) RTS.spawnConstructionDust(s, b);
+        }
+      }
       if (b.progress >= 1) {
         b.built = true; b.hp = b.maxHp; b.spawnFlash = 0.5;
         if (RTS.Buildings[b.type] && RTS.Buildings[b.type].isPasture) {
           if (!b.livestock) b.livestock = [];
         }
         b.builderId = null;
+        b._dustAcc = 0;
         RTS.markBuildingFootprint(s, b, true);
         RTS.spawnBuildingDust(s, b);
         RTS.recalcSupply(s, b.team);

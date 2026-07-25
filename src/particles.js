@@ -10,6 +10,10 @@
   var SHEETS = {
     dust1:        { rel: 'Particle FX/Dust_01.png',      frameW: 64,  frames: 8,  fps: 14, loop: false },
     dust2:        { rel: 'Particle FX/Dust_02.png',      frameW: 64,  frames: 10, fps: 14, loop: false },
+    // LeLu Noise Pack (FREE) — soft construction dust / earth puffs
+    leluPuff:     { rel: 'lelus-noise/dust_puff.png',       frameW: 256, frames: 1, fps: 10, loop: false },
+    leluDense:    { rel: 'lelus-noise/dust_puff_dense.png', frameW: 256, frames: 1, fps: 10, loop: false },
+    leluCloud:    { rel: 'lelus-noise/dust_noise_cloud.png',frameW: 256, frames: 1, fps: 8,  loop: false },
     fire1:        { rel: 'Particle FX/Fire_01.png',      frameW: 64,  frames: 8,  fps: 10, loop: true },
     fire2:        { rel: 'Particle FX/Fire_02.png',      frameW: 64,  frames: 10, fps: 10, loop: true },
     fire3:        { rel: 'Particle FX/Fire_03.png',      frameW: 64,  frames: 12, fps: 10, loop: true },
@@ -343,6 +347,50 @@
         }
       }
       this.spawnDustSized(s, b.x, footY, diam);
+      // Completion burst — LeLu soft cloud + dense puff.
+      if (ready && !RTS.Config.reducedMotion) {
+        var sc = Math.max(0.35, Math.min(1.0, diam / 140));
+        addPfx(s, { sheet: 'leluCloud', x: b.x, y: footY - 4, scale: sc * 1.15, alpha: 0.75, life: 0.7 });
+        addPfx(s, { sheet: 'leluDense', x: b.x + 8, y: footY - 10, scale: sc * 0.9, alpha: 0.65, life: 0.6 });
+      }
+    },
+
+    /** Soft puffs around a build site while the structure rises (LeLu + Tiny Swords). */
+    spawnConstructionDust: function (s, b) {
+      if (!ready || !b || RTS.Config.reducedMotion) return;
+      var footY = b.y + b.h * 0.4;
+      var rx = b.w * 0.38;
+      var ry = b.h * 0.32;
+      var diam = Math.max(22, b.w * 0.28);
+      if (RTS.Assets && RTS.Assets.buildingVisualBounds) {
+        var vb = RTS.Assets.buildingVisualBounds(b, s);
+        if (vb) {
+          footY = vb.footY + 2;
+          rx = vb.drawW * 0.42;
+          ry = Math.max(10, vb.drawH * 0.08);
+          diam = Math.max(18, vb.drawW * 0.26);
+        }
+      }
+      var n = 2 + ((b.id + ((b.progress * 20) | 0)) % 2);
+      var leluKeys = ['leluPuff', 'leluDense', 'leluCloud'];
+      for (var i = 0; i < n; i++) {
+        var ang = ((b.id * 17 + i * 97 + ((b.progress || 0) * 40) | 0) % 360) * Math.PI / 180;
+        var jitter = 0.55 + ((b.id + i * 3) % 5) * 0.09;
+        var x = b.x + Math.cos(ang) * rx * jitter;
+        var y = footY + Math.sin(ang) * ry * 0.35;
+        var key = leluKeys[(b.id + i) % leluKeys.length];
+        var scale = Math.max(0.22, Math.min(0.85, (diam * (0.9 + (i % 3) * 0.1)) / 160));
+        addPfx(s, {
+          sheet: key,
+          x: x,
+          y: y - 6 - (i % 2) * 4,
+          scale: scale,
+          alpha: 0.7,
+          life: 0.55,   // single-frame LeLu sprites: hold + fade via effect life
+        });
+        // Keep a light Tiny Swords puff for motion silhouette.
+        if (i === 0) this.spawnDustSized(s, x, y, diam * 0.7);
+      }
     },
 
     spawnWaterSplash: function (s, x, y) {

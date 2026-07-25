@@ -1909,25 +1909,273 @@
     RTS.Cam.screenToWorld = savedCam.s2w; RTS.Cam.worldToScreen = savedCam.w2s; savedCam = null;
   }
 
-  // plop dust: a flat ring puffs out + fades when something is placed/spawned
-  var DUST_GEO = null, DUST_MAT = null, dustPool = [], dustActive = [];
-  function spawnDust(x, gy, z, r0) {
-    if (RTS.Config && RTS.Config.reducedMotion) return;
-    if (!DUST_GEO) {
-      DUST_GEO = new THREE.RingGeometry(0.62, 1, 18);
-      DUST_MAT = new THREE.MeshBasicMaterial({ color: 0xece2c2, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false });
+  /* ---- Construction / plop dust (LeLu noise pack textures) ----------------
+   * Soft billboard puffs + ground haze planes, driven by curated maps in
+   * assets/effects/lelus-noise/. Falls back to a plain ring until textures load.
+   * ======================================================================= */
+  var DUST_TEX = { ready: false, loading: false };
+  var DUST_RING_GEO = null, DUST_RING_MAT = null;
+  var DUST_PLANE_GEO = null;
+  var dustSpritePool = [], dustGroundPool = [], dustActive = [];
+  var crackById = {};
+  var DUST_CACHE_V = '20260725a';
+
+  function ensureDustTextures() {
+    if (DUST_TEX.ready || DUST_TEX.loading || !THREE) return;
+    DUST_TEX.loading = true;
+    var loader = new THREE.TextureLoader();
+    var files = {
+      puff: 'dust_puff.png',
+      dense: 'dust_puff_dense.png',
+      cloud: 'dust_noise_cloud.png',
+      blast: 'dust_blast.png',
+      circle: 'dust_soft_circle.png',
+      cracks: 'ground_cracks.png',
+    };
+    var keys = Object.keys(files);
+    var left = keys.length;
+    keys.forEach(function (k) {
+      loader.load(
+        'assets/effects/lelus-noise/' + files[k] + '?v=' + DUST_CACHE_V,
+        function (tex) {
+          if (THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
+          tex.needsUpdate = true;
+          DUST_TEX[k] = tex;
+          if (--left <= 0) { DUST_TEX.ready = true; DUST_TEX.loading = false; }
+        },
+        undefined,
+        function () {
+          if (--left <= 0) { DUST_TEX.loading = false; }
+        }
+      );
+    });
+  }
+
+  function dustMat(map, opts) {
+    opts = opts || {};
+    return new THREE.SpriteMaterial({
+      map: map || null,
+      color: opts.color != null ? opts.color : 0xe8d4a8,
+      transparent: true,
+      opacity: opts.opacity != null ? opts.opacity : 0.72,
+      depthWrite: false,
+      depthTest: true,
+      blending: opts.add ? THREE.AdditiveBlending : THREE.NormalBlending,
+    });
+  }
+
+  function acquireDustSprite(texKey) {
+    var m = dustSpritePool.pop();
+    var map = DUST_TEX[texKey] || DUST_TEX.puff || null;
+    if (!m) {
+      m = new THREE.Sprite(dustMat(map));
+      m.renderOrder = 5;
+      R.scene.add(m);
+    } else {
+      m.material.map = map;
+      m.material.needsUpdate = true;
+      m.material.blending = THREE.NormalBlending;
+      m.material.color.setHex(0xe8d4a8);
     }
-    var m = dustPool.pop();
-    if (!m) { m = new THREE.Mesh(DUST_GEO, DUST_MAT.clone()); m.rotation.x = -Math.PI / 2; m.renderOrder = 2; R.scene.add(m); }
-    m.visible = true; m.position.set(x, gy + 1.5, z); m.userData = { born: performance.now(), r0: r0 || 22 };
+    return m;
+  }
+
+  function acquireDustGround(texKey) {
+    if (!DUST_PLANE_GEO) DUST_PLANE_GEO = new THREE.PlaneGeometry(1, 1);
+    var m = dustGroundPool.pop();
+    var map = DUST_TEX[texKey] || DUST_TEX.cloud || null;
+    if (!m) {
+      var mat = new THREE.MeshBasicMaterial({
+        map: map,
+        color: 0xdcc79a,
+        transparent: true,
+        opacity: 0.55,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+      m = new THREE.Mesh(DUST_PLANE_GEO, mat);
+      m.rotation.x = -Math.PI / 2;
+      m.renderOrder = 3;
+      R.scene.add(m);
+    } else {
+      m.material.map = map;
+      m.material.needsUpdate = true;
+      m.material.color.setHex(0xdcc79a);
+    }
+    return m;
+  }
+
+  function spawnDustRingFallback(x, gy, z, r0) {
+    if (!DUST_RING_GEO) {
+      DUST_RING_GEO = new THREE.RingGeometry(0.62, 1, 18);
+      DUST_RING_MAT = new THREE.MeshBasicMaterial({
+        color: 0xece2c2, transparent: true, opacity: 0.55,
+        side: THREE.DoubleSide, depthWrite: false,
+      });
+    }
+    var m = new THREE.Mesh(DUST_RING_GEO, DUST_RING_MAT.clone());
+    m.rotation.x = -Math.PI / 2; m.renderOrder = 2; R.scene.add(m);
+    m.visible = true; m.position.set(x, gy + 1.5, z);
+    m.userData = { born: performance.now(), life: 380, r0: r0 || 22, mode: 'ring', rise: 0, op0: 0.55 };
     dustActive.push(m);
   }
-  function updateDust() {
-    for (var i = dustActive.length - 1; i >= 0; i--) {
-      var m = dustActive[i], t = (performance.now() - m.userData.born) / 360;
-      if (t >= 1) { m.visible = false; dustActive.splice(i, 1); dustPool.push(m); continue; }
-      var r = m.userData.r0 * (0.4 + t * 1.15); m.scale.set(r, r, r); m.material.opacity = 0.6 * (1 - t);
+
+  /** Soft LeLu-textured dust puff (billboard) or ground haze (plane). */
+  function spawnDust(x, gy, z, r0, opts) {
+    if (RTS.Config && RTS.Config.reducedMotion) return;
+    if (!R.scene) return;
+    ensureDustTextures();
+    opts = opts || {};
+    r0 = r0 || 22;
+    if (!DUST_TEX.ready) {
+      spawnDustRingFallback(x, gy, z, r0);
+      return;
     }
+    var mode = opts.mode || 'puff';   // 'puff' | 'ground' | 'blast'
+    var texKey = opts.tex || (mode === 'ground' ? 'cloud' : mode === 'blast' ? 'blast' : (Math.random() < 0.55 ? 'puff' : 'dense'));
+    var m = mode === 'ground' ? acquireDustGround(texKey) : acquireDustSprite(texKey);
+    var lift = opts.lift != null ? opts.lift : (mode === 'ground' ? 1.4 : 5 + Math.random() * 8);
+    m.visible = true;
+    m.position.set(x, gy + lift, z);
+    if (mode !== 'ground') m.material.rotation = Math.random() * Math.PI * 2;
+    m.material.opacity = opts.opacity != null ? opts.opacity : (mode === 'ground' ? 0.42 : 0.7);
+    if (opts.add && m.material.blending != null) m.material.blending = THREE.AdditiveBlending;
+    var s0 = r0 * (mode === 'blast' ? 0.55 : 0.38);
+    if (mode === 'ground') m.scale.set(s0, s0, 1);
+    else m.scale.set(s0, s0 * (mode === 'blast' ? 1.35 : 1), 1);
+    m.userData = {
+      born: performance.now(),
+      life: opts.life || (mode === 'ground' ? 620 : mode === 'blast' ? 700 : 520),
+      r0: r0,
+      mode: mode,
+      rise: opts.rise != null ? opts.rise : (mode === 'ground' ? 0 : mode === 'blast' ? 36 : 22),
+      op0: m.material.opacity,
+      spin: (Math.random() - 0.5) * 1.4,
+    };
+    dustActive.push(m);
+  }
+
+  function updateDust() {
+    var now = performance.now();
+    for (var i = dustActive.length - 1; i >= 0; i--) {
+      var m = dustActive[i], ud = m.userData;
+      var t = (now - ud.born) / (ud.life || 420);
+      if (t >= 1) {
+        m.visible = false;
+        dustActive.splice(i, 1);
+        if (ud.mode === 'ground') dustGroundPool.push(m);
+        else if (ud.mode === 'ring') { R.scene.remove(m); if (m.material) m.material.dispose(); }
+        else dustSpritePool.push(m);
+        continue;
+      }
+      var ease = t * t * (3 - 2 * t);
+      var grow = ud.r0 * (0.35 + ease * 1.25);
+      if (ud.mode === 'ground' || ud.mode === 'ring') {
+        m.scale.set(grow, grow, 1);
+      } else if (ud.mode === 'blast') {
+        m.scale.set(grow * 0.7, grow * 1.45, 1);
+      } else {
+        m.scale.set(grow, grow, 1);
+      }
+      if (ud.rise) m.position.y += ud.rise * 0.016 * (1 - t);
+      if (m.isSprite && ud.spin) m.material.rotation += ud.spin * 0.016;
+      m.material.opacity = (ud.op0 || 0.6) * (1 - t) * (t < 0.12 ? t / 0.12 : 1);
+    }
+  }
+
+  function spawnConstructionDust3d(b) {
+    if (!b || !R.enabled || !R.inited) return;
+    ensureDustTextures();
+    var gy = groundYAt(R.lastS, b.x, b.y);
+    var rx = (b.w || 100) * 0.40;
+    var rz = (b.h || 100) * 0.36;
+    // Ground haze rings the footprint.
+    for (var i = 0; i < 2; i++) {
+      var ang = Math.random() * Math.PI * 2;
+      var jr = 0.45 + Math.random() * 0.55;
+      spawnDust(
+        b.x + Math.cos(ang) * rx * jr,
+        gy,
+        b.y + Math.sin(ang) * rz * jr,
+        16 + Math.random() * 14,
+        { mode: 'ground', tex: Math.random() < 0.5 ? 'cloud' : 'circle', life: 700, opacity: 0.38 }
+      );
+    }
+    // Soft rising puffs + a thin vertical blast plume.
+    var a2 = Math.random() * Math.PI * 2;
+    spawnDust(
+      b.x + Math.cos(a2) * rx * 0.7,
+      gy,
+      b.y + Math.sin(a2) * rz * 0.7,
+      14 + Math.random() * 12,
+      { mode: 'puff', rise: 18 + Math.random() * 14, life: 560 }
+    );
+    if (Math.random() < 0.55) {
+      spawnDust(
+        b.x + (Math.random() - 0.5) * rx * 0.5,
+        gy,
+        b.y + (Math.random() - 0.5) * rz * 0.5,
+        10 + Math.random() * 8,
+        { mode: 'blast', tex: 'blast', rise: 40, life: 640, opacity: 0.55, add: true }
+      );
+    }
+  }
+
+  function spawnBuildingDust3d(b, burst) {
+    if (!b || !R.enabled || !R.inited) return;
+    ensureDustTextures();
+    var gy = groundYAt(R.lastS, b.x, b.y);
+    var r0 = (b.w || 120) * (burst ? 0.58 : 0.42);
+    spawnDust(b.x, gy, b.y, r0, { mode: 'ground', tex: 'cloud', life: 780, opacity: 0.5 });
+    spawnDust(b.x, gy, b.y, r0 * 0.7, { mode: 'puff', rise: 28, life: 640 });
+    if (burst) {
+      for (var i = 0; i < 4; i++) {
+        var a = (i / 4) * Math.PI * 2 + 0.35;
+        spawnDust(
+          b.x + Math.cos(a) * (b.w || 100) * 0.34,
+          gy,
+          b.y + Math.sin(a) * (b.h || 100) * 0.30,
+          14 + i * 3,
+          { mode: i % 2 ? 'blast' : 'puff', rise: 24 + i * 6, life: 700 }
+        );
+      }
+    }
+  }
+
+  /** Ground-crack decal under an unfinished building (LeLu crack noise). */
+  function syncBuildCrack(e, gy) {
+    if (!e || e.dead) return;
+    var slot = crackById[e.id];
+    if (e.built || !(e.progress > 0)) {
+      if (slot) { slot.visible = false; }
+      return;
+    }
+    ensureDustTextures();
+    if (!DUST_TEX.cracks) return;
+    if (!slot) {
+      if (!DUST_PLANE_GEO) DUST_PLANE_GEO = new THREE.PlaneGeometry(1, 1);
+      var mat = new THREE.MeshBasicMaterial({
+        map: DUST_TEX.cracks,
+        color: 0xcbb892,
+        transparent: true,
+        opacity: 0.55,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+      slot = new THREE.Mesh(DUST_PLANE_GEO, mat);
+      slot.rotation.x = -Math.PI / 2;
+      slot.renderOrder = 2;
+      R.scene.add(slot);
+      crackById[e.id] = slot;
+    }
+    var prog = Math.max(0, Math.min(1, e.progress || 0));
+    var ease = prog * prog * (3 - 2 * prog);
+    var span = Math.max(e.w || 100, e.h || 100) * (0.85 + ease * 0.45);
+    slot.visible = true;
+    slot.position.set(e.x, gy + 1.2, e.y);
+    slot.scale.set(span, span, 1);
+    slot.material.opacity = 0.25 + ease * 0.45;
+    slot.rotation.z = ((e.id * 17) % 360) * Math.PI / 180;
   }
 
   // "plop": easeOutBack scale pop when an entity first appears (Thronefall feel)
@@ -1961,7 +2209,10 @@
         if (!_box) _box = new THREE.Box3();
         _box.setFromObject(obj); var bs = new THREE.Vector3(); _box.getSize(bs);
         slot = R.pool[e.id] = { obj: obj, sig: sig, kind: kind, baseS: obj.scale.y, topY: bs.y, born: performance.now() };
-        spawnDust(e.x, groundYAt(s, e.x, e.y), e.y, kind === 'building' ? (e.w || 120) * 0.5 : 22);   // plop
+        // Finished buildings / units get a spawn plop; unfinished sites kick dust as they rise.
+        if (kind !== 'building' || e.built) {
+          spawnDust(e.x, groundYAt(s, e.x, e.y), e.y, kind === 'building' ? (e.w || 120) * 0.5 : 22);
+        }
       }
       var o = slot.obj;
       var gy = groundYAt(s, e.x, e.y);
@@ -2082,9 +2333,13 @@
           }
         }
       } else if (kind === 'building') {
-        // rise from the ground while under construction (relative to fitted scale)
-        var prog = e.built ? 1 : Math.max(0.08, e.progress || 0);
-        o.scale.y = slot.baseS * prog;
+        // Rise from the earth: full mesh slides up out of the ground as progress ticks.
+        var prog = e.built ? 1 : Math.max(0, Math.min(1, e.progress || 0));
+        var ease = prog * prog * (3 - 2 * prog);           // smoothstep
+        if (ease < 0.05) ease = 0.05;                      // tiny peek so the site reads
+        o.scale.set(slot.baseS, slot.baseS, slot.baseS);
+        o.position.y = gy - (1 - ease) * (slot.topY || 48) * 0.96;
+        syncBuildCrack(e, gy);
       }
       updateHealthBar(s, slot, e, gy);
     }
@@ -2119,7 +2374,10 @@
     var g2 = slot.hp; g2.visible = true;
     var w = slot.kind === 'building' ? Math.max(46, (e.w || 80) * 0.7) : 34;
     var h = slot.kind === 'building' ? 8 : 5;
-    var topY = gy + (slot.topY || 40) + (slot.kind === 'building' ? 16 : 10);
+    // Track the risen roof while under construction (mesh slides up from underground).
+    var topY = slot.kind === 'building'
+      ? (slot.obj ? slot.obj.position.y : gy) + (slot.topY || 40) + 16
+      : gy + (slot.topY || 40) + 10;
     g2.position.set(e.x, topY, e.y);
     g2.quaternion.copy(R.camera.quaternion);
     var bg2 = g2.userData.bg, fill2 = g2.userData.fill;
@@ -2176,7 +2434,11 @@
   }
   function gc() {
     for (var id in R.pool) {
-      if (!R.seen[id]) { freeSlot(R.pool[id]); delete R.pool[id]; }
+      if (!R.seen[id]) {
+        var crack = crackById[id];
+        if (crack) { crack.visible = false; R.scene.remove(crack); if (crack.material) crack.material.dispose(); delete crackById[id]; }
+        freeSlot(R.pool[id]); delete R.pool[id];
+      }
     }
     R.seen = {};
   }
@@ -2464,6 +2726,7 @@
     return cur + d;
   }
   function render(s) {
+    R.lastS = s;
     if (!R.enabled) return;
     if (!R.inited && !init()) return;
     var _now = performance.now();
@@ -2587,6 +2850,7 @@
     // render units from modeled .glb assets (KayKit Adventurers by default);
     // ?models=demo for the sample robot, ?models=off to force procedural bodies.
     setupDefaultModels();
+    ensureDustTextures();   // warm LeLu construction dust maps
     return true;
   }
   function disable() {
@@ -2604,6 +2868,8 @@
     disable: disable,
     setNight: setNight,
     isEnabled: function () { return R.enabled; },
+    spawnConstructionDust: spawnConstructionDust3d,
+    spawnBuildingDust: spawnBuildingDust3d,
     // glTF model pipeline: register a .glb per 'race:role' (or 'race:*' / '*'),
     // then loadUnitModels() to fetch them. Units spawned after load use the model;
     // anything unregistered keeps the procedural body.

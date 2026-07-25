@@ -433,15 +433,27 @@
     if (RTS.Assets && RTS.Assets.ready && RTS.Assets.drawBuilding(ctx, b, f, s)) return;
     var x = b.x, y = b.y;
     var built = b.built;
-    var alpha = built ? 1 : 0.65 + b.progress * 0.35;
+    var prog = built ? 1 : Math.max(0, Math.min(1, b.progress || 0));
+    var rise = prog * prog * (3 - 2 * prog);
+    if (!built && rise < 0.05) rise = 0.05;
+    var alpha = built ? 1 : 0.72 + rise * 0.28;
     var t = s.timers.gameTime;
     var rm = RTS.Config.reducedMotion;
 
-    drawShadow(ctx, x, y + b.h * 0.15, Math.max(b.w, b.h) * 0.55, 0.38);
+    drawShadow(ctx, x, y + b.h * 0.15, Math.max(b.w, b.h) * 0.55 * (0.45 + rise * 0.55), 0.38 * (0.5 + rise * 0.5));
 
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.translate(x, y);
+    // Clip + lift so procedural buildings rise from the footprint.
+    if (!built && rise < 0.999) {
+      var hw = b.w / 2 + 8, hh = b.h / 2 + 8;
+      var visibleH = Math.max(4, (hh * 2) * rise);
+      ctx.beginPath();
+      ctx.rect(-hw, hh - visibleH, hw * 2, visibleH + 4);
+      ctx.clip();
+      ctx.translate(0, (1 - rise) * b.h * 0.35);
+    }
 
     switch (b.type) {
       case 'core': drawCastle(ctx, b, f, t, rm); break;

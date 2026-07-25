@@ -732,12 +732,15 @@
     var drawH = vb.drawH;
     var drawY = vb.drawY;
     var built = b.built;
-    var alpha = built ? 1 : 0.65 + b.progress * 0.35;
+    var prog = built ? 1 : Math.max(0, Math.min(1, b.progress || 0));
+    var rise = prog * prog * (3 - 2 * prog);                 // smoothstep rise
+    if (!built && rise < 0.05) rise = 0.05;
+    var alpha = built ? 1 : 0.72 + rise * 0.28;
     var src = buildingSourceSize(asset, img);
     var frame = buildingFrameIndex(asset, s);
     var sx = frame * src.w;
 
-    RTS.Art.drawShadow(ctx, x, footY + 4, Math.max(b.w, b.h) * 0.5, 0.36);
+    RTS.Art.drawShadow(ctx, x, footY + 4, Math.max(b.w, b.h) * 0.5 * (0.45 + rise * 0.55), 0.36 * (0.5 + rise * 0.5));
 
     if (isPen && !isCompoundPen && RTS.Art.drawPasturePenGround) {
       RTS.Art.drawPasturePenGround(ctx, b.x, b.y, b.w, b.h);
@@ -750,6 +753,14 @@
     var dy = Math.round(drawY);
     var dw = Math.round(drawW);
     var dh = Math.round(drawH);
+    // Reveal from the foot upward so the sprite rises out of the ground.
+    if (!built && rise < 0.999) {
+      var visibleH = Math.max(1, Math.round(dh * rise));
+      ctx.beginPath();
+      ctx.rect(dx - 1, dy + dh - visibleH, dw + 2, visibleH + 1);
+      ctx.clip();
+      ctx.translate(0, Math.round((1 - rise) * dh * 0.08));
+    }
     ctx.drawImage(img, sx, 0, src.w, src.h, dx, dy, dw, dh);
     ctx.restore();
 
