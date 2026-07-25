@@ -1,0 +1,132 @@
+[
+  {
+    "time_s": 0,
+    "frame": "00m00s.png",
+    "storyboard_t": 0
+  },
+  {
+    "time_s": 600,
+    "frame": "10m00s.png",
+    "storyboard_t": 600
+  },
+  {
+    "time_s": 1200,
+    "frame": "20m00s.png",
+    "storyboard_t": 1200
+  },
+  {
+    "time_s": 1800,
+    "frame": "30m00s.png",
+    "storyboard_t": 1800
+  },
+  {
+    "time_s": 2400,
+    "frame": "40m00s.png",
+    "storyboard_t": 2400
+  },
+  {
+    "time_s": 3000,
+    "frame": "50m00s.png",
+    "storyboard_t": 3000
+  },
+  {
+    "time_s": 3600,
+    "frame": "01h00m00s.png",
+    "storyboard_t": 3600
+  },
+  {
+    "time_s": 4200,
+    "frame": "01h10m00s.png",
+    "storyboard_t": 4200
+  },
+  {
+    "time_s": 4800,
+    "frame": "01h20m00s.png",
+    "storyboard_t": 4800
+  },
+  {
+    "time_s": 5400,
+    "frame": "01h30m00s.png",
+    "storyboard_t": 5400
+  },
+  {
+    "time_s": 6000,
+    "frame": "01h40m00s.png",
+    "storyboard_t": 6000
+  },
+  {
+    "time_s": 6600,
+    "frame": "01h50m00s.png",
+    "storyboard_t": 6600
+  },
+  {
+    "time_s": 7200,
+    "frame": "02h00m00s.png",
+    "storyboard_t": 7200
+  },
+  {
+    "time_s": 7800,
+    "frame": "02h10m00s.png",
+    "storyboard_t": 7800
+  },
+  {
+    "time_s": 8400,
+    "frame": "02h20m00s.png",
+    "storyboard_t": 8400
+  },
+  {
+    "time_s": 9000,
+    "frame": "02h30m00s.png",
+    "storyboard_t": 9000
+  },
+  {
+    "time_s": 9600,
+    "frame": "02h40m00s.png",
+    "storyboard_t": 9600
+  },
+  {
+    "time_s": 10200,
+    "frame": "02h50m00s.png",
+    "storyboard_t": 10200
+  },
+  {
+    "time_s": 10800,
+    "frame": "03h00m00s.png",
+    "storyboard_t": 10800
+  },
+  {
+    "time_s": 11400,
+    "frame": "03h10m00s.png",
+    "storyboard_t": 11400
+  },
+  {
+    "time_s": 12000,
+    "frame": "03h20m00s.png",
+    "storyboard_t": 12000
+  },
+  {
+    "time_s": 12600,
+    "frame": "03h30m00s.png",
+    "storyboard_t": 12600
+  },
+  {
+    "time_s": 13200,
+    "frame": "03h40m00s.png",
+    "storyboard_t": 13200
+  },
+  {
+    "time_s": 13800,
+    "frame": "03h50m00s.png",
+    "storyboard_t": 13800
+  },
+  {
+    "time_s": 14400,
+    "frame": "04h00m00s.png",
+    "storyboard_t": 14400
+  },
+  {
+    "time_s": 15000,
+    "frame": "04h10m00s.png",
+    "storyboard_t": 15000
+  }
+]

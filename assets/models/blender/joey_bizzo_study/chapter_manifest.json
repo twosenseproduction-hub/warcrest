@@ -1,0 +1,62 @@
+[
+  {
+    "time_s": 0,
+    "chapter": "Character modeling",
+    "frame": "00m00s_character_modeling.png",
+    "storyboard_t": 0
+  },
+  {
+    "time_s": 84,
+    "chapter": "Human model",
+    "frame": "01m24s_human_model.png",
+    "storyboard_t": 80
+  },
+  {
+    "time_s": 568,
+    "chapter": "Playbook",
+    "frame": "09m28s_playbook.png",
+    "storyboard_t": 570
+  },
+  {
+    "time_s": 674,
+    "chapter": "Cat character",
+    "frame": "11m14s_cat_character.png",
+    "storyboard_t": 670
+  },
+  {
+    "time_s": 982,
+    "chapter": "Head",
+    "frame": "16m22s_head.png",
+    "storyboard_t": 980
+  },
+  {
+    "time_s": 1802,
+    "chapter": "Coat",
+    "frame": "30m02s_coat.png",
+    "storyboard_t": 1800
+  },
+  {
+    "time_s": 2054,
+    "chapter": "Hands",
+    "frame": "34m14s_hands.png",
+    "storyboard_t": 2050
+  },
+  {
+    "time_s": 2132,
+    "chapter": "Shoes",
+    "frame": "35m32s_shoes.png",
+    "storyboard_t": 2130
+  },
+  {
+    "time_s": 2445,
+    "chapter": "Color",
+    "frame": "40m45s_color.png",
+    "storyboard_t": 2440
+  },
+  {
+    "time_s": 2774,
+    "chapter": "Join objects and apply modifiers",
+    "frame": "46m14s_join_objects_and_apply_modifiers.png",
+    "storyboard_t": 2770
+  }
+]

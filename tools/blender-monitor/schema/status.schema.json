@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "blender-monitor-status",
+  "title": "BlenderMonitorStatus",
+  "type": "object",
+  "required": ["run_id", "job", "status", "updated_at", "latest_preview"],
+  "properties": {
+    "run_id": { "type": "string" },
+    "job": { "type": "string", "description": "Job script name or label" },
+    "status": {
+      "type": "string",
+      "enum": ["starting", "running", "done", "error"]
+    },
+    "stage": { "type": ["string", "null"] },
+    "stage_index": { "type": ["integer", "null"] },
+    "stages_total": { "type": ["integer", "null"] },
+    "frame": { "type": ["integer", "null"], "description": "Preview sequence number" },
+    "render_progress": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1,
+      "description": "0–1 when a full render is in progress"
+    },
+    "message": { "type": ["string", "null"] },
+    "error": { "type": ["string", "null"] },
+    "started_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "latest_preview": {
+      "type": ["string", "null"],
+      "description": "Path relative to run dir, e.g. previews/preview_0012.png"
+    },
+    "preview_count": { "type": "integer" },
+    "run_dir": { "type": "string" },
+    "agent_hint": {
+      "type": "string",
+      "description": "How an AI agent should inspect visuals"
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "blender-monitor",
+  "private": true,
+  "type": "module",
+  "description": "Live preview dashboard for headless Blender jobs",
+  "scripts": {
+    "dashboard": "node server/dashboard.mjs",
+    "start": "node server/dashboard.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

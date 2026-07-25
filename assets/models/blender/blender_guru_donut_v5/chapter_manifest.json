@@ -1,0 +1,58 @@
+[
+  {
+    "time_s": 0,
+    "chapter": "Part 1 The Basics",
+    "frame": "00m00s_part_1_the_basics.png",
+    "storyboard_t": 0,
+    "label": "00:00"
+  },
+  {
+    "time_s": 1696,
+    "chapter": "Part 2 Basic Modelling",
+    "frame": "28m16s_part_2_basic_modelling.png",
+    "storyboard_t": 1700,
+    "label": "28:16"
+  },
+  {
+    "time_s": 3545,
+    "chapter": "Part 3 Organic Modelling",
+    "frame": "59m05s_part_3_organic_modelling.png",
+    "storyboard_t": 3540,
+    "label": "59:05"
+  },
+  {
+    "time_s": 5413,
+    "chapter": "Part 4 Materials",
+    "frame": "01h30m13s_part_4_materials.png",
+    "storyboard_t": 5410,
+    "label": "1:30:13"
+  },
+  {
+    "time_s": 7426,
+    "chapter": "Part 5 Texturing",
+    "frame": "02h03m46s_part_5_texturing.png",
+    "storyboard_t": 7430,
+    "label": "2:03:46"
+  },
+  {
+    "time_s": 9340,
+    "chapter": "Part 6 UV Unwrapping",
+    "frame": "02h35m40s_part_6_uv_unwrapping.png",
+    "storyboard_t": 9340,
+    "label": "2:35:40"
+  },
+  {
+    "time_s": 11366,
+    "chapter": "Part 7 Scattering",
+    "frame": "03h09m26s_part_7_scattering.png",
+    "storyboard_t": 11370,
+    "label": "3:09:26"
+  },
+  {
+    "time_s": 13571,
+    "chapter": "Part 8 Lighting and Rendering",
+    "frame": "03h46m11s_part_8_lighting_and_rendering.png",
+    "storyboard_t": 13570,
+    "label": "3:46:11"
+  }
+]
