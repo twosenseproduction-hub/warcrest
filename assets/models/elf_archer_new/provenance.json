@@ -1,0 +1,30 @@
+{
+  "name": "elf_archer_drive",
+  "preferred": true,
+  "source": {
+    "driveId": "15AomYJC-tnxaEtC7aiOvxsM5-0wtEwJd",
+    "generator": "meshy-scene",
+    "notes": "Geometry-only A-pose archer with bow+quiver; no UVs/textures/skins/anims"
+  },
+  "processing": {
+    "decimateFaces": 30000,
+    "plantFeet": true,
+    "vertexColor": "#8252b4"
+  },
+  "outputs": {
+    "glb": "assets/models/elf_archer_drive.glb",
+    "raw": "assets/models/elf_archer_new/elf_archer_drive_raw.glb",
+    "preview": "assets/models/elf_archer_new/elf_archer_drive_preview.png",
+    "concept": "assets/models/elf_archer_new/elf_archer_drive_concept.png"
+  },
+  "sorceress": {
+    "conceptJobId": "0e707798-5ea6-422c-ad98-bc27b8c96d00",
+    "conceptCredits": 5,
+    "balanceAfterConcept": 26,
+    "textured3d": "blocked_insufficient_credits (need >=30 for hunyuan/tripo)"
+  },
+  "earlierTexturedTpose": {
+    "glb": "assets/models/elf_archer_meshy.glb",
+    "jobId": "d5aa343c-80f1-4a00-b2fe-30ecd6dd6031"
+  }
+}

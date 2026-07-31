@@ -30,6 +30,10 @@ body, so the game is unchanged until real assets are dropped in.
 Open the game with `?models=demo` in the URL to render every unit from
 `RobotExpressive.glb` (a rigged sample model) — proves the pipeline in-engine.
 
+`?models=meshy-archer` or `?models=drive-archer` swaps `elf:archer` to the
+user Drive Meshy A-pose archer (`elf_archer_drive.glb`, bow+quiver). Static —
+no clips yet. See `elf_archer_new/`.
+
 ## Requirements
 
 - `vendor/GLTFLoader.js` and `vendor/SkeletonUtils.js` (already vendored, UMD,
