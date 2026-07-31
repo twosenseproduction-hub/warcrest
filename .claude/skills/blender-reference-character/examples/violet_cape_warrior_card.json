@@ -1,0 +1,479 @@
+{
+  "name": "violet_cape_warrior",
+  "style": "chibi_stylized",
+  "pose": "tpose",
+  "face_axis": "-Y",
+  "up_axis": "Z",
+  "construction_mode": "parts_first",
+  "palette": {
+    "skin": "#7a58a8",
+    "skin_shadow": "#4a326e",
+    "tattoo": "#3dff7a",
+    "hair": "#3a1f66",
+    "hair_gold": "#f0c93a",
+    "armor": "#3f9e4a",
+    "armor_dark": "#2a6b32",
+    "gold": "#e0b045",
+    "gem": "#c23b3b",
+    "cloth_cape": "#3a2458",
+    "cloth_lining": "#2a1838",
+    "cloth_skirt": "#b8a0d0",
+    "scarf": "#5a3a88",
+    "eye": "#b8ff3a",
+    "belt": "#357a3c",
+    "ink": "#1a1020",
+    "steel": "#6a6e78",
+    "cape_hem": "#2e7a38"
+  },
+  "emissive": {
+    "eye": {
+      "color": "#a0ff40",
+      "strength": 2.2
+    },
+    "tattoo": {
+      "color": "#3dffd0",
+      "strength": 0.85
+    },
+    "gem": {
+      "color": "#ff4040",
+      "strength": 0.6
+    }
+  },
+  "proportions": {
+    "total_height": 2.35,
+    "head_height_frac": 0.42,
+    "head_radius": 0.4,
+    "shoulder_width": 0.72,
+    "hip_width": 0.38,
+    "limb_thickness": 0.1,
+    "leg_height_frac": 0.28,
+    "torso_height_frac": 0.3
+  },
+  "landmarks": [
+    "pointed_horizontal_ears",
+    "spiky_purple_hair_with_gold_streaks",
+    "glowing_lime_eyes",
+    "face_swirl_tattoos",
+    "purple_neck_scarf",
+    "teal_chest_tattoos",
+    "olive_pauldrons_gold_red_gem",
+    "green_gold_bracers_red_gem",
+    "green_belt_gold_sashes",
+    "hip_sword_scabbard",
+    "tattered_lilac_skirt_strips",
+    "heavy_greaves_red_knee_gem",
+    "floor_length_purple_cape"
+  ],
+  "views": {
+    "front": {
+      "silhouette_notes": "chibi head, wide pauldrons, cape flares at sides, greaves chunky, T-pose fists",
+      "landmarks_visible": [
+        "hair",
+        "ears",
+        "eyes",
+        "scarf",
+        "pauldrons",
+        "tattoos",
+        "belt",
+        "skirt",
+        "greaves",
+        "sword"
+      ]
+    },
+    "side": {
+      "silhouette_notes": "cape floor-length behind, ears stick out, boots solid",
+      "depth_cues": [
+        "cape volume",
+        "pauldron depth",
+        "fist forward thickness"
+      ]
+    },
+    "back": {
+      "inferred": true,
+      "notes": "cape dominates back; hair spikes; pauldron backs"
+    }
+  },
+  "parts": [
+    {
+      "id": "head",
+      "category": "body",
+      "priority": 1,
+      "palette_keys": [
+        "skin"
+      ],
+      "attach": {
+        "parent": "neck",
+        "socket": "head"
+      },
+      "silhouette": "oversized chibi lavender head",
+      "status": "pending_v2",
+      "silhouette_trace": {
+        "front": "large chibi oval with jaw taper, cheek width",
+        "side": "cranium round, jaw forward shelf, depth ~0.9 width",
+        "forbidden_blobs": [
+          "uv_sphere_alone"
+        ],
+        "form_recipe": [
+          "lathe_cranium",
+          "jaw_shelf",
+          "cheek_planes"
+        ]
+      }
+    },
+    {
+      "id": "ear_L",
+      "category": "body",
+      "mirror": "ear_R",
+      "priority": 1,
+      "palette_keys": [
+        "skin"
+      ],
+      "attach": {
+        "parent": "head",
+        "socket": "ear"
+      },
+      "silhouette": "long pointed ear horizontal",
+      "status": "crafted_v1"
+    },
+    {
+      "id": "eye_L",
+      "category": "face",
+      "mirror": "eye_R",
+      "priority": 1,
+      "palette_keys": [
+        "eye",
+        "skin_shadow"
+      ],
+      "attach": {
+        "parent": "head",
+        "socket": "face"
+      },
+      "silhouette": "large lime glow almond",
+      "status": "crafted_v1"
+    },
+    {
+      "id": "hair_volume",
+      "category": "hair",
+      "priority": 1,
+      "palette_keys": [
+        "hair",
+        "hair_gold"
+      ],
+      "attach": {
+        "parent": "head",
+        "socket": "hair"
+      },
+      "silhouette": "spiky royal purple clumps + gold bang streaks",
+      "status": "pending_v2",
+      "silhouette_trace": {
+        "front": "tall upswept spikes; gold mass on image-left/character-right",
+        "side": "volume behind crown; spikes lean back then up",
+        "forbidden_blobs": [
+          "random_cones_on_ball"
+        ],
+        "form_recipe": [
+          "designed_clumps",
+          "asymmetric_gold_streaks",
+          "side_locks"
+        ]
+      }
+    },
+    {
+      "id": "scarf",
+      "category": "cloth",
+      "priority": 1,
+      "palette_keys": [
+        "scarf"
+      ],
+      "attach": {
+        "parent": "neck",
+        "socket": "scarf"
+      },
+      "silhouette": "thick layered purple cowl",
+      "status": "crafted_v1"
+    },
+    {
+      "id": "pauldron_L",
+      "category": "armor",
+      "mirror": "pauldron_R",
+      "priority": 1,
+      "palette_keys": [
+        "armor",
+        "gold",
+        "gem"
+      ],
+      "attach": {
+        "parent": "shoulder_L",
+        "socket": "pauldron"
+      },
+      "silhouette": "layered olive cup, gold rim, red gem",
+      "status": "pending_v2",
+      "silhouette_trace": {
+        "front": "wide layered cup, gold rim ellipse, gem on peak",
+        "side": "overhangs upper arm ~30%, under-lip cavity",
+        "forbidden_blobs": [
+          "uv_sphere_alone"
+        ],
+        "form_recipe": [
+          "beveled_plate",
+          "layered_ridge",
+          "torus_rim",
+          "gem_housing"
+        ]
+      }
+    },
+    {
+      "id": "cape",
+      "category": "cloth",
+      "priority": 1,
+      "palette_keys": [
+        "cloth_cape",
+        "cloth_lining"
+      ],
+      "attach": {
+        "parent": "shoulder",
+        "socket": "cape"
+      },
+      "silhouette": "floor-length dark purple cape, flared hem, light lining",
+      "status": "pending_v2",
+      "silhouette_trace": {
+        "front": "floor flare wider than shoulders; green hem band",
+        "side": "thick yoke to mid folds to hem; dark lining",
+        "forbidden_blobs": [
+          "flat_cube_slab"
+        ],
+        "form_recipe": [
+          "multi_panel_yoke_mid_hem",
+          "lining",
+          "green_hem",
+          "fold_angles"
+        ]
+      }
+    },
+    {
+      "id": "boot_L",
+      "category": "armor",
+      "mirror": "boot_R",
+      "priority": 1,
+      "palette_keys": [
+        "armor",
+        "gold",
+        "gem"
+      ],
+      "attach": {
+        "parent": "ankle_L",
+        "socket": "boot"
+      },
+      "silhouette": "heavy greave + knee gem + gold toe",
+      "status": "pending_v2",
+      "silhouette_trace": {
+        "front": "chunky shin plate, diamond knee gem, gold toe",
+        "side": "boot last depth, knee cup forward",
+        "forbidden_blobs": [
+          "constant_radius_cylinder"
+        ],
+        "form_recipe": [
+          "beveled_shin_plate",
+          "knee_cup",
+          "toe_cap",
+          "gold_scroll"
+        ]
+      }
+    },
+    {
+      "id": "torso",
+      "category": "body",
+      "priority": 2,
+      "palette_keys": [
+        "skin",
+        "tattoo"
+      ],
+      "attach": {
+        "parent": "hip",
+        "socket": "torso"
+      },
+      "silhouette": "compact muscular torso with teal glow tattoos",
+      "status": "crafted_v1"
+    },
+    {
+      "id": "upper_arm_L",
+      "category": "body",
+      "mirror": "upper_arm_R",
+      "priority": 2,
+      "palette_keys": [
+        "skin"
+      ],
+      "attach": {
+        "parent": "shoulder_L",
+        "socket": "upper_arm"
+      },
+      "silhouette": "bare purple upper arm",
+      "status": "crafted_v1"
+    },
+    {
+      "id": "bracer_L",
+      "category": "armor",
+      "mirror": "bracer_R",
+      "priority": 2,
+      "palette_keys": [
+        "armor",
+        "gold",
+        "gem"
+      ],
+      "attach": {
+        "parent": "forearm_L",
+        "socket": "bracer"
+      },
+      "silhouette": "ornate green/gold vambrace with red gem",
+      "status": "crafted_v1"
+    },
+    {
+      "id": "hand_L",
+      "category": "body",
+      "mirror": "hand_R",
+      "priority": 2,
+      "palette_keys": [
+        "skin"
+      ],
+      "attach": {
+        "parent": "wrist_L",
+        "socket": "hand"
+      },
+      "silhouette": "clenched fist mitt",
+      "status": "crafted_v1"
+    },
+    {
+      "id": "thigh_L",
+      "category": "body",
+      "mirror": "thigh_R",
+      "priority": 2,
+      "palette_keys": [
+        "skin"
+      ],
+      "attach": {
+        "parent": "hip_L",
+        "socket": "thigh"
+      },
+      "silhouette": "short thick thigh",
+      "status": "crafted_v1"
+    },
+    {
+      "id": "belt",
+      "category": "armor",
+      "priority": 2,
+      "palette_keys": [
+        "belt",
+        "gold"
+      ],
+      "attach": {
+        "parent": "hip",
+        "socket": "belt"
+      },
+      "silhouette": "thick green belt gold trim",
+      "status": "crafted_v1"
+    },
+    {
+      "id": "skirt_strips",
+      "category": "cloth",
+      "priority": 2,
+      "palette_keys": [
+        "cloth_skirt"
+      ],
+      "attach": {
+        "parent": "hip",
+        "socket": "skirt"
+      },
+      "silhouette": "tattered lilac strips mid-thigh",
+      "status": "crafted_v1"
+    },
+    {
+      "id": "sashes",
+      "category": "accessory",
+      "priority": 3,
+      "palette_keys": [
+        "armor",
+        "gold"
+      ],
+      "attach": {
+        "parent": "belt",
+        "socket": "sash"
+      },
+      "silhouette": "green/gold hanging belt tongues",
+      "status": "crafted_v1"
+    },
+    {
+      "id": "sword",
+      "category": "accessory",
+      "priority": 3,
+      "palette_keys": [
+        "steel",
+        "gold",
+        "armor_dark"
+      ],
+      "attach": {
+        "parent": "hip_R",
+        "socket": "weapon"
+      },
+      "silhouette": "hip scabbard + hilt on right hip",
+      "status": "crafted_v1"
+    },
+    {
+      "id": "face_marks",
+      "category": "face",
+      "priority": 3,
+      "palette_keys": [
+        "skin_shadow"
+      ],
+      "attach": {
+        "parent": "head",
+        "socket": "face"
+      },
+      "silhouette": "forehead/cheek swirl tattoos",
+      "status": "crafted_v1"
+    }
+  ],
+  "notes": "Night-elf chibi warrior from attached T-pose ref: deep purple skin, vibrant green/gold armor, floor purple cape with green hem, gold hair on character right, green glow tattoos, hip scabbard. Rebuild v2: light_scan + anti-blob (beveled plates, multi-panel cape, lathed head).",
+  "light_scan": {
+    "key_light": "soft upper-front-left studio; gentle chin/pauldron underside AO",
+    "value_planes": [
+      "forehead and cheek planes brighter than jaw",
+      "pauldron top ridge bright, under-lip cavity dark",
+      "cape outer folds lit, lining/underside dark",
+      "greave front plates catch light; gold trim specular ridges",
+      "hair leading edges highlighted; gold streaks on character right"
+    ],
+    "ridges": [
+      "gold pauldron rim and filigree",
+      "bracer gold bands + medallion",
+      "belt gold trim",
+      "greave gold scroll bars and knee rim",
+      "cape green hem edge",
+      "hair spike leading edges"
+    ],
+    "cavities": [
+      "under-pauldron overhang",
+      "shoulder/elbow articulation cutouts",
+      "cape\u2013back gap",
+      "eye sockets",
+      "scarf folds into neck"
+    ],
+    "part_breaks": [
+      "hair clumps vs scalp",
+      "pauldron layers vs upper arm",
+      "skirt strips vs thighs",
+      "cape yoke/mid/hem panels",
+      "greave plate vs knee cup vs toe"
+    ],
+    "form_notes_by_part": {
+      "head": "jaw shelf + cheek planes; not bare sphere",
+      "hair": "8 purple upswept clumps; gold streaks on character right (-X)",
+      "pauldron_L": "layered beveled cup, gold rim, red gem on peak, under-lip",
+      "cape": "yoke + mid fold panels + lower flare + green hem + dark lining",
+      "boot_L": "shin plate + knee cup + toe cap + gold scroll; no tube greave",
+      "bracer_L": "beveled shell, dual gold bands, central medallion/gem"
+    }
+  },
+  "reference_images": [
+    "user_attached_tpose_figurine"
+  ]
+}

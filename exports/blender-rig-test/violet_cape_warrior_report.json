@@ -1,0 +1,22 @@
+{
+  "name": "violet_cape_warrior",
+  "glb": "exports/blender-rig-test/violet_cape_warrior.glb",
+  "bytes": 3123260,
+  "bbox": {
+    "min": [
+      -1.3415641784667969,
+      -0.4771599769592285,
+      0.0
+    ],
+    "max": [
+      1.3415641784667969,
+      0.4805036783218384,
+      2.3107056617736816
+    ],
+    "height": 2.3107056617736816
+  },
+  "tris": 123256,
+  "parts_before_join": 224,
+  "construction": "1to1_match_iter36_hair_cards",
+  "target": "user figurine Drive REF \u2014 sharp chibi warrior"
+}

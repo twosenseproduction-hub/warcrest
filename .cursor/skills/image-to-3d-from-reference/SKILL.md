@@ -1,0 +1,1 @@
+../../../.claude/skills/image-to-3d-from-reference/SKILL.md

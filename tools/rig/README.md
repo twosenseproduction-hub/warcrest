@@ -4,6 +4,13 @@ Turn a **direction** (image or description) into a **rigged, animated, game-read
 that drops straight into `demos/thronefall-level.html`. Runs headless in the cloud
 container **and** on a desktop Blender — same script either place.
 
+**Requires Blender ≥ 3.6** (`blender` on `PATH`). On Ubuntu:
+
+```bash
+sudo apt-get install -y blender   # 4.0.x on 24.04
+# or: bash scripts/setup-blender.sh
+```
+
 ## Why this is reliable (and Mixamo / auto-rig weren't)
 
 Every previous unit failed because we rigged an *arbitrary* generated mesh: Mixamo
@@ -85,6 +92,41 @@ Load the exported GLB in a GLTF viewer (or the game), play `run` — the mesh mu
 **deform** (stride/arm-swing), sit upright and centred, feet near y≈0. A stick-figure
 or origin-teleport means the donor scale wasn't picked up (check the `DONOR_SCALE`
 log line).
+
+Headless re-import + frame renders (auto-frames the camera to the mesh bbox):
+
+```bash
+blender -b -noaudio --python tools/rig/verify_rig_glb.py -- \
+  --glb assets/models/<name>_anim.glb --clip run \
+  --frames 1,5,9,13 --out exports/blender-rig-test/frames
+```
+
+## From-scratch smoke test (no donor assets)
+
+Authors a blocky humanoid, a simple 18-bone armature, automatic weights, and
+`idle` / `walk` clips — useful to confirm Blender install + skinning + GLB export:
+
+```bash
+blender -b -noaudio --python tools/rig/test_scratch_rig_anim.py -- \
+  --name scratch_walker --out exports/blender-rig-test
+```
+
+## Antlered chibi elf (static T-pose)
+
+Procedural Rimwalker hero matching the purple-skin / leaf-armor / white-braid
+reference. Face toward `-Y`, arms in T-pose, ready to rig later.
+
+For the full **reference → card → critique** workflow, follow
+`.claude/skills/blender-reference-character/SKILL.md`.
+
+```bash
+blender -b -noaudio --python tools/rig/build_antler_elf.py -- \
+  --name antler_elf --out exports/blender-rig-test
+
+blender -b -noaudio --python tools/rig/render_model_views.py -- \
+  --glb exports/blender-rig-test/antler_elf.glb \
+  --angles 0,35,90 --out exports/blender-rig-test/frames
+```
 
 ## Notes
 - The exported GLB carries geometry + standard materials + the donor's clips. The game

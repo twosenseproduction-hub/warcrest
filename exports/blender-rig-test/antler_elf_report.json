@@ -1,0 +1,35 @@
+{
+  "name": "antler_elf",
+  "glb": "/workspace/exports/blender-rig-test/antler_elf.glb",
+  "blend": "/workspace/exports/blender-rig-test/antler_elf.blend",
+  "bytes": 265632,
+  "bbox": {
+    "min": [
+      -1.287092924118042,
+      -0.41874903440475464,
+      0.0
+    ],
+    "max": [
+      1.287092924118042,
+      0.43800002336502075,
+      2.345277786254883
+    ],
+    "height": 2.345277786254883
+  },
+  "materials": [
+    "elf_antler",
+    "elf_armor",
+    "elf_armorD",
+    "elf_cloth",
+    "elf_eye",
+    "elf_gem",
+    "elf_gold",
+    "elf_hair",
+    "elf_ink",
+    "elf_leather",
+    "elf_skin",
+    "elf_skinD"
+  ],
+  "tris": 8576,
+  "parts": 90
+}

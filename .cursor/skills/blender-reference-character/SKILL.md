@@ -1,0 +1,1 @@
+../../../.claude/skills/blender-reference-character/SKILL.md

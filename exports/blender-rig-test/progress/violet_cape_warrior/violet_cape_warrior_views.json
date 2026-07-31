@@ -1,0 +1,21 @@
+{
+  "glb": "exports/blender-rig-test/violet_cape_warrior.glb",
+  "mode": "clay",
+  "prefix": "30_dense",
+  "bbox": {
+    "min": [
+      -1.2567014694213867,
+      -0.4146735966205597,
+      0.0
+    ],
+    "max": [
+      1.2567014694213867,
+      0.4699954092502594,
+      2.4039976596832275
+    ],
+    "size": 3.5887377408096293
+  },
+  "rendered": [
+    "exports/blender-rig-test/progress/violet_cape_warrior/30_dense_violet_cape_warrior_view_000_clay.png"
+  ]
+}

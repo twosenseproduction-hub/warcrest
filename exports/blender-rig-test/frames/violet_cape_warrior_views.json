@@ -1,0 +1,22 @@
+{
+  "glb": "exports/blender-rig-test/violet_cape_warrior.glb",
+  "mode": "studio",
+  "bbox": {
+    "min": [
+      -1.2859998941421509,
+      -0.4357830882072449,
+      0.0
+    ],
+    "max": [
+      1.2859998941421509,
+      0.49400001764297485,
+      2.421999931335449
+    ],
+    "size": 3.653185342530172
+  },
+  "rendered": [
+    "exports/blender-rig-test/frames/violet_cape_warrior_view_000.png",
+    "exports/blender-rig-test/frames/violet_cape_warrior_view_035.png",
+    "exports/blender-rig-test/frames/violet_cape_warrior_view_090.png"
+  ]
+}
