@@ -1,0 +1,33 @@
+{
+  "id": "019f815d-815c-7c16-ba18-bfe2110fe021",
+  "type": "retexture",
+  "name": "",
+  "art_style": "realistic",
+  "object_prompt": "",
+  "style_prompt": "",
+  "negative_prompt": "",
+  "texture_prompt": "",
+  "texture_image_url": "",
+  "text_style_prompt": "Flat matte hand-painted low-poly female elven warrior in ornate purple plate armor texture, KEEP SATURATED COLORS, armor plates #534168, skin #9a94ad, silver-white filigree trim #eff0e7, glowing emissive accent gems and eyes #71a55d, ornate scrollwork painted into diffuse only, no specular highlights, no chrome, no grey wash, no desaturation, vibrant mobile RPG paint, remove baked lighting",
+  "image_style_url": "",
+  "status": "SUCCEEDED",
+  "created_at": 1784581819191,
+  "progress": 100,
+  "started_at": 1784581819272,
+  "finished_at": 1784581879915,
+  "expires_at": 1784841079915,
+  "task_error": null,
+  "model_url": "https://assets.meshy.ai/6bbd2096-7065-4c2b-af13-9dc395ee172d/tasks/019f815d-815c-7c16-ba18-bfe2110fe021/output/model.glb?Expires=1784841079&Signature=fIlm7GyNfk3ma6O2idaUtRwk3PXL44AEW3ya66ENZVk1f5zQ6JCHSpfbwwrzL6CJ5HkFbzK19h5J94wo6a8nY~zhE3YmYweH88UejPysPCdDXcrTM4T7rS~9dyMUDiH~ydRkAtXzSpNgztU0dUcdfEV3pN6EpqxaV2ekgs3Vp59~22s13tAbSvhniK5x0hjLRktmudkweXCudPVZ1ECKXgc~AooaOK-bfx5ZBQIouuHnw1BfE47vY57aJy5It2E0~8nIw4UiGs4Se0sD1kIfC7zSSA7Zr~B01Svx49BomAQkDeTttZ2JqnnLGus2fSjupcJEJNs0AN9vesclAZwq5g__&Key-Pair-Id=K1VGYTHIYLM9UM",
+  "model_urls": {
+    "glb": "https://assets.meshy.ai/6bbd2096-7065-4c2b-af13-9dc395ee172d/tasks/019f815d-815c-7c16-ba18-bfe2110fe021/output/model.glb?Expires=1784841079&Signature=fIlm7GyNfk3ma6O2idaUtRwk3PXL44AEW3ya66ENZVk1f5zQ6JCHSpfbwwrzL6CJ5HkFbzK19h5J94wo6a8nY~zhE3YmYweH88UejPysPCdDXcrTM4T7rS~9dyMUDiH~ydRkAtXzSpNgztU0dUcdfEV3pN6EpqxaV2ekgs3Vp59~22s13tAbSvhniK5x0hjLRktmudkweXCudPVZ1ECKXgc~AooaOK-bfx5ZBQIouuHnw1BfE47vY57aJy5It2E0~8nIw4UiGs4Se0sD1kIfC7zSSA7Zr~B01Svx49BomAQkDeTttZ2JqnnLGus2fSjupcJEJNs0AN9vesclAZwq5g__&Key-Pair-Id=K1VGYTHIYLM9UM"
+  },
+  "thumbnail_url": "https://assets.meshy.ai/6bbd2096-7065-4c2b-af13-9dc395ee172d/tasks/019f815d-815c-7c16-ba18-bfe2110fe021/output/preview.png?Expires=1784841079&Signature=L1zWxtzQxpRlakOXyYS-T4IpWY1993sOjc5E-kd6qnhIDa5Eum5Yv2ifIpzn7FCvmMHioHcqbkMB3n8eSNdoiJvDUhcP4X4dsDcvA29AUKM-AsNk5hqAxuUknKWfT1icZR9QrcXEHQcRk91sEZIps6q~H7K2iwQ0r6ONoPecQLJEAW~eo6nAR3a-qnk-NSpf79s254jr8iCNTP04gvI-WP-hCxKHVPvFhijDMfObqUlzfff-5uRQkFx89GqiBB4lvcveEOqwGWSNwHe-ih23srRH77dGjQMHTIxk4DgQAj9-TN-NEKat-V5vO8dW~wOW5pHD~c4ofFjBU4Yo5T0Uow__&Key-Pair-Id=K1VGYTHIYLM9UM",
+  "alpha_thumbnail_url": "https://assets.meshy.ai/6bbd2096-7065-4c2b-af13-9dc395ee172d/tasks/019f815d-815c-7c16-ba18-bfe2110fe021/output/preview_alpha.png?Expires=1784841079&Signature=HFcOov0au3ZZ6lhuR7AjeVW87A0eTA~KKKkzW0WL-pkLYRaDBM1lRxxh9BIkjNd62zlccSI7KUkVOX-rgw~epor7HtqHwhN0nME7Jt5g~ffsiXhTZ~ax6xNBBtiZLih4qoalg-Pu9m3SCz4mn1Rsx87DOK5xiSa~AYGev8LCYSnu-necd3yPGkJEq3eTZlrO0fvZq2bkkn8ulJhBtRtBKWiuZIpuR9IjhbY4VNErN2pPSsn~mVwThLVaQKXRi2fx6G42YnuajPs4xTf-x~z9evUykp7WDggOVaaQCAiWA3514USZ0Bre4N1Ou12nsrQ2LyzY2Ju~yZLXVSyWldznKQ__&Key-Pair-Id=K1VGYTHIYLM9UM",
+  "texture_urls": [
+    {
+      "base_color": "https://assets.meshy.ai/6bbd2096-7065-4c2b-af13-9dc395ee172d/tasks/019f815d-815c-7c16-ba18-bfe2110fe021/output/texture_0.png?Expires=1784841079&Signature=JOuUE~VU4xGy5eY21CHQDOR4khyPhtnrAblUXy74yUKIilcwlsqDjLSLEPhu2S2wTQaXG55inDdUZc1ZF2-xWMObMmg8kfDFQUdDqGvS5g4DV~prYPjK5WyQ~I~sNez~Epe56k4iGI72PSAAQ7bZ-vk~CnWZAIeVai-UOmcz5Jj3KPdQvlcrtf1CdnCK6MQ9XZXYvSaU9n5nK2A22av87IuuRZPKwbjblw~zTYANxdDZcay7KF-k01v0FWE6aPZCqLIfGdRMSaXVqE7f1f3RF8qqxeeWByYsUVF153p9ckqjYPA-JsC-gZf4zzvoQ7lLwOjEFxXl2SKg5PLlvEKG-g__&Key-Pair-Id=K1VGYTHIYLM9UM"
+    }
+  ],
+  "remove_lighting": true,
+  "consumed_credits": 10
+}

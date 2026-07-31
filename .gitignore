@@ -6,3 +6,16 @@ dist/
 .env.*
 __pycache__/
 *.pyc
+
+# Meshy work intermediates (final assets live under assets/models/meshy/)
+tools/.meshy-work/*.glb
+tools/.meshy-work/*.png
+tools/.meshy-work/*.log
+tools/.meshy-work/drive_anims.zip
+tools/.meshy-work/drive_anims_extracted/
+tools/.meshy-work/drive_new/
+tools/.meshy-work/bow_elf_meshy_clay.glb
+tools/.meshy-work/*_rig.json
+tools/.meshy-work/*_remesh.json
+tools/.meshy-work/*_rig_id.txt
+tools/.meshy-work/*_remesh_id.txt
