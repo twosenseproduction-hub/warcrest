@@ -682,7 +682,8 @@
         return false;
       }
       s.res[team].halcite -= lc.trainCost;
-      building.queue.push({ role: '_livestock', remaining: lc.trainTime, total: lc.trainTime });
+      var lt = lc.trainTime * ((RTS.Config.pace && RTS.Config.pace.train) || 1);
+      building.queue.push({ role: '_livestock', remaining: lt, total: lt });
       if (!building.train) building.train = building.queue[0];
       if (team === RTS.TEAM.PLAYER) { RTS.Audio.play('click'); RTS.HUD.sync(s); }
       return true;
@@ -747,22 +748,25 @@
   };
 
   function baseTrain(role, factionId) {
+    var pace = (RTS.Config.pace && RTS.Config.pace.train) || 1;
     if (RTS.isHeroRole && RTS.isHeroRole(role)) {
       var hero = RTS.getHero(role);
-      if (hero && hero.trainTime != null) return hero.trainTime;
+      if (hero && hero.trainTime != null) return hero.trainTime * pace;
     }
     // Explicit per-faction trainTime override wins if present.
     var spec = RTS.resolveUnitSpec && RTS.resolveUnitSpec(role, factionId);
-    if (spec && spec.trainTime != null) return spec.trainTime;
+    if (spec && spec.trainTime != null) return spec.trainTime * pace;
     // WC3-ish baseline: basic units ~20s, elite/casters ~28-30s, workers ~14s.
+    var t;
     switch (role) {
-      case 'pawn': return 14;
-      case 'archer': return 20;
-      case 'warrior': return 22;
-      case 'lancer': return 30;
-      case 'monk': return 28;
-      default: return 20;
+      case 'pawn': t = 14; break;
+      case 'archer': t = 20; break;
+      case 'warrior': t = 22; break;
+      case 'lancer': t = 30; break;
+      case 'monk': t = 28; break;
+      default: t = 20;
     }
+    return t * pace;
   }
   RTS.baseTrain = baseTrain;
 

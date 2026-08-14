@@ -51,6 +51,18 @@
         aiThink: 0,
       },
 
+      // Night-mode day/night cycle (only advanced when Config.nightMode is on).
+      // phase: 'day' | 'night'; t: seconds elapsed in the current phase;
+      // factor: 0..1 darkness for the renderer; number: nights survived so far.
+      night: {
+        phase:   'day',
+        t:       0,
+        factor:  0,
+        number:  0,
+        spawnCd: 0,
+        waveCount: 0,
+      },
+
       ui: {
         eventLog: [],
         pointer: null,

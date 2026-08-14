@@ -35,6 +35,7 @@
         s.ai.squadTick = (cfg.squads.refreshInterval || 6) * diff.refreshMul;
         updateDefenseSquads(s);
         refreshSquads(s);
+        musterArmy(s);         // gather a real army, then commit it as one push
       }
 
       if (s.timers.gameTime >= s.timers.nextWave) {
@@ -183,6 +184,162 @@
     return p;
   }
 
+  // ---- Composition (react to what the PLAYER is fielding) -------------------
+  function playerArmyUnits(s) {
+    return s.entities.units.filter(function (u) {
+      return u.team === TEAM.PLAYER && !u.dead && u.role !== 'pawn';
+    });
+  }
+  function categoryOf(role) {
+    if (role === 'warrior' || role === 'lancer') return 'frontline';
+    if (role === 'archer' || role === 'siege') return 'ranged';
+    if (role === 'monk') return 'caster';
+    return 'frontline';
+  }
+  function compCounts(units) {
+    var c = { frontline: 0, ranged: 0, caster: 0, total: 0 };
+    units.forEach(function (u) { c[categoryOf(u.role)]++; c.total++; });
+    return c;
+  }
+  function currentArmyRatio(s) {
+    var army = enemyUnits(s).filter(function (u) { return u.role !== 'pawn'; });
+    return combatPower(army) / Math.max(1, combatPower(playerArmyUnits(s)));
+  }
+
+  // Choose the next fighting unit to train: fill the most-deficient slot of our
+  // target composition, counter-biased against the player's mix. Returns
+  // { role, bldg } respecting tech (caster/lancer need a Keep + War Forge).
+  function chooseArmyRole(s) {
+    var cfg = RTS.Config.ai;
+    var comp = cfg.comp || { frontline: 0.5, ranged: 0.34, caster: 0.16 };
+    var own = compCounts(enemyUnits(s).filter(function (u) { return u.role !== 'pawn'; }));
+    var foe = compCounts(playerArmyUnits(s));
+    var want = { frontline: comp.frontline, ranged: comp.ranged, caster: comp.caster };
+
+    // Counter the player: kite a melee-heavy army with ranged; close on a
+    // ranged-heavy army with (armored) frontline.
+    if (foe.total >= 3) {
+      var fFront = foe.frontline / foe.total, fRanged = foe.ranged / foe.total;
+      if (fFront > 0.55) { want.ranged += 0.12; want.caster += 0.04; want.frontline -= 0.16; }
+      else if (fRanged > 0.50) { want.frontline += 0.16; want.ranged -= 0.10; want.caster -= 0.06; }
+    }
+
+    var foundry = enemyBuilding(s, 'foundry');
+    var forge = enemyBuilding(s, 'forge');
+    var tier2 = RTS.Config.teamTier ? RTS.Config.teamTier(s, TEAM.ENEMY) >= 2 : false;
+    var canElite = !!(forge && !forge.upgrading && tier2);   // lancer + monk gate
+    if (!canElite) {                                          // fold caster share into what we can build
+      want.frontline += want.caster * 0.6; want.ranged += want.caster * 0.4; want.caster = 0;
+    }
+
+    function share(k) { return own.total ? own[k] / own.total : 0; }
+    var cats = canElite ? ['frontline', 'ranged', 'caster'] : ['frontline', 'ranged'];
+    var pick = 'frontline', bestDef = -Infinity;
+    cats.forEach(function (k) { var def = want[k] - share(k); if (def > bestDef) { bestDef = def; pick = k; } });
+
+    if (pick === 'caster') return { role: 'monk', bldg: forge };
+    if (pick === 'ranged') return { role: 'archer', bldg: foundry };
+    // frontline: mix a minority of elite Knights in once the Forge is up
+    if (canElite) {
+      var lancers = enemyUnits(s, 'lancer').length, warriors = enemyUnits(s, 'warrior').length;
+      if (lancers < warriors * 0.5) return { role: 'lancer', bldg: forge };
+    }
+    return { role: 'warrior', bldg: foundry };
+  }
+
+  // ---- Muster & coordinated push ------------------------------------------
+  function isDefender(s, u) {
+    if (!u.squadId) return false;
+    var sq = s.ai.squads.find(function (q) { return q.id === u.squadId; });
+    return !!(sq && sq.type === 'defense');
+  }
+  function activeAssault(s) {
+    return s.ai.squads.find(function (sq) { return sq.type === 'assault' && sq.mode !== 'retreat'; });
+  }
+  // Non-pawn units not already committed to a live assault.
+  function freeArmy(s) {
+    var committed = {};
+    s.ai.squads.forEach(function (sq) {
+      if (sq.type === 'assault' && sq.mode !== 'retreat') {
+        sq.unitIds.forEach(function (id) { committed[id] = 1; });
+      }
+    });
+    return enemyUnits(s).filter(function (u) { return u.role !== 'pawn' && !committed[u.id]; });
+  }
+  function homeThreatened(s) {
+    var core = enemyCastle(s);
+    if (!core) return false;
+    var r = (RTS.Config.ai.squads && RTS.Config.ai.squads.defenseRadius) || 420;
+    return s.entities.units.some(function (u) {
+      return u.team === TEAM.PLAYER && !u.dead && RTS.dist(u.x, u.y, core.x, core.y) < r;
+    });
+  }
+  function stagingPoint(s, core, pcore) {
+    if (!pcore) return { x: core.x, y: core.y };
+    var p = RTS.Config.ai.push || {};
+    var ang = Math.atan2(pcore.y - core.y, pcore.x - core.x);
+    var d = p.stagingDist || 300;
+    var W = RTS.Config.world.w, H = RTS.Config.world.h;
+    var x = Math.max(60, Math.min(W - 60, core.x + Math.cos(ang) * d));
+    var y = Math.max(60, Math.min(H - 60, core.y + Math.sin(ang) * d));
+    if (RTS.Terrain && RTS.Terrain.isWater && s.map &&
+        RTS.Terrain.isWater(s.map.terrainGrid, x, y)) { x = core.x; y = core.y; }
+    return { x: x, y: y };
+  }
+  function pushThreshold(s, armyRatio) {
+    var p = RTS.Config.ai.push || {};
+    var bar = Math.min(p.max || 34, (p.base || 9) + (p.growthPerMin || 5) * (s.timers.gameTime / 60));
+    if (armyRatio > 1.6) bar *= (p.advantageMul || 0.6);       // press the advantage
+    else if (armyRatio < 0.9) bar *= (p.behindMul || 1.6);      // behind → keep building
+    return bar;
+  }
+  function commitAssault(s, units, why) {
+    var pcore = RTS.playerCore(s);
+    if (!pcore || !units.length) return false;
+    var sq = makeSquad(s, 'assault', units.map(function (u) { return u.id; }),
+      { x: pcore.x, y: pcore.y }, { minStrength: 1, mode: 'march' });
+    s.ai.squads.push(sq);
+    assignSquadOrders(s, sq);
+    if (why === 'wave') {
+      if (s.timers.waveNumber === 0) {
+        RTS.log(s, RTS.Factions[s.enemyFaction].name + ' scouts prowling the Reach', 'warn');
+      } else {
+        RTS.log(s, RTS.Factions[s.enemyFaction].name + ' assault wave inbound!', 'bad');
+        RTS.toast(s, 'Wave incoming — defend your ' + RTS.nameFor(s.playerFaction, 'core'));
+      }
+    } else {
+      RTS.log(s, RTS.Factions[s.enemyFaction].name + ' masses for an assault on your ' +
+        RTS.nameFor(s.playerFaction, 'core'), 'bad');
+      RTS.toast(s, 'A war-host marches on your ' + RTS.nameFor(s.playerFaction, 'core'));
+    }
+    return true;
+  }
+  // Gather loose units at a forward staging point; push as ONE force at mass.
+  function musterArmy(s) {
+    var core = enemyCastle(s), pcore = RTS.playerCore(s);
+    if (!core || !pcore) return;
+    // Don't march out while home is under attack — defend first. Checked
+    // directly (not via the debounced mode label) so recall can't thrash.
+    if (s.ai.mode === 'hold' || homeThreatened(s)) return;
+    var free = freeArmy(s).filter(function (u) { return !isDefender(s, u); });
+    if (!free.length) return;
+
+    var stage = stagingPoint(s, core, pcore);
+    free.forEach(function (u) {
+      if (u.squadId) return;
+      u.guardOrigin = stage;
+      if (RTS.dist(u.x, u.y, stage.x, stage.y) > 70) {
+        if (RTS.UnitAI) RTS.UnitAI.applyCommandFromOrder(u, true, stage.x, stage.y);
+        u.attackMove = true; u.moveTo = { x: stage.x, y: stage.y };
+      }
+    });
+
+    var bar = pushThreshold(s, currentArmyRatio(s));
+    if ((s.ai.mode === 'desperation' || combatPower(free) >= bar) && !activeAssault(s)) {
+      commitAssault(s, free, 'muster');
+    }
+  }
+
   function updateStrategyMode(s) {
     var cfg = RTS.Config.ai;
     var now = s.timers.gameTime;
@@ -279,13 +436,15 @@
       }
       if (RTS.Pathfind) RTS.Pathfind.clearNav(u);
     });
-    squad.mode = squad.type === 'assault' ? 'march' : 'fight';
+    // Preserve an explicit 'retreat' (set by recall / low-HP fallback) — otherwise
+    // this call would clobber it back to 'march' and the squad would never
+    // register as retreating (a long-standing bug that also broke home defense).
+    squad.mode = squad.mode === 'retreat' ? 'retreat'
+      : (squad.type === 'assault' ? 'march' : 'fight');
   }
 
   function refreshSquads(s) {
     var cfg = RTS.Config.ai;
-    var diff = difficultyMod(cfg);
-    var minAssault = diff.assaultMin || cfg.squads.assaultMinStrength || 4;
 
     s.ai.squads = s.ai.squads.filter(function (sq) {
       var alive = sq.unitIds.filter(function (id) {
@@ -318,6 +477,20 @@
         return;
       }
 
+      // A retreating assault that has made it home / healed up disbands, so its
+      // survivors flow back into the muster pool for the next coordinated push.
+      if (sq.type === 'assault' && sq.mode === 'retreat') {
+        var home = enemyCastle(s);
+        var allHome = home && units.every(function (u) {
+          return RTS.dist(u.x, u.y, home.x, home.y) < 260;
+        });
+        if (avgHp > 0.7 || allHome) {
+          units.forEach(function (u) { u.squadId = null; });
+          sq._disband = true;
+        }
+        return;
+      }
+
       var stalled = units.every(function (u) {
         return !u.target && u.moveTo &&
           RTS.dist(u.x, u.y, u.moveTo.x, u.moveTo.y) < 24;
@@ -327,21 +500,8 @@
       }
     });
 
-    if (s.ai.mode === 'assault' || s.ai.mode === 'desperation') {
-      var pcore = RTS.playerCore(s);
-      if (!pcore) return;
-      var freeArmy = enemyUnits(s).filter(function (u) {
-        return u.role !== 'pawn' && !u.squadId;
-      });
-      if (combatPower(freeArmy) >= minAssault) {
-        var sq = makeSquad(s, 'assault',
-          freeArmy.map(function (u) { return u.id; }),
-          { x: pcore.x, y: pcore.y },
-          { minStrength: minAssault, mode: 'march' });
-        s.ai.squads.push(sq);
-        assignSquadOrders(s, sq);
-      }
-    }
+    // Drop disbanded squads (their survivors re-muster via musterArmy).
+    s.ai.squads = s.ai.squads.filter(function (sq) { return !sq._disband; });
   }
 
   function updateDefenseSquads(s) {
@@ -354,6 +514,15 @@
         RTS.dist(u.x, u.y, core.x, core.y) < (cfg.defenseRadius || 420);
     });
     if (!threats.length) return;
+
+    // Home is under attack — recall the field army to defend (a real player
+    // doesn't keep marching on your base while their own is burning).
+    var away = s.ai.squads.find(function (sq) { return sq.type === 'assault' && sq.mode !== 'retreat'; });
+    if (away) {
+      away.mode = 'retreat';
+      away.targetPos = { x: core.x, y: core.y };
+      assignSquadOrders(s, away);
+    }
 
     var defenders = enemyUnits(s).filter(function (u) {
       return u.role !== 'pawn' &&
@@ -381,6 +550,9 @@
     });
   }
 
+  // Timed wave: a guaranteed cadence of pressure. Commits whatever isn't
+  // already attacking (muster usually beats it to the punch once the AI has
+  // mass; this keeps a floor of aggression if it's turtling).
   function launchAssaultWave(s) {
     var pcore = RTS.playerCore(s);
     if (!pcore) return;
@@ -388,28 +560,9 @@
     var diff = difficultyMod(cfg);
     var minForce = diff.assaultMin || cfg.squads.assaultMinStrength || 4;
 
-    var army = enemyUnits(s).filter(function (u) { return u.role !== 'pawn'; });
-    if (combatPower(army) < minForce && s.ai.mode !== 'desperation') return;
-
-    var commit = army.filter(function (u) {
-      return u.role !== 'pawn';
-    });
-    if (!commit.length) return;
-
-    var sq = makeSquad(s,
-      s.ai.mode === 'harass' ? 'harass' : 'assault',
-      commit.map(function (u) { return u.id; }),
-      { x: pcore.x, y: pcore.y },
-      { minStrength: minForce, mode: 'march' });
-    s.ai.squads.push(sq);
-    assignSquadOrders(s, sq);
-
-    if (s.timers.waveNumber === 0) {
-      RTS.log(s, RTS.Factions[s.enemyFaction].name + ' scouts prowling the Reach', 'warn');
-    } else {
-      RTS.log(s, RTS.Factions[s.enemyFaction].name + ' assault wave inbound!', 'bad');
-      RTS.toast(s, 'Wave incoming — defend your ' + RTS.nameFor(s.playerFaction, 'core'));
-    }
+    var free = freeArmy(s).filter(function (u) { return !isDefender(s, u); });
+    if (combatPower(free) < minForce && s.ai.mode !== 'desperation') return;
+    commitAssault(s, free, 'wave');
   }
 
   function updateBuildPriorities(s) {
@@ -722,18 +875,29 @@
     });
   }
 
+  function trainFrom(s, bldg, role) {
+    if (!bldg || bldg.upgrading || bldg.queue.length >= 2) return false;
+    return !!RTS.train(s, bldg, role);
+  }
+
   function produce(s) {
     var cfg = RTS.Config.ai;
     var core = enemyCastle(s);
     if (!core) return;
 
+    // --- Economy: saturate mining — scale workers with the number of bases ---
+    var eco = cfg.economy || {};
+    var deposits = teamDeposits(s, TEAM.ENEMY).length || 1;
+    var workerTarget = Math.min(eco.maxWorkers || 14, (eco.workersPerBase || 5) * deposits);
+    workerTarget = Math.max(workerTarget, cfg.desiredWorkers || 3);
     var workers = enemyUnits(s, 'pawn').length;
-    if (workers < cfg.desiredWorkers && core.queue.length === 0) {
-      RTS.train(s, core, 'pawn');
-    } else if (workers < cfg.pawnCount && core.queue.length === 0) {
+    var pawnCost = RTS.Config.unitCost ? RTS.Config.unitCost('pawn', s.enemyFaction) : 45;
+    if (workers < workerTarget && core.queue.length === 0 &&
+        RTS.canAfford(s, TEAM.ENEMY, pawnCost)) {
       RTS.train(s, core, 'pawn');
     }
 
+    // --- How big an army to aim for right now -------------------------------
     var army = enemyUnits(s).filter(function (u) { return u.role !== 'pawn'; }).length;
     var queued = 0;
     s.entities.buildings.forEach(function (b) {
@@ -745,23 +909,13 @@
     if (s.ai.mode === 'boom') target = Math.max(4, target - 2);
     if (army + queued >= target) return;
 
-    var foundry = enemyBuilding(s, 'foundry');
-    var forge = enemyBuilding(s, 'forge');
-    var tier2 = RTS.Config.teamTier ? RTS.Config.teamTier(s, TEAM.ENEMY) >= 2 : false;
-    var pick = s.ai.composition++ % 8;
-    var role, bldg;
-    // Elite tier-2 units from the War Forge once the Keep is up.
-    if (forge && !forge.upgrading && tier2 && (pick === 6 || pick === 7)) {
-      bldg = forge;
-      role = pick === 7 ? 'lancer' : 'monk';   // Knight / Priest
-    } else if (foundry) {
-      bldg = foundry;
-      role = pick < 5 ? 'warrior' : 'archer';   // Footman / Crossbowman
-    } else {
-      return;
+    // --- Composition: counter the player, keep both production lines busy ----
+    var choice = chooseArmyRole(s);
+    if (!trainFrom(s, choice.bldg, choice.role)) {
+      // chosen line unavailable/busy → fall back to basic infantry / ranged.
+      var foundry = enemyBuilding(s, 'foundry');
+      trainFrom(s, foundry, choice.role === 'archer' ? 'archer' : 'warrior');
     }
-
-    if (bldg && !bldg.upgrading && bldg.queue.length < 2) RTS.train(s, bldg, role);
   }
 
 })(window.RTS = window.RTS || {});

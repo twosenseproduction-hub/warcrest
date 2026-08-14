@@ -51,6 +51,16 @@
     maxSupplyCap:    80,
     passiveTrickle:  0.0,
 
+    // ---- Global pacing -----------------------------------------------------
+    // Multipliers on how long things take (>1 = slower). Raise to stretch the
+    // match out so structures and units don't all pop at once; lower to speed
+    // it up. Applied at the two chokepoints: building construction (makeBuilding)
+    // and unit training (baseTrain). Creator mode still finishes instantly.
+    pace: {
+      build: 1.6,   // structure construction time ×
+      train: 1.5,   // unit training time ×
+    },
+
     mineAmounts: {
       starting:    12500,
       expansion:   5000,
@@ -89,6 +99,36 @@
       modeDebounce:     18,
       desiredWorkers:   3,
       rebuildPriority:  ['foundry', 'conduit', 'forge', 'core'],
+
+      // ---- "Play like a person" tuning --------------------------------------
+      // Economy: a real player saturates mining and scales workers with bases,
+      // rather than sitting on 3 pawns forever.
+      economy: {
+        workersPerBase: 5,    // target pawns per active deposit (core/outpost)
+        maxWorkers:     14,   // hard cap so it doesn't over-invest in economy
+      },
+      // Muster & push: instead of dribbling 1–2 units at the player, the AI
+      // gathers a real army at a forward staging point and commits it as ONE
+      // coordinated attack once it reaches a critical mass (in combat "power":
+      // warrior=3, monk=1.5, else 1). The bar grows over the match, drops when
+      // the AI is clearly ahead (press the advantage) and rises when it's behind
+      // (turtle and rebuild).
+      push: {
+        base:          9,     // power needed for the first push
+        growthPerMin:  5,     // added to the bar per minute elapsed
+        max:           34,    // ceiling on the push bar
+        advantageMul:  0.6,   // ×bar when strongly ahead (armyRatio > 1.6)
+        behindMul:     1.6,   // ×bar when behind (armyRatio < 0.9)
+        stagingDist:   300,   // how far forward from the core the army musters
+      },
+      // Target army composition (shares of the fighting army). Production fills
+      // the most-deficient slot and counter-biases against the player's mix.
+      comp: {
+        frontline: 0.50,      // warrior / lancer
+        ranged:    0.34,      // archer
+        caster:    0.16,      // monk
+      },
+
       squads: {
         assaultMinStrength: 4,
         harassMinStrength:  2,
@@ -218,6 +258,40 @@
     creatorMode: (function () {
       try { return localStorage.getItem('wc_creator') === '1'; } catch (e) { return false; }
     })(),
+    // Night mode (survival): a day/night cycle. After a grace day, night falls,
+    // the field darkens, and escalating waves of risen dead march on the base —
+    // neutral-hostile, so they threaten BOTH factions. Survive to dawn; each
+    // night is harder. Off by default; persisted in localStorage; toggled in
+    // Settings. All pacing lives in RTS.Config.night below.
+    nightMode: (function () {
+      try { return localStorage.getItem('wc_night') === '1'; } catch (e) { return false; }
+    })(),
+
+    // ---- Night mode pacing / undead waves ---------------------------------
+    // Times in seconds. The first night is delayed by firstNightAt so the
+    // player can establish an economy; subsequent days last dayLen.
+    night: {
+      firstNightAt:  100,   // grace before the very first nightfall
+      dayLen:        120,   // length of each day after the first
+      nightLen:       55,   // length of each night (survive to dawn)
+      duskLen:         8,    // ramp-in darkness at end of day
+      dawnLen:         9,    // ramp-out darkness at end of night
+      peakDark:      0.52,   // max screen-darken alpha at full night
+      spawnInterval:  11,    // seconds between reinforcement spawns during a night
+      baseCount:       4,    // risen spawned in the opening wave of night 1
+      countPerNight:   3,    // extra risen per subsequent night
+      reinforceFrac: 0.55,   // reinforcement batch size = ceil(waveCount * this)
+      archerFrac:    0.34,   // fraction of each batch that are Risen Bowmen (rest melee)
+      hpMul:         1.25,   // risen HP multiplier vs the base unit they borrow stats from
+      spawnRadius:    780,   // distance from the player core the risen crawl in at
+      // Risen render as the Bitgem undead roster (render3d 'undead' race) via
+      // u.isRisen; this faction only supplies their base COMBAT STATS.
+      faction:    'cinder',
+      // Barrow King elite: on every Nth night, one king leads the opening wave —
+      // the Bitgem undead_king rig with a big HP pool.
+      kingEveryNights: 3,
+      kingHpMul:       5,
+    },
   };
 
   // Toggle the 3D engine. Flips the flag, persists it, and enables/disables the
@@ -239,6 +313,19 @@
     var st = RTS.Game && RTS.Game.state;
     if (st && on && st.res && st.res.player) st.res.player.halcite = Math.max(st.res.player.halcite, 100000);
     if (st && RTS.HUD && RTS.HUD.sync && st.scene === 'playing') RTS.HUD.sync(st);
+  };
+
+  // Toggle Night mode (survival day/night cycle). Flips the flag and persists
+  // it. RTS.Night (nightmode.js) reads Config.nightMode each tick and drives the
+  // cycle, the darkening overlay, and the risen-dead waves; flipping it off
+  // mid-match clears the darkness and stops new spawns on the next tick.
+  RTS.setNightMode = function (on) {
+    RTS.Config.nightMode = !!on;
+    try { localStorage.setItem('wc_night', on ? '1' : '0'); } catch (e) {}
+    if (!on && RTS.Night && RTS.Night.reset) {
+      var st = RTS.Game && RTS.Game.state;
+      RTS.Night.reset(st);
+    }
   };
 
   // Toggle the Thronefall look: flips the flag, the <body> skin class, persists
